@@ -1,66 +1,16 @@
-## Foundry
+# Exocore Contracts
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+## Overview 
 
-Foundry consists of:
+**Exocore contracts refer to the set of smart contracts deployed on target client chain and controlled by Exocore validator set**
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+Generally Exocore contracts have these components:
+
+- `Gateway`: The cross-chain portal responsible for verifying the signed commands from Exocore core layer, and calling specific functions of `Controller` . It should also be the entry point where stakers request to interact with the Exocore core layer from client chain by emitting specific events.
+- `Controller` : The controller of `Vault` contract to operate on `Vault` .
+- `Vault` : Stakers’ assets would be deposited to this contract, and it should manage the deposit and withdraw for stakers. Most of its operations should be strictly restricted to its `Controller` .
 
 ## Documentation
 
-https://book.getfoundry.sh/
+https://www.notion.so/Client-Chain-Smart-Contracts-Workflow-8356cec4e30f4ea8b26ddb451102ab7e
 
-## Usage
-
-### Build
-
-```shell
-$ forge build
-```
-
-### Test
-
-```shell
-$ forge test
-```
-
-### Format
-
-```shell
-$ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
-```
