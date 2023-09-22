@@ -1,7 +1,15 @@
 pragma solidity ^0.8.19;
 
 interface IVault {
-    function withdrawalRequest(address token, address recipient, uint256 amount) external payable;
+    struct UserBalance {
+        address user;
+        uint256 ExocoreCapitalBalance;
+        uint256 withdrawAmount;
+    }
 
-    function depositRequest(address token, address sender, uint256 amount) external;
+    function claim(address recipient, uint256 amount) external payable;
+
+    function deposit(address sender, uint256 amount) external;
+
+    function refreshUserBalance(address user, UserBalance calldata balance) external;
 }

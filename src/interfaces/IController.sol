@@ -28,30 +28,32 @@ interface IController {
     function delegateTo(address operator, address token, uint256 amount) external;
 
     /**
-     * @notice Client chain users call to apply for withdrawal before they are granted to withdraw from the vault.
+     * @notice Client chain users call to withdraw capital from Exocore to client chain before they are granted to withdraw from the vault.
      * @dev This function should ask Exocore validator set for withdrawal grant. If Exocore validator set responds
-     * with grant, the corresponding assets should be unlocked to make them withdraw-able by users themselves. Otherwise
+     * with true or success, the corresponding assets should be unlocked to make them claimable by users themselves. Otherwise
      * these assets should remain locked.
-     * @param token - The address of specific token that the user wants to apply to withdraw.
-     * @param amount - The amount of @param token that the user wants to apply for withdraw.
+     * @param token - The address of specific token that the user wants to withdraw from Exocore.
+     * @param capitalAmount - capital means the assets user deposits into Exocore for delegating and staking.
+     * we suppose that After deposit, its amount could only remain unchanged or decrease owing to slashing, which means that direct
+     * transfer of capital is not possible.
      */
-    function applyForWithdrawal(address token, uint256 amount) external;
+    function withdrawCapitalFromExocore(address token, uint256 capitalAmount) external;
 
     /**
-     * @notice Client chain users call to withdraw their unlocked assets from the vault.
-     * @dev This function assumes that the withdraw-able assets should have been unlocked before calling this.
+     * @notice Client chain users call to claim their unlocked assets from the vault.
+     * @dev This function assumes that the claimable assets should have been unlocked before calling this.
      * @dev This function does not ask for grant from Exocore validator set.
-     * @param token - The address of specific token that the user wants to withdraw from the vault
-     * @param amount - The amount of @param token that the user wants to withdraw from the vault.
+     * @param token - The address of specific token that the user wants to claim from the vault.
+     * @param amount - The amount of @param token that the user wants to claim from the vault.
      * @param distination - The destination address that the assets would be transfered to.
      */
-    function withdraw(address token, uint256 amount, address distination) external;
+    function claim(address token, uint256 amount, address distination) external;
 
     /// *** function signatures for commands of Exocore validator set forwarded by Gateway ***
 
     /**
-     * @notice Exocore validator set calls this through Gateway contract to grant the withdrawer to withdraw
-     * by unlocking the corresponding assets in the vault.
+     * @notice Exocore validator set calls this through Gateway contract to grant the withdrawal from Exocore
+     * to clien chain by unlocking the corresponding assets in the vault.
      * @dev Only Exocore validato set could indirectly call this function through Gateway contract. 
      * @param withdrawer - The address of specific withdrawer that Exocore validator set grants for withdrawal.
      * @param token - The address of specific token that Exocore validator set grants for withdrawal.
