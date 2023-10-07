@@ -12,7 +12,7 @@ interface IController {
      * @dev This function should:
      * 1) lock the @param amount of @param token into vault.
      * 2) ask Exocore validator set to account for the deposited @param amount of @param token.
-     * Deposited assets should remain locked until Exocore validator set responds with success or faulure. 
+     * Deposit should always be considered successful on Exocore chain side. 
      * @param token - The address of specific token that the user wants to deposit.
      * @param amount - The amount of @param token that the user wants to deposit.
      */ 
@@ -28,16 +28,16 @@ interface IController {
     function delegateTo(address operator, address token, uint256 amount) external;
 
     /**
-     * @notice Client chain users call to withdraw capital from Exocore to client chain before they are granted to withdraw from the vault.
+     * @notice Client chain users call to withdraw principle from Exocore to client chain before they are granted to withdraw from the vault.
      * @dev This function should ask Exocore validator set for withdrawal grant. If Exocore validator set responds
      * with true or success, the corresponding assets should be unlocked to make them claimable by users themselves. Otherwise
      * these assets should remain locked.
      * @param token - The address of specific token that the user wants to withdraw from Exocore.
-     * @param capitalAmount - capital means the assets user deposits into Exocore for delegating and staking.
+     * @param principleAmount - principle means the assets user deposits into Exocore for delegating and staking.
      * we suppose that After deposit, its amount could only remain unchanged or decrease owing to slashing, which means that direct
-     * transfer of capital is not possible.
+     * transfer of principle is not possible.
      */
-    function withdrawCapitalFromExocore(address token, uint256 capitalAmount) external;
+    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external;
 
     /**
      * @notice Client chain users call to claim their unlocked assets from the vault.
@@ -59,5 +59,5 @@ interface IController {
      * @param token - The address of specific token that Exocore validator set grants for withdrawal.
      * @param amount - The amount of @param token that Exocore validator set grants for withdrawal.
      */
-    function grantWithdrawal(address withdrawer, address token, uint256 amount) external;
+    function unlock(address withdrawer, address token, uint256 amount) external;
 }
