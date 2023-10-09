@@ -4,7 +4,11 @@ import {IVault} from "../interfaces/IVault.sol";
 
 contract ControllerStorage {
     mapping(address => bool) public tokenWhitelist;
-    mapping(address => IVault) public tokenVaults;
+    mapping(address => address) public tokenVaults;
+    address public gateway;
+    address public ExocoreGateway;
+    address public admin;
+    uint16 public ExocoreChainID;
 
     uint256[40] private __gap;
 }

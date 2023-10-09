@@ -1,6 +1,21 @@
 pragma solidity ^0.8.19;
 
 interface IController {
+    // @notice Balance update info for specific user indexed by token
+    struct TokenBalanceUpdateInfo {
+        address token;
+        uint256 lastlyUpdatedPrincipleBalance;
+        uint256 lastlyUpdatedRewardBalance;
+        uint256 unlockAmount;
+    }
+    
+    // @notice this info is used to update specific user's owned tokens balance
+    struct UserBalanceUpdateInfo {
+        address user;
+        uint256 updatedAt;
+        TokenBalanceUpdateInfo[] tokenInfo;
+    }
+
     event DepositResult(address indexed depositor, bool indexed success, uint256 amount);
     event WithdrawResult(address indexed withdrawer, bool indexed success, uint256 amount);
     event DelegateResult(address indexed delegator, address indexed delegatee, bool indexed success, uint256 amount);
@@ -45,19 +60,21 @@ interface IController {
      * @dev This function does not ask for grant from Exocore validator set.
      * @param token - The address of specific token that the user wants to claim from the vault.
      * @param amount - The amount of @param token that the user wants to claim from the vault.
-     * @param distination - The destination address that the assets would be transfered to.
+     * @param recipient - The destination address that the assets would be transfered to.
      */
-    function claim(address token, uint256 amount, address distination) external;
+    function claim(address token, uint256 amount, address recipient) external;
 
     /// *** function signatures for commands of Exocore validator set forwarded by Gateway ***
 
     /**
-     * @notice Exocore validator set calls this through Gateway contract to grant the withdrawal from Exocore
-     * to clien chain by unlocking the corresponding assets in the vault.
-     * @dev Only Exocore validato set could indirectly call this function through Gateway contract. 
-     * @param withdrawer - The address of specific withdrawer that Exocore validator set grants for withdrawal.
-     * @param token - The address of specific token that Exocore validator set grants for withdrawal.
-     * @param amount - The amount of @param token that Exocore validator set grants for withdrawal.
+     * @notice This should only be called by Exocore validator set through Gateway to update user's involved
+     * lastly updated token balance.
+     * @dev Only Exocore validato set could indirectly call this function through Gateway contract.
+     * @dev This function could be called in two scenaries:
+     * 1) Exocore validator set periodically calls this to update user principle and reward balance.
+     * 2) Exocore validator set sends reponse for the request of withdrawPrincipleFromExocore and unlock part of
+     * the vault assets and update user's withdrawable balance correspondingly.
+     * @param info - The info needed for updating users balance.
      */
-    function unlock(address withdrawer, address token, uint256 amount) external;
+    function updateUsersBalance(UserBalanceUpdateInfo[] calldata info) external;
 }
