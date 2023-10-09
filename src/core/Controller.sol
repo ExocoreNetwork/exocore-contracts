@@ -11,6 +11,11 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 contract Controller is Initializable, ControllerStorage, IController {
     using SafeERC20 for IERC20;
 
+    struct InterchainMsgPayload {
+        string action;
+        bytes actionArgs;
+    }
+
     modifier onlyAdmin() {
         require(msg.sender == admin, "only callable for admin");
         _;
@@ -32,7 +37,7 @@ contract Controller is Initializable, ControllerStorage, IController {
         address _admin
     ) external initializer {
         require(_gateway != address(0), "empty gateway address");
-        require(_ExocoreGateway != address(0), "empty exocore chain receiver contract address");
+        require(_ExocoreGateway != address(0), "empty exocore chain gateway contract address");
 
         for (uint i = 0; i < _tokenWhitelist.length; i++) {
             tokenWhitelist[_tokenWhitelist[i]] = true;
@@ -53,11 +58,15 @@ contract Controller is Initializable, ControllerStorage, IController {
 
         IVault(vault).deposit(msg.sender, amount);
 
-        bytes memory payload = abi.encode("deposit", token, amount);
+        InterchainMsgPayload memory payload = InterchainMsgPayload(
+            "deposit",
+            abi.encode(token, amount)
+        );
+        bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory depositMsg = IGateway.InterchainMsg(
             ExocoreChainID,
             abi.encodePacked(ExocoreGateway),
-            payload,
+            encodedPayload,
             payable(msg.sender),
             payable(msg.sender),
             ""
@@ -73,11 +82,15 @@ contract Controller is Initializable, ControllerStorage, IController {
         address vault = tokenVaults[token];
         require(vault != address(0), "no vault added for this token");
 
-        bytes memory payload = abi.encode("withdrawPrincipleFromExocore", token, principleAmount);
+        InterchainMsgPayload memory payload = InterchainMsgPayload(
+            "withdrawPrincipleFromExocore",
+            abi.encode(token, principleAmount)
+        );
+        bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory withdrawPrincipleMsg = IGateway.InterchainMsg(
             ExocoreChainID,
             abi.encodePacked(ExocoreGateway),
-            payload,
+            encodedPayload,
             payable(msg.sender),
             payable(msg.sender),
             ""
@@ -129,11 +142,15 @@ contract Controller is Initializable, ControllerStorage, IController {
         address vault = tokenVaults[token];
         require(vault != address(0), "no vault added for this token");
 
-        bytes memory payload = abi.encode("delegateTo", operator, token, amount);
+        InterchainMsgPayload memory payload = InterchainMsgPayload(
+            "delegateTo",
+            abi.encode(token, amount)
+        );
+        bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory delegateMsg = IGateway.InterchainMsg(
             ExocoreChainID,
             abi.encodePacked(ExocoreGateway),
-            payload,
+            encodedPayload,
             payable(msg.sender),
             payable(msg.sender),
             ""
