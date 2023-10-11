@@ -127,8 +127,12 @@ contract Controller is Initializable, ControllerStorage, IController {
                     IVault(vault).updateRewardBalance(userBalanceUpdate.user, tokenBalanceUpdate.lastlyUpdatedRewardBalance);
                 }
 
-                if (tokenBalanceUpdate.unlockAmount > 0) {
-                    IVault(vault).updateWithdrawableBalance(userBalanceUpdate.user, tokenBalanceUpdate.unlockAmount);
+                if (tokenBalanceUpdate.unlockPrincipleAmount > 0 || tokenBalanceUpdate.unlockRewardAmount > 0) {
+                    IVault(vault).updateWithdrawableBalance(
+                        userBalanceUpdate.user, 
+                        tokenBalanceUpdate.unlockPrincipleAmount,
+                        tokenBalanceUpdate.unlockRewardAmount
+                    );
                 }
             }
         }
@@ -157,5 +161,30 @@ contract Controller is Initializable, ControllerStorage, IController {
         );
 
         IGateway(gateway).sendInterchainMsg(delegateMsg);
+    }
+
+    function undelegateFrom(address operator, address token, uint256 amount) external {
+        require(tokenWhitelist[token], "not whitelisted token");
+        require(amount > 0, "amount should be greater than zero");
+        require(operator != address(0), "empty operator address");
+        
+        address vault = tokenVaults[token];
+        require(vault != address(0), "no vault added for this token");
+
+        InterchainMsgPayload memory payload = InterchainMsgPayload(
+            "undelegateFrom",
+            abi.encode(token, amount)
+        );
+        bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
+        IGateway.InterchainMsg memory undelegateMsg = IGateway.InterchainMsg(
+            ExocoreChainID,
+            abi.encodePacked(ExocoreGateway),
+            encodedPayload,
+            payable(msg.sender),
+            payable(msg.sender),
+            ""
+        );
+
+        IGateway(gateway).sendInterchainMsg(undelegateMsg);
     }
 }

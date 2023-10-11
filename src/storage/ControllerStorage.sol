@@ -1,7 +1,5 @@
 pragma solidity ^0.8.19;
 
-import {IVault} from "../interfaces/IVault.sol";
-
 contract ControllerStorage {
     mapping(address => bool) public tokenWhitelist;
     mapping(address => address) public tokenVaults;

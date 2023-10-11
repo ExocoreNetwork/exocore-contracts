@@ -6,7 +6,8 @@ interface IController {
         address token;
         uint256 lastlyUpdatedPrincipleBalance;
         uint256 lastlyUpdatedRewardBalance;
-        uint256 unlockAmount;
+        uint256 unlockPrincipleAmount;
+        uint256 unlockRewardAmount;
     }
     
     // @notice this info is used to update specific user's owned tokens balance
