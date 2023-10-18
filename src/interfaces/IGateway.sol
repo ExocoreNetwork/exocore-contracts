@@ -40,7 +40,7 @@ interface IGateway {
     event InterchainMsgReceived(
         uint16 indexed srcChainID,
         bytes indexed srcChainAddress,
-        uint64 nonce,
+        uint64 indexed nonce,
         bytes payload
     );
 
