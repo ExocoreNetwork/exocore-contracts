@@ -2,6 +2,7 @@ pragma solidity ^0.8.19;
 
 import {VaultStorage} from "../storage/VaultStorage.sol";
 import {IVault} from "../interfaces/IVault.sol";
+import {IController} from "../interfaces/IController.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
@@ -10,7 +11,7 @@ contract Vault is Initializable, VaultStorage, IVault {
     using SafeERC20 for IERC20;
 
     modifier onlyController() {
-        require(msg.sender == controller, "only callable for controller");
+        require(msg.sender == address(controller), "only callable for controller");
         _;
     }
 
@@ -19,18 +20,18 @@ contract Vault is Initializable, VaultStorage, IVault {
     }
 
     function initialize(address _underlyingToken, address _controller) external initializer {
-        underlyingToken = _underlyingToken;
-        controller = _controller;
+        underlyingToken = IERC20(_underlyingToken);
+        controller = IController(_controller);
     }
 
     function withdraw(address depositor, uint256 amount) external onlyController {
         require(amount <= withdrawableBalances[depositor], "can not withdraw more amount than depositor's withdrawable balance");
         
-        IERC20(underlyingToken).safeTransfer(depositor, amount);
+        underlyingToken.safeTransfer(depositor, amount);
     }
 
     function deposit(address depositor, uint256 amount) external payable onlyController {
-        IERC20(underlyingToken).safeTransferFrom(depositor, address(this), amount);
+        underlyingToken.safeTransferFrom(depositor, address(this), amount);
         totalDepositedPrincipleAmount[depositor] += amount;
     }
 

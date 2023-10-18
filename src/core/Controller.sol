@@ -22,7 +22,7 @@ contract Controller is Initializable, ControllerStorage, IController {
     }
 
     modifier onlyGateway() {
-        require(msg.sender == gateway, "only callable for gateway");
+        require(msg.sender == address(gateway), "only callable for gateway");
         _;
     }
 
@@ -43,9 +43,9 @@ contract Controller is Initializable, ControllerStorage, IController {
             tokenWhitelist[_tokenWhitelist[i]] = true;
         }
 
-        gateway = _gateway;
+        gateway = IGateway(_gateway);
         ExocoreChainID = _ExocoreChainID;
-        ExocoreGateway = _ExocoreGateway;
+        ExocoreGateway = IGateway(_ExocoreGateway);
         admin = _admin;
     }
 
@@ -53,10 +53,10 @@ contract Controller is Initializable, ControllerStorage, IController {
         require(tokenWhitelist[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         
-        address vault = tokenVaults[token];
-        require(vault != address(0), "no vault added for this token");
+        IVault vault = tokenVaults[token];
+        require(address(vault) != address(0), "no vault added for this token");
 
-        IVault(vault).deposit(msg.sender, amount);
+        vault.deposit(msg.sender, amount);
 
         InterchainMsgPayload memory payload = InterchainMsgPayload(
             "deposit",
@@ -64,23 +64,24 @@ contract Controller is Initializable, ControllerStorage, IController {
         );
         bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory depositMsg = IGateway.InterchainMsg(
+            
             ExocoreChainID,
-            abi.encodePacked(ExocoreGateway),
+            abi.encodePacked(address(ExocoreGateway)),
             encodedPayload,
             payable(msg.sender),
             payable(msg.sender),
             ""
         );
 
-        IGateway(gateway).sendInterchainMsg(depositMsg);
+        gateway.sendInterchainMsg(depositMsg);
     }
 
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external {
         require(tokenWhitelist[token], "not whitelisted token");
         require(principleAmount > 0, "amount should be greater than zero");
         
-        address vault = tokenVaults[token];
-        require(vault != address(0), "no vault added for this token");
+        IVault vault = tokenVaults[token];
+        require(address(vault) != address(0), "no vault added for this token");
 
         InterchainMsgPayload memory payload = InterchainMsgPayload(
             "withdrawPrincipleFromExocore",
@@ -89,24 +90,24 @@ contract Controller is Initializable, ControllerStorage, IController {
         bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory withdrawPrincipleMsg = IGateway.InterchainMsg(
             ExocoreChainID,
-            abi.encodePacked(ExocoreGateway),
+            abi.encodePacked(address(ExocoreGateway)),
             encodedPayload,
             payable(msg.sender),
             payable(msg.sender),
             ""
         );
 
-        IGateway(gateway).sendInterchainMsg(withdrawPrincipleMsg);
+        gateway.sendInterchainMsg(withdrawPrincipleMsg);
     }
 
     function claim(address token, uint256 amount, address recipient) external {
         require(tokenWhitelist[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         
-        address vault = tokenVaults[token];
-        require(vault != address(0), "no vault added for this token");
+        IVault vault = tokenVaults[token];
+        require(address(vault) != address(0), "no vault added for this token");
 
-        IVault(vault).withdraw(recipient, amount);
+        vault.withdraw(recipient, amount);
     }
 
     function updateUsersBalance(UserBalanceUpdateInfo[] calldata info) external onlyGateway {
@@ -116,19 +117,19 @@ contract Controller is Initializable, ControllerStorage, IController {
                 TokenBalanceUpdateInfo memory tokenBalanceUpdate = userBalanceUpdate.tokenInfo[j];
                 require(tokenWhitelist[tokenBalanceUpdate.token], "not whitelisted token");
                 
-                address vault = tokenVaults[tokenBalanceUpdate.token];
-                require(vault != address(0), "no vault added for this token");
+                IVault vault = tokenVaults[tokenBalanceUpdate.token];
+                require(address(vault) != address(0), "no vault added for this token");
 
                 if (tokenBalanceUpdate.lastlyUpdatedPrincipleBalance > 0) {
-                    IVault(vault).updatePrincipleBalance(userBalanceUpdate.user, tokenBalanceUpdate.lastlyUpdatedPrincipleBalance);
+                    vault.updatePrincipleBalance(userBalanceUpdate.user, tokenBalanceUpdate.lastlyUpdatedPrincipleBalance);
                 }
 
                 if (tokenBalanceUpdate.lastlyUpdatedRewardBalance > 0) {
-                    IVault(vault).updateRewardBalance(userBalanceUpdate.user, tokenBalanceUpdate.lastlyUpdatedRewardBalance);
+                    vault.updateRewardBalance(userBalanceUpdate.user, tokenBalanceUpdate.lastlyUpdatedRewardBalance);
                 }
 
                 if (tokenBalanceUpdate.unlockPrincipleAmount > 0 || tokenBalanceUpdate.unlockRewardAmount > 0) {
-                    IVault(vault).updateWithdrawableBalance(
+                    vault.updateWithdrawableBalance(
                         userBalanceUpdate.user, 
                         tokenBalanceUpdate.unlockPrincipleAmount,
                         tokenBalanceUpdate.unlockRewardAmount
@@ -143,8 +144,8 @@ contract Controller is Initializable, ControllerStorage, IController {
         require(amount > 0, "amount should be greater than zero");
         require(operator != address(0), "empty operator address");
         
-        address vault = tokenVaults[token];
-        require(vault != address(0), "no vault added for this token");
+        IVault vault = tokenVaults[token];
+        require(address(vault) != address(0), "no vault added for this token");
 
         InterchainMsgPayload memory payload = InterchainMsgPayload(
             "delegateTo",
@@ -153,14 +154,14 @@ contract Controller is Initializable, ControllerStorage, IController {
         bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory delegateMsg = IGateway.InterchainMsg(
             ExocoreChainID,
-            abi.encodePacked(ExocoreGateway),
+            abi.encodePacked(address(ExocoreGateway)),
             encodedPayload,
             payable(msg.sender),
             payable(msg.sender),
             ""
         );
 
-        IGateway(gateway).sendInterchainMsg(delegateMsg);
+        gateway.sendInterchainMsg(delegateMsg);
     }
 
     function undelegateFrom(address operator, address token, uint256 amount) external {
@@ -168,8 +169,8 @@ contract Controller is Initializable, ControllerStorage, IController {
         require(amount > 0, "amount should be greater than zero");
         require(operator != address(0), "empty operator address");
         
-        address vault = tokenVaults[token];
-        require(vault != address(0), "no vault added for this token");
+        IVault vault = tokenVaults[token];
+        require(address(vault) != address(0), "no vault added for this token");
 
         InterchainMsgPayload memory payload = InterchainMsgPayload(
             "undelegateFrom",
@@ -178,13 +179,13 @@ contract Controller is Initializable, ControllerStorage, IController {
         bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory undelegateMsg = IGateway.InterchainMsg(
             ExocoreChainID,
-            abi.encodePacked(ExocoreGateway),
+            abi.encodePacked(address(ExocoreGateway)),
             encodedPayload,
             payable(msg.sender),
             payable(msg.sender),
             ""
         );
 
-        IGateway(gateway).sendInterchainMsg(undelegateMsg);
+        gateway.sendInterchainMsg(undelegateMsg);
     }
 }

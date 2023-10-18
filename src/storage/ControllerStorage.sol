@@ -1,10 +1,13 @@
 pragma solidity ^0.8.19;
 
+import {IGateway} from "../interfaces/IGateway.sol";
+import {IVault} from "../interfaces/IVault.sol";
+
 contract ControllerStorage {
     mapping(address => bool) public tokenWhitelist;
-    mapping(address => address) public tokenVaults;
-    address public gateway;
-    address public ExocoreGateway;
+    mapping(address => IVault) public tokenVaults;
+    IGateway public gateway;
+    IGateway public ExocoreGateway;
     address public admin;
     uint16 public ExocoreChainID;
 

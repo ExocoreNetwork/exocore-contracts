@@ -37,15 +37,22 @@ interface IGateway {
         bytes params
     );
 
+    event InterchainMsgReceived(
+        uint16 indexed srcChainID,
+        bytes indexed srcChainAddress,
+        uint64 nonce,
+        bytes payload
+    );
+
     /**
      * @notice Contoller calls this to send cross-chain requests to Exocore validator set.
-     * @param msg The interchain message sent from client chain Gateway to Exocore validator set for cross-chain communication.
+     * @param _msg The interchain message sent from client chain Gateway to Exocore validator set for cross-chain communication.
      */
-    function sendInterchainMsg(InterchainMsg calldata msg) external payable;
+    function sendInterchainMsg(InterchainMsg calldata _msg) external payable;
 
     /**
      * @notice Only Exocore validator set could indirectly call this through bridge or relayer.
-     * @param msg The interchain message received from Exocore validator set for cross-chain communication.
+     * @param _msg The interchain message received from Exocore validator set for cross-chain communication.
      */
-    function receiveInterchainMsg(InterchainMsg calldata msg) external payable;
+    function receiveInterchainMsg(uint16 _srcChainID, bytes calldata _srcAddress, uint64 _nonce, InterchainMsg calldata _msg) external;
 }
