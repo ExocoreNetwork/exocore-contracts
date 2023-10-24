@@ -11,8 +11,17 @@ import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.s
 contract Controller is Initializable, ControllerStorage, IController {
     using SafeERC20 for IERC20;
 
+    enum Action {
+		DEPOSIT,
+		WITHDRAWPRINCIPLEFROMEXOCORE,
+		WITHDRAWREWARDFROMEXOCORE,
+		DELEGATETO,
+		UNDELEGATEFROM,
+		UPDATEUSERSBALANCE
+    }
+
     struct InterchainMsgPayload {
-        string action;
+        Action action;
         bytes actionArgs;
     }
 
@@ -59,12 +68,12 @@ contract Controller is Initializable, ControllerStorage, IController {
         vault.deposit(msg.sender, amount);
 
         InterchainMsgPayload memory payload = InterchainMsgPayload(
-            "deposit",
-            abi.encode(token, amount)
+            Action.DEPOSIT,
+            abi.encode(token, msg.sender, amount)
         );
         bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory depositMsg = IGateway.InterchainMsg(
-            
+
             ExocoreChainID,
             abi.encodePacked(address(ExocoreGateway)),
             encodedPayload,
@@ -84,8 +93,8 @@ contract Controller is Initializable, ControllerStorage, IController {
         require(address(vault) != address(0), "no vault added for this token");
 
         InterchainMsgPayload memory payload = InterchainMsgPayload(
-            "withdrawPrincipleFromExocore",
-            abi.encode(token, principleAmount)
+            Action.WITHDRAWPRINCIPLEFROMEXOCORE,
+            abi.encode(token, msg.sender, principleAmount)
         );
         bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory withdrawPrincipleMsg = IGateway.InterchainMsg(
@@ -148,8 +157,8 @@ contract Controller is Initializable, ControllerStorage, IController {
         require(address(vault) != address(0), "no vault added for this token");
 
         InterchainMsgPayload memory payload = InterchainMsgPayload(
-            "delegateTo",
-            abi.encode(token, amount)
+            Action.DELEGATETO,
+            abi.encode(token, operator, msg.sender, amount)
         );
         bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory delegateMsg = IGateway.InterchainMsg(
@@ -173,8 +182,8 @@ contract Controller is Initializable, ControllerStorage, IController {
         require(address(vault) != address(0), "no vault added for this token");
 
         InterchainMsgPayload memory payload = InterchainMsgPayload(
-            "undelegateFrom",
-            abi.encode(token, amount)
+            Action.UNDELEGATEFROM,
+            abi.encode(token, operator, msg.sender, amount)
         );
         bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
         IGateway.InterchainMsg memory undelegateMsg = IGateway.InterchainMsg(

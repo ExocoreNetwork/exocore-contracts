@@ -54,5 +54,5 @@ interface IGateway {
      * @notice Only Exocore validator set could indirectly call this through bridge or relayer.
      * @param _msg The interchain message received from Exocore validator set for cross-chain communication.
      */
-    function receiveInterchainMsg(uint16 _srcChainID, bytes calldata _srcAddress, uint64 _nonce, InterchainMsg calldata _msg) external;
+    function receiveInterchainMsg(InterchainMsg calldata _msg, uint8 v, bytes32 r, bytes32 s) external;
 }
