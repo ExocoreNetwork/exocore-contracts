@@ -6,12 +6,12 @@ import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndp
 import {Controller} from "../core/Controller.sol";
 
 contract GatewayStorage {
-    address public ExocoreValidatorSetBLSPubkey;
+    address public ExocoreValidatorSetPubkey;
     IController public controller;
     
     ILayerZeroEndpoint public lzEndpoint;
     uint256 public lzFee;
-    mapping(uint16 => bytes) public trustedRemoteLookup;
-    mapping(uint16 => uint256) public payloadSizeLimitLookup;
-    mapping(Controller.Action => bytes4) public whiteListedFunctionSigs;
+    mapping(uint16 => bytes) public trustedRemote;
+    mapping(uint16 => uint256) public payloadSizeLimit;
+    mapping(Controller.Action => bytes4) public whiteListFunctionSigs;
 }

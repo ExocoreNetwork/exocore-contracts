@@ -8,7 +8,7 @@ contract ControllerStorage {
     mapping(address => IVault) public tokenVaults;
     IGateway public gateway;
     IGateway public ExocoreGateway;
-    address public admin;
+    address payable public admin;
     uint16 public ExocoreChainID;
 
     uint256[40] private __gap;

@@ -43,7 +43,7 @@ contract Controller is Initializable, ControllerStorage, IController {
         address[] calldata _tokenWhitelist,
         address _gateway, uint16 _ExocoreChainID,
         address _ExocoreGateway,
-        address _admin
+        address payable _admin
     ) external initializer {
         require(_gateway != address(0), "empty gateway address");
         require(_ExocoreGateway != address(0), "empty exocore chain gateway contract address");
@@ -67,22 +67,8 @@ contract Controller is Initializable, ControllerStorage, IController {
 
         vault.deposit(msg.sender, amount);
 
-        InterchainMsgPayload memory payload = InterchainMsgPayload(
-            Action.DEPOSIT,
-            abi.encode(token, msg.sender, amount)
-        );
-        bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
-        IGateway.InterchainMsg memory depositMsg = IGateway.InterchainMsg(
-
-            ExocoreChainID,
-            abi.encodePacked(address(ExocoreGateway)),
-            encodedPayload,
-            payable(msg.sender),
-            payable(msg.sender),
-            ""
-        );
-
-        gateway.sendInterchainMsg(depositMsg);
+        bytes memory actionArgs = abi.encodePacked(token, msg.sender, amount);
+        _sendInterchainMsg(Action.DEPOSIT, actionArgs);
     }
 
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external {
@@ -92,21 +78,8 @@ contract Controller is Initializable, ControllerStorage, IController {
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
-        InterchainMsgPayload memory payload = InterchainMsgPayload(
-            Action.WITHDRAWPRINCIPLEFROMEXOCORE,
-            abi.encode(token, msg.sender, principleAmount)
-        );
-        bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
-        IGateway.InterchainMsg memory withdrawPrincipleMsg = IGateway.InterchainMsg(
-            ExocoreChainID,
-            abi.encodePacked(address(ExocoreGateway)),
-            encodedPayload,
-            payable(msg.sender),
-            payable(msg.sender),
-            ""
-        );
-
-        gateway.sendInterchainMsg(withdrawPrincipleMsg);
+        bytes memory actionArgs = abi.encodePacked(token, msg.sender, principleAmount);
+        _sendInterchainMsg(Action.DEPOSIT, actionArgs);
     }
 
     function claim(address token, uint256 amount, address recipient) external {
@@ -156,21 +129,8 @@ contract Controller is Initializable, ControllerStorage, IController {
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
-        InterchainMsgPayload memory payload = InterchainMsgPayload(
-            Action.DELEGATETO,
-            abi.encode(token, operator, msg.sender, amount)
-        );
-        bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
-        IGateway.InterchainMsg memory delegateMsg = IGateway.InterchainMsg(
-            ExocoreChainID,
-            abi.encodePacked(address(ExocoreGateway)),
-            encodedPayload,
-            payable(msg.sender),
-            payable(msg.sender),
-            ""
-        );
-
-        gateway.sendInterchainMsg(delegateMsg);
+        bytes memory actionArgs = abi.encodePacked(token, operator, msg.sender, amount);
+        _sendInterchainMsg(Action.DEPOSIT, actionArgs);
     }
 
     function undelegateFrom(address operator, address token, uint256 amount) external {
@@ -181,20 +141,12 @@ contract Controller is Initializable, ControllerStorage, IController {
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
-        InterchainMsgPayload memory payload = InterchainMsgPayload(
-            Action.UNDELEGATEFROM,
-            abi.encode(token, operator, msg.sender, amount)
-        );
-        bytes memory encodedPayload = abi.encode(payload.action, payload.actionArgs);
-        IGateway.InterchainMsg memory undelegateMsg = IGateway.InterchainMsg(
-            ExocoreChainID,
-            abi.encodePacked(address(ExocoreGateway)),
-            encodedPayload,
-            payable(msg.sender),
-            payable(msg.sender),
-            ""
-        );
+        bytes memory actionArgs = abi.encodePacked(token, operator, msg.sender, amount);
+        _sendInterchainMsg(Action.DEPOSIT, actionArgs);
+    }
 
-        gateway.sendInterchainMsg(undelegateMsg);
+    function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
+        bytes memory payload = abi.encodePacked(act, actionArgs);
+        gateway.sendInterchainMsg(ExocoreChainID, payload, admin, address(0), "");
     }
 }
