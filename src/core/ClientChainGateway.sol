@@ -32,6 +32,8 @@ contract ClientChainGateway is Initializable, GatewayStorage, IGateway {
     }
 
     function receiveInterchainMsg(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce, bytes calldata _payload, bytes calldata sig) external {
+        require(_nonce == ++lastMessageNonce, "wrong nonce for message");
+        
         bytes32 _hash = keccak256(abi.encodePacked(_srcChainId, _srcAddress, _payload, _nonce, _payload));
         (uint8 v, bytes32 r, bytes32 s) = splitSignature(sig);
         address signer = _hash.recover(v, r, s);
@@ -43,7 +45,7 @@ contract ClientChainGateway is Initializable, GatewayStorage, IGateway {
         bytes memory args = _payload.slice(1, _payload.length-1);
 
         (bool success, bytes memory data) = address(controller).call(abi.encodePacked(functionSig, args));
-        require(success, "function call failed");
+        require(success, string(data));
     }
 
     function splitSignature(bytes memory sig)

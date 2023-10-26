@@ -11,6 +11,7 @@ contract GatewayStorage {
     
     ILayerZeroEndpoint public lzEndpoint;
     uint256 public lzFee;
+    uint256 lastMessageNonce;
     mapping(uint16 => bytes) public trustedRemote;
     mapping(uint16 => uint256) public payloadSizeLimit;
     mapping(Controller.Action => bytes4) public whiteListFunctionSigs;

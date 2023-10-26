@@ -67,7 +67,7 @@ contract Controller is Initializable, ControllerStorage, IController {
 
         vault.deposit(msg.sender, amount);
 
-        bytes memory actionArgs = abi.encodePacked(token, msg.sender, amount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
         _sendInterchainMsg(Action.DEPOSIT, actionArgs);
     }
 
@@ -78,7 +78,7 @@ contract Controller is Initializable, ControllerStorage, IController {
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
-        bytes memory actionArgs = abi.encodePacked(token, msg.sender, principleAmount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principleAmount);
         _sendInterchainMsg(Action.WITHDRAWPRINCIPLEFROMEXOCORE, actionArgs);
     }
 
@@ -129,7 +129,7 @@ contract Controller is Initializable, ControllerStorage, IController {
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
-        bytes memory actionArgs = abi.encodePacked(token, operator, msg.sender, amount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
         _sendInterchainMsg(Action.DELEGATETO, actionArgs);
     }
 
@@ -141,7 +141,7 @@ contract Controller is Initializable, ControllerStorage, IController {
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
-        bytes memory actionArgs = abi.encodePacked(token, operator, msg.sender, amount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
         _sendInterchainMsg(Action.UNDELEGATEFROM, actionArgs);
     }
 
