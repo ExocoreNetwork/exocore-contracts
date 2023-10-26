@@ -41,7 +41,9 @@ interface IController {
      * @param token - The address of specific token that the user wants to delegate to.
      * @param amount - The amount of @param token that the user wants to delegate to node operator.
      */
-    function delegateTo(address operator, address token, uint256 amount) external;
+    function delegateTo(bytes32 operator, address token, uint256 amount) external;
+
+    function undelegateFrom(bytes32 operator, address token, uint256 amount) external;
 
     /**
      * @notice Client chain users call to withdraw principle from Exocore to client chain before they are granted to withdraw from the vault.

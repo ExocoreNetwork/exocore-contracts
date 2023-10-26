@@ -79,7 +79,7 @@ contract Controller is Initializable, ControllerStorage, IController {
         require(address(vault) != address(0), "no vault added for this token");
 
         bytes memory actionArgs = abi.encodePacked(token, msg.sender, principleAmount);
-        _sendInterchainMsg(Action.DEPOSIT, actionArgs);
+        _sendInterchainMsg(Action.WITHDRAWPRINCIPLEFROMEXOCORE, actionArgs);
     }
 
     function claim(address token, uint256 amount, address recipient) external {
@@ -121,28 +121,28 @@ contract Controller is Initializable, ControllerStorage, IController {
         }
     }
 
-    function delegateTo(address operator, address token, uint256 amount) external {
+    function delegateTo(bytes32 operator, address token, uint256 amount) external {
         require(tokenWhitelist[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
-        require(operator != address(0), "empty operator address");
+        require(operator != bytes32(0), "empty operator address");
         
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
         bytes memory actionArgs = abi.encodePacked(token, operator, msg.sender, amount);
-        _sendInterchainMsg(Action.DEPOSIT, actionArgs);
+        _sendInterchainMsg(Action.DELEGATETO, actionArgs);
     }
 
-    function undelegateFrom(address operator, address token, uint256 amount) external {
+    function undelegateFrom(bytes32 operator, address token, uint256 amount) external {
         require(tokenWhitelist[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
-        require(operator != address(0), "empty operator address");
+        require(operator != bytes32(0), "empty operator address");
         
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
         bytes memory actionArgs = abi.encodePacked(token, operator, msg.sender, amount);
-        _sendInterchainMsg(Action.DEPOSIT, actionArgs);
+        _sendInterchainMsg(Action.UNDELEGATEFROM, actionArgs);
     }
 
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {

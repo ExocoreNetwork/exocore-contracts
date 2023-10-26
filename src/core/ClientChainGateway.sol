@@ -42,9 +42,7 @@ contract ClientChainGateway is Initializable, GatewayStorage, IGateway {
         require(functionSig != bytes4(0), "no valid function signatures for action");
         bytes memory args = _payload.slice(1, _payload.length-1);
 
-        address callee = address(uint160(bytes20(_srcAddress)));
-
-        (bool success, bytes memory data) = callee.call(abi.encodePacked(functionSig, args));
+        (bool success, bytes memory data) = address(controller).call(abi.encodePacked(functionSig, args));
         require(success, "function call failed");
     }
 
