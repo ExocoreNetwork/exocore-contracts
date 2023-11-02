@@ -5,7 +5,7 @@ import {IGateway} from "../interfaces/IGateway.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
@@ -15,6 +15,7 @@ contract Gateway is Initializable, GatewayStorage, IGateway {
     using ECDSA for bytes32;
 
     event MessageFailed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason);
+    error UnAuthorizedSigner();
 
     modifier onlyAdmin() {
         require(msg.sender == admin, "only callable for admin");
@@ -136,10 +137,10 @@ contract Gateway is Initializable, GatewayStorage, IGateway {
         require(keccak256(_msg.srcAddress) == keccak256(bytes("0x")), "wrong source address");
         require(_msg.dstChainID == block.chainid, "mismatch destination chain id");
         require(keccak256(_msg.dstAddress) == keccak256(abi.encodePacked(address(this))), "mismatch destination contract address");
-        bytes32 _hash = keccak256(abi.encodePacked(_msg.srcChainID, _msg.srcAddress, _msg.dstChainID, _msg.dstAddress, _msg.nonce, _msg.payload, _msg.refundAddress, _msg.interchainFuelAddress, _msg.params));
-        (uint8 v, bytes32 r, bytes32 s) = splitSignature(signature);
-        address signer = _hash.recover(v, r, s);
-        require(signer == ExocoreValidatorSetPubkey, "invalid interchain message sent from unauthorized party");
+        bool isValid = verifyInterchainMsg(_msg, signature);
+        if (!isValid) {
+            revert UnAuthorizedSigner();
+        }
         
         Action act = Action(uint8(_msg.payload[0]));
         require(act == Action.UPDATEUSERSBALANCE, "not supported action");
@@ -153,6 +154,15 @@ contract Gateway is Initializable, GatewayStorage, IGateway {
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(act, actionArgs);
         lzEndpoint.send{value: lzFee}(ExocoreChainID, trustedRemote[ExocoreChainID], payload, admin, address(0), "");
+    }
+
+    function verifyInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) internal view returns(bool isValid) {
+        bytes32 _hash = keccak256(abi.encodePacked(_msg.srcChainID, _msg.srcAddress, _msg.dstChainID, _msg.dstAddress, _msg.nonce, _msg.payload));
+        (uint8 v, bytes32 r, bytes32 s) = splitSignature(signature);
+        address signer = _hash.recover(v, r, s);
+        if (signer == ExocoreValidatorSetPubkey) {
+            isValid = true;
+        }
     }
 
     function splitSignature(bytes memory sig) internal pure returns (uint8 v, bytes32 r, bytes32 s) {

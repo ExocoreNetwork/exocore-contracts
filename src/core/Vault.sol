@@ -4,7 +4,7 @@ import {VaultStorage} from "../storage/VaultStorage.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin/contracts/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {IGateway} from "../interfaces/IGateway.sol";
 
 contract Vault is Initializable, VaultStorage, IVault {

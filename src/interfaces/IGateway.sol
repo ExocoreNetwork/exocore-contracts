@@ -32,9 +32,6 @@ interface IGateway {
         bytes  dstAddress;
         uint64 nonce;
         bytes payload;
-        address payable refundAddress;
-        address payable interchainFuelAddress;
-        bytes params;
     }
 
     /**
@@ -53,13 +50,6 @@ interface IGateway {
         address refundAddress,
         address interchainFuelAddress,
         bytes params
-    );
-
-    event InterchainMsgReceived(
-        uint16 indexed srcChainID,
-        bytes indexed srcChainAddress,
-        uint64 indexed nonce,
-        bytes payload
     );
 
     event DepositResult(address indexed depositor, bool indexed success, uint256 amount);
