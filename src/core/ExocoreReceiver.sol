@@ -8,7 +8,7 @@ import {ILayerZeroEndpointUpgradeable} from "@layerzero-contracts/contracts-upgr
 import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 
-contract ExocoreGateway is Initializable, LzAppUpgradeable {
+contract ExocoreReceiver is Initializable, LzAppUpgradeable {
     event InterchainMsgReceived(
         uint16 indexed srcChainID,
         bytes indexed srcChainAddress,
