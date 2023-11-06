@@ -5,7 +5,7 @@ interface IGateway {
     struct UserBalanceUpdateInfo {
         address user;
         uint256 updatedAt;
-        TokenBalanceUpdateInfo[] tokenInfo;
+        TokenBalanceUpdateInfo[] tokenBalances;
     }
 
     struct TokenBalanceUpdateInfo {
@@ -34,24 +34,7 @@ interface IGateway {
         bytes payload;
     }
 
-    /**
-     * @dev emitted when sending interchain message from Gateway or receiving from Exocore validator set. 
-     * @param dstChainID - destination chain ID.
-     * @param dstAddress - destination contract address that would receive the interchain message.
-     * @param payload - actual payload for receiver.
-     * @param refundAddress - address used for refundding.
-     * @param interchainFuelAddress - address that would pay for interchain costs.
-     * @param params - austom params for extension.
-     */
-    event InterchainMsgSent(
-        uint16 indexed dstChainID,
-        bytes indexed dstAddress,
-        bytes payload,
-        address refundAddress,
-        address interchainFuelAddress,
-        bytes params
-    );
-
+    event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
     event DepositResult(address indexed depositor, bool indexed success, uint256 amount);
     event WithdrawResult(address indexed withdrawer, bool indexed success, uint256 amount);
     event DelegateResult(address indexed delegator, address indexed delegatee, bool indexed success, uint256 amount);

@@ -11,9 +11,9 @@ import "forge-std/console.sol";
 import "forge-std/Test.sol";
 
 contract ExocoreDeployer is Test {
-    address[] accounts;
+    Player[] players;
     address[] whitelistTokens;
-    address payable ExocoreValidatorSetAddress;
+    Player exocoreValidatorSet;
     address[] vaults;
     ERC20PresetFixedSupply restakeToken;
 
@@ -26,21 +26,28 @@ contract ExocoreDeployer is Test {
     uint16 exocoreChainID = 0;
     uint16 clientChainID = 1;
 
+    struct Player {
+        uint256 privateKey;
+        address addr;
+    }
+
     function setUp() public virtual {
-        accounts.push(address(0x1));
-        ExocoreValidatorSetAddress = payable(address(0xa));
+        players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
+        players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
+        players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
+        exocoreValidatorSet = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
         restakeToken = new ERC20PresetFixedSupply(
             "rest",
             "rest",
             1e16,
-            address(ExocoreValidatorSetAddress)
+            exocoreValidatorSet.addr
         );
         whitelistTokens.push(address(restakeToken));
 
         _deploy();
 
         vaults.push(address(vault));
-        vm.prank(ExocoreValidatorSetAddress);
+        vm.prank(exocoreValidatorSet.addr);
         gateway.addTokenVaults(vaults);
     }
 
@@ -60,8 +67,8 @@ contract ExocoreDeployer is Test {
         exocoreLzEndpoint = new LZEndpointMock(exocoreChainID);
         clientChainLzEndpoint.setDestLzEndpoint(address(exocoreReceiver), address(exocoreLzEndpoint));
 
-        gateway.initialize(ExocoreValidatorSetAddress, whitelistTokens, address(clientChainLzEndpoint), exocoreChainID, address(exocoreReceiver));
+        gateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainID, address(exocoreReceiver));
         vault.initialize(address(restakeToken), address(gateway));
-        exocoreReceiver.initialize(ExocoreValidatorSetAddress, address(exocoreLzEndpoint));
+        exocoreReceiver.initialize(exocoreValidatorSet.addr, address(exocoreLzEndpoint));
     }
 }

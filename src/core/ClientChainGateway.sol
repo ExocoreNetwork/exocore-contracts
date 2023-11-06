@@ -18,6 +18,7 @@ contract Gateway is Initializable, OwnableUpgradeable, GatewayStorage, IGateway 
     using ECDSA for bytes32;
 
     event MessageFailed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason);
+    event RequestSent(Action indexed act, uint16 indexed dstChainID, address indexed  dstAddress, bytes payload);
     event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
     error UnAuthorizedSigner();
     error UnAuthorizedToken();
@@ -45,6 +46,8 @@ contract Gateway is Initializable, OwnableUpgradeable, GatewayStorage, IGateway 
         ExocoreChainID = _ExocoreChainID;
         ExocoreReceiver = ILayerZeroReceiver(_ExocoreReceiver);
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
+
+        whiteListFunctionSelectors[Action.UPDATEUSERSBALANCE] = this.updateUsersBalance.selector;
     }
 
     function addTokenVaults(address[] calldata vaults) external onlyOwner {
@@ -95,8 +98,8 @@ contract Gateway is Initializable, OwnableUpgradeable, GatewayStorage, IGateway 
         require(msg.sender == address(this), "caller must be client chain gateway itself");
         for (uint i = 0; i < info.length; i++) {
             UserBalanceUpdateInfo memory userBalanceUpdate = info[i];
-            for (uint j = 0; j < userBalanceUpdate.tokenInfo.length; j++) {
-                TokenBalanceUpdateInfo memory tokenBalanceUpdate = userBalanceUpdate.tokenInfo[j];
+            for (uint j = 0; j < userBalanceUpdate.tokenBalances.length; j++) {
+                TokenBalanceUpdateInfo memory tokenBalanceUpdate = userBalanceUpdate.tokenBalances[j];
                 require(whitelistTokens[tokenBalanceUpdate.token], "not whitelisted token");
                 
                 IVault vault = tokenVaults[tokenBalanceUpdate.token];
@@ -158,10 +161,12 @@ contract Gateway is Initializable, OwnableUpgradeable, GatewayStorage, IGateway 
         
         Action act = Action(uint8(_msg.payload[0]));
         require(act == Action.UPDATEUSERSBALANCE, "not supported action");
-        bytes memory args = _msg.payload[1:_msg.payload.length-1];
+        bytes memory args = _msg.payload[1:];
         (bool success, bytes memory reason) = address(this).call(abi.encodePacked(whiteListFunctionSelectors[Action.UPDATEUSERSBALANCE], args));
         if (!success) {
             emit MessageFailed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload, reason);
+        } else {
+            emit MessageProcessed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload);
         }
     }
 
@@ -173,13 +178,19 @@ contract Gateway is Initializable, OwnableUpgradeable, GatewayStorage, IGateway 
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(act, actionArgs);
         (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainID, address(this), payload, false, "");
-        lzEndpoint.send{value: lzFee}(ExocoreChainID, trustedRemote[ExocoreChainID], payload, ExocoreValidatorSetAddress, address(0), "");
+        bytes memory dstPath = trustedRemote[ExocoreChainID];
+        lzEndpoint.send{value: lzFee}(ExocoreChainID, dstPath, payload, ExocoreValidatorSetAddress, address(0), "");
+        address dstAddress;
+        assembly {
+            dstAddress := mload(add(dstPath, 20))
+        }
+        emit RequestSent(act, ExocoreChainID, dstAddress, payload);
     }
 
     function verifyInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) internal view returns(bool isValid) {
-        bytes32 _hash = keccak256(abi.encodePacked(_msg.srcChainID, _msg.srcAddress, _msg.dstChainID, _msg.dstAddress, _msg.nonce, _msg.payload));
+        bytes32 digest = keccak256(abi.encodePacked(_msg.srcChainID, _msg.srcAddress, _msg.dstChainID, _msg.dstAddress, _msg.nonce, _msg.payload));
         (uint8 v, bytes32 r, bytes32 s) = splitSignature(signature);
-        address signer = _hash.recover(v, r, s);
+        address signer = digest.recover(v, r, s);
         if (signer == ExocoreValidatorSetAddress) {
             isValid = true;
         }
