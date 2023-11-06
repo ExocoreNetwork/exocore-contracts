@@ -7,35 +7,61 @@ import "../src/core/ClientChainGateway.sol";
 import "../src/core/Vault.sol";
 import "../src/core/ExocoreReceiver.sol";
 import "@layerzero-contracts/mocks/LZEndpointMock.sol";
+import "forge-std/console.sol";
+import "forge-std/Test.sol";
 
-contract ExocoreDeployer {
-    function deploy() internal {
-        uint16 ExocoreChainID = 0;
-        ProxyAdmin proxyAdmin = new ProxyAdmin();
-        ERC20PresetFixedSupply weth = new ERC20PresetFixedSupply(
-            "weth",
-            "WETH",
+contract ExocoreDeployer is Test {
+    address[] accounts;
+    address[] whitelistTokens;
+    address payable ExocoreValidatorSetAddress;
+    address[] vaults;
+    ERC20PresetFixedSupply restakeToken;
+
+    Gateway gateway;
+    Vault vault;
+    ExocoreReceiver exocoreReceiver;
+    LZEndpointMock clientChainLzEndpoint;
+    LZEndpointMock exocoreLzEndpoint;
+
+    uint16 exocoreChainID = 0;
+    uint16 clientChainID = 1;
+
+    function setUp() public virtual {
+        accounts.push(address(0x1));
+        ExocoreValidatorSetAddress = payable(address(0xa));
+        restakeToken = new ERC20PresetFixedSupply(
+            "rest",
+            "rest",
             1e16,
-            address(this)
+            address(ExocoreValidatorSetAddress)
         );
+        whitelistTokens.push(address(restakeToken));
 
-        address[] memory whitelistTokens = new address[](1);
-        whitelistTokens[0] = address(weth);
+        _deploy();
 
-        Gateway gateway = new Gateway();
-        TransparentUpgradeableProxy proxiedGateway = new TransparentUpgradeableProxy(address(gateway), address(proxyAdmin), "");
+        vaults.push(address(vault));
+        vm.prank(ExocoreValidatorSetAddress);
+        gateway.addTokenVaults(vaults);
+    }
 
-        Vault vault = new Vault();
-        TransparentUpgradeableProxy proxiedVault = new TransparentUpgradeableProxy(address(vault), address(proxyAdmin), "");
+    function _deploy() internal {
+        ProxyAdmin proxyAdmin = new ProxyAdmin();
+        
+        Gateway gatewayLogic = new Gateway();
+        gateway = Gateway(address(new TransparentUpgradeableProxy(address(gatewayLogic), address(proxyAdmin), "")));
 
-        ExocoreReceiver exocoreReceiver = new ExocoreReceiver();
-        TransparentUpgradeableProxy proxiedExocoreReceiver = new TransparentUpgradeableProxy(address(exocoreReceiver), address(proxyAdmin), "");
+        Vault vaultLogic = new Vault();
+        vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(proxyAdmin), "")));
 
-        LZEndpointMock lzEndpoint = new LZEndpointMock(ExocoreChainID);
+        ExocoreReceiver exocoreReceiverLogic = new ExocoreReceiver();
+        exocoreReceiver = ExocoreReceiver(address(new TransparentUpgradeableProxy(address(exocoreReceiverLogic), address(proxyAdmin), "")));
 
-        Gateway(address(proxiedGateway)).initialize(whitelistTokens, ExocoreChainID, address(proxiedExocoreReceiver), payable(address(this)));
-        Vault(address(proxiedVault)).initialize(address(weth), address(proxiedGateway));
-        ExocoreReceiver(address(proxiedExocoreReceiver)).initialize(address(lzEndpoint));
+        clientChainLzEndpoint = new LZEndpointMock(clientChainID);
+        exocoreLzEndpoint = new LZEndpointMock(exocoreChainID);
+        clientChainLzEndpoint.setDestLzEndpoint(address(exocoreReceiver), address(exocoreLzEndpoint));
 
+        gateway.initialize(ExocoreValidatorSetAddress, whitelistTokens, address(clientChainLzEndpoint), exocoreChainID, address(exocoreReceiver));
+        vault.initialize(address(restakeToken), address(gateway));
+        exocoreReceiver.initialize(ExocoreValidatorSetAddress, address(exocoreLzEndpoint));
     }
 }

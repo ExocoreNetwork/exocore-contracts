@@ -1,5 +1,7 @@
 pragma solidity ^0.8.19;
 
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 interface IVault {
     function withdraw(address recipient, uint256 amount) external;
 
@@ -10,4 +12,6 @@ interface IVault {
     function updateRewardBalance(address user, uint256 lastlyUpdatedRewardBalance) external;
 
     function updateWithdrawableBalance(address user, uint256 unlockPrincipleAmount, uint256 unlockRewardAmount) external;
+
+    function getUnderlyingToken() external returns(address);
 }

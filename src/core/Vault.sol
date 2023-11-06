@@ -19,6 +19,10 @@ contract Vault is Initializable, VaultStorage, IVault {
         _disableInitializers();
     }
 
+    function getUnderlyingToken() public view returns(address) {
+        return address(underlyingToken);
+    }
+
     function initialize(address _underlyingToken, address _gateway) external initializer {
         underlyingToken = IERC20(_underlyingToken);
         gateway = IGateway(_gateway);

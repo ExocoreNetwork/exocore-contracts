@@ -25,11 +25,19 @@ contract ExocoreReceiver is Initializable, LzAppUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _lzEndpoint) external initializer {
+    function initialize(address _ExocoreValidatorSetAddress, address _lzEndpoint) external initializer {
+        require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
+        require(_lzEndpoint != address(0), "invalid layerzero endpoint address");
         lzEndpoint = ILayerZeroEndpointUpgradeable(_lzEndpoint);
+        ExocoreValidatorSetAddress = _ExocoreValidatorSetAddress;
+        _transferOwnership(ExocoreValidatorSetAddress);
     }
 
     function _blockingLzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, bytes memory _payload) internal virtual override {
-        emit InterchainMsgReceived(_srcChainId, _srcAddress, _nonce, _payload);
+        address fromAddress;
+        assembly {
+            fromAddress := mload(add(_srcAddress, 20))
+        }
+        emit InterchainMsgReceived(_srcChainId, abi.encodePacked(bytes20(fromAddress)), _nonce, _payload);
     }
 }

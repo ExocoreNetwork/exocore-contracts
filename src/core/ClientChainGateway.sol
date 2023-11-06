@@ -6,33 +6,37 @@ import {IVault} from "../interfaces/IVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
+import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
+
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 
-contract Gateway is Initializable, GatewayStorage, IGateway {
+contract Gateway is Initializable, OwnableUpgradeable, GatewayStorage, IGateway {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
     event MessageFailed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason);
+    event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
     error UnAuthorizedSigner();
-
-    modifier onlyAdmin() {
-        require(msg.sender == admin, "only callable for admin");
-        _;
-    }
+    error UnAuthorizedToken();
 
     constructor() {
         _disableInitializers();
     }
 
     function initialize(
+        address payable _ExocoreValidatorSetAddress,
         address[] calldata _whitelistTokens,
+        address _lzEndpoint,
         uint16 _ExocoreChainID,
-        address _ExocoreReceiver,
-        address payable _admin
+        address _ExocoreReceiver
     ) external initializer {
-        require(_ExocoreReceiver != address(0), "empty exocore chain gateway contract address");
+        require(_ExocoreReceiver != address(0), "invalid empty exocore chain gateway contract address");
+        require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
+        ExocoreValidatorSetAddress = _ExocoreValidatorSetAddress;
+        _transferOwnership(ExocoreValidatorSetAddress);
 
         for (uint i = 0; i < _whitelistTokens.length; i++) {
             whitelistTokens[_whitelistTokens[i]] = true;
@@ -40,7 +44,17 @@ contract Gateway is Initializable, GatewayStorage, IGateway {
 
         ExocoreChainID = _ExocoreChainID;
         ExocoreReceiver = ILayerZeroReceiver(_ExocoreReceiver);
-        admin = _admin;
+        lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
+    }
+
+    function addTokenVaults(address[] calldata vaults) external onlyOwner {
+        for (uint i =0; i < vaults.length; i++) {
+            address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
+            if (!whitelistTokens[underlyingToken]) {
+                revert UnAuthorizedToken();
+            }
+            tokenVaults[underlyingToken] = IVault(vaults[i]);
+        }
     }
 
     function deposit(address token, uint256 amount) payable external {
@@ -151,16 +165,22 @@ contract Gateway is Initializable, GatewayStorage, IGateway {
         }
     }
 
+    function setTrustedRemote(uint16 _srcChainId, bytes calldata _path) external onlyOwner {
+        trustedRemote[_srcChainId] = _path;
+        emit SetTrustedRemote(_srcChainId, _path);
+    }
+
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        lzEndpoint.send{value: lzFee}(ExocoreChainID, trustedRemote[ExocoreChainID], payload, admin, address(0), "");
+        (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainID, address(this), payload, false, "");
+        lzEndpoint.send{value: lzFee}(ExocoreChainID, trustedRemote[ExocoreChainID], payload, ExocoreValidatorSetAddress, address(0), "");
     }
 
     function verifyInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) internal view returns(bool isValid) {
         bytes32 _hash = keccak256(abi.encodePacked(_msg.srcChainID, _msg.srcAddress, _msg.dstChainID, _msg.dstAddress, _msg.nonce, _msg.payload));
         (uint8 v, bytes32 r, bytes32 s) = splitSignature(signature);
         address signer = _hash.recover(v, r, s);
-        if (signer == ExocoreValidatorSetPubkey) {
+        if (signer == ExocoreValidatorSetAddress) {
             isValid = true;
         }
     }

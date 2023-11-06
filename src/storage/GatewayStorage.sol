@@ -16,10 +16,9 @@ contract GatewayStorage {
 		UPDATEUSERSBALANCE
     }
 
-    address public ExocoreValidatorSetPubkey;
+    address payable public ExocoreValidatorSetAddress;
     
     ILayerZeroEndpoint public lzEndpoint;
-    uint256 public lzFee;
     uint256 lastMessageNonce;
     mapping(uint16 => bytes) public trustedRemote;
     mapping(uint16 => uint256) public payloadSizeLimit;
@@ -28,7 +27,6 @@ contract GatewayStorage {
     mapping(address => bool) public whitelistTokens;
     mapping(address => IVault) public tokenVaults;
     ILayerZeroReceiver public ExocoreReceiver;
-    address payable public admin;
     uint16 public ExocoreChainID;
 
     uint256[40] private __gap;
