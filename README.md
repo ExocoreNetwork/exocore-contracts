@@ -12,5 +12,18 @@ Generally Exocore contracts have these components:
 
 ## Documentation
 
-https://www.notion.so/Client-Chain-Smart-Contracts-Workflow-8356cec4e30f4ea8b26ddb451102ab7e
+1. workflow design: https://www.notion.so/Client-Chain-Smart-Contracts-Workflow-8356cec4e30f4ea8b26ddb451102ab7e
+2. design principles: https://www.notion.so/Client-Chain-Contracts-Design-8ab37ee6a31444629fb2839a84f8422d?pvs=4
+3. implementation specifications and architecture choice notes: https://www.notion.so/Contract-Implementation-Notes-f9467324c8f74f268f56f6d5e5a9eecf?pvs=4
+4. cross-chain message serialization proposal: https://www.notion.so/Cross-Chain-Message-Serialization-Proposal-f40ff04a94524d5298cfa866904baa14?pvs=4
+   
+## Test
+
+### e2e test
+
+1. Deposit
+   ```sh
+   forge test -vvvv --match-test test_DepositWithdraw
+   ```
+
 
