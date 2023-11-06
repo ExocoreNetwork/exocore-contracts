@@ -86,7 +86,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
             updatedAt: 1,
             tokenBalances: tokenBalances
         });
-        bytes memory args = abi.encodeWithSelector(IGateway.updateUsersBalance.selector, userBalances);
+        bytes memory args = abi.encode(userBalances);
         payload = abi.encodePacked(GatewayStorage.Action.UPDATEUSERSBALANCE, args);
         IGateway.InterchainMsg memory _msg = IGateway.InterchainMsg({
             srcChainID: exocoreChainID, 
@@ -106,7 +106,6 @@ contract DepositWithdrawTest is ExocoreDeployer {
         ));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(exocoreValidatorSet.privateKey, digest);
         bytes memory signature = abi.encodePacked(r, s, v);
-        console.logBytes4(IGateway.updateUsersBalance.selector);
 
         vm.expectEmit(false, false, false, true, address(gateway));
         emit MessageProcessed(exocoreChainID, bytes("0x"), 1, payload);

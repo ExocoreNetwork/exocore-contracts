@@ -21,7 +21,7 @@ Generally Exocore contracts have these components:
 
 ### e2e test
 
-1. Deposit
+1. Deposit & Withdraw
    ```sh
    forge test -vvvv --match-test test_DepositWithdraw
    ```
