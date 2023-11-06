@@ -16,7 +16,7 @@ contract DepositTest is ExocoreDeployer {
     event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
     event Transfer(address indexed from, address indexed to, uint256 amount);
 
-    function test_DepositWithDraw() public {
+    function test_DepositWithdraw() public {
         // -- deposit workflow test -- 
 
         address depositor = accounts[0];
