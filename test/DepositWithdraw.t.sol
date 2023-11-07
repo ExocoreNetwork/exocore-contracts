@@ -86,7 +86,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
             updatedAt: 1,
             tokenBalances: tokenBalances
         });
-        (IGateway.InterchainMsg memory _msg, bytes memory signature) = prepareEVSMsgandSignature(userBalances);
+        (IGateway.InterchainMsg memory _msg, bytes memory signature) = prepareEVSMsgAndSignature(userBalances);
 
         vm.expectEmit(false, false, false, true, address(gateway));
         emit MessageProcessed(exocoreChainID, bytes("0x"), 1, _msg.payload);
@@ -98,7 +98,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
         assertEq(vault.totalUnlockPrincipleAmount(depositor.addr), withdrawAmount);
     }
 
-    function prepareEVSMsgandSignature(IGateway.UserBalanceUpdateInfo[] memory userBalances) internal view returns(
+    function prepareEVSMsgAndSignature(IGateway.UserBalanceUpdateInfo[] memory userBalances) internal view returns(
         IGateway.InterchainMsg memory _msg,
         bytes memory signature
     ) {
