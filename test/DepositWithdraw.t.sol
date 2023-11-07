@@ -86,9 +86,25 @@ contract DepositWithdrawTest is ExocoreDeployer {
             updatedAt: 1,
             tokenBalances: tokenBalances
         });
+        (IGateway.InterchainMsg memory _msg, bytes memory signature) = prepareEVSMsgandSignature(userBalances);
+
+        vm.expectEmit(false, false, false, true, address(gateway));
+        emit MessageProcessed(exocoreChainID, bytes("0x"), 1, _msg.payload);
+        gateway.receiveInterchainMsg(_msg, signature);
+        assertEq(vault.withdrawableBalances(depositor.addr), withdrawAmount);
+        assertEq(vault.principleBalances(depositor.addr), depositAmount - withdrawAmount);
+        assertEq(vault.rewardBalances(depositor.addr), 0);
+        assertEq(vault.totalDepositedPrincipleAmount(depositor.addr), depositAmount);
+        assertEq(vault.totalUnlockPrincipleAmount(depositor.addr), withdrawAmount);
+    }
+
+    function prepareEVSMsgandSignature(IGateway.UserBalanceUpdateInfo[] memory userBalances) internal view returns(
+        IGateway.InterchainMsg memory _msg,
+        bytes memory signature
+    ) {
         bytes memory args = abi.encode(userBalances);
-        payload = abi.encodePacked(GatewayStorage.Action.UPDATEUSERSBALANCE, args);
-        IGateway.InterchainMsg memory _msg = IGateway.InterchainMsg({
+        bytes memory payload = abi.encodePacked(GatewayStorage.Action.UPDATEUSERSBALANCE, args);
+        _msg = IGateway.InterchainMsg({
             srcChainID: exocoreChainID, 
             srcAddress: bytes("0x"), 
             dstChainID: clientChainID, 
@@ -105,10 +121,6 @@ contract DepositWithdrawTest is ExocoreDeployer {
             _msg.payload
         ));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(exocoreValidatorSet.privateKey, digest);
-        bytes memory signature = abi.encodePacked(r, s, v);
-
-        vm.expectEmit(false, false, false, true, address(gateway));
-        emit MessageProcessed(exocoreChainID, bytes("0x"), 1, payload);
-        gateway.receiveInterchainMsg(_msg, signature);
+        signature = abi.encodePacked(r, s, v);
     }
 }
