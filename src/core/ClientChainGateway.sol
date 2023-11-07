@@ -91,7 +91,7 @@ contract Gateway is Initializable, OwnableUpgradeable, GatewayStorage, IGateway 
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
-        vault.withdraw(recipient, amount);
+        vault.withdraw(msg.sender, recipient, amount);
     }
 
     function updateUsersBalance(UserBalanceUpdateInfo[] calldata info) public {

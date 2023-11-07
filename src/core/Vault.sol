@@ -23,15 +23,20 @@ contract Vault is Initializable, VaultStorage, IVault {
         return address(underlyingToken);
     }
 
+    function getWithdrawableBalance(address withdrawer) external view returns(uint256 balance) {
+        return withdrawableBalances[withdrawer];
+    }
+
     function initialize(address _underlyingToken, address _gateway) external initializer {
         underlyingToken = IERC20(_underlyingToken);
         gateway = IGateway(_gateway);
     }
 
-    function withdraw(address depositor, uint256 amount) external onlyGateway {
-        require(amount <= withdrawableBalances[depositor], "can not withdraw more amount than depositor's withdrawable balance");
+    function withdraw(address withdrawer, address recipient, uint256 amount) external onlyGateway {
+        require(amount <= withdrawableBalances[withdrawer], "can not withdraw more amount than depositor's withdrawable balance");
         
-        underlyingToken.safeTransfer(depositor, amount);
+        withdrawableBalances[withdrawer] -= amount;
+        underlyingToken.safeTransfer(recipient, amount);
     }
 
     function deposit(address depositor, uint256 amount) external payable onlyGateway {
