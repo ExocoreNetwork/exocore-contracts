@@ -59,7 +59,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
         Player memory operator = players[1];
         payload = abi.encodePacked(
             GatewayStorage.Action.DELEGATETO,
-            address(restakeToken),
+            bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(operator.addr)),
             bytes32(bytes20(depositor.addr)),
             delegateAmount
