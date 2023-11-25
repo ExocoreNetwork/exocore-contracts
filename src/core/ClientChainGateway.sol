@@ -1,7 +1,8 @@
 pragma solidity ^0.8.19;
 
 import {GatewayStorage} from "../storage/GatewayStorage.sol";
-import {IGateway} from "../interfaces/IGateway.sol";
+import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
+import {IController} from "../interfaces/IController.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -13,15 +14,17 @@ import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndp
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 
-contract Gateway is Initializable, OwnableUpgradeable, GatewayStorage, IGateway {
+contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage, ITSSReceiver, IController {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
+    event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
     event MessageFailed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason);
     event RequestSent(Action indexed act, uint16 indexed dstChainID, address indexed  dstAddress, bytes payload);
     event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
     error UnAuthorizedSigner();
     error UnAuthorizedToken();
+    error UnSupportedFunction();
 
     constructor() {
         _disableInitializers();

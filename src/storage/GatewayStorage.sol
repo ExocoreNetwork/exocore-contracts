@@ -5,7 +5,6 @@ import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndp
 import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
-
 contract GatewayStorage {
     enum Action {
 		DEPOSIT,

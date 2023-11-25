@@ -1,7 +1,7 @@
 pragma solidity ^0.8.19;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {IGateway} from "../interfaces/IGateway.sol";
+import {IController} from "../interfaces/IController.sol";
 
 contract VaultStorage {
     IERC20 public underlyingToken;
@@ -12,5 +12,5 @@ contract VaultStorage {
     mapping(address => uint256) public totalDepositedPrincipleAmount;
     mapping(address => uint256) public totalUnlockPrincipleAmount;
 
-    IGateway public gateway;
+    IController public gateway;
 }

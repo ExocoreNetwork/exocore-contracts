@@ -2,9 +2,9 @@ pragma solidity ^0.8.19;
 
 import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
-import "../src/core/ExocoreReceiver.sol";
+import "../src/core/ExocoreGateway.sol";
 import "../src/storage/GatewayStorage.sol";
-import "../src/interfaces/IGateway.sol";
+import "../src/interfaces/IController.sol";
 import "forge-std/console.sol";
 
 contract DepositWithdrawTest is ExocoreDeployer {
@@ -28,15 +28,15 @@ contract DepositWithdrawTest is ExocoreDeployer {
         vm.startPrank(exocoreValidatorSet.addr);
         restakeToken.transfer(depositor.addr, 1000000);
         vm.expectEmit(false, false, false, true);
-        emit SetTrustedRemote(exocoreChainID, abi.encodePacked(address(exocoreReceiver), address(gateway)));
-        gateway.setTrustedRemote(exocoreChainID, abi.encodePacked(address(exocoreReceiver), address(gateway)));
+        emit SetTrustedRemote(exocoreChainID, abi.encodePacked(address(exocoreGateway), address(clientGateway)));
+        clientGateway.setTrustedRemote(exocoreChainID, abi.encodePacked(address(exocoreGateway), address(clientGateway)));
         vm.expectEmit(false, false, false, true);
-        emit SetTrustedRemote(clientChainID, abi.encodePacked(address(gateway), address(exocoreReceiver)));
-        exocoreReceiver.setTrustedRemote(clientChainID, abi.encodePacked(address(gateway), address(exocoreReceiver)));
+        emit SetTrustedRemote(clientChainID, abi.encodePacked(address(clientGateway), address(exocoreGateway)));
+        exocoreGateway.setTrustedRemote(clientChainID, abi.encodePacked(address(clientGateway), address(exocoreGateway)));
         vm.stopPrank();
 
         vm.startPrank(depositor.addr);
-        deal(address(gateway), 1e22);
+        deal(address(clientGateway), 1e22);
         restakeToken.approve(address(vault), type(uint256).max);
         uint256 depositAmount = 10000;
         bytes memory payload = abi.encodePacked(
@@ -48,10 +48,10 @@ contract DepositWithdrawTest is ExocoreDeployer {
         vm.expectEmit(true, true, false, true);
         emit Transfer(depositor.addr, address(vault), depositAmount);
 
-        // assert that exocoreReceiver should receive the message and save the msg as event
-        vm.expectEmit(true, true, true, true, address(exocoreReceiver));
-        emit InterchainMsgReceived(clientChainID, abi.encodePacked(bytes20(address(gateway))), 1, payload);
-        gateway.deposit(address(restakeToken), depositAmount);
+        // assert that exocoreGateway should receive the message and save the msg as event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit InterchainMsgReceived(clientChainID, abi.encodePacked(bytes20(address(clientGateway))), 1, payload);
+        clientGateway.deposit(address(restakeToken), depositAmount);
 
         // -- delegate workflow -- 
 
@@ -64,8 +64,8 @@ contract DepositWithdrawTest is ExocoreDeployer {
             bytes32(bytes20(depositor.addr)),
             delegateAmount
         );
-        vm.expectEmit(true, true, true, true, address(exocoreReceiver));
-        emit InterchainMsgReceived(clientChainID, abi.encodePacked(bytes20(address(gateway))), 2, payload);
-        gateway.delegateTo(bytes32(bytes20(operator.addr)), address(restakeToken), delegateAmount);
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit InterchainMsgReceived(clientChainID, abi.encodePacked(bytes20(address(clientGateway))), 2, payload);
+        clientGateway.delegateTo(bytes32(bytes20(operator.addr)), address(restakeToken), delegateAmount);
     }
 }

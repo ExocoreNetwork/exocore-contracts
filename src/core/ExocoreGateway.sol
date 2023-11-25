@@ -1,6 +1,5 @@
 pragma solidity ^0.8.19;
 
-import {IGateway} from "../interfaces/IGateway.sol";
 import {GatewayStorage} from "../storage/GatewayStorage.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
@@ -8,7 +7,9 @@ import {ILayerZeroEndpointUpgradeable} from "@layerzero-contracts/contracts-upgr
 import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 
-contract ExocoreReceiver is Initializable, LzAppUpgradeable {
+contract ExocoreGateway is Initializable, LzAppUpgradeable {
+    error UnSupportedFunction();
+
     event InterchainMsgReceived(
         uint16 indexed srcChainID,
         bytes indexed srcChainAddress,
