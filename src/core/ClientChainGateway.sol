@@ -1,6 +1,6 @@
 pragma solidity ^0.8.19;
 
-import {GatewayStorage} from "../storage/GatewayStorage.sol";
+import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
 import {IController} from "../interfaces/IController.sol";
 import {IVault} from "../interfaces/IVault.sol";
@@ -18,7 +18,7 @@ import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 contract ClientChainGateway is 
     Initializable,
     OwnableUpgradeable,
-    GatewayStorage,
+    ClientChainGatewayStorage,
     ITSSReceiver,
     IController,
     LzAppUpgradeable
@@ -48,10 +48,8 @@ contract ClientChainGateway is
         address payable _ExocoreValidatorSetAddress,
         address[] calldata _whitelistTokens,
         address _lzEndpoint,
-        uint16 _ExocoreChainID,
-        address _ExocoreReceiver
+        uint16 _ExocoreChainID
     ) external initializer {
-        require(_ExocoreReceiver != address(0), "invalid empty exocore chain gateway contract address");
         require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
         ExocoreValidatorSetAddress = _ExocoreValidatorSetAddress;
         _transferOwnership(ExocoreValidatorSetAddress);
@@ -61,7 +59,6 @@ contract ClientChainGateway is
         }
 
         ExocoreChainID = _ExocoreChainID;
-        ExocoreReceiver = ILayerZeroReceiver(_ExocoreReceiver);
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
 
         whiteListFunctionSelectors[Action.UPDATE_USERS_BALANCES] = this.updateUsersBalances.selector;
