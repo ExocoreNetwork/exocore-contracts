@@ -16,9 +16,10 @@ interface IController {
         uint256 unlockRewardAmount;
     }
 
-    event DepositResult(address indexed depositor, bool indexed success, uint256 amount);
-    event WithdrawResult(address indexed withdrawer, bool indexed success, uint256 amount);
-    event DelegateResult(address indexed delegator, address indexed delegatee, bool indexed success, uint256 amount);
+    event DepositResult(bool indexed success, address indexed depositor, uint256 amount);
+    event WithdrawResult(bool indexed success, address indexed withdrawer, uint256 amount);
+    event DelegateResult(bool indexed success, address indexed delegator, bytes32 indexed delegatee, address token, uint256 amount);
+    event UndelegateResult(bool indexed success, address indexed undelegator, bytes32 indexed undelegatee, address token, uint256 amount);
 
     /// *** function signatures for staker operations ***
 
@@ -78,5 +79,5 @@ interface IController {
      * the vault assets and update user's withdrawable balance correspondingly.
      * @param info - The info needed for updating users balance.
      */
-    function updateUsersBalance(UserBalanceUpdateInfo[] calldata info) external;
+    function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) external;
 }

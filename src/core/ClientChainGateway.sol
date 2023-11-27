@@ -10,21 +10,35 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
 import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
+import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 
-contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage, ITSSReceiver, IController {
+contract ClientChainGateway is 
+    Initializable,
+    OwnableUpgradeable,
+    GatewayStorage,
+    ITSSReceiver,
+    IController,
+    LzAppUpgradeable
+{
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
     event MessageFailed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason);
-    event RequestSent(Action indexed act, uint16 indexed dstChainID, address indexed  dstAddress, bytes payload);
-    event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
+    event RequestSent(Action indexed act, bytes payload);
     error UnAuthorizedSigner();
     error UnAuthorizedToken();
     error UnSupportedFunction();
+    error VaultNotExist();
+    error CommandExecutionFailure(Action act, bytes payload, bytes reason);
+
+    modifier onlyCalledFromThis() {
+        require(msg.sender == address(this), "could only be called from this contract itself with low level call");
+        _;
+    }
 
     constructor() {
         _disableInitializers();
@@ -50,7 +64,11 @@ contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage
         ExocoreReceiver = ILayerZeroReceiver(_ExocoreReceiver);
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
 
-        whiteListFunctionSelectors[Action.UPDATEUSERSBALANCE] = this.updateUsersBalance.selector;
+        whiteListFunctionSelectors[Action.UPDATE_USERS_BALANCES] = this.updateUsersBalances.selector;
+        whiteListFunctionSelectors[Action.REPLY_DEPOSIT] = this.replyDeposit.selector;
+        whiteListFunctionSelectors[Action.REPLY_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.replyWithdrawPrincipleFromExocore.selector;
+        whiteListFunctionSelectors[Action.REPLY_DELEGATE_TO] = this.replyDelegateTo.selector;
+        whiteListFunctionSelectors[Action.REPLY_UNDELEGATE_FROM] = this.replyUndelegateFrom.selector;
     }
 
     function addTokenVaults(address[] calldata vaults) external onlyOwner {
@@ -73,7 +91,7 @@ contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage
         vault.deposit(msg.sender, amount);
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
-        _sendInterchainMsg(Action.DEPOSIT, actionArgs);
+        _sendInterchainMsg(Action.REQUEST_DEPOSIT, actionArgs);
     }
 
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external {
@@ -84,7 +102,7 @@ contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage
         require(address(vault) != address(0), "no vault added for this token");
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principleAmount);
-        _sendInterchainMsg(Action.WITHDRAWPRINCIPLEFROMEXOCORE, actionArgs);
+        _sendInterchainMsg(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs);
     }
 
     function claim(address token, uint256 amount, address recipient) external {
@@ -97,7 +115,7 @@ contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage
         vault.withdraw(msg.sender, recipient, amount);
     }
 
-    function updateUsersBalance(UserBalanceUpdateInfo[] calldata info) public {
+    function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) public {
         require(msg.sender == address(this), "caller must be client chain gateway itself");
         for (uint i = 0; i < info.length; i++) {
             UserBalanceUpdateInfo memory userBalanceUpdate = info[i];
@@ -136,7 +154,7 @@ contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage
         require(address(vault) != address(0), "no vault added for this token");
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
-        _sendInterchainMsg(Action.DELEGATETO, actionArgs);
+        _sendInterchainMsg(Action.REQUEST_DELEGATE_TO, actionArgs);
     }
 
     function undelegateFrom(bytes32 operator, address token, uint256 amount) external {
@@ -148,7 +166,7 @@ contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage
         require(address(vault) != address(0), "no vault added for this token");
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
-        _sendInterchainMsg(Action.UNDELEGATEFROM, actionArgs);
+        _sendInterchainMsg(Action.REQUEST_UNDELEGATE_FROM, actionArgs);
     }
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external {
@@ -163,9 +181,9 @@ contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage
         }
         
         Action act = Action(uint8(_msg.payload[0]));
-        require(act == Action.UPDATEUSERSBALANCE, "not supported action");
+        require(act == Action.UPDATE_USERS_BALANCES, "not supported action");
         bytes memory args = _msg.payload[1:];
-        (bool success, bytes memory reason) = address(this).call(abi.encodePacked(whiteListFunctionSelectors[Action.UPDATEUSERSBALANCE], args));
+        (bool success, bytes memory reason) = address(this).call(abi.encodePacked(whiteListFunctionSelectors[act], args));
         if (!success) {
             emit MessageFailed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload, reason);
         } else {
@@ -173,21 +191,11 @@ contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage
         }
     }
 
-    function setTrustedRemote(uint16 _srcChainId, bytes calldata _path) external onlyOwner {
-        trustedRemote[_srcChainId] = _path;
-        emit SetTrustedRemote(_srcChainId, _path);
-    }
-
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(act, actionArgs);
         (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainID, address(this), payload, false, "");
-        bytes memory dstPath = trustedRemote[ExocoreChainID];
-        lzEndpoint.send{value: lzFee}(ExocoreChainID, dstPath, payload, ExocoreValidatorSetAddress, address(0), "");
-        address dstAddress;
-        assembly {
-            dstAddress := mload(add(dstPath, 20))
-        }
-        emit RequestSent(act, ExocoreChainID, dstAddress, payload);
+        _lzSend(ExocoreChainID, payload, ExocoreValidatorSetAddress, address(0), "", lzFee);
+        emit RequestSent(act, payload);
     }
 
     function verifyInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) internal view returns(bool isValid) {
@@ -212,5 +220,77 @@ contract ClientChainGateway is Initializable, OwnableUpgradeable, GatewayStorage
         }
 
         return (v, r, s);
+    }
+
+    function _blockingLzReceive(uint16, bytes memory, uint64, bytes calldata payload) internal virtual override {
+        Action act = Action(uint8(payload[0]));
+        bytes4 selector_ = whiteListFunctionSelectors[act];
+        if (selector_ == bytes4(0)) {
+            revert UnSupportedFunction();
+        }
+
+        (bool success, bytes memory reason) = address(this).call(abi.encodePacked(selector_, payload[1:]));
+        if (!success) {
+            revert CommandExecutionFailure(act, payload, reason);
+        }
+    }
+
+    function replyDeposit(
+        bool success, 
+        address token, 
+        address depositor, 
+        uint256 amount, 
+        uint256 lastlyUpdatedPrincipleBalance
+    ) public onlyCalledFromThis {
+        if (success) {
+            IVault vault = tokenVaults[token];
+            if (address(vault) == address(0)) {
+                revert VaultNotExist();
+            }
+
+            vault.updatePrincipleBalance(depositor, lastlyUpdatedPrincipleBalance);
+        }
+
+        emit DepositResult(success, depositor, amount);
+    }
+
+    function replyWithdrawPrincipleFromExocore(
+        bool success, 
+        address token, 
+        address withdrawer, 
+        uint256 unlockPrincipleAmount,
+        uint256 lastlyUpdatedPrincipleBalance
+    ) public onlyCalledFromThis {
+        if (success) {
+            IVault vault = tokenVaults[token];
+            if (address(vault) == address(0)) {
+                revert VaultNotExist();
+            }
+
+            vault.updatePrincipleBalance(withdrawer, lastlyUpdatedPrincipleBalance);
+            vault.updateWithdrawableBalance(withdrawer, unlockPrincipleAmount, 0);
+        }
+
+        emit WithdrawResult(success, withdrawer, unlockPrincipleAmount);
+    }
+
+    function replyDelegateTo(
+        bool success,
+        bytes32 operator,
+        address token,
+        address delegator,
+        uint256 amount
+    ) public onlyCalledFromThis {
+        emit DelegateResult(success, delegator, operator, token, amount);
+    }
+
+    function replyUndelegateFrom(
+        bool success,
+        bytes32 operator,
+        address token,
+        address undelegator,
+        uint256 amount
+    ) public onlyCalledFromThis {
+        emit UndelegateResult(success, undelegator, operator, token, amount);
     }
 }

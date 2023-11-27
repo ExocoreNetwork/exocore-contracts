@@ -40,7 +40,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
         restakeToken.approve(address(vault), type(uint256).max);
         uint256 depositAmount = 10000;
         bytes memory payload = abi.encodePacked(
-            GatewayStorage.Action.DEPOSIT, 
+            GatewayStorage.Action.REQUEST_DEPOSIT, 
             bytes32(bytes20(address(restakeToken))), 
             bytes32(bytes20(depositor.addr)), 
             depositAmount
@@ -58,7 +58,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
         uint256 delegateAmount = 100;
         Player memory operator = players[1];
         payload = abi.encodePacked(
-            GatewayStorage.Action.DELEGATETO,
+            GatewayStorage.Action.REQUEST_DELEGATE_TO,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(operator.addr)),
             bytes32(bytes20(depositor.addr)),

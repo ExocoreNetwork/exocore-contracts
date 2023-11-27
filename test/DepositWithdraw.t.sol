@@ -17,7 +17,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
     );
     event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
     event Transfer(address indexed from, address indexed to, uint256 amount);
-    event RequestSent(GatewayStorage.Action indexed act, uint16 indexed dstChainID, address indexed  dstAddress, bytes payload);
+    event RequestSent(GatewayStorage.Action indexed act, bytes payload);
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
 
     function test_DepositWithdraw() public {
@@ -41,7 +41,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
         restakeToken.approve(address(vault), type(uint256).max);
         uint256 depositAmount = 10000;
         bytes memory payload = abi.encodePacked(
-            GatewayStorage.Action.DEPOSIT, 
+            GatewayStorage.Action.REQUEST_DEPOSIT, 
             bytes32(bytes20(address(restakeToken))), 
             bytes32(bytes20(depositor.addr)), 
             depositAmount
@@ -58,7 +58,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
 
         uint256 withdrawAmount = 100;
         payload = abi.encodePacked(
-            GatewayStorage.Action.WITHDRAWPRINCIPLEFROMEXOCORE, 
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, 
             bytes32(bytes20(address(restakeToken))), 
             bytes32(bytes20(depositor.addr)), 
             withdrawAmount
@@ -67,7 +67,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit InterchainMsgReceived(clientChainID, abi.encodePacked(bytes20(address(clientGateway))), 2, payload);
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestSent(GatewayStorage.Action.WITHDRAWPRINCIPLEFROMEXOCORE, exocoreChainID, address(exocoreGateway), payload);
+        emit RequestSent(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, payload);
         clientGateway.withdrawPrincipleFromExocore(address(restakeToken), 100);
         vm.stopPrank();
 
@@ -104,7 +104,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
         bytes memory signature
     ) {
         bytes memory args = abi.encode(userBalances);
-        bytes memory payload = abi.encodePacked(GatewayStorage.Action.UPDATEUSERSBALANCE, args);
+        bytes memory payload = abi.encodePacked(GatewayStorage.Action.UPDATE_USERS_BALANCES, args);
         _msg = ITSSReceiver.InterchainMsg({
             srcChainID: exocoreChainID, 
             srcAddress: bytes("0x"), 

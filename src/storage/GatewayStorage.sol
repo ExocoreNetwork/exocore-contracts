@@ -7,19 +7,20 @@ import {IVault} from "../interfaces/IVault.sol";
 
 contract GatewayStorage {
     enum Action {
-		DEPOSIT,
-		WITHDRAWPRINCIPLEFROMEXOCORE,
-		WITHDRAWREWARDFROMEXOCORE,
-		DELEGATETO,
-		UNDELEGATEFROM,
-		UPDATEUSERSBALANCE
+		REQUEST_DEPOSIT,
+		REPLY_DEPOSIT,
+		REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
+    REPLY_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
+		REQUEST_DELEGATE_TO,
+    REPLY_DELEGATE_TO,
+		REQUEST_UNDELEGATE_FROM,
+    REPLY_UNDELEGATE_FROM,
+		UPDATE_USERS_BALANCES
     }
 
     address payable public ExocoreValidatorSetAddress;
     
-    ILayerZeroEndpoint public lzEndpoint;
     uint256 lastMessageNonce;
-    mapping(uint16 => bytes) public trustedRemote;
     mapping(uint16 => uint256) public payloadSizeLimit;
     mapping(Action => bytes4) public whiteListFunctionSelectors;
 

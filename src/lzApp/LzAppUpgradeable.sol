@@ -5,7 +5,7 @@ pragma solidity ^0.8.2;
 import "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import "@layerzero-contracts/contracts-upgradable/interfaces/ILayerZeroReceiverUpgradeable.sol";
 import "@layerzero-contracts/contracts-upgradable/interfaces/ILayerZeroUserApplicationConfigUpgradeable.sol";
-import "@layerzero-contracts/contracts-upgradable/interfaces/ILayerZeroEndpointUpgradeable.sol";
+import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import "@layerzero-contracts/util/BytesLib.sol";
 
 /*
@@ -17,12 +17,11 @@ abstract contract LzAppUpgradeable is Initializable, OwnableUpgradeable, ILayerZ
     // ua can not send payload larger than this by default, but it can be changed by the ua owner
     uint constant public DEFAULT_PAYLOAD_SIZE_LIMIT = 10000;
 
-    ILayerZeroEndpointUpgradeable public lzEndpoint;
+    ILayerZeroEndpoint public lzEndpoint;
     mapping(uint16 => bytes) public trustedRemoteLookup;
     mapping(uint16 => mapping(uint16 => uint)) public minDstGasLookup;
     mapping(uint16 => uint) public payloadSizeLimitLookup;
     address public precrime;
-    address public ExocoreValidatorSetAddress;
 
     event SetPrecrime(address precrime);
     event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
@@ -35,7 +34,7 @@ abstract contract LzAppUpgradeable is Initializable, OwnableUpgradeable, ILayerZ
     }
 
     function __LzAppUpgradeable_init_unchained(address _endpoint) internal onlyInitializing {
-        lzEndpoint = ILayerZeroEndpointUpgradeable(_endpoint);
+        lzEndpoint = ILayerZeroEndpoint(_endpoint);
     }
 
     function lzReceive(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce, bytes calldata _payload) public virtual override {
@@ -50,7 +49,7 @@ abstract contract LzAppUpgradeable is Initializable, OwnableUpgradeable, ILayerZ
     }
 
     // abstract function - the default behaviour of LayerZero is blocking. See: NonblockingLzApp if you dont need to enforce ordered messaging
-    function _blockingLzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, bytes memory _payload) internal virtual;
+    function _blockingLzReceive(uint16 _srcChainId, bytes memory _srcAddress, uint64 _nonce, bytes calldata _payload) internal virtual;
 
     function _lzSend(uint16 _dstChainId, bytes memory _payload, address payable _refundAddress, address _zroPaymentAddress, bytes memory _adapterParams, uint _nativeFee) internal virtual {
         bytes memory trustedRemote = trustedRemoteLookup[_dstChainId];
