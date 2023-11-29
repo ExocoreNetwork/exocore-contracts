@@ -11,7 +11,6 @@ import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/Own
 import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
 import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
-
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 
@@ -49,7 +48,10 @@ contract ClientChainGateway is
         address[] calldata _whitelistTokens,
         address _lzEndpoint,
         uint16 _ExocoreChainID
-    ) external initializer {
+    ) 
+        external 
+        initializer 
+    {
         require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
         ExocoreValidatorSetAddress = _ExocoreValidatorSetAddress;
         _transferOwnership(ExocoreValidatorSetAddress);
@@ -96,7 +98,9 @@ contract ClientChainGateway is
         require(principleAmount > 0, "amount should be greater than zero");
         
         IVault vault = tokenVaults[token];
-        require(address(vault) != address(0), "no vault added for this token");
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principleAmount);
         _sendInterchainMsg(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs);
@@ -107,7 +111,9 @@ contract ClientChainGateway is
         require(amount > 0, "amount should be greater than zero");
         
         IVault vault = tokenVaults[token];
-        require(address(vault) != address(0), "no vault added for this token");
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
 
         vault.withdraw(msg.sender, recipient, amount);
     }
@@ -121,7 +127,9 @@ contract ClientChainGateway is
                 require(whitelistTokens[tokenBalanceUpdate.token], "not whitelisted token");
                 
                 IVault vault = tokenVaults[tokenBalanceUpdate.token];
-                require(address(vault) != address(0), "no vault added for this token");
+                if (address(vault) == address(0)) {
+                    revert VaultNotExist();
+                }
 
                 if (tokenBalanceUpdate.lastlyUpdatedPrincipleBalance > 0) {
                     vault.updatePrincipleBalance(userBalanceUpdate.user, tokenBalanceUpdate.lastlyUpdatedPrincipleBalance);
@@ -148,7 +156,9 @@ contract ClientChainGateway is
         require(operator != bytes32(0), "empty operator address");
         
         IVault vault = tokenVaults[token];
-        require(address(vault) != address(0), "no vault added for this token");
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
         _sendInterchainMsg(Action.REQUEST_DELEGATE_TO, actionArgs);
@@ -160,7 +170,9 @@ contract ClientChainGateway is
         require(operator != bytes32(0), "empty operator address");
         
         IVault vault = tokenVaults[token];
-        require(address(vault) != address(0), "no vault added for this token");
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
         _sendInterchainMsg(Action.REQUEST_UNDELEGATE_FROM, actionArgs);
@@ -195,8 +207,17 @@ contract ClientChainGateway is
         emit RequestSent(act, payload);
     }
 
-    function verifyInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) internal view returns(bool isValid) {
-        bytes32 digest = keccak256(abi.encodePacked(_msg.srcChainID, _msg.srcAddress, _msg.dstChainID, _msg.dstAddress, _msg.nonce, _msg.payload));
+    function verifyInterchainMsg(InterchainMsg calldata msg_, bytes calldata signature) internal view returns(bool isValid) {
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                msg_.srcChainID, 
+                msg_.srcAddress, 
+                msg_.dstChainID, 
+                msg_.dstAddress, 
+                msg_.nonce, 
+                msg_.payload
+            )
+        );
         (uint8 v, bytes32 r, bytes32 s) = splitSignature(signature);
         address signer = digest.recover(v, r, s);
         if (signer == ExocoreValidatorSetAddress) {
@@ -238,7 +259,10 @@ contract ClientChainGateway is
         address depositor, 
         uint256 amount, 
         uint256 lastlyUpdatedPrincipleBalance
-    ) public onlyCalledFromThis {
+    ) 
+        public 
+        onlyCalledFromThis 
+    {
         if (success) {
             IVault vault = tokenVaults[token];
             if (address(vault) == address(0)) {
@@ -257,7 +281,10 @@ contract ClientChainGateway is
         address withdrawer, 
         uint256 unlockPrincipleAmount,
         uint256 lastlyUpdatedPrincipleBalance
-    ) public onlyCalledFromThis {
+    ) 
+        public 
+        onlyCalledFromThis 
+    {
         if (success) {
             IVault vault = tokenVaults[token];
             if (address(vault) == address(0)) {
@@ -277,7 +304,10 @@ contract ClientChainGateway is
         address token,
         address delegator,
         uint256 amount
-    ) public onlyCalledFromThis {
+    ) 
+        public 
+        onlyCalledFromThis 
+    {
         emit DelegateResult(success, delegator, operator, token, amount);
     }
 
@@ -287,7 +317,10 @@ contract ClientChainGateway is
         address token,
         address undelegator,
         uint256 amount
-    ) public onlyCalledFromThis {
+    ) 
+        public 
+        onlyCalledFromThis 
+    {
         emit UndelegateResult(success, undelegator, operator, token, amount);
     }
 }

@@ -53,7 +53,7 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
 
             bytes memory actionArgs = abi.encodePacked(success, depositResponse);
             _sendInterchainMsg(srcChainId, Action.REPLY_DEPOSIT, actionArgs);
-        } else if (act == Action.REPLY_DELEGATE_TO) {
+        } else if (act == Action.REQUEST_DELEGATE_TO) {
             bytes memory token = payload[1:33];
             bytes memory operator = payload[33:65];
             bytes memory delegator = payload[65:97];
@@ -66,11 +66,29 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
     }
 
     function _deposit(uint16 srcChainId, bytes memory token, bytes memory depositor, uint256 amount) internal returns(bool, bytes memory) {
-        (bool success, bytes memory depositResponse) = DEPOSIT_PRECOMPILE_ADDRESS.call(abi.encodeWithSignature("deposit(uint16,bytes,bytes,uint256)", srcChainId, token, depositor, amount));
+        (bool success, bytes memory depositResponse) = DEPOSIT_PRECOMPILE_ADDRESS.call(
+            abi.encodeWithSignature(
+                "deposit(uint16,bytes,bytes,uint256)", 
+                srcChainId, 
+                token, 
+                depositor, 
+                amount
+            )
+        );
         return(success, depositResponse);
     }
 
-    function _delegateTo(uint16 srcChainId, uint64 nonce, bytes memory token, bytes memory depositor, bytes memory operator, uint256 amount) internal returns(bool, bytes memory) {
+    function _delegateTo(
+        uint16 srcChainId, 
+        uint64 nonce, 
+        bytes memory token, 
+        bytes memory depositor, 
+        bytes memory operator, 
+        uint256 amount
+    ) 
+        internal 
+        returns(bool, bytes memory) 
+    {
         (bool success, bytes memory delegateToResponse) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSignature(
                 "delegateToThroughClientChain(uint16,uint64,bytes,bytes,bytes,uint256)", 
