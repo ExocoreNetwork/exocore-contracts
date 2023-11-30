@@ -4,7 +4,6 @@ import {IVault} from "../interfaces/IVault.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
 
 contract ClientChainGatewayStorage is GatewayStorage {
-    address payable public ExocoreValidatorSetAddress;
     uint256 lastMessageNonce;
 
     mapping(address => bool) public whitelistTokens;

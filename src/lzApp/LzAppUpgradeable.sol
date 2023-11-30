@@ -22,7 +22,6 @@ abstract contract LzAppUpgradeable is Initializable, OwnableUpgradeable, ILayerZ
     mapping(uint16 => mapping(uint16 => uint)) public minDstGasLookup;
     mapping(uint16 => uint) public payloadSizeLimitLookup;
     address public precrime;
-    address constant DEPOSIT_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000801;
 
     event SetPrecrime(address precrime);
     event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
