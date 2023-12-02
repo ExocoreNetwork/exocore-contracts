@@ -27,12 +27,15 @@ contract ClientChainGateway is
 
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
     event MessageFailed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason);
-    event RequestSent(Action indexed act, bytes payload);
-    error UnAuthorizedSigner();
-    error UnAuthorizedToken();
-    error UnSupportedFunction();
+    event RequestSent(Action indexed act);
+    error UnauthorizedSigner();
+    error UnauthorizedToken();
+    error UnsupportedRequest(Action act);
+    error UnsupportedResponse(Action act); 
+    error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
     error VaultNotExist();
-    error CommandExecutionFailure(Action act, bytes payload, bytes reason);
+    error ActionFailed(Action act, uint64 nonce);
+    error UnexpectedResponse(uint64 nonce);
 
     modifier onlyCalledFromThis() {
         require(msg.sender == address(this), "could only be called from this contract itself with low level call");
@@ -64,17 +67,18 @@ contract ClientChainGateway is
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
 
         whiteListFunctionSelectors[Action.UPDATE_USERS_BALANCES] = this.updateUsersBalances.selector;
-        whiteListFunctionSelectors[Action.REPLY_DEPOSIT] = this.replyDeposit.selector;
-        whiteListFunctionSelectors[Action.REPLY_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.replyWithdrawPrincipleFromExocore.selector;
-        whiteListFunctionSelectors[Action.REPLY_DELEGATE_TO] = this.replyDelegateTo.selector;
-        whiteListFunctionSelectors[Action.REPLY_UNDELEGATE_FROM] = this.replyUndelegateFrom.selector;
+
+        registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
+        registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.afterReceiveWithdrawPrincipleResponse.selector;
+        registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
+        registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
     }
 
     function addTokenVaults(address[] calldata vaults) external onlyOwner {
         for (uint i =0; i < vaults.length; i++) {
             address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
             if (!whitelistTokens[underlyingToken]) {
-                revert UnAuthorizedToken();
+                revert UnauthorizedToken();
             }
             tokenVaults[underlyingToken] = IVault(vaults[i]);
         }
@@ -91,6 +95,9 @@ contract ClientChainGateway is
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
         _sendInterchainMsg(Action.REQUEST_DEPOSIT, actionArgs);
+
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this));
+        registeredRequests[lzNonce] = abi.encode(token, msg.sender, amount);
     }
 
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external {
@@ -104,6 +111,9 @@ contract ClientChainGateway is
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principleAmount);
         _sendInterchainMsg(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs);
+
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this));
+        registeredRequests[lzNonce] = abi.encode(token, msg.sender, principleAmount);
     }
 
     function claim(address token, uint256 amount, address recipient) external {
@@ -162,6 +172,9 @@ contract ClientChainGateway is
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
         _sendInterchainMsg(Action.REQUEST_DELEGATE_TO, actionArgs);
+
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this));
+        registeredRequests[lzNonce] = abi.encode(token, operator, msg.sender, amount);
     }
 
     function undelegateFrom(bytes32 operator, address token, uint256 amount) external {
@@ -176,6 +189,9 @@ contract ClientChainGateway is
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
         _sendInterchainMsg(Action.REQUEST_UNDELEGATE_FROM, actionArgs);
+
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this));
+        registeredRequests[lzNonce] = abi.encode(token, operator, msg.sender, amount);
     }
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external {
@@ -186,7 +202,7 @@ contract ClientChainGateway is
         require(keccak256(_msg.dstAddress) == keccak256(abi.encodePacked(address(this))), "mismatch destination contract address");
         bool isValid = verifyInterchainMsg(_msg, signature);
         if (!isValid) {
-            revert UnAuthorizedSigner();
+            revert UnauthorizedSigner();
         }
         
         Action act = Action(uint8(_msg.payload[0]));
@@ -204,7 +220,7 @@ contract ClientChainGateway is
         bytes memory payload = abi.encodePacked(act, actionArgs);
         (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainID, address(this), payload, false, "");
         _lzSend(ExocoreChainID, payload, ExocoreValidatorSetAddress, address(0), "", lzFee);
-        emit RequestSent(act, payload);
+        emit RequestSent(act);
     }
 
     function verifyInterchainMsg(InterchainMsg calldata msg_, bytes calldata signature) internal view returns(bool isValid) {
@@ -240,29 +256,50 @@ contract ClientChainGateway is
         return (v, r, s);
     }
 
-    function _blockingLzReceive(uint16, bytes memory, uint64, bytes calldata payload) internal virtual override {
+    function _blockingLzReceive(uint16, bytes memory, uint64 nonce, bytes calldata payload) internal virtual override {
         Action act = Action(uint8(payload[0]));
-        bytes4 selector_ = whiteListFunctionSelectors[act];
-        if (selector_ == bytes4(0)) {
-            revert UnSupportedFunction();
-        }
+        if (act == Action.RESPOND) {
+            bytes4 hookSelector = registeredResponseHooks[act];
+            if (hookSelector == bytes4(0)) {
+                revert UnsupportedResponse(act);
+            }
 
-        (bool success, bytes memory reason) = address(this).call(abi.encodePacked(selector_, payload[1:]));
-        if (!success) {
-            revert CommandExecutionFailure(act, payload, reason);
+            uint64 requestLzNonce = uint64(bytes8(payload[1:9]));
+
+            (bool success, bytes memory reason) = address(this).call(
+                abi.encodePacked(
+                    hookSelector, 
+                    abi.encode(requestLzNonce, payload[9:])
+                )
+            );
+            if (!success) {
+                revert RequestOrResponseExecuteFailed(act, nonce, reason);
+            }
+        } else {
+            bytes4 selector_ = whiteListFunctionSelectors[act];
+            if (selector_ == bytes4(0)) {
+                revert UnsupportedRequest(act);
+            }
+
+            (bool success, bytes memory reason) = address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
+            if (!success) {
+                revert RequestOrResponseExecuteFailed(act, nonce, reason);
+            }
         }
     }
 
-    function replyDeposit(
-        bool success, 
-        address token, 
-        address depositor, 
-        uint256 amount, 
-        uint256 lastlyUpdatedPrincipleBalance
-    ) 
+    function afterReceiveDepositResponse(uint64 requestId, bytes calldata responsePayload) 
         public 
         onlyCalledFromThis 
-    {
+    {   
+        bytes memory request = registeredRequests[requestId];
+        if (request.length == 0) {
+            revert UnexpectedResponse(requestId);
+        }
+        (address token, address depositor, uint256 amount) = abi.decode(request, (address,address,uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:]));
         if (success) {
             IVault vault = tokenVaults[token];
             if (address(vault) == address(0)) {
@@ -275,16 +312,18 @@ contract ClientChainGateway is
         emit DepositResult(success, depositor, amount);
     }
 
-    function replyWithdrawPrincipleFromExocore(
-        bool success, 
-        address token, 
-        address withdrawer, 
-        uint256 unlockPrincipleAmount,
-        uint256 lastlyUpdatedPrincipleBalance
-    ) 
+    function afterReceiveWithdrawPrincipleResponse(uint64 requestId, bytes calldata responsePayload) 
         public 
         onlyCalledFromThis 
-    {
+    {   
+        bytes memory request = registeredRequests[requestId];
+        if (request.length == 0) {
+            revert UnexpectedResponse(requestId);
+        }
+        (address token, address withdrawer, uint256 unlockPrincipleAmount) = abi.decode(request, (address,address,uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:33]));
         if (success) {
             IVault vault = tokenVaults[token];
             if (address(vault) == address(0)) {
@@ -298,29 +337,31 @@ contract ClientChainGateway is
         emit WithdrawResult(success, withdrawer, unlockPrincipleAmount);
     }
 
-    function replyDelegateTo(
-        bool success,
-        bytes32 operator,
-        address token,
-        address delegator,
-        uint256 amount
-    ) 
+    function afterReceiveDelegateResponse(uint64 requestId, bytes calldata responsePayload) 
         public 
         onlyCalledFromThis 
-    {
+    {   
+        bytes memory request = registeredRequests[requestId];
+        if (request.length == 0) {
+            revert UnexpectedResponse(requestId);
+        }
+        (address token, bytes32 operator, address delegator, uint256 amount) = abi.decode(request, (address,bytes32,address,uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
         emit DelegateResult(success, delegator, operator, token, amount);
     }
 
-    function replyUndelegateFrom(
-        bool success,
-        bytes32 operator,
-        address token,
-        address undelegator,
-        uint256 amount
-    ) 
+    function afterReceiveUndelegateResponse(uint64 requestId, bytes calldata responsePayload) 
         public 
         onlyCalledFromThis 
     {
+        bytes memory request = registeredRequests[requestId];
+        if (request.length == 0) {
+            revert UnexpectedResponse(requestId);
+        }
+        (address token, bytes32 operator, address undelegator, uint256 amount) = abi.decode(request, (address,bytes32,address,uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
         emit UndelegateResult(success, undelegator, operator, token, amount);
     }
 }

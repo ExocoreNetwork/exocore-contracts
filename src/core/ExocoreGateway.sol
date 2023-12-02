@@ -8,9 +8,9 @@ import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 
 contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
-    error UnSupportedFunction();
-    error CommandExecutionFailure(Action act, bytes payload, bytes reason);
-
+    error UnSupportedRequest(Action act); 
+    error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
+    error PrecompileCallFailed(bytes4 selector_, bytes reason);
     event InterchainMsgReceived(
         uint16 indexed srcChainID,
         bytes indexed srcChainAddress,
@@ -20,6 +20,11 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
 
     modifier onlyLzEndpoint() {
         require(msg.sender == address(lzEndpoint), "only callable for layerzero endpoint");
+        _;
+    }
+
+    modifier onlyCalledFromThis() {
+        require(msg.sender == address(this), "could only be called from this contract itself with low level call");
         _;
     }
 
@@ -33,9 +38,9 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
         _transferOwnership(_ExocoreValidatorSetAddress);
 
-        whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = bytes4(keccak256("deposit(uint16,bytes,bytes,uint256)"));
-        whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = bytes4(keccak256("delegateToThroughClientChain(uint16,uint64,bytes,bytes,bytes,uint256)"));
-        whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = bytes4(keccak256("undelegateFromThroughClientChain(uint16,uint64,bytes,bytes,bytes,uint256)"));
+        whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
+        whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
+        whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
     }
 
     function _blockingLzReceive(uint16 srcChainId, bytes memory srcAddress, uint64 nonce, bytes calldata payload) internal virtual override {
@@ -45,62 +50,86 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
         }
 
         Action act = Action(uint8(payload[0]));
-        if (act == Action.REQUEST_DEPOSIT) {
-            bytes memory token = payload[1:33];
-            bytes memory depositor = payload[33:65];
-            uint256 amount = uint256(bytes32(payload[65:97]));
-            (bool success, bytes memory depositResponse) = _deposit(srcChainId, token, depositor, amount);
+        bytes4 selector_ = whiteListFunctionSelectors[act];
+        if (selector_ == bytes4(0)) {
+            revert UnSupportedRequest(act);
+        }
 
-            bytes memory actionArgs = abi.encodePacked(success, depositResponse);
-            _sendInterchainMsg(srcChainId, Action.REPLY_DEPOSIT, actionArgs);
-        } else if (act == Action.REQUEST_DELEGATE_TO) {
-            bytes memory token = payload[1:33];
-            bytes memory operator = payload[33:65];
-            bytes memory delegator = payload[65:97];
-            uint256 amount = uint256(bytes32(payload[97:129]));
-            (bool success, bytes memory delegateToResponse) = _delegateTo(srcChainId, nonce, token, delegator, operator, amount);
-
-            bytes memory actionArgs = abi.encodePacked(success, delegateToResponse);
-            _sendInterchainMsg(srcChainId, Action.REPLY_DELEGATE_TO, actionArgs);
+        (bool success, bytes memory responseOrReason) = address(this).call(abi.encodePacked(selector_, abi.encode(srcChainId, nonce, payload[1:])));
+        if (!success) {
+            revert RequestExecuteFailed(act, nonce, responseOrReason);
         }
     }
 
-    function _deposit(uint16 srcChainId, bytes memory token, bytes memory depositor, uint256 amount) internal returns(bool, bytes memory) {
-        (bool success, bytes memory depositResponse) = DEPOSIT_PRECOMPILE_ADDRESS.call(
-            abi.encodeWithSignature(
-                "deposit(uint16,bytes,bytes,uint256)", 
+    function requestDeposit(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 
+        public 
+        onlyCalledFromThis 
+    {
+        bytes calldata token = payload[:32];
+        bytes calldata depositor = payload[32:64];
+        uint256 amount = uint256(bytes32(payload[64:96]));
+
+        (bool success, bytes memory responseOrReason) = DEPOSIT_PRECOMPILE_ADDRESS.call(
+            abi.encodeWithSelector(
+                DEPOSIT_FUNCTION_SELECTOR, 
                 srcChainId, 
                 token, 
                 depositor, 
                 amount
             )
         );
-        return(success, depositResponse);
+
+        uint256 lastlyUpdatedPrincipleBalance;
+        if (success) {
+            lastlyUpdatedPrincipleBalance = abi.decode(responseOrReason, (uint256));
+        }
+        _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance));
     }
 
-    function _delegateTo(
-        uint16 srcChainId, 
-        uint64 nonce, 
-        bytes memory token, 
-        bytes memory depositor, 
-        bytes memory operator, 
-        uint256 amount
-    ) 
-        internal 
-        returns(bool, bytes memory) 
+    function requestDelegateTo(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 
+        public 
+        onlyCalledFromThis 
     {
-        (bool success, bytes memory delegateToResponse) = DELEGATION_PRECOMPILE_ADDRESS.call(
-            abi.encodeWithSignature(
-                "delegateToThroughClientChain(uint16,uint64,bytes,bytes,bytes,uint256)", 
+        bytes calldata token = payload[:32];
+        bytes calldata depositor = payload[32:64];
+        bytes calldata operator = payload[64:108];
+        uint256 amount = uint256(bytes32(payload[108:140]));
+
+        (bool success, bytes memory reason) = DELEGATION_PRECOMPILE_ADDRESS.call(
+            abi.encodeWithSelector(
+                DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR, 
                 srcChainId,
-                nonce, 
+                lzNonce, 
                 token, 
                 depositor,
                 operator, 
                 amount
             )
         );
-        return(success, delegateToResponse);
+        _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
+    }
+
+    function requestUndelegateFrom(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 
+        public 
+        onlyCalledFromThis
+    {
+        bytes memory token = payload[1:32];
+        bytes memory depositor = payload[32:64];
+        bytes memory operator = payload[64:108];
+        uint256 amount = uint256(bytes32(payload[108:140]));
+
+        (bool success, bytes memory reason) = DELEGATION_PRECOMPILE_ADDRESS.call(
+            abi.encodeWithSelector(
+                UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR, 
+                srcChainId,
+                lzNonce, 
+                token, 
+                depositor,
+                operator, 
+                amount
+            )
+        );
+        _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
     }
 
     function _sendInterchainMsg(uint16 srcChainId, Action act, bytes memory actionArgs) internal {
