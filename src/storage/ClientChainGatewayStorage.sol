@@ -9,6 +9,7 @@ contract ClientChainGatewayStorage is GatewayStorage {
     mapping(address => bool) public whitelistTokens;
     mapping(address => IVault) public tokenVaults;
     mapping(uint64 => bytes) public registeredRequests;
+    mapping(uint64 => Action) public registeredRequestActions;
     mapping(Action => bytes4) public registeredResponseHooks;
     uint16 public ExocoreChainID;
 

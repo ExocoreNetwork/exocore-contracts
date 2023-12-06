@@ -8,15 +8,11 @@ import "../src/interfaces/IController.sol";
 import "forge-std/console.sol";
 
 contract DepositWithdrawTest is ExocoreDeployer {
-    event InterchainMsgReceived(
-        uint16 indexed srcChainID,
-        bytes indexed srcChainAddress,
-        uint64 indexed nonce,
-        bytes payload
-    );
+    event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
+    event DelegateResult(bool indexed success, address indexed delegator, bytes32 indexed delegatee, address token, uint256 amount);
     event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
     event Transfer(address indexed from, address indexed to, uint256 amount);
-    event RequestSent(GatewayStorage.Action indexed act, uint16 indexed dstChainID, address indexed  dstAddress, bytes payload);
+    event RequestSent(GatewayStorage.Action indexed act);
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
 
     function test_Delegation() public {
@@ -37,35 +33,26 @@ contract DepositWithdrawTest is ExocoreDeployer {
 
         vm.startPrank(depositor.addr);
         deal(address(clientGateway), 1e22);
+        deal(address(exocoreGateway), 1e22);
         restakeToken.approve(address(vault), type(uint256).max);
         uint256 depositAmount = 10000;
-        bytes memory payload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT, 
-            bytes32(bytes20(address(restakeToken))), 
-            bytes32(bytes20(depositor.addr)), 
-            depositAmount
-        );
+
         vm.expectEmit(true, true, false, true);
         emit Transfer(depositor.addr, address(vault), depositAmount);
 
-        // assert that exocoreGateway should receive the message and save the msg as event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit InterchainMsgReceived(clientChainID, abi.encodePacked(bytes20(address(clientGateway))), 1, payload);
+        // assert that exocoreGateway should receive the message and send back the response
+        // client chain gateway should receive the response and emit the coresponding event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit DepositResult(true, address(restakeToken), depositor.addr, depositAmount);
         clientGateway.deposit(address(restakeToken), depositAmount);
 
         // -- delegate workflow -- 
 
         uint256 delegateAmount = 100;
         Player memory operator = players[1];
-        payload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DELEGATE_TO,
-            bytes32(bytes20(address(restakeToken))),
-            bytes32(bytes20(operator.addr)),
-            bytes32(bytes20(depositor.addr)),
-            delegateAmount
-        );
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit InterchainMsgReceived(clientChainID, abi.encodePacked(bytes20(address(clientGateway))), 2, payload);
+        
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit DelegateResult(true, depositor.addr, bytes32(bytes20(operator.addr)), address(restakeToken), delegateAmount);
         clientGateway.delegateTo(bytes32(bytes20(operator.addr)), address(restakeToken), delegateAmount);
     }
 }

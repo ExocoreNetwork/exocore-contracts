@@ -9,6 +9,9 @@ import "../src/core/ExocoreGateway.sol";
 import "@layerzero-contracts/mocks/LZEndpointMock.sol";
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
+import "../src/interfaces/precompiles/IDelegation.sol";
+import "../src/interfaces/precompiles/IDeposit.sol";
+import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 
 contract ExocoreDeployer is Test {
     Player[] players;
@@ -66,9 +69,19 @@ contract ExocoreDeployer is Test {
         clientChainLzEndpoint = new LZEndpointMock(clientChainID);
         exocoreLzEndpoint = new LZEndpointMock(exocoreChainID);
         clientChainLzEndpoint.setDestLzEndpoint(address(exocoreGateway), address(exocoreLzEndpoint));
+        exocoreLzEndpoint.setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));
 
-        clientGateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainID, address(exocoreGateway));
+        clientGateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainID);
         vault.initialize(address(restakeToken), address(clientGateway));
         exocoreGateway.initialize(exocoreValidatorSet.addr, address(exocoreLzEndpoint));
+
+        bytes memory deployedDepositMockCode = vm.getDeployedCode("DepositMock.sol");
+        vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, deployedDepositMockCode);
+
+        bytes memory deployedDelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
+        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, deployedDelegationMockCode);
+
+        bytes memory deployedWithdrawPrincipleMockCode = vm.getDeployedCode("WithdrawPrincipleMock.sol");
+        vm.etch(WITHDRAW_PRINCIPLE_PRECOMPILE_ADDRESS, deployedWithdrawPrincipleMockCode);
     }
 }

@@ -41,6 +41,7 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
         whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
         whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
         whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
+        whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.requestWithdrawPrinciple.selector;
     }
 
     function _blockingLzReceive(uint16 srcChainId, bytes memory srcAddress, uint64 nonce, bytes calldata payload) internal virtual override {
@@ -81,7 +82,32 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
 
         uint256 lastlyUpdatedPrincipleBalance;
         if (success) {
-            lastlyUpdatedPrincipleBalance = abi.decode(responseOrReason, (uint256));
+            (, lastlyUpdatedPrincipleBalance) = abi.decode(responseOrReason, (bool, uint256));
+        }
+        _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance));
+    }
+
+    function requestWithdrawPrinciple(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 
+        public 
+        onlyCalledFromThis 
+    {
+        bytes calldata token = payload[:32];
+        bytes calldata withdrawer = payload[32:64];
+        uint256 amount = uint256(bytes32(payload[64:96]));
+
+        (bool success, bytes memory responseOrReason) = WITHDRAW_PRINCIPLE_PRECOMPILE_ADDRESS.call(
+            abi.encodeWithSelector(
+                WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR, 
+                srcChainId, 
+                token, 
+                withdrawer, 
+                amount
+            )
+        );
+
+        uint256 lastlyUpdatedPrincipleBalance;
+        if (success) {
+            (, lastlyUpdatedPrincipleBalance) = abi.decode(responseOrReason, (bool, uint256));
         }
         _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance));
     }
@@ -92,10 +118,10 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
     {
         bytes calldata token = payload[:32];
         bytes calldata depositor = payload[32:64];
-        bytes calldata operator = payload[64:108];
-        uint256 amount = uint256(bytes32(payload[108:140]));
+        bytes calldata operator = payload[64:96];
+        uint256 amount = uint256(bytes32(payload[96:128]));
 
-        (bool success, bytes memory reason) = DELEGATION_PRECOMPILE_ADDRESS.call(
+        (bool success, ) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
                 DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR, 
                 srcChainId,
@@ -115,10 +141,10 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
     {
         bytes memory token = payload[1:32];
         bytes memory depositor = payload[32:64];
-        bytes memory operator = payload[64:108];
-        uint256 amount = uint256(bytes32(payload[108:140]));
+        bytes memory operator = payload[64:96];
+        uint256 amount = uint256(bytes32(payload[96:128]));
 
-        (bool success, bytes memory reason) = DELEGATION_PRECOMPILE_ADDRESS.call(
+        (bool success, ) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
                 UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR, 
                 srcChainId,

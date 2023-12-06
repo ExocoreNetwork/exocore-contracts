@@ -9,18 +9,14 @@ import "../src/interfaces/ITSSReceiver.sol";
 import "forge-std/console.sol";
 
 contract DepositWithdrawTest is ExocoreDeployer {
-    event InterchainMsgReceived(
-        uint16 indexed srcChainID,
-        bytes indexed srcChainAddress,
-        uint64 indexed nonce,
-        bytes payload
-    );
+    event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
+    event WithdrawResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
     event SetTrustedRemote(uint16 _remoteChainId, bytes _path);
     event Transfer(address indexed from, address indexed to, uint256 amount);
-    event RequestSent(GatewayStorage.Action indexed act, bytes payload);
+    event RequestSent(GatewayStorage.Action indexed act);
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
 
-    function test_DepositWithdraw() public {
+    function test_DepositWithdrawByLayerZero() public {
         // -- deposit workflow test -- 
 
         vm.chainId(clientChainID);
@@ -38,40 +34,36 @@ contract DepositWithdrawTest is ExocoreDeployer {
 
         vm.startPrank(depositor.addr);
         deal(address(clientGateway), 1e22);
+        deal(address(exocoreGateway), 1e22);
         restakeToken.approve(address(vault), type(uint256).max);
         uint256 depositAmount = 10000;
-        bytes memory payload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT, 
-            bytes32(bytes20(address(restakeToken))), 
-            bytes32(bytes20(depositor.addr)), 
-            depositAmount
-        );
         vm.expectEmit(true, true, false, true);
         emit Transfer(depositor.addr, address(vault), depositAmount);
 
-        // assert that exocoreGateway should receive the message and save the msg as event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit InterchainMsgReceived(clientChainID, abi.encodePacked(bytes20(address(clientGateway))), 1, payload);
+        // assert that exocoreGateway should receive the message and send back the response
+        // client chain gateway should receive the response and emit the coresponding event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit DepositResult(true, address(restakeToken), depositor.addr, depositAmount);
         clientGateway.deposit(address(restakeToken), depositAmount);
 
         // -- withdraw workflow -- 
 
         uint256 withdrawAmount = 100;
-        payload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, 
-            bytes32(bytes20(address(restakeToken))), 
-            bytes32(bytes20(depositor.addr)), 
-            withdrawAmount
-        );
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit InterchainMsgReceived(clientChainID, abi.encodePacked(bytes20(address(clientGateway))), 2, payload);
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestSent(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, payload);
-        clientGateway.withdrawPrincipleFromExocore(address(restakeToken), 100);
+        emit WithdrawResult(true, address(restakeToken), depositor.addr, withdrawAmount);
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit RequestSent(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE);
+        clientGateway.withdrawPrincipleFromExocore(address(restakeToken), withdrawAmount);
         vm.stopPrank();
+    }
 
+    function test_TSSReceiver() public {
+        Player memory depositor = players[0];
         Player memory relayer = players[1];
+        uint256 depositAmount = 10000;
+        uint256 withdrawAmount = 100;
+
         vm.startPrank(relayer.addr);
         IController.TokenBalanceUpdateInfo[] memory tokenBalances = new IController.TokenBalanceUpdateInfo[](1);
         tokenBalances[0] = IController.TokenBalanceUpdateInfo({
