@@ -40,41 +40,23 @@ contract DeployScript is Script {
         players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
         players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
 
-        deployer.privateKey = vm.envUint("ANVIL_DEPLOYER_PRIVATE_KEY");
+        deployer.privateKey = vm.envUint("EXOCORE_DEPLOYER_PRIVATE_KEY");
         deployer.addr = vm.addr(deployer.privateKey);
-        exocoreValidatorSet.privateKey = vm.envUint("CLIENT_CHAIN_EXOCORE_VALIDATOR_SET_PRIVATE_KEY");
+        
+        exocoreValidatorSet.privateKey = vm.envUint("EXOCORE_VALIDATOR_SET_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
     }
 
     function run() public {
         vm.startBroadcast(deployer.privateKey);
-
-        restakeToken = new ERC20PresetFixedSupply(
-            "rest",
-            "rest",
-            1e16,
-            exocoreValidatorSet.addr
-        );
-
-        whitelistTokens.push(address(restakeToken));
+        console.log("deployer address:", deployer.addr);
 
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway();
-        clientGateway = ClientChainGateway(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")));
+        ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
+        exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")));
+        exocoreLzEndpoint = new LZEndpointMock(exocoreChainId);
 
-        Vault vaultLogic = new Vault();
-        vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(proxyAdmin), "")));
-
-        clientChainLzEndpoint = new LZEndpointMock(clientChainId);
-
-        clientGateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainId);
-        vault.initialize(address(restakeToken), address(clientGateway));
-
-        vaults.push(address(vault));
-        vm.stopBroadcast();
-        
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        clientGateway.addTokenVaults(vaults);
+        exocoreGateway.initialize(exocoreValidatorSet.addr, address(exocoreLzEndpoint));
     }
 }
