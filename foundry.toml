@@ -2,9 +2,13 @@
 src = "src"
 out = "out"
 libs = ["lib"]
-
-# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
-
 fs_permissions = [{ access = "read", path = "./out"}]
 gas_limit = "18446744073709551615"
 memory_limit = 18446744073709
+evm_version = "paris"
+
+[rpc_endpoints]
+ethereum_local_rpc = "${ETHEREUM_LOCAL_RPC}"
+exocore_local_rpc = "${EXOCORE_LOCAL_RPC}"
+# See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
+
