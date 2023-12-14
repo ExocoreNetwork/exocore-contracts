@@ -52,7 +52,6 @@ contract DeployScript is Script {
         vm.startBroadcast(deployer.privateKey);
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
-        exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")));
         exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
         vm.stopBroadcast();
 

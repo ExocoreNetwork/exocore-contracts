@@ -62,6 +62,7 @@ contract DeployScript is Script {
     }
 
     function run() public {
+        // deploy on client chain via rpc
         uint256 clientChain = vm.createSelectFork(clientChainRPCURL);
 
         vm.startBroadcast(clientChaindeployer.privateKey);
@@ -71,39 +72,62 @@ contract DeployScript is Script {
             1e16,
             exocoreValidatorSet.addr
         );
-        whitelistTokens.push(address(restakeToken));
-        ProxyAdmin proxyAdmin = new ProxyAdmin();
+        
+        ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
         ClientChainGateway clientGatewayLogic = new ClientChainGateway();
-        clientGateway = ClientChainGateway(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")));
+        clientGateway = ClientChainGateway(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(clientChainProxyAdmin), "")));
         Vault vaultLogic = new Vault();
-        vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(proxyAdmin), "")));
+        vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(clientChainProxyAdmin), "")));
         clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);
-        clientGateway.initialize(payable(clientChainExocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainId);
-        vault.initialize(address(restakeToken), address(clientGateway));
-        vaults.push(address(vault));
         vm.stopBroadcast();
 
-        vm.startBroadcast(clientChainExocoreValidatorSet.privateKey);
-        clientGateway.addTokenVaults(vaults);
-        vm.stopBroadcast();
-
+        // deploy on Exocore via rpc
         uint256 exocore = vm.createSelectFork(exocoreRPCURL);
 
         vm.startBroadcast(exocoredeployer.privateKey);
-        proxyAdmin = new ProxyAdmin();
+        ProxyAdmin exocoreProxyAdmin = new ProxyAdmin();
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
-        exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")));
+        exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(exocoreProxyAdmin), "")));
         exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
+        vm.stopBroadcast();
+
+        // initialize exocore contracts
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        exocoreGateway.initialize(exocoreValidatorSet.addr, address(exocoreLzEndpoint));
+        exocoreGateway.setTrustedRemote(clientChainId, abi.encodePacked(address(clientGateway), address(exocoreGateway)));
         NonShortCircuitLzEndpointMock(address(exocoreLzEndpoint)).setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));
         vm.stopBroadcast();
 
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        exocoreGateway.initialize(exocoreValidatorSet.addr, address(exocoreLzEndpoint));
+        vaults.push(address(vault));
+        whitelistTokens.push(address(restakeToken));
+
+        // switch back to client chain and initialize client chain contracts
+        vm.selectFork(clientChain);
+
+        vm.startBroadcast(clientChainExocoreValidatorSet.privateKey);
+        clientGateway.initialize(payable(clientChainExocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainId);
+        clientGateway.setTrustedRemote(exocoreChainId, abi.encodePacked(address(exocoreGateway), address(clientGateway)));
+        vault.initialize(address(restakeToken), address(clientGateway));        
+        NonShortCircuitLzEndpointMock(address(clientChainLzEndpoint)).setDestLzEndpoint(address(exocoreGateway), address(exocoreLzEndpoint));
+        clientGateway.addTokenVaults(vaults);
         vm.stopBroadcast();
 
-        vm.selectFork(clientChain);
-        vm.startBroadcast(clientChaindeployer.privateKey);
-        NonShortCircuitLzEndpointMock(address(clientChainLzEndpoint)).setDestLzEndpoint(address(exocoreGateway), address(exocoreLzEndpoint));
-        vm.stopBroadcast();
+        string memory deployedContracts = "deployedContracts";
+        string memory clientChainContracts = "clientChainContracts";
+        string memory exocoreContracts = "exocoreContracts";
+        vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
+        vm.serializeAddress(clientChainContracts, "clientChainGateway", address(clientGateway));
+        vm.serializeAddress(clientChainContracts, "resVault", address(vault));
+        vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
+        string memory clientChainContractsOutput = vm.serializeAddress(clientChainContracts, "proxyAdmin", address(clientChainProxyAdmin));
+
+        vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
+        vm.serializeAddress(exocoreContracts, "exocoreGateway", address(exocoreGateway));
+        string memory exocoreContractsOutput = vm.serializeAddress(exocoreContracts, "proxyAdmin", address(exocoreProxyAdmin));
+
+        vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);
+        
+        vm.writeJson(finalJson, "script/deployedContracts.json");
     }
 }
