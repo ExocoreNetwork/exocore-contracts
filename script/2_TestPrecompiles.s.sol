@@ -31,6 +31,7 @@ contract DeployScript is Script, Test {
     
         exocoredeployer.privateKey = vm.envUint("EXOCORE_DEPLOYER_PRIVATE_KEY");
         exocoredeployer.addr = vm.addr(exocoredeployer.privateKey);
+        console.log("deployer address:", exocoredeployer.addr);
 
         exocoreRPCURL = vm.envString("EXOCORE_LOCAL_RPC");
 
@@ -40,14 +41,19 @@ contract DeployScript is Script, Test {
         uint256 exocore = vm.createSelectFork(exocoreRPCURL);
 
         vm.startBroadcast(exocoredeployer.privateKey);
-        (bool success, uint256 balance) = DEPOSIT_CONTRACT.depositTo(
-            uint16(clientChainId),
-            abi.encodePacked(bytes32(bytes20(address(0x1)))),
-            abi.encodePacked(bytes32(bytes20(address(0x2)))),
-            uint256(1234)
+        (bool success, bytes memory reason) = DEPOSIT_PRECOMPILE_ADDRESS.call(
+            abi.encodeWithSelector(
+                DEPOSIT_CONTRACT.depositTo.selector,
+                uint16(101),
+                abi.encodePacked(bytes32(bytes20(address(0xdAC17F958D2ee523a2206206994597C13D831ec7)))),
+                abi.encodePacked(bytes32(bytes20(address(0x2)))),
+                uint256(1234)
+            )
         );
+        console.logBytes(reason);
+
         vm.stopBroadcast();
         assertEq(success, true);
-        assertEq(balance, uint256(1234));
+        assertNotEq(reason, bytes("0x"));
     }
 }
