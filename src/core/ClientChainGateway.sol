@@ -13,10 +13,12 @@ import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndp
 import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable";
 
 contract ClientChainGateway is 
     Initializable,
     OwnableUpgradeable,
+    PausableUpgradeable,
     ClientChainGatewayStorage,
     ITSSReceiver,
     IController,
@@ -57,7 +59,6 @@ contract ClientChainGateway is
     {
         require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
         ExocoreValidatorSetAddress = _ExocoreValidatorSetAddress;
-        _transferOwnership(ExocoreValidatorSetAddress);
 
         for (uint i = 0; i < _whitelistTokens.length; i++) {
             whitelistTokens[_whitelistTokens[i]] = true;
@@ -72,9 +73,21 @@ contract ClientChainGateway is
         registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.afterReceiveWithdrawPrincipleResponse.selector;
         registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
         registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
+
+        __Ownable_init(ExocoreValidatorSetAddress);
+        __Pausable_init();
     }
 
-    function addTokenVaults(address[] calldata vaults) external onlyOwner {
+    function pause() external {
+        require(msg.sender == ExocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
+        _pause();
+    }
+
+    function addTokenVaults(address[] calldata vaults) 
+        external 
+        onlyOwner
+        whenNotPaused 
+    {
         for (uint i =0; i < vaults.length; i++) {
             address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
             if (!whitelistTokens[underlyingToken]) {
@@ -84,7 +97,7 @@ contract ClientChainGateway is
         }
     }
 
-    function deposit(address token, uint256 amount) payable external {
+    function deposit(address token, uint256 amount) payable external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         
@@ -101,7 +114,7 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_DEPOSIT, actionArgs);
     }
 
-    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external {
+    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(principleAmount > 0, "amount should be greater than zero");
         
@@ -118,7 +131,7 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs);
     }
 
-    function claim(address token, uint256 amount, address recipient) external {
+    function claim(address token, uint256 amount, address recipient) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         
@@ -130,7 +143,7 @@ contract ClientChainGateway is
         vault.withdraw(msg.sender, recipient, amount);
     }
 
-    function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) public {
+    function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) public whenNotPaused {
         require(msg.sender == address(this), "caller must be client chain gateway itself");
         for (uint i = 0; i < info.length; i++) {
             UserBalanceUpdateInfo memory userBalanceUpdate = info[i];
@@ -162,7 +175,7 @@ contract ClientChainGateway is
         }
     }
 
-    function delegateTo(bytes32 operator, address token, uint256 amount) external {
+    function delegateTo(bytes32 operator, address token, uint256 amount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         require(operator != bytes32(0), "empty operator address");
@@ -180,7 +193,7 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_DELEGATE_TO, actionArgs);
     }
 
-    function undelegateFrom(bytes32 operator, address token, uint256 amount) external {
+    function undelegateFrom(bytes32 operator, address token, uint256 amount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         require(operator != bytes32(0), "empty operator address");
@@ -198,7 +211,7 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_UNDELEGATE_FROM, actionArgs);
     }
 
-    function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external {
+    function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {
         require(_msg.nonce == ++lastMessageNonce, "wrong message nonce");
         require(_msg.srcChainID == ExocoreChainID, "wrong source chain id");
         require(keccak256(_msg.srcAddress) == keccak256(bytes("0x")), "wrong source address");
