@@ -6,7 +6,7 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 
 contract ExocoreGateway is 
     LzAppUpgradeable, 
@@ -47,7 +47,7 @@ contract ExocoreGateway is
         whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
         whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.requestWithdrawPrinciple.selector;
 
-        __Ownable_init(ExocoreValidatorSetAddress);
+        _transferOwnership(ExocoreValidatorSetAddress);
         __Pausable_init();
     }
 

@@ -13,7 +13,7 @@ import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndp
 import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 
 contract ClientChainGateway is 
     Initializable,
@@ -74,7 +74,7 @@ contract ClientChainGateway is
         registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
         registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
 
-        __Ownable_init(ExocoreValidatorSetAddress);
+        _transferOwnership(ExocoreValidatorSetAddress);
         __Pausable_init();
     }
 
