@@ -14,6 +14,7 @@ import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../src/mock/NonShortCircuitLzEndpointMock.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import "../src/interfaces/precompiles/IDeposit.sol";
+import "../src/mock/PrecompileCallerMock.sol";
 
 contract DeployScript is Script, Test {
     Player exocoredeployer;
@@ -34,26 +35,20 @@ contract DeployScript is Script, Test {
         console.log("deployer address:", exocoredeployer.addr);
 
         exocoreRPCURL = vm.envString("EXOCORE_LOCAL_RPC");
-
     }
 
     function run() public {
-        uint256 exocore = vm.createSelectFork(exocoreRPCURL);
+        // uint256 exocore = vm.createSelectFork(exocoreRPCURL);
 
         vm.startBroadcast(exocoredeployer.privateKey);
-        (bool success, bytes memory reason) = DEPOSIT_PRECOMPILE_ADDRESS.call(
-            abi.encodeWithSelector(
-                DEPOSIT_CONTRACT.depositTo.selector,
-                uint16(101),
-                abi.encodePacked(bytes32(bytes20(address(0xdAC17F958D2ee523a2206206994597C13D831ec7)))),
-                abi.encodePacked(bytes32(bytes20(address(0x2)))),
-                uint256(1234)
-            )
-        );
-        console.logBytes(reason);
+        // PrecompileCallerMock caller = new PrecompileCallerMock();
+        // console.log(address(caller));
+        PrecompileCallerMock caller = PrecompileCallerMock(address(0x7445043428567D6A3f60fB12e4832b9446e5FcE6));
+        caller.deposit(uint256(1234));
 
-        vm.stopBroadcast();
-        assertEq(success, true);
-        assertNotEq(reason, bytes("0x"));
+        uint256 balance = caller.balance();
+        bool status = caller.lastDepositStatus();
+        assertEq(balance, uint256(1234));
+        assertEq(status, true);
     }
 }

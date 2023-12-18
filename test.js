@@ -15,6 +15,7 @@ console.log(signer.address);
         data: rawdata
     });
     console.log(tx);
+    await new Promise(resolve => setTimeout(resolve, 3000));
     var receipt = await provider.getTransactionReceipt(tx.hash);
     console.log(receipt);
 })();
