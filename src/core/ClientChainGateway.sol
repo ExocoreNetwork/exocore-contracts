@@ -83,6 +83,11 @@ contract ClientChainGateway is
         _pause();
     }
 
+    function unPause() external {
+        require(msg.sender == ExocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
+        _unpause();
+    }
+
     function addTokenVaults(address[] calldata vaults) 
         external 
         onlyOwner

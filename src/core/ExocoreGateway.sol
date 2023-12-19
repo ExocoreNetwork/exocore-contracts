@@ -51,6 +51,16 @@ contract ExocoreGateway is
         __Pausable_init();
     }
 
+    function pause() external {
+        require(msg.sender == ExocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
+        _pause();
+    }
+
+    function unPause() external {
+        require(msg.sender == ExocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
+        _unpause();
+    }
+
     function _blockingLzReceive(uint16 srcChainId, bytes memory srcAddress, uint64 nonce, bytes calldata payload) 
         internal 
         virtual 
