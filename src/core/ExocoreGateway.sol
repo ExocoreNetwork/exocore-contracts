@@ -47,6 +47,7 @@ contract ExocoreGateway is
         whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
         whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
         whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.requestWithdrawPrinciple.selector;
+        whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
 
         _transferOwnership(ExocoreValidatorSetAddress);
         __Pausable_init();
@@ -133,6 +134,31 @@ contract ExocoreGateway is
             (, lastlyUpdatedPrincipleBalance) = abi.decode(responseOrReason, (bool, uint256));
         }
         _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance));
+    }
+
+    function requestWithdrawReward(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 
+        public 
+        onlyCalledFromThis 
+    {
+        bytes calldata token = payload[:32];
+        bytes calldata withdrawer = payload[32:64];
+        uint256 amount = uint256(bytes32(payload[64:96]));
+
+        (bool success, bytes memory responseOrReason) = CLAIM_REWARD_PRECOMPILE_ADDRESS.call(
+            abi.encodeWithSelector(
+                CLAIM_REWARD_FUNCTION_SELECTOR, 
+                srcChainId, 
+                token, 
+                withdrawer, 
+                amount
+            )
+        );
+
+        uint256 lastlyUpdatedRewardBalance;
+        if (success) {
+            (, lastlyUpdatedRewardBalance) = abi.decode(responseOrReason, (bool, uint256));
+        }
+        _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, lastlyUpdatedRewardBalance));
     }
 
     function requestDelegateTo(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 

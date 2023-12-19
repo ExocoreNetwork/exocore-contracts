@@ -73,6 +73,7 @@ contract ClientChainGateway is
         registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.afterReceiveWithdrawPrincipleResponse.selector;
         registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
         registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
+        registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.afterReceiveWithdrawRewardResponse.selector;
 
         _transferOwnership(ExocoreValidatorSetAddress);
         __Pausable_init();
@@ -134,6 +135,23 @@ contract ClientChainGateway is
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principleAmount);
         _sendInterchainMsg(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs);
+    }
+
+    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external whenNotPaused {
+        require(whitelistTokens[token], "not whitelisted token");
+        require(rewardAmount > 0, "amount should be greater than zero");
+        
+        IVault vault = tokenVaults[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        registeredRequests[lzNonce] = abi.encode(token, msg.sender, rewardAmount);
+        registeredRequestActions[lzNonce] = Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE;
+
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), rewardAmount);
+        _sendInterchainMsg(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, actionArgs);
     }
 
     function claim(address token, uint256 amount, address recipient) external whenNotPaused {
@@ -357,6 +375,27 @@ contract ClientChainGateway is
         }
 
         emit WithdrawResult(success, token, withdrawer, unlockPrincipleAmount);
+    }
+
+    function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload) 
+        public 
+        onlyCalledFromThis 
+    {   
+        (address token, address withdrawer, uint256 unlockRewardAmount) = abi.decode(requestPayload, (address,address,uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        uint256 lastlyUpdatedRewardBalance = uint256(bytes32(responsePayload[1:33]));
+        if (success) {
+            IVault vault = tokenVaults[token];
+            if (address(vault) == address(0)) {
+                revert VaultNotExist();
+            }
+
+            vault.updateRewardBalance(withdrawer, lastlyUpdatedRewardBalance);
+            vault.updateWithdrawableBalance(withdrawer, unlockRewardAmount, 0);
+        }
+
+        emit WithdrawResult(success, token, withdrawer, unlockRewardAmount);
     }
 
     function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload) 

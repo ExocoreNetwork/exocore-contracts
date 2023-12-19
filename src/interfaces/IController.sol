@@ -57,6 +57,8 @@ interface IController {
      */
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external;
 
+    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external;
+
     /**
      * @notice Client chain users call to claim their unlocked assets from the vault.
      * @dev This function assumes that the claimable assets should have been unlocked before calling this.
