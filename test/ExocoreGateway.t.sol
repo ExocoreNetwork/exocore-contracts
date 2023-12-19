@@ -14,7 +14,7 @@ import "../src/interfaces/precompiles/IDeposit.sol";
 import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../src/interfaces/ITSSReceiver.sol";
 
-contract ClientChainGatewayTest is Test {
+contract ExocoreGatewayTest is Test {
     Player[] players;
     Player exocoreValidatorSet;
     Player deployer;
@@ -59,7 +59,7 @@ contract ClientChainGatewayTest is Test {
         exocoreGateway.setTrustedRemote(clientChainID, abi.encodePacked(address(deployer.addr), address(exocoreGateway)));
     }
 
-    function test_PauseClientChainGateway() public {
+    function test_PauseExocoreGateway() public {
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit Paused(exocoreValidatorSet.addr);
         vm.prank(exocoreValidatorSet.addr);
@@ -67,7 +67,7 @@ contract ClientChainGatewayTest is Test {
         assertEq(exocoreGateway.paused(), true);
     }
 
-    function test_UnpauseClientChainGateway() public {
+    function test_UnpauseExocoreGateway() public {
         vm.startPrank(exocoreValidatorSet.addr);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
