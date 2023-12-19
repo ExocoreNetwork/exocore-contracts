@@ -73,7 +73,7 @@ contract ExocoreDeployer is Test {
 
         clientGateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainID);
         vault.initialize(address(restakeToken), address(clientGateway));
-        exocoreGateway.initialize(exocoreValidatorSet.addr, address(exocoreLzEndpoint));
+        exocoreGateway.initialize(payable(exocoreValidatorSet.addr), address(exocoreLzEndpoint));
 
         bytes memory deployedDepositMockCode = vm.getDeployedCode("DepositMock.sol");
         vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, deployedDepositMockCode);

@@ -57,6 +57,6 @@ contract DeployScript is Script {
         exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")));
         exocoreLzEndpoint = new LZEndpointMock(exocoreChainId);
 
-        exocoreGateway.initialize(exocoreValidatorSet.addr, address(exocoreLzEndpoint));
+        exocoreGateway.initialize(payable(exocoreValidatorSet.addr), address(exocoreLzEndpoint));
     }
 }

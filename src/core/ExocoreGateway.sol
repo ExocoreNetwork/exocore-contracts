@@ -37,9 +37,10 @@ contract ExocoreGateway is
         _disableInitializers();
     }
 
-    function initialize(address _ExocoreValidatorSetAddress, address _lzEndpoint) external initializer {
+    function initialize(address payable _ExocoreValidatorSetAddress, address _lzEndpoint) external initializer {
         require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
         require(_lzEndpoint != address(0), "invalid layerzero endpoint address");
+        ExocoreValidatorSetAddress = _ExocoreValidatorSetAddress;
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
 
         whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
@@ -56,7 +57,7 @@ contract ExocoreGateway is
         _pause();
     }
 
-    function unPause() external {
+    function unpause() external {
         require(msg.sender == ExocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
         _unpause();
     }
