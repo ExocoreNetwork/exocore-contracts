@@ -6,8 +6,13 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 
-contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
+contract ExocoreGateway is 
+    LzAppUpgradeable, 
+    ExocoreGatewayStorage,
+    PausableUpgradeable
+{
     error UnSupportedRequest(Action act); 
     error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
@@ -32,19 +37,37 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
         _disableInitializers();
     }
 
-    function initialize(address _ExocoreValidatorSetAddress, address _lzEndpoint) external initializer {
+    function initialize(address payable _ExocoreValidatorSetAddress, address _lzEndpoint) external initializer {
         require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
         require(_lzEndpoint != address(0), "invalid layerzero endpoint address");
+        ExocoreValidatorSetAddress = _ExocoreValidatorSetAddress;
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
-        _transferOwnership(_ExocoreValidatorSetAddress);
 
         whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
         whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
         whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
         whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.requestWithdrawPrinciple.selector;
+
+        _transferOwnership(ExocoreValidatorSetAddress);
+        __Pausable_init();
     }
 
-    function _blockingLzReceive(uint16 srcChainId, bytes memory srcAddress, uint64 nonce, bytes calldata payload) internal virtual override {
+    function pause() external {
+        require(msg.sender == ExocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
+        _pause();
+    }
+
+    function unpause() external {
+        require(msg.sender == ExocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
+        _unpause();
+    }
+
+    function _blockingLzReceive(uint16 srcChainId, bytes memory srcAddress, uint64 nonce, bytes calldata payload) 
+        internal 
+        virtual 
+        override
+        whenNotPaused 
+    {
         address fromAddress;
         assembly {
             fromAddress := mload(add(srcAddress, 20))
@@ -158,7 +181,7 @@ contract ExocoreGateway is LzAppUpgradeable, ExocoreGatewayStorage {
         _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
     }
 
-    function _sendInterchainMsg(uint16 srcChainId, Action act, bytes memory actionArgs) internal {
+    function _sendInterchainMsg(uint16 srcChainId, Action act, bytes memory actionArgs) internal whenNotPaused {
         bytes memory payload = abi.encodePacked(act, actionArgs);
         (uint256 lzFee, ) = lzEndpoint.estimateFees(srcChainId, address(this), payload, false, "");
         _lzSend(srcChainId, payload, ExocoreValidatorSetAddress, address(0), "", lzFee);
