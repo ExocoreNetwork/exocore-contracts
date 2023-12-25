@@ -15,3 +15,7 @@ out/
 
 **/.DS_Store
 node_modules
+
+## Hardhat
+**/artifacts
+**/cache_hardhat
