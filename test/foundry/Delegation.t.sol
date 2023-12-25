@@ -2,9 +2,9 @@ pragma solidity ^0.8.19;
 
 import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
-import "../src/core/ExocoreGateway.sol";
-import "../src/storage/GatewayStorage.sol";
-import "../src/interfaces/IController.sol";
+import "../../src/core/ExocoreGateway.sol";
+import "../../src/storage/GatewayStorage.sol";
+import "../../src/interfaces/IController.sol";
 import "forge-std/console.sol";
 
 contract DepositWithdrawTest is ExocoreDeployer {
