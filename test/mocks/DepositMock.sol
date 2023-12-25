@@ -16,7 +16,7 @@ contract DepositMock is IDeposit {
         returns (bool success,uint256 latestAssetState) 
     {
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
-        WithdrawPrincipleMock(WITHDRAW_PRINCIPLE_PRECOMPILE_ADDRESS).depositTo(clientChainLzId, assetsAddress, stakerAddress, opAmount);
+        WithdrawPrincipleMock(WITHDRAW_PRECOMPILE_ADDRESS).depositTo(clientChainLzId, assetsAddress, stakerAddress, opAmount);
         return (success, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 

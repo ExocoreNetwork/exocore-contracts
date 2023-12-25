@@ -7,10 +7,11 @@ import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../../src/core/ClientChainGateway.sol";
 import "../../src/core/Vault.sol";
 import "../../src/core/ExocoreGateway.sol";
-import "@layerzero-contracts/mocks/LZEndpointMock.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
+import "../../src/mock/NonShortCircuitLzEndpointMock.sol";
+import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 
 contract DeployScript is Script {
     Player[] players;
@@ -24,8 +25,8 @@ contract DeployScript is Script {
     ClientChainGateway clientGateway;
     Vault vault;
     ExocoreGateway exocoreGateway;
-    LZEndpointMock clientChainLzEndpoint;
-    LZEndpointMock exocoreLzEndpoint;
+    ILayerZeroEndpoint clientChainLzEndpoint;
+    ILayerZeroEndpoint exocoreLzEndpoint;
 
     uint16 exocoreChainId = 0;
     uint16 clientChainId = 1;
@@ -49,13 +50,10 @@ contract DeployScript is Script {
 
     function run() public {
         vm.startBroadcast(deployer.privateKey);
-        console.log("deployer address:", deployer.addr);
-
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
-        exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")));
-        exocoreLzEndpoint = new LZEndpointMock(exocoreChainId);
+        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
+        vm.stopBroadcast();
 
         exocoreGateway.initialize(payable(exocoreValidatorSet.addr), address(exocoreLzEndpoint));
     }
