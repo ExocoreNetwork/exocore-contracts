@@ -18,7 +18,7 @@ contract WithdrawPrincipleMock is IWithdraw {
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
     }
 
-    function withdrawTo(
+    function withdrawPrinciple(
         uint16 clientChainLzId,
         bytes memory assetsAddress,
         bytes memory withdrawer,

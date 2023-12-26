@@ -92,7 +92,7 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
     event PayloadCleared(uint16 srcChainId, bytes srcAddress, uint64 nonce, address dstAddress);
     event PayloadStored(uint16 srcChainId, bytes srcAddress, address dstAddress, uint64 nonce, bytes payload, bytes reason);
     event ValueTransferFailed(address indexed to, uint indexed quantity);
-    event Packet(uint16, bytes, address, uint64, uint256, bytes);
+    event Packet(uint16, address, address, uint64, bytes);
 
     constructor(uint16 _chainId) {
         mockChainId = _chainId;
@@ -129,16 +129,18 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
 
         uint64 nonce = ++outboundNonce[_chainId][msg.sender];
 
-        // refund if they send too much
-        uint amount = msg.value - nativeFee;
-        if (amount > 0) {
-            (bool success, ) = _refundAddress.call{value: amount}("");
-            require(success, "LayerZeroMock: failed to refund");
+        {
+            // refund if they send too much
+            uint amount = msg.value - nativeFee;
+            if (amount > 0) {
+                (bool success, ) = _refundAddress.call{value: amount}("");
+                require(success, "LayerZeroMock: failed to refund");
+            }
         }
 
         // Mock the process of receiving msg on dst chain
         // Mock the relayer paying the dstNativeAddr the amount of extra native token
-        (, uint extraGas, uint dstNativeAmt, address payable dstNativeAddr) = LzLib.decodeAdapterParams(adapterParams);
+        (, , uint dstNativeAmt, address payable dstNativeAddr) = LzLib.decodeAdapterParams(adapterParams);
         if (dstNativeAmt > 0) {
             (bool success, ) = dstNativeAddr.call{value: dstNativeAmt}("");
             if (!success) {
@@ -146,9 +148,12 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
             }
         }
 
-        bytes memory srcUaAddress = abi.encodePacked(msg.sender, dstAddr); // cast this address to bytes
         bytes memory payload = _payload;
-        emit Packet(mockChainId, srcUaAddress, dstAddr, nonce, extraGas, payload);
+        _sendMessage(_chainId, msg.sender, dstAddr, nonce, payload);
+    }
+
+    function _sendMessage(uint16 dstChainId, address srcAddress, address dstAddr, uint64 nonce, bytes memory payload) internal {
+        emit Packet(dstChainId, srcAddress, dstAddr, nonce, payload);
     }
 
     function receivePayload(uint16 _srcChainId, bytes calldata _path, address _dstAddress, uint64 _nonce, uint _gasLimit, bytes calldata _payload) external override receiveNonReentrant {

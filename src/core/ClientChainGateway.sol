@@ -52,7 +52,7 @@ contract ClientChainGateway is
         address payable _ExocoreValidatorSetAddress,
         address[] calldata _whitelistTokens,
         address _lzEndpoint,
-        uint16 _ExocoreChainID
+        uint16 _ExocoreChainId
     ) 
         external 
         initializer 
@@ -64,7 +64,7 @@ contract ClientChainGateway is
             whitelistTokens[_whitelistTokens[i]] = true;
         }
 
-        ExocoreChainID = _ExocoreChainID;
+        ExocoreChainId = _ExocoreChainId;
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
 
         whiteListFunctionSelectors[Action.UPDATE_USERS_BALANCES] = this.updateUsersBalances.selector;
@@ -73,6 +73,7 @@ contract ClientChainGateway is
         registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.afterReceiveWithdrawPrincipleResponse.selector;
         registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
         registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
+        registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.afterReceiveWithdrawRewardResponse.selector;
 
         _transferOwnership(ExocoreValidatorSetAddress);
         __Pausable_init();
@@ -111,7 +112,7 @@ contract ClientChainGateway is
 
         vault.deposit(msg.sender, amount);
 
-        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
         registeredRequests[lzNonce] = abi.encode(token, msg.sender, amount);
         registeredRequestActions[lzNonce] = Action.REQUEST_DEPOSIT;
 
@@ -128,12 +129,29 @@ contract ClientChainGateway is
             revert VaultNotExist();
         }
 
-        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
         registeredRequests[lzNonce] = abi.encode(token, msg.sender, principleAmount);
         registeredRequestActions[lzNonce] = Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE;
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principleAmount);
         _sendInterchainMsg(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs);
+    }
+
+    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external whenNotPaused {
+        require(whitelistTokens[token], "not whitelisted token");
+        require(rewardAmount > 0, "amount should be greater than zero");
+        
+        IVault vault = tokenVaults[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
+        registeredRequests[lzNonce] = abi.encode(token, msg.sender, rewardAmount);
+        registeredRequestActions[lzNonce] = Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE;
+
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), rewardAmount);
+        _sendInterchainMsg(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, actionArgs);
     }
 
     function claim(address token, uint256 amount, address recipient) external whenNotPaused {
@@ -180,45 +198,45 @@ contract ClientChainGateway is
         }
     }
 
-    function delegateTo(bytes32 operator, address token, uint256 amount) external whenNotPaused {
+    function delegateTo(string calldata operator, address token, uint256 amount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
-        require(operator != bytes32(0), "empty operator address");
+        require(bytes(operator).length == 44, "invalid bech32 address");
         
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
         }
 
-        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
         registeredRequests[lzNonce] = abi.encode(token, operator, msg.sender, amount);
         registeredRequestActions[lzNonce] = Action.REQUEST_DELEGATE_TO;
 
-        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
         _sendInterchainMsg(Action.REQUEST_DELEGATE_TO, actionArgs);
     }
 
-    function undelegateFrom(bytes32 operator, address token, uint256 amount) external whenNotPaused {
+    function undelegateFrom(string calldata operator, address token, uint256 amount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
-        require(operator != bytes32(0), "empty operator address");
+        require(bytes(operator).length == 44, "invalid bech32 address");
         
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
         }
 
-        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
         registeredRequests[lzNonce] = abi.encode(token, operator, msg.sender, amount);
         registeredRequestActions[lzNonce] = Action.REQUEST_UNDELEGATE_FROM;
 
-        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
         _sendInterchainMsg(Action.REQUEST_UNDELEGATE_FROM, actionArgs);
     }
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {
         require(_msg.nonce == ++lastMessageNonce, "wrong message nonce");
-        require(_msg.srcChainID == ExocoreChainID, "wrong source chain id");
+        require(_msg.srcChainID == ExocoreChainId, "wrong source chain id");
         require(keccak256(_msg.srcAddress) == keccak256(bytes("0x")), "wrong source address");
         require(_msg.dstChainID == block.chainid, "mismatch destination chain id");
         require(keccak256(_msg.dstAddress) == keccak256(abi.encodePacked(address(this))), "mismatch destination contract address");
@@ -240,8 +258,8 @@ contract ClientChainGateway is
 
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainID, address(this), payload, false, "");
-        _lzSend(ExocoreChainID, payload, ExocoreValidatorSetAddress, address(0), "", lzFee);
+        (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainId, address(this), payload, false, "");
+        _lzSend(ExocoreChainId, payload, ExocoreValidatorSetAddress, address(0), "", lzFee);
         emit RequestSent(act);
     }
 
@@ -356,14 +374,35 @@ contract ClientChainGateway is
             vault.updateWithdrawableBalance(withdrawer, unlockPrincipleAmount, 0);
         }
 
-        emit WithdrawResult(success, token, withdrawer, unlockPrincipleAmount);
+        emit WithdrawPrincipleResult(success, token, withdrawer, unlockPrincipleAmount);
+    }
+
+    function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload) 
+        public 
+        onlyCalledFromThis 
+    {   
+        (address token, address withdrawer, uint256 unlockRewardAmount) = abi.decode(requestPayload, (address,address,uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        uint256 lastlyUpdatedRewardBalance = uint256(bytes32(responsePayload[1:33]));
+        if (success) {
+            IVault vault = tokenVaults[token];
+            if (address(vault) == address(0)) {
+                revert VaultNotExist();
+            }
+
+            vault.updateRewardBalance(withdrawer, lastlyUpdatedRewardBalance);
+            vault.updateWithdrawableBalance(withdrawer, 0, unlockRewardAmount);
+        }
+
+        emit WithdrawRewardResult(success, token, withdrawer, unlockRewardAmount);
     }
 
     function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload) 
         public 
         onlyCalledFromThis 
     {   
-        (address token, bytes32 operator, address delegator, uint256 amount) = abi.decode(requestPayload, (address,bytes32,address,uint256));
+        (address token, string memory operator, address delegator, uint256 amount) = abi.decode(requestPayload, (address,string,address,uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 
@@ -374,7 +413,7 @@ contract ClientChainGateway is
         public 
         onlyCalledFromThis 
     {
-        (address token, bytes32 operator, address undelegator, uint256 amount) = abi.decode(requestPayload, (address,bytes32,address,uint256));
+        (address token, string memory operator, address undelegator, uint256 amount) = abi.decode(requestPayload, (address,string,address,uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 

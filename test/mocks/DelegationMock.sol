@@ -4,6 +4,24 @@ import {IDelegation} from "../../src/interfaces/precompiles/IDelegation.sol";
 
 contract DelegationMock is IDelegation {
     mapping(bytes => mapping(bytes => mapping(uint16 => mapping(bytes => uint256)))) delegateTo;
+
+    event DelegateRequestProcessed(
+        uint16 clientChainLzId,
+        uint64 lzNonce,
+        bytes assetsAddress,
+        bytes stakerAddress,
+        string operatorAddr,
+        uint256 opAmount
+    );
+    event UndelegateRequestProcessed(
+        uint16 clientChainLzId,
+        uint64 lzNonce,
+        bytes assetsAddress,
+        bytes stakerAddress,
+        string operatorAddr,
+        uint256 opAmount
+    );
+
     function delegateToThroughClientChain(
         uint16 clientChainLzId,
         uint64 lzNonce,
@@ -16,6 +34,14 @@ contract DelegationMock is IDelegation {
         returns(bool success)
     {
         delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
+        emit DelegateRequestProcessed(
+            clientChainLzId,
+            lzNonce,
+            assetsAddress,
+            stakerAddress,
+            string(operatorAddr),
+            opAmount
+        );
     }
 
     function undelegateFromThroughClientChain(
@@ -31,5 +57,13 @@ contract DelegationMock is IDelegation {
     {
         require(opAmount <= delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress], "amount overflow");
         delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;
+        emit UndelegateRequestProcessed(
+            clientChainLzId,
+            lzNonce,
+            assetsAddress,
+            stakerAddress,
+            string(operatorAddr),
+            opAmount
+        );
     }
 }

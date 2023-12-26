@@ -17,9 +17,10 @@ interface IController {
     }
 
     event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
-    event WithdrawResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
-    event DelegateResult(bool indexed success, address indexed delegator, bytes32 indexed delegatee, address token, uint256 amount);
-    event UndelegateResult(bool indexed success, address indexed undelegator, bytes32 indexed undelegatee, address token, uint256 amount);
+    event WithdrawPrincipleResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
+    event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
+    event DelegateResult(bool indexed success, address indexed delegator, string delegatee, address token, uint256 amount);
+    event UndelegateResult(bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount);
 
     /// *** function signatures for staker operations ***
 
@@ -41,9 +42,9 @@ interface IController {
      * @param token - The address of specific token that the user wants to delegate to.
      * @param amount - The amount of @param token that the user wants to delegate to node operator.
      */
-    function delegateTo(bytes32 operator, address token, uint256 amount) external;
+    function delegateTo(string calldata operator, address token, uint256 amount) external;
 
-    function undelegateFrom(bytes32 operator, address token, uint256 amount) external;
+    function undelegateFrom(string calldata, address token, uint256 amount) external;
 
     /**
      * @notice Client chain users call to withdraw principle from Exocore to client chain before they are granted to withdraw from the vault.
@@ -56,6 +57,8 @@ interface IController {
      * transfer of principle is not possible.
      */
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external;
+
+    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external;
 
     /**
      * @notice Client chain users call to claim their unlocked assets from the vault.

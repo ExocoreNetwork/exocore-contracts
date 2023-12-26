@@ -93,7 +93,7 @@ contract DeployScript is Script {
 
         // initialize exocore contracts
         vm.startBroadcast(exocoreValidatorSet.privateKey);
-        exocoreGateway.initialize(exocoreValidatorSet.addr, address(exocoreLzEndpoint));
+        exocoreGateway.initialize(payable(exocoreValidatorSet.addr), address(exocoreLzEndpoint));
         exocoreGateway.setTrustedRemote(clientChainId, abi.encodePacked(address(clientGateway), address(exocoreGateway)));
         NonShortCircuitLzEndpointMock(address(exocoreLzEndpoint)).setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));
         vm.stopBroadcast();
