@@ -198,10 +198,10 @@ contract ClientChainGateway is
         }
     }
 
-    function delegateTo(bytes32 operator, address token, uint256 amount) external whenNotPaused {
+    function delegateTo(string calldata operator, address token, uint256 amount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
-        require(operator != bytes32(0), "empty operator address");
+        require(bytes(operator).length == 44, "invalid bech32 address");
         
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
@@ -212,14 +212,14 @@ contract ClientChainGateway is
         registeredRequests[lzNonce] = abi.encode(token, operator, msg.sender, amount);
         registeredRequestActions[lzNonce] = Action.REQUEST_DELEGATE_TO;
 
-        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
         _sendInterchainMsg(Action.REQUEST_DELEGATE_TO, actionArgs);
     }
 
-    function undelegateFrom(bytes32 operator, address token, uint256 amount) external whenNotPaused {
+    function undelegateFrom(string calldata operator, address token, uint256 amount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
-        require(operator != bytes32(0), "empty operator address");
+        require(bytes(operator).length == 44, "invalid bech32 address");
         
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
@@ -230,7 +230,7 @@ contract ClientChainGateway is
         registeredRequests[lzNonce] = abi.encode(token, operator, msg.sender, amount);
         registeredRequestActions[lzNonce] = Action.REQUEST_UNDELEGATE_FROM;
 
-        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), operator, bytes32(bytes20(msg.sender)), amount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
         _sendInterchainMsg(Action.REQUEST_UNDELEGATE_FROM, actionArgs);
     }
 
@@ -392,7 +392,7 @@ contract ClientChainGateway is
             }
 
             vault.updateRewardBalance(withdrawer, lastlyUpdatedRewardBalance);
-            vault.updateWithdrawableBalance(withdrawer, unlockRewardAmount, 0);
+            vault.updateWithdrawableBalance(withdrawer, 0, unlockRewardAmount);
         }
 
         emit WithdrawRewardResult(success, token, withdrawer, unlockRewardAmount);
@@ -402,7 +402,7 @@ contract ClientChainGateway is
         public 
         onlyCalledFromThis 
     {   
-        (address token, bytes32 operator, address delegator, uint256 amount) = abi.decode(requestPayload, (address,bytes32,address,uint256));
+        (address token, string memory operator, address delegator, uint256 amount) = abi.decode(requestPayload, (address,string,address,uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 
@@ -413,7 +413,7 @@ contract ClientChainGateway is
         public 
         onlyCalledFromThis 
     {
-        (address token, bytes32 operator, address undelegator, uint256 amount) = abi.decode(requestPayload, (address,bytes32,address,uint256));
+        (address token, string memory operator, address undelegator, uint256 amount) = abi.decode(requestPayload, (address,string,address,uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 

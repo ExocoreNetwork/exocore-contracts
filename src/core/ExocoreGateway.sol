@@ -7,26 +7,25 @@ import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 
 contract ExocoreGateway is 
-    LzAppUpgradeable, 
+    Initializable,
+    OwnableUpgradeable,
+    PausableUpgradeable, 
     ExocoreGatewayStorage,
-    PausableUpgradeable
+    LzAppUpgradeable
 {
-    error UnSupportedRequest(Action act); 
-    error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
-    error PrecompileCallFailed(bytes4 selector_, bytes reason);
+    
     event InterchainMsgReceived(
         uint16 indexed srcChainID,
         bytes indexed srcChainAddress,
         uint64 indexed nonce,
         bytes payload
     );
-
-    modifier onlyLzEndpoint() {
-        require(msg.sender == address(lzEndpoint), "only callable for layerzero endpoint");
-        _;
-    }
+    error UnsupportedRequest(Action act); 
+    error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
+    error PrecompileCallFailed(bytes4 selector_, bytes reason);
 
     modifier onlyCalledFromThis() {
         require(msg.sender == address(this), "could only be called from this contract itself with low level call");
@@ -77,7 +76,7 @@ contract ExocoreGateway is
         Action act = Action(uint8(payload[0]));
         bytes4 selector_ = whiteListFunctionSelectors[act];
         if (selector_ == bytes4(0)) {
-            revert UnSupportedRequest(act);
+            revert UnsupportedRequest(act);
         }
 
         (bool success, bytes memory responseOrReason) = address(this).call(abi.encodePacked(selector_, abi.encode(srcChainId, nonce, payload[1:])));
@@ -166,9 +165,9 @@ contract ExocoreGateway is
         onlyCalledFromThis 
     {
         bytes calldata token = payload[:32];
-        bytes calldata depositor = payload[32:64];
-        bytes calldata operator = payload[64:96];
-        uint256 amount = uint256(bytes32(payload[96:128]));
+        bytes calldata delegator = payload[32:64];
+        bytes calldata operator = payload[64:108];
+        uint256 amount = uint256(bytes32(payload[108:140]));
 
         (bool success, ) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
@@ -176,7 +175,7 @@ contract ExocoreGateway is
                 srcChainId,
                 lzNonce, 
                 token, 
-                depositor,
+                delegator,
                 operator, 
                 amount
             )
@@ -189,9 +188,9 @@ contract ExocoreGateway is
         onlyCalledFromThis
     {
         bytes memory token = payload[1:32];
-        bytes memory depositor = payload[32:64];
-        bytes memory operator = payload[64:96];
-        uint256 amount = uint256(bytes32(payload[96:128]));
+        bytes memory delegator = payload[32:64];
+        bytes memory operator = payload[64:108];
+        uint256 amount = uint256(bytes32(payload[108:140]));
 
         (bool success, ) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
@@ -199,7 +198,7 @@ contract ExocoreGateway is
                 srcChainId,
                 lzNonce, 
                 token, 
-                depositor,
+                delegator,
                 operator, 
                 amount
             )

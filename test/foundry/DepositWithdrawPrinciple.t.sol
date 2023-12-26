@@ -166,7 +166,83 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         Player memory relayer = players[1];
         uint256 depositAmount = 10000;
         uint256 withdrawAmount = 100;
+        uint256 lastlyUpdatedPrincipleBalance;
 
+        vm.startPrank(exocoreValidatorSet.addr);
+        restakeToken.transfer(depositor.addr, 1000000);
+        vm.stopPrank();
+        deal(address(clientGateway), 1e22);
+        deal(address(exocoreGateway), 1e22);
+
+        // -- deposit workflow test -- 
+
+        vm.startPrank(depositor.addr);
+        restakeToken.approve(address(vault), type(uint256).max);
+
+        // first user call client chain gateway to deposit
+
+        // depositor should transfer deposited token to vault
+        vm.expectEmit(true, true, false, true, address(restakeToken));
+        emit Transfer(depositor.addr, address(vault), depositAmount);
+        // client chain layerzero endpoint should emit the message packet including deposit payload.
+        vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
+        bytes memory depositRequestPayload = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_DEPOSIT,
+            bytes32(bytes20(address(restakeToken))), 
+            bytes32(bytes20(depositor.addr)), 
+            depositAmount
+        );
+        emit Packet(
+            exocoreChainId,
+            address(clientGateway),
+            address(exocoreGateway),
+            uint64(1),
+            depositRequestPayload
+        );
+        clientGateway.deposit(address(restakeToken), depositAmount);
+
+        // second layerzero relayers should watch the request message packet and relay the message to destination endpoint
+
+        // exocore gateway should return response message to exocore network layerzero endpoint
+        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
+        lastlyUpdatedPrincipleBalance = depositAmount;
+        bytes memory depositResponsePayload = abi.encodePacked(
+            GatewayStorage.Action.RESPOND,
+            uint64(1), 
+            true,
+            lastlyUpdatedPrincipleBalance
+        );
+        emit Packet(
+            clientChainId,
+            address(exocoreGateway),
+            address(clientGateway),
+            uint64(1),
+            depositResponsePayload
+        );
+        exocoreLzEndpoint.receivePayload(
+            clientChainId,
+            abi.encodePacked(address(clientGateway), address(exocoreGateway)),
+            address(exocoreGateway),
+            uint64(1),
+            DEFAULT_ENDPOINT_CALL_GAS_LIMIT,
+            depositRequestPayload
+        );
+
+        // third layerzero relayers should watch the response message packet and relay the message to source chain endpoint
+
+        // client chain gateway should execute the response hook and emit depositResult event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit DepositResult(true, address(restakeToken), depositor.addr, depositAmount);
+        clientChainLzEndpoint.receivePayload(
+            exocoreChainId,
+            abi.encodePacked(address(exocoreGateway), address(clientGateway)),
+            address(clientGateway),
+            uint64(1),
+            DEFAULT_ENDPOINT_CALL_GAS_LIMIT,
+            depositResponsePayload
+        );
+
+        vm.chainId(clientChainId);
         vm.startPrank(relayer.addr);
         IController.TokenBalanceUpdateInfo[] memory tokenBalances = new IController.TokenBalanceUpdateInfo[](1);
         tokenBalances[0] = IController.TokenBalanceUpdateInfo({

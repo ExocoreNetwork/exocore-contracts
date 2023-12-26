@@ -28,6 +28,7 @@ contract ClientChainGatewayTest is Test {
     LZEndpointMock clientChainLzEndpoint;
     LZEndpointMock exocoreLzEndpoint;
 
+    string operatorAddress = "evmos1v4s6vtjpmxwu9rlhqms5urzrc3tc2ae2gnuqhc";
     uint16 exocoreChainId = 0;
     uint16 clientChainId = 1;
 
@@ -117,7 +118,7 @@ contract ClientChainGatewayTest is Test {
         clientGateway.claim(address(restakeToken), uint256(1), deployer.addr);
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.delegateTo(bytes32(bytes20(deployer.addr)), address(restakeToken), uint256(1));
+        clientGateway.delegateTo(operatorAddress, address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
         clientGateway.deposit(address(restakeToken), uint256(1));
@@ -126,7 +127,7 @@ contract ClientChainGatewayTest is Test {
         clientGateway.withdrawPrincipleFromExocore(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.undelegateFrom(bytes32(bytes20(deployer.addr)), address(restakeToken), uint256(1));
+        clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
         ITSSReceiver.InterchainMsg memory msg_;

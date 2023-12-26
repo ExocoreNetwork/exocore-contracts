@@ -12,6 +12,7 @@ import "forge-std/Test.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
+import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 
 
@@ -123,13 +124,16 @@ contract ExocoreDeployer is Test {
         vm.stopPrank();
 
         // bind precompile mock contracts code to constant precompile address
-        bytes memory deployedDepositMockCode = vm.getDeployedCode("DepositMock.sol");
-        vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, deployedDepositMockCode);
+        bytes memory DepositMockCode = vm.getDeployedCode("DepositMock.sol");
+        vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, DepositMockCode);
 
-        bytes memory deployedDelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
-        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, deployedDelegationMockCode);
+        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
+        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
 
-        bytes memory deployedWithdrawPrincipleMockCode = vm.getDeployedCode("WithdrawPrincipleMock.sol");
-        vm.etch(WITHDRAW_PRECOMPILE_ADDRESS, deployedWithdrawPrincipleMockCode);
+        bytes memory WithdrawPrincipleMockCode = vm.getDeployedCode("WithdrawPrincipleMock.sol");
+        vm.etch(WITHDRAW_PRECOMPILE_ADDRESS, WithdrawPrincipleMockCode);
+
+        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
+        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
     }
 }

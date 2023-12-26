@@ -24,6 +24,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
         deal(address(clientGateway), 1e22);
         deal(address(exocoreGateway), 1e22);
         uint256 withdrawAmount = 1000;
+        vm.startPrank(withdrawer.addr);
 
         // -- withdraw reward workflow -- 
 
