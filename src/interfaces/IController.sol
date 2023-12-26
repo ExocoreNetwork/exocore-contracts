@@ -17,7 +17,8 @@ interface IController {
     }
 
     event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
-    event WithdrawResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
+    event WithdrawPrincipleResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
+    event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
     event DelegateResult(bool indexed success, address indexed delegator, bytes32 indexed delegatee, address token, uint256 amount);
     event UndelegateResult(bool indexed success, address indexed undelegator, bytes32 indexed undelegatee, address token, uint256 amount);
 

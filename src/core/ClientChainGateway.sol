@@ -52,7 +52,7 @@ contract ClientChainGateway is
         address payable _ExocoreValidatorSetAddress,
         address[] calldata _whitelistTokens,
         address _lzEndpoint,
-        uint16 _ExocoreChainID
+        uint16 _ExocoreChainId
     ) 
         external 
         initializer 
@@ -64,7 +64,7 @@ contract ClientChainGateway is
             whitelistTokens[_whitelistTokens[i]] = true;
         }
 
-        ExocoreChainID = _ExocoreChainID;
+        ExocoreChainId = _ExocoreChainId;
         lzEndpoint = ILayerZeroEndpoint(_lzEndpoint);
 
         whiteListFunctionSelectors[Action.UPDATE_USERS_BALANCES] = this.updateUsersBalances.selector;
@@ -112,7 +112,7 @@ contract ClientChainGateway is
 
         vault.deposit(msg.sender, amount);
 
-        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
         registeredRequests[lzNonce] = abi.encode(token, msg.sender, amount);
         registeredRequestActions[lzNonce] = Action.REQUEST_DEPOSIT;
 
@@ -129,7 +129,7 @@ contract ClientChainGateway is
             revert VaultNotExist();
         }
 
-        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
         registeredRequests[lzNonce] = abi.encode(token, msg.sender, principleAmount);
         registeredRequestActions[lzNonce] = Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE;
 
@@ -146,7 +146,7 @@ contract ClientChainGateway is
             revert VaultNotExist();
         }
 
-        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
         registeredRequests[lzNonce] = abi.encode(token, msg.sender, rewardAmount);
         registeredRequestActions[lzNonce] = Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE;
 
@@ -208,7 +208,7 @@ contract ClientChainGateway is
             revert VaultNotExist();
         }
 
-        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
         registeredRequests[lzNonce] = abi.encode(token, operator, msg.sender, amount);
         registeredRequestActions[lzNonce] = Action.REQUEST_DELEGATE_TO;
 
@@ -226,7 +226,7 @@ contract ClientChainGateway is
             revert VaultNotExist();
         }
 
-        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainID, address(this)) + 1;
+        uint64 lzNonce = lzEndpoint.getOutboundNonce(ExocoreChainId, address(this)) + 1;
         registeredRequests[lzNonce] = abi.encode(token, operator, msg.sender, amount);
         registeredRequestActions[lzNonce] = Action.REQUEST_UNDELEGATE_FROM;
 
@@ -236,7 +236,7 @@ contract ClientChainGateway is
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {
         require(_msg.nonce == ++lastMessageNonce, "wrong message nonce");
-        require(_msg.srcChainID == ExocoreChainID, "wrong source chain id");
+        require(_msg.srcChainID == ExocoreChainId, "wrong source chain id");
         require(keccak256(_msg.srcAddress) == keccak256(bytes("0x")), "wrong source address");
         require(_msg.dstChainID == block.chainid, "mismatch destination chain id");
         require(keccak256(_msg.dstAddress) == keccak256(abi.encodePacked(address(this))), "mismatch destination contract address");
@@ -258,8 +258,8 @@ contract ClientChainGateway is
 
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainID, address(this), payload, false, "");
-        _lzSend(ExocoreChainID, payload, ExocoreValidatorSetAddress, address(0), "", lzFee);
+        (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainId, address(this), payload, false, "");
+        _lzSend(ExocoreChainId, payload, ExocoreValidatorSetAddress, address(0), "", lzFee);
         emit RequestSent(act);
     }
 
@@ -374,7 +374,7 @@ contract ClientChainGateway is
             vault.updateWithdrawableBalance(withdrawer, unlockPrincipleAmount, 0);
         }
 
-        emit WithdrawResult(success, token, withdrawer, unlockPrincipleAmount);
+        emit WithdrawPrincipleResult(success, token, withdrawer, unlockPrincipleAmount);
     }
 
     function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload) 
@@ -395,7 +395,7 @@ contract ClientChainGateway is
             vault.updateWithdrawableBalance(withdrawer, unlockRewardAmount, 0);
         }
 
-        emit WithdrawResult(success, token, withdrawer, unlockRewardAmount);
+        emit WithdrawRewardResult(success, token, withdrawer, unlockRewardAmount);
     }
 
     function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload) 

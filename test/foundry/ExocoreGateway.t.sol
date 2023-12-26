@@ -3,16 +3,16 @@ pragma solidity ^0.8.19;
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "../src/core/ClientChainGateway.sol";
-import "../src/core/Vault.sol";
-import "../src/core/ExocoreGateway.sol";
+import "../../src/core/ClientChainGateway.sol";
+import "../../src/core/Vault.sol";
+import "../../src/core/ExocoreGateway.sol";
 import "@layerzero-contracts/mocks/LZEndpointMock.sol";
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
-import "../src/interfaces/precompiles/IDelegation.sol";
-import "../src/interfaces/precompiles/IDeposit.sol";
-import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../src/interfaces/ITSSReceiver.sol";
+import "../../src/interfaces/precompiles/IDelegation.sol";
+import "../../src/interfaces/precompiles/IDeposit.sol";
+import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
+import "../../src/interfaces/ITSSReceiver.sol";
 
 contract ExocoreGatewayTest is Test {
     Player[] players;
@@ -22,8 +22,8 @@ contract ExocoreGatewayTest is Test {
     ExocoreGateway exocoreGateway;
     LZEndpointMock exocoreLzEndpoint;
 
-    uint16 exocoreChainID = 0;
-    uint16 clientChainID = 1;
+    uint16 exocoreChainId = 0;
+    uint16 clientChainId = 1;
 
     struct Player {
         uint256 privateKey;
@@ -50,13 +50,13 @@ contract ExocoreGatewayTest is Test {
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
         exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")));
 
-        exocoreLzEndpoint = new LZEndpointMock(exocoreChainID);
+        exocoreLzEndpoint = new LZEndpointMock(exocoreChainId);
 
         exocoreGateway.initialize(payable(exocoreValidatorSet.addr), address(exocoreLzEndpoint));
         vm.stopPrank();
 
         vm.prank(exocoreValidatorSet.addr);
-        exocoreGateway.setTrustedRemote(clientChainID, abi.encodePacked(address(deployer.addr), address(exocoreGateway)));
+        exocoreGateway.setTrustedRemote(clientChainId, abi.encodePacked(address(deployer.addr), address(exocoreGateway)));
     }
 
     function test_PauseExocoreGateway() public {
@@ -94,7 +94,7 @@ contract ExocoreGatewayTest is Test {
         vm.prank(address(exocoreLzEndpoint));
         vm.expectRevert("Pausable: paused");
         exocoreGateway.lzReceive(
-            clientChainID, 
+            clientChainId, 
             abi.encodePacked(address(deployer.addr), address(exocoreGateway)), 
             uint64(1), 
             bytes("")
