@@ -1,4 +1,4 @@
-pragma solidity >=0.8.17 .0;
+pragma solidity >=0.8.17;
 
 /// @dev The claimReward contract's address.
 address constant CLAIM_REWARD_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000806;
