@@ -13,18 +13,11 @@ contract DeployScript is Script {
     function setUp() public {
         deployer.privateKey = vm.envUint("EXOCORE_DEPLOYER_PRIVATE_KEY");
         deployer.addr = vm.addr(deployer.privateKey);
-        
-        exocoreValidatorSet.privateKey = vm.envUint("EXOCORE_VALIDATOR_SET_PRIVATE_KEY");
-        exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
     }
 
     function run() public {
         vm.startBroadcast(deployer.privateKey);
-        ProxyAdmin proxyAdmin = new ProxyAdmin();
-        ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
-        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
+        Faucet faucet = new Faucet();
         vm.stopBroadcast();
-
-        exocoreGateway.initialize(payable(exocoreValidatorSet.addr), address(exocoreLzEndpoint));
     }
 }
