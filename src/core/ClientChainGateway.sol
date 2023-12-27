@@ -15,6 +15,12 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 
+/**
+ * @title The upgradeable gateway deployed on client chain, owned by Exocore validator set
+ * @author Exocore Team
+ * @notice This contract is used for user interacting with Exocore system, so it not only manages the token vaults
+ * but also works as the portal to communicate with Exocore network.
+ */
 contract ClientChainGateway is 
     Initializable,
     OwnableUpgradeable,
@@ -39,15 +45,22 @@ contract ClientChainGateway is
     error ActionFailed(Action act, uint64 nonce);
     error UnexpectedResponse(uint64 nonce);
 
+    /// @notice This ensures that the functions could only be called by the contract instance itself with low level calls
     modifier onlyCalledFromThis() {
         require(msg.sender == address(this), "could only be called from this contract itself with low level call");
         _;
     }
 
+    /// @notice All initializers should be disabled to avoid the implementation contract being initialized
     constructor() {
         _disableInitializers();
     }
 
+    /**
+     * @notice This function should be delegately called by the proxy contract to initialize the proxy contract state
+     * @notice `_ExocoreChainId` should be the chain identifier maintained by layerzero instead of Exocore network's `chainid`
+     * @notice `ExocoreValidatorSetAddress` would be be owner of this contract after initialization
+     */
     function initialize(
         address payable _ExocoreValidatorSetAddress,
         address[] calldata _whitelistTokens,
@@ -79,16 +92,27 @@ contract ClientChainGateway is
         __Pausable_init();
     }
 
+    /**
+     * @notice This function is used for pausing the gateway contract and stop all important operations in case for emergency
+     * @notice Only Exocore validator set aggregated public key address could pause the contract
+     */
     function pause() external {
         require(msg.sender == ExocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
         _pause();
     }
 
+    /**
+     * @notice This function is used for unpausing the gateway contract and activate all operations after fixing emerency
+     * @notice Only Exocore validator set aggregated public key address could unpause the contract
+     */
     function unpause() external {
         require(msg.sender == ExocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
         _unpause();
     }
 
+    /**
+     * @notice Contract owner could call to add token vaults, which should be whitelisted before being added
+     */
     function addTokenVaults(address[] calldata vaults) 
         external 
         onlyOwner
@@ -103,6 +127,10 @@ contract ClientChainGateway is
         }
     }
 
+    /**
+     * @notice Deposit tokens to Exocore system by locking tokens in corresponding vaults
+     * @dev Deposit would send request to Exocore network and a corresponding hook would be executed to signal the status
+     */
     function deposit(address token, uint256 amount) payable external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
@@ -120,6 +148,10 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_DEPOSIT, actionArgs);
     }
 
+    /**
+     * @notice Withdraw user's principle from Exocore network and unlcok the corresponding amount in the token vault,
+     * so that user could later claim unlocked tokens from the vault
+     */
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(principleAmount > 0, "amount should be greater than zero");
@@ -137,6 +169,10 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs);
     }
 
+    /**
+     * @notice Withdraw user's reward from Exocore network and unlcok the corresponding amount in the token vault,
+     * so that user could later claim unlocked tokens from the vault 
+     */
     function withdrawRewardFromExocore(address token, uint256 rewardAmount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(rewardAmount > 0, "amount should be greater than zero");
@@ -154,6 +190,9 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, actionArgs);
     }
 
+    /**
+     * @notice Claim tokens withdrawn from Exocore network 
+     */
     function claim(address token, uint256 amount, address recipient) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
@@ -166,8 +205,16 @@ contract ClientChainGateway is
         vault.withdraw(msg.sender, recipient, amount);
     }
 
-    function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) public whenNotPaused {
-        require(msg.sender == address(this), "caller must be client chain gateway itself");
+    /**
+     * @notice Update users principle/reward/withdrawable balance in token vaults
+     * @dev Only Exocore network validator set aggregated public key address could call this function to 
+     * push balance changes to client chain when slashing/rewarding or other events happened
+     */
+    function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) 
+        public 
+        onlyCalledFromThis
+        whenNotPaused 
+    {
         for (uint i = 0; i < info.length; i++) {
             UserBalanceUpdateInfo memory userBalanceUpdate = info[i];
             for (uint j = 0; j < userBalanceUpdate.tokenBalances.length; j++) {
@@ -198,6 +245,9 @@ contract ClientChainGateway is
         }
     }
 
+    /**
+     * @notice Delegate deposited and undelegated tokens to specific node operator to earn staking rewards
+     */
     function delegateTo(string calldata operator, address token, uint256 amount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
@@ -216,6 +266,9 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_DELEGATE_TO, actionArgs);
     }
 
+    /**
+     * @notice Undelegate from specific node operator before withdrawing, re-delegate or other activities
+     */
     function undelegateFrom(string calldata operator, address token, uint256 amount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
@@ -234,6 +287,9 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_UNDELEGATE_FROM, actionArgs);
     }
 
+    /**
+     * Receive interchain message signed by Exocore validator set aggregated private key and execute accordingly
+     */
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {
         require(_msg.nonce == ++lastMessageNonce, "wrong message nonce");
         require(_msg.srcChainID == ExocoreChainId, "wrong source chain id");
