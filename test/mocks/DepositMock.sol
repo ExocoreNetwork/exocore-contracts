@@ -14,7 +14,9 @@ contract DepositMock is IDeposit {
     ) 
         external 
         returns (bool success,uint256 latestAssetState) 
-    {
+    {   
+        require(assetsAddress.length == 32, "invalid asset address");
+        require(stakerAddress.length == 32, "invalid staker address");
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
         WithdrawPrincipleMock(WITHDRAW_PRECOMPILE_ADDRESS).depositTo(clientChainLzId, assetsAddress, stakerAddress, opAmount);
         return (success, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);

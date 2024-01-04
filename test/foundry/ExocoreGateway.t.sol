@@ -48,7 +48,7 @@ contract ExocoreGatewayTest is Test {
 
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
-        exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")));
+        exocoreGateway = ExocoreGateway(payable(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), ""))));
 
         exocoreLzEndpoint = new LZEndpointMock(exocoreChainId);
 

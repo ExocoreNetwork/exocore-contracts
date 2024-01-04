@@ -36,6 +36,8 @@ contract ExocoreGateway is
         _disableInitializers();
     }
 
+    receive() external payable {}
+
     function initialize(address payable _ExocoreValidatorSetAddress, address _lzEndpoint) external initializer {
         require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
         require(_lzEndpoint != address(0), "invalid layerzero endpoint address");
@@ -209,6 +211,6 @@ contract ExocoreGateway is
     function _sendInterchainMsg(uint16 srcChainId, Action act, bytes memory actionArgs) internal whenNotPaused {
         bytes memory payload = abi.encodePacked(act, actionArgs);
         (uint256 lzFee, ) = lzEndpoint.estimateFees(srcChainId, address(this), payload, false, "");
-        _lzSend(srcChainId, payload, ExocoreValidatorSetAddress, address(0), "", lzFee);
+        _lzSend(srcChainId, payload, payable(address(this)), address(0), "", lzFee);
     }
 }
