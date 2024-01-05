@@ -42,9 +42,9 @@ interface IController {
      * @param token - The address of specific token that the user wants to delegate to.
      * @param amount - The amount of @param token that the user wants to delegate to node operator.
      */
-    function delegateTo(string calldata operator, address token, uint256 amount) external;
+    function delegateTo(string calldata operator, address token, uint256 amount) external payable;
 
-    function undelegateFrom(string calldata, address token, uint256 amount) external;
+    function undelegateFrom(string calldata, address token, uint256 amount) external payable;
 
     /**
      * @notice Client chain users call to withdraw principle from Exocore to client chain before they are granted to withdraw from the vault.
@@ -56,9 +56,9 @@ interface IController {
      * we suppose that After deposit, its amount could only remain unchanged or decrease owing to slashing, which means that direct
      * transfer of principle is not possible.
      */
-    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external;
+    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external payable;
 
-    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external;
+    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
 
     /**
      * @notice Client chain users call to claim their unlocked assets from the vault.

@@ -10,7 +10,7 @@ import "../../src/core/ExocoreGateway.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../../src/mock/NonShortCircuitLzEndpointMock.sol";
+import "../../test/mocks/NonShortCircuitLzEndpointMock.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 
 contract DeployScript is Script {
@@ -43,7 +43,7 @@ contract DeployScript is Script {
 
         deployer.privateKey = vm.envUint("ANVIL_DEPLOYER_PRIVATE_KEY");
         deployer.addr = vm.addr(deployer.privateKey);
-        exocoreValidatorSet.privateKey = vm.envUint("CLIENT_CHAIN_EXOCORE_VALIDATOR_SET_PRIVATE_KEY");
+        exocoreValidatorSet.privateKey = vm.envUint("LOCAL_CLIENT_CHAIN_EXOCORE_VALIDATOR_SET_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
     }
 

@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../../src/core/ClientChainGateway.sol";
 import "../../src/core/Vault.sol";
 import "../../src/core/ExocoreGateway.sol";
-import "../../src/mock/NonShortCircuitLzEndpointMock.sol";
+import "../mocks/NonShortCircuitLzEndpointMock.sol";
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
@@ -96,14 +96,15 @@ contract ExocoreDeployer is Test {
         // deploy Exocore network contracts
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
         exocoreGateway = ExocoreGateway(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(exocoreGatewayLogic),
-                    address(proxyAdmin), 
-                    abi.encodeWithSelector(
-                        exocoreGatewayLogic.initialize.selector,
-                        payable(exocoreValidatorSet.addr),
-                        address(exocoreLzEndpoint)
+            payable(address(
+                    new TransparentUpgradeableProxy(
+                        address(exocoreGatewayLogic),
+                        address(proxyAdmin), 
+                        abi.encodeWithSelector(
+                            exocoreGatewayLogic.initialize.selector,
+                            payable(exocoreValidatorSet.addr),
+                            address(exocoreLzEndpoint)
+                        )
                     )
                 )
             )

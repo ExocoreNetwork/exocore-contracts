@@ -33,6 +33,7 @@ async function deployFixture() {
     await gatewayProxyContract.waitForDeployment();
     const gatewayContract = gatewayLogicContract.attach(gatewayProxyContract.target);
     console.log("finish deploying gateway proxy contract");
+    console.log("gateway contract address:", gatewayProxyContract.target);
 
     return {
         lzEndpointMockContract,

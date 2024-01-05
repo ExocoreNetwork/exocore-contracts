@@ -10,15 +10,14 @@ import "../src/core/ExocoreGateway.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
 import "../src/interfaces/precompiles/IDeposit.sol";
 import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../src/mock/NonShortCircuitLzEndpointMock.sol";
+import "../test/mocks/NonShortCircuitLzEndpointMock.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 
 contract DeployScript is Script {
     Player[] players;
-    Player clientChainExocoreValidatorSet;
-    Player clientChaindeployer;
+    Player clientChainDeployer;
     Player exocoreValidatorSet;
-    Player exocoredeployer;
+    Player exocoreDeployer;
 
     string clientChainRPCURL;
     string exocoreRPCURL;
@@ -34,7 +33,7 @@ contract DeployScript is Script {
     ILayerZeroEndpoint exocoreLzEndpoint;
 
     uint16 exocoreChainId = 0;
-    uint16 clientChainId = 1;
+    uint16 clientChainId = 101;
 
     struct Player {
         uint256 privateKey;
@@ -42,74 +41,111 @@ contract DeployScript is Script {
     }
     
     function setUp() public {
-        players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
-        players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
-        players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
+        clientChainDeployer.privateKey = vm.envUint("ANVIL_DEPLOYER_PRIVATE_KEY");
+        clientChainDeployer.addr = vm.addr(clientChainDeployer.privateKey);
 
-        clientChaindeployer.privateKey = vm.envUint("ANVIL_DEPLOYER_PRIVATE_KEY");
-        clientChaindeployer.addr = vm.addr(clientChaindeployer.privateKey);
-        clientChainExocoreValidatorSet.privateKey = vm.envUint("CLIENT_CHAIN_EXOCORE_VALIDATOR_SET_PRIVATE_KEY");
-        clientChainExocoreValidatorSet.addr = vm.addr(clientChainExocoreValidatorSet.privateKey);
-
-        exocoredeployer.privateKey = vm.envUint("EXOCORE_DEPLOYER_PRIVATE_KEY");
-        exocoredeployer.addr = vm.addr(exocoredeployer.privateKey);
+        exocoreDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
+        exocoreDeployer.addr = vm.addr(exocoreDeployer.privateKey);
         
-        exocoreValidatorSet.privateKey = vm.envUint("EXOCORE_VALIDATOR_SET_PRIVATE_KEY");
+        exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
 
         clientChainRPCURL = vm.envString("ETHEREUM_LOCAL_RPC");
-        exocoreRPCURL = vm.envString("EXOCORE_LOCAL_RPC");
+        exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
     }
 
     function run() public {
         // deploy on client chain via rpc
         uint256 clientChain = vm.createSelectFork(clientChainRPCURL);
-
-        vm.startBroadcast(clientChaindeployer.privateKey);
+        vm.startBroadcast(clientChainDeployer.privateKey);
+        payable(exocoreValidatorSet.addr).transfer(10 ether);
+        // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
         restakeToken = new ERC20PresetFixedSupply(
             "rest",
             "rest",
             1e16,
             exocoreValidatorSet.addr
         );
-        
-        ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway();
-        clientGateway = ClientChainGateway(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(clientChainProxyAdmin), "")));
-        Vault vaultLogic = new Vault();
-        vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(clientChainProxyAdmin), "")));
         clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);
+        // deploy and initialize client chain contracts
+        ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
+        whitelistTokens.push(address(restakeToken));
+        ClientChainGateway clientGatewayLogic = new ClientChainGateway();
+        clientGateway = ClientChainGateway(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(clientGatewayLogic), 
+                    address(clientChainProxyAdmin), 
+                    abi.encodeWithSelector(
+                        clientGatewayLogic.initialize.selector,
+                        payable(exocoreValidatorSet.addr),
+                        whitelistTokens,
+                        address(clientChainLzEndpoint),
+                        exocoreChainId
+                    )
+                )
+            )
+        );
+        Vault vaultLogic = new Vault();
+        vault = Vault(
+            address(
+                new TransparentUpgradeableProxy(
+                    address(vaultLogic), 
+                    address(clientChainProxyAdmin),
+                    abi.encodeWithSelector(
+                        vaultLogic.initialize.selector,
+                        address(restakeToken),
+                        address(clientGateway)
+                    )
+                )
+            )
+        );
         vm.stopBroadcast();
 
         // deploy on Exocore via rpc
         uint256 exocore = vm.createSelectFork(exocoreRPCURL);
-
-        vm.startBroadcast(exocoredeployer.privateKey);
+        vm.startBroadcast(exocoreDeployer.privateKey);
+        // prepare outside contracts like layerzero endpoint contract
+        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
+        // deploy Exocore network contracts
         ProxyAdmin exocoreProxyAdmin = new ProxyAdmin();
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
-        exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(exocoreProxyAdmin), "")));
-        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
+        exocoreGateway = ExocoreGateway(
+            payable(address(
+                    new TransparentUpgradeableProxy(
+                        address(exocoreGatewayLogic),
+                        address(exocoreProxyAdmin), 
+                        abi.encodeWithSelector(
+                            exocoreGatewayLogic.initialize.selector,
+                            payable(exocoreValidatorSet.addr),
+                            address(exocoreLzEndpoint)
+                        )
+                    )
+                )
+            )
+        );
         vm.stopBroadcast();
 
-        // initialize exocore contracts
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        exocoreGateway.initialize(payable(exocoreValidatorSet.addr), address(exocoreLzEndpoint));
-        exocoreGateway.setTrustedRemote(clientChainId, abi.encodePacked(address(clientGateway), address(exocoreGateway)));
-        NonShortCircuitLzEndpointMock(address(exocoreLzEndpoint)).setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));
-        vm.stopBroadcast();
-
-        vaults.push(address(vault));
-        whitelistTokens.push(address(restakeToken));
-
-        // switch back to client chain and initialize client chain contracts
+        // setup client chain contracts state
         vm.selectFork(clientChain);
-
-        vm.startBroadcast(clientChainExocoreValidatorSet.privateKey);
-        clientGateway.initialize(payable(clientChainExocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainId);
-        clientGateway.setTrustedRemote(exocoreChainId, abi.encodePacked(address(exocoreGateway), address(clientGateway)));
-        vault.initialize(address(restakeToken), address(clientGateway));        
+        // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        // set the destination endpoint for corresponding destinations in endpoint mock
         NonShortCircuitLzEndpointMock(address(clientChainLzEndpoint)).setDestLzEndpoint(address(exocoreGateway), address(exocoreLzEndpoint));
+        // add token vaults to gateway
+        vaults.push(address(vault));
         clientGateway.addTokenVaults(vaults);
+        // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive messages
+        clientGateway.setTrustedRemote(exocoreChainId, abi.encodePacked(address(exocoreGateway), address(clientGateway)));
+        vm.stopBroadcast();
+
+        // setup Exocore testnet contracts state
+        vm.selectFork(exocore);
+        // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        // set the destination endpoint for corresponding destinations in endpoint mock
+        NonShortCircuitLzEndpointMock(address(exocoreLzEndpoint)).setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));        
+        exocoreGateway.setTrustedRemote(clientChainId, abi.encodePacked(address(clientGateway), address(exocoreGateway)));
         vm.stopBroadcast();
 
         string memory deployedContracts = "deployedContracts";

@@ -27,6 +27,8 @@ contract WithdrawPrincipleMock is IWithdraw {
         external 
         returns (bool success,uint256 latestAssetState) 
     {   
+        require(assetsAddress.length == 32, "invalid asset address");
+        require(withdrawer.length == 32, "invalid staker address");
         require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
         principleBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
         DepositMock(DEPOSIT_PRECOMPILE_ADDRESS).withdrawPrinciple(clientChainLzId, assetsAddress, withdrawer, opAmount);

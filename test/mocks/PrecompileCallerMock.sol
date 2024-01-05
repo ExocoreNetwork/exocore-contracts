@@ -1,6 +1,6 @@
 pragma solidity ^0.8.19;
 
-import "../interfaces/precompiles/IDeposit.sol";
+import "../../src/interfaces/precompiles/IDeposit.sol";
 
 contract PrecompileCallerMock {
     uint256 public balance;

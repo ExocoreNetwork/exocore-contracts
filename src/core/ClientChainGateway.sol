@@ -103,7 +103,7 @@ contract ClientChainGateway is
         }
     }
 
-    function deposit(address token, uint256 amount) payable external whenNotPaused {
+    function deposit(address token, uint256 amount) external payable whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         
@@ -120,7 +120,7 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_DEPOSIT, actionArgs);
     }
 
-    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external whenNotPaused {
+    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external payable whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(principleAmount > 0, "amount should be greater than zero");
         
@@ -137,7 +137,7 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs);
     }
 
-    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external whenNotPaused {
+    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(rewardAmount > 0, "amount should be greater than zero");
         
@@ -198,7 +198,7 @@ contract ClientChainGateway is
         }
     }
 
-    function delegateTo(string calldata operator, address token, uint256 amount) external whenNotPaused {
+    function delegateTo(string calldata operator, address token, uint256 amount) external payable whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         require(bytes(operator).length == 44, "invalid bech32 address");
@@ -216,7 +216,7 @@ contract ClientChainGateway is
         _sendInterchainMsg(Action.REQUEST_DELEGATE_TO, actionArgs);
     }
 
-    function undelegateFrom(string calldata operator, address token, uint256 amount) external whenNotPaused {
+    function undelegateFrom(string calldata operator, address token, uint256 amount) external payable whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         require(bytes(operator).length == 44, "invalid bech32 address");
@@ -259,7 +259,7 @@ contract ClientChainGateway is
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(act, actionArgs);
         (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainId, address(this), payload, false, "");
-        _lzSend(ExocoreChainId, payload, ExocoreValidatorSetAddress, address(0), "", lzFee);
+        _lzSend(ExocoreChainId, payload, payable(address(this)), address(0), "", lzFee);
         emit RequestSent(act);
     }
 
