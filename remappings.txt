@@ -3,3 +3,4 @@ forge-std/=lib/forge-std/src/
 @layerzero-contracts/=lib/solidity-examples/contracts/
 @openzeppelin/=lib/openzeppelin-contracts/
 @openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/
+@eigenlayer-middleware/=lib/eigenlayer-middleware

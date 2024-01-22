@@ -16,21 +16,28 @@ interface IBLS {
     /// @dev verify BLS aggregated signature against aggregated public key
     /// @param msg_ the message that is signed
     /// @param signature the aggregated signature
-    /// @param pubKey the aggregated public key
+    /// @param pubkey the aggregated public key
     function verify(
         bytes32 msg_,
         bytes calldata signature,
-        bytes calldata pubKey
+        bytes calldata pubkey
     ) external pure returns (bool valid);
 
     /// @dev verify BLS aggregated signature against public keys
     /// @param msg_ the message that is signed
     /// @param signature the aggregated signature
-    /// @param pubKeys the aggregated public key
+    /// @param pubkeys the aggregated public key
     function fastAggregateVerify(
         bytes32 msg_,
         bytes calldata signature,
-        bytes[] calldata pubKeys
+        bytes[] calldata pubkeys
     ) external pure returns (bool valid);
+
+    function generatePrivateKey() external pure returns (bytes memory privkey);
+    function publicKey(bytes calldata privkey) external pure returns (bytes memory pubkey);
+    function sign(bytes calldata privkey, bytes32 msg_) external pure returns (bytes memory signature);
+    function aggregatePubkeys(bytes[] calldata pubkeys) external pure returns (bytes memory pubkey);
+    function aggregateSignatures(bytes[] calldata sigs) external pure returns (bytes memory sig);
+    function addTwoPubkeys(bytes calldata pubkey1, bytes calldata pubkey2) external pure returns (bytes memory newPubkey);
 }
 
