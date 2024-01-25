@@ -23,15 +23,15 @@ contract BLS12381Caller {
     } 
 
     function aggregatePubkeysPure(bytes[] calldata pubkeys) external view returns (bytes memory aggPubkey) {
-        for (uint8 i; i < pubkeys.length; i++) {
-            require(pubkeys[i].length == 48, "invalid public key length");
-        }
+        // for (uint8 i; i < pubkeys.length; i++) {
+        //     require(pubkeys[i].length == 48, "invalid public key length");
+        // }
         (bool success, bytes memory data) = BLS_PRECOMPILE_ADDRESS.staticcall(abi.encodeWithSelector(
             BLS_CONTRACT.aggregatePubkeys.selector,
             pubkeys
         ));
-        require(success, "failed to call bls precompile");
-        require(data.length != 0, "empty return data");
+        // require(success, "failed to call bls precompile");
+        // require(data.length != 0, "empty return data");
         aggPubkey = abi.decode(data, (bytes));
     } 
 
@@ -87,8 +87,8 @@ contract BLS12381Caller {
             sig,
             pubkeys
         ));
-        require(success, "failed to call bls precompile");
-        require(data.length != 0, "empty return data");
+        // require(success, "failed to call bls precompile");
+        // require(data.length != 0, "empty return data");
         valid = abi.decode(data, (bool));
     }
 }
