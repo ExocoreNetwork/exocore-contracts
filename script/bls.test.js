@@ -70,7 +70,7 @@ console.log(signer.address);
     const blsCallerTemplate = await ethers.getContractFactory("BLS12381Caller");
     const blsCaller = await blsCallerTemplate.connect(signer).deploy();
     await blsCaller.waitForDeployment();
-    console.log("BLS caller contract address", blsCaller.target);
+    // console.log("BLS caller contract address", blsCaller.target);
 
     const agg_pubkeys_tx = await blsCaller.aggregatePubkeys(pubkeys);
     // var gas = await provider.estimateGas({
