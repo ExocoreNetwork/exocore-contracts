@@ -34,16 +34,13 @@ async function readKeysFromFile() {
             BigInt(jsonData.apkG2[3])
         ]
     };
-    // console.log("apkG2", apkG2)
 
     msg = Buffer.from(jsonData.msg, 'hex');
-    // console.log("msg: ", msg)
 
     sigma = {
         X: BigInt(jsonData.sigma[0]), 
         Y: BigInt(jsonData.sigma[1])
     }
-    // console.log("sigma: ", sigma)
 
     // Iterate over key pairs
     for (const key in jsonData.pubkeys) {
@@ -54,7 +51,6 @@ async function readKeysFromFile() {
 
       pubkeys.push(pubkey);
 
-    //   console.log("pubkey:", pubkey)
     }
   } catch (error) {
     console.error('Error reading keys from file:', error);
@@ -71,10 +67,7 @@ async function readKeysFromFile() {
             value: ethers.parseEther('100.0'),
             data: "0x"
         });
-        // console.log("transfer tx: ", transfer_tx);
         await new Promise(resolve => setTimeout(resolve, 5000));
-        // var transfer_tx_receipt = await provider.getTransactionReceipt(transfer_tx.hash);
-        // console.log("transfer tx receipt:", transfer_tx_receipt);
         console.log("test account one balance:", ethers.formatEther(balance));
     }
 
@@ -82,23 +75,6 @@ async function readKeysFromFile() {
     const bn254Caller = await bn254CallerTemplate.connect(signer).deploy();
     await bn254Caller.waitForDeployment();
     console.log("BN254 caller contract address", bn254Caller.target);
-
-    // var sli = [];
-    // sli[0] = {
-    //     X: BigInt(13555814479934889599112388987672606386712509658558063457129754098335199913140), 
-    //     Y: BigInt(16292187093937128991592377425107368795379599081914461646412822674855318863795)
-    // }
-    // sli[1] = {
-    //     X: BigInt(19889110207503694262791024509487907356825893878939760687116967029883160557374), 
-    //     Y: BigInt(1028511241727538358185561476133425746157478703257737457879413838777938441615)
-    // }
-    // var rawData = bn254Caller.interface.encodeFunctionData(
-    //     "aggregatePubkeysPure",
-    //     [
-    //         sli
-    //     ]
-    // );
-    // console.log("encoded data:", rawData);
     
     for (let i = 0; i < 10; i++) {
         var apk = await provider.call({
