@@ -105,17 +105,23 @@ contract BN254Script is Script {
         BN254.G1Point[] memory sli = new BN254.G1Point[](2);
         sli[0] = pubkeys[0];
         sli[1] = pubkeys[1];
-        bytes memory data = abi.encodeWithSelector(BN254Caller.aggregatePubkeysPure.selector, sli);
+        bytes memory data = abi.encodeWithSelector(
+            BN254Caller.fastAggregateVerifyPure.selector,
+            msgHash,
+            pubkeys,
+            aggSignerApkG2,
+            sigma
+        );
         console.log(data.length);
         console.logBytes(data);
-        console.log("pubkey1:", pubkeys[0].X, pubkeys[0].Y);
-        console.log("pubkey2:", pubkeys[1].X, pubkeys[1].Y);
+        // console.log("pubkey1:", pubkeys[0].X, pubkeys[0].Y);
+        // console.log("pubkey2:", pubkeys[1].X, pubkeys[1].Y);
 
         vm.selectFork(exocore);
         vm.startBroadcast(exocoreDeployer.privateKey);
 
-        BN254Caller bn254Caller = new BN254Caller();
-        console.log("caller contract address:", address(bn254Caller));
+        // BN254Caller bn254Caller = new BN254Caller();
+        // console.log("caller contract address:", address(bn254Caller));
         // BN254.G1Point memory apk = bn254Caller.aggregatePubkeysPure(pubkeys);
         // bool valid = bn254Caller.fastAggregateVerifyPure(
         //     msgHash,
@@ -123,8 +129,8 @@ contract BN254Script is Script {
         //     aggSignerApkG2,
         //     sigma
         // );
-        (bool success, bytes memory ret) = address(bn254Caller).call(data);
-        console.log("success:", success);
+        // (bool success, bytes memory ret) = address(bn254Caller).call(data);
+        // console.log("success:", success);
         // console.log("aggregated pubkey:", apk.X, apk.Y);
         // console.log("verification valid:", valid);
     }
