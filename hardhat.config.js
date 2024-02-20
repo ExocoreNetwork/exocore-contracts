@@ -21,8 +21,8 @@ module.exports = {
       chainId: 9000,
       url: "http://23.162.56.84:8545",
       accounts: [
-        process.env.EXOCORE_DEPLOYER_PRIVATE_KEY,
-        process.env.EXOCORE_VALIDATOR_SET_PRIVATE_KEY
+        // process.env.EXOCORE_DEPLOYER_PRIVATE_KEY,
+        // process.env.EXOCORE_VALIDATOR_SET_PRIVATE_KEY
       ]
     }
   }
