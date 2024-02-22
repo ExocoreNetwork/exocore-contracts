@@ -7,6 +7,7 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
+import {ValidatorContainer} from "../libraries/ValidatorContainer.sol",
 
 contract ExoCapsule is 
     Initializable,
@@ -18,6 +19,8 @@ contract ExoCapsule is
     using BeaconChainProofs for bytes;
 
     IETHPOSDeposit public immutable ethPOS;
+
+    error InvalidValidatorContainer();
 
     constructor(IETHPOSDeposit _ethPOS) {
         ethPOS = _ethPOS;
@@ -49,18 +52,16 @@ contract ExoCapsule is
     }
 
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable {
-        
+        require(msg.value == 32 ether, "stake value must be exactly 32 ether");
+        ethPOS.deposit{value: 32 ether}(pubkey, _capsuleWithdrawalCredentials(), signature, depositDataRoot);
+        emit StakedWithThisCapsule();
     }
 
     function deposit(
-        uint64 beaconBlockTimestamp,
-        bytes32 beaconStateRoot,
-        bytes[] calldata beaconStateRootProof,
-        bytes32[][] calldata validatorFields,
-        uint40[] calldata validatorProofIndices,
-        bytes[] calldata validatorFieldsProof
+        bytes32[] validatorContainer,
+        ValidatorContainerProof proof
     ) external {
-
+        if (validatorContainer)
     }
 
     function updateStakeBalance(
@@ -83,5 +84,15 @@ contract ExoCapsule is
         bytes[] calldata withdrawalFieldsProof
     ) external {
 
+    }
+
+    function _capsuleWithdrawalCredentials() internal view returns (bytes memory) {
+        /**
+         * The withdrawal_credentials field must be such that:
+         * withdrawal_credentials[:1] == ETH1_ADDRESS_WITHDRAWAL_PREFIX
+         * withdrawal_credentials[1:12] == b'\x00' * 11
+         * withdrawal_credentials[12:] == eth1_withdrawal_address
+         */
+        return abi.encodePacked(bytes1(uint8(1)), bytes11(0), address(this));
     }
 }

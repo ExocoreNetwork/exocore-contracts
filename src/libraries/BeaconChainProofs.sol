@@ -133,6 +133,58 @@ library BeaconChainProofs {
         bytes proof;
     }
 
+    function verifyValidatorContainerRoot(
+        bytes32 validatorContainerRoot,
+        bytes32[] calldata validatorContainerRootProof,
+        uint256 validatorContainerRootIndex,
+        bytes32 beaconBlockRoot,
+        bytes32 stateRoot,
+        bytes32[] calldata stateRootProof
+    ) internal pure returns (bool valid) {
+        bool validStateRoot = verifyStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
+        bool validVCRootAgainstStateRoot = verifyVCRootAgainstStateRoot(validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorContainerRootIndex);
+        if (validStateRoot && validVCRootAgainstStateRoot) {
+            valid = true;
+        }
+    }
+
+    function verifyStateRoot(
+        bytes32 stateRoot,
+        bytes32 beaconBlockRoot,
+        bytes32[] calldata stateRootProof
+    ) internal pure returns (bool) {
+        require(
+            stateRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT,
+            "state root proof should have 3 nodes"
+        );
+
+        return Merkle.verifyInclusionSha256({
+            proof: stateRootProof,
+            root: beaconBlockRoot,
+            leaf: stateRoot,
+            index: STATE_ROOT_INDEX
+        });
+    }
+
+    function verifyVCRootAgainstStateRoot(
+        bytes32 validatorContainerRoot,
+        bytes32 stateRoot,
+        bytes32[] calldata validatorContainerRootProof,
+        uint256 validatorContainerRootIndex
+    ) internal pure returns (bool) {
+        require(
+            validatorContainerRootProof.length == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT,
+            "validator container root proof should have 46 nodes"
+        );
+
+        return Merkle.verifyInclusionSha256({
+            proof: validatorContainerRootProof,
+            root: stateRoot,
+            leaf: validatorContainerRoot,
+            index: validatorContainerRootIndex
+        });
+    }
+
     /**
      * @notice This function verifies merkle proofs of the fields of a certain validator against a beacon chain state root
      * @param validatorIndex the index of the proven validator
