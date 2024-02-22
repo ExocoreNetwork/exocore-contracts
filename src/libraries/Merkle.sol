@@ -86,7 +86,7 @@ library Merkle {
      * Note this is for a Merkle tree using the sha256 hash function
      */
     function verifyInclusionSha256(
-        bytes memory proof,
+        bytes32[] memory proof,
         bytes32 root,
         bytes32 leaf,
         uint256 index
@@ -105,12 +105,12 @@ library Merkle {
      * Note this is for a Merkle tree using the sha256 hash function
      */
     function processInclusionProofSha256(
-        bytes memory proof,
+        bytes32[] memory proof,
         bytes32 leaf,
         uint256 index
     ) internal view returns (bytes32) {
         require(
-            proof.length != 0 && proof.length % 32 == 0,
+            proof.length != 0,
             "Merkle.processInclusionProofSha256: proof length should be a non-zero multiple of 32"
         );
         bytes32[1] memory computedHash = [leaf];
