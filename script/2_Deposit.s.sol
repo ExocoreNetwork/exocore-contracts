@@ -14,6 +14,7 @@ import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../test/mocks/NonShortCircuitLzEndpointMock.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import "../src/storage/GatewayStorage.sol";
+import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
 contract DeployScript is Script {
     Player[] players;
@@ -21,6 +22,7 @@ contract DeployScript is Script {
     Player clientChainDeployer;
     Player exocoreDeployer;
     Player relayer;
+    Player exocoreValidatorSet;
 
     string clientChainRPCURL;
     string exocoreRPCURL;
@@ -38,6 +40,7 @@ contract DeployScript is Script {
     uint256 clientChain;
     uint256 exocore;
     uint constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
+    uint256 constant DEPOSIT_AMOUNT = 10000;
 
     struct Player {
         uint256 privateKey;
@@ -45,25 +48,31 @@ contract DeployScript is Script {
     }
     
     function setUp() public {
-        clientChainDeployer.privateKey = vm.envUint("ANVIL_DEPLOYER_PRIVATE_KEY");
+        clientChainDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
         clientChainDeployer.addr = vm.addr(clientChainDeployer.privateKey);
 
-        exocoreDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
+        exocoreDeployer.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
         exocoreDeployer.addr = vm.addr(exocoreDeployer.privateKey);
+
+        exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
+        exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
         
-        depositor.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
+        depositor.privateKey = vm.envUint("TEST_ACCOUNT_FOUR_PRIVATE_KEY");
         depositor.addr = vm.addr(depositor.privateKey);
 
-        relayer.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
+        relayer.privateKey = vm.envUint("TEST_ACCOUNT_FOUR_PRIVATE_KEY");
         relayer.addr = vm.addr(relayer.privateKey);
 
-        clientChainRPCURL = vm.envString("ETHEREUM_LOCAL_RPC");
+        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
-        clientGateway = ClientChainGateway(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway"));
+        clientGateway = ClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
         clientChainLzEndpoint = ILayerZeroEndpoint(stdJson.readAddress(deployedContracts, ".clientChain.lzEndpoint"));
+        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(deployedContracts, ".clientChain.erc20Token"));
+        vault = Vault(stdJson.readAddress(deployedContracts, ".clientChain.resVault"));
+
         exocoreGateway = ExocoreGateway(payable(stdJson.readAddress(deployedContracts, ".exocore.exocoreGateway")));
         exocoreLzEndpoint = ILayerZeroEndpoint(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
 
@@ -83,29 +92,50 @@ contract DeployScript is Script {
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
         vm.startBroadcast(clientChainDeployer.privateKey);
-        if (depositor.addr.balance < 1 ether) {
-            payable(depositor.addr).transfer(1 ether);
+        if (depositor.addr.balance < 0.02 ether) {
+            (bool sent, ) = depositor.addr.call{value: 0.02 ether}("");
+            require(sent, "Failed to send Ether");
         }
-        if (relayer.addr.balance < 1 ether) {
-            payable(relayer.addr).transfer(1 ether);
+        if (address(clientGateway).balance < 0.02 ether) {
+            (bool sent, ) = address(clientGateway).call{value: 0.02 ether}("");
+            require(sent, "Failed to send Ether");
+        }
+        if (exocoreValidatorSet.addr.balance < 0.02 ether) {
+            (bool sent, ) = exocoreValidatorSet.addr.call{value: 0.02 ether}("");
+            require(sent, "Failed to send Ether");
+        }
+        vm.stopBroadcast();
+
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        if (restakeToken.balanceOf(depositor.addr) < DEPOSIT_AMOUNT) {
+            restakeToken.transfer(depositor.addr, DEPOSIT_AMOUNT);
         }
         vm.stopBroadcast();
 
         exocore = vm.createSelectFork(exocoreRPCURL);
         vm.startBroadcast(exocoreDeployer.privateKey);
-        if (depositor.addr.balance < 1 ether) {
-            payable(depositor.addr).transfer(1 ether);
+        if (depositor.addr.balance < 0.02 ether) {
+            (bool sent, ) = depositor.addr.call{value: 0.02 ether}("");
+            require(sent, "Failed to send Ether");
         }
-        if (relayer.addr.balance < 1 ether) {
-            payable(relayer.addr).transfer(1 ether);
+        if (relayer.addr.balance < 0.02 ether) {
+            (bool sent, ) = relayer.addr.call{value: 0.02 ether}("");
+            require(sent, "Failed to send Ether");
         }
-        if (address(exocoreGateway).balance < 1 ether) {
-            address(exocoreGateway).call{value: 1 ether}("");
+        if (address(exocoreGateway).balance < 0.02 ether) {
+            (bool sent, ) = address(exocoreGateway).call{value: 0.02 ether}("");
+            require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();
     }
 
     function run() public {
+        vm.selectFork(clientChain);
+        vm.startBroadcast(depositor.privateKey);
+        restakeToken.approve(address(vault), type(uint256).max);
+        clientGateway.deposit(address(restakeToken), DEPOSIT_AMOUNT);
+        vm.stopBroadcast();
+
         vm.selectFork(exocore);
         vm.startBroadcast(relayer.privateKey);
         bytes memory payload = abi.encodePacked(

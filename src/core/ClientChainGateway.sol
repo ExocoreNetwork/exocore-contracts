@@ -48,6 +48,8 @@ contract ClientChainGateway is
         _disableInitializers();
     }
 
+    receive() external payable {}
+
     function initialize(
         address payable _ExocoreValidatorSetAddress,
         address[] calldata _whitelistTokens,
@@ -259,6 +261,14 @@ contract ClientChainGateway is
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(act, actionArgs);
         (uint256 lzFee, ) = lzEndpoint.estimateFees(ExocoreChainId, address(this), payload, false, "");
+        
+        /**
+         * we should check msg.value equal to relayFee here:
+         * if (msg.value != lzFee) {
+         *     revert UnexpectedRelayFee();
+         * }
+         */
+
         _lzSend(ExocoreChainId, payload, payable(address(this)), address(0), "", lzFee);
         emit RequestSent(act);
     }

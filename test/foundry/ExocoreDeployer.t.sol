@@ -63,16 +63,17 @@ contract ExocoreDeployer is Test {
         whitelistTokens.push(address(restakeToken));
         ClientChainGateway clientGatewayLogic = new ClientChainGateway();
         clientGateway = ClientChainGateway(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(clientGatewayLogic), 
-                    address(proxyAdmin), 
-                    abi.encodeWithSelector(
-                        clientGatewayLogic.initialize.selector,
-                        payable(exocoreValidatorSet.addr),
-                        whitelistTokens,
-                        address(clientChainLzEndpoint),
-                        exocoreChainId
+            payable(address(
+                    new TransparentUpgradeableProxy(
+                        address(clientGatewayLogic), 
+                        address(proxyAdmin), 
+                        abi.encodeWithSelector(
+                            clientGatewayLogic.initialize.selector,
+                            payable(exocoreValidatorSet.addr),
+                            whitelistTokens,
+                            address(clientChainLzEndpoint),
+                            exocoreChainId
+                        )
                     )
                 )
             )

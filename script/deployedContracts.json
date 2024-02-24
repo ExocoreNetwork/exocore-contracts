@@ -1,14 +1,14 @@
 {
   "clientChain": {
-    "clientChainGateway": "0x4b6aB5F819A515382B0dEB6935D793817bB4af28",
-    "erc20Token": "0x720472c8ce72c2A2D711333e064ABD3E6BbEAdd3",
-    "lzEndpoint": "0xe8D2A1E88c91DCd5433208d4152Cc4F399a7e91d",
-    "proxyAdmin": "0x5067457698Fd6Fa1C6964e416b3f42713513B3dD",
-    "resVault": "0xD5ac451B0c50B9476107823Af206eD814a2e2580"
+    "clientChainGateway": "0xF74ebB6772D74C92F39a5ef188166d7E664203fA",
+    "erc20Token": "0xDec7f9AddcC4F4A087313BB06062AeC1676EA09C",
+    "lzEndpoint": "0xB0BA365DA5DB34A00882Ac976f287b9fa98F2584",
+    "proxyAdmin": "0x00486175f0E82ef26022C308FfE43753c4045FF3",
+    "resVault": "0x990393B80F429193A404D3f4e2B2Ce4C9Cffc19D"
   },
   "exocore": {
-    "exocoreGateway": "0x4C4A26DF565Df6aBf64aaF8a092B4e193FB68e9F",
-    "lzEndpoint": "0xDeB51f64f4A3d76a7729cbB226377820cBfe2360",
-    "proxyAdmin": "0x255e9bB02348b473c4a07C64bA868d3Eb1b63c07"
+    "exocoreGateway": "0x14fF02ED174A1928e129e641f70C39aF2dbB32BA",
+    "lzEndpoint": "0x85c36cf2ed55f3274577eDc383daEba14D62D4ae",
+    "proxyAdmin": "0x2983e2dE0D13E86d1c2Cb6eF5d748e2b21fB8075"
   }
 }

@@ -18,6 +18,7 @@ contract DeployScript is Script {
     Player clientChainDeployer;
     Player exocoreValidatorSet;
     Player exocoreDeployer;
+    Player exocoreGenesis;
 
     string clientChainRPCURL;
     string exocoreRPCURL;
@@ -35,30 +36,60 @@ contract DeployScript is Script {
     uint16 exocoreChainId = 0;
     uint16 clientChainId = 101;
 
+    uint256 clientChain;
+    uint256 exocore;
+
     struct Player {
         uint256 privateKey;
         address addr;
     }
     
     function setUp() public {
-        clientChainDeployer.privateKey = vm.envUint("ANVIL_DEPLOYER_PRIVATE_KEY");
+        clientChainDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
         clientChainDeployer.addr = vm.addr(clientChainDeployer.privateKey);
 
-        exocoreDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
+        exocoreDeployer.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
         exocoreDeployer.addr = vm.addr(exocoreDeployer.privateKey);
         
-        exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
+        exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
 
-        clientChainRPCURL = vm.envString("ETHEREUM_LOCAL_RPC");
+        exocoreGenesis.privateKey = vm.envUint("EXOCORE_GENESIS_PRIVATE_KEY");
+        exocoreGenesis.addr = vm.addr(exocoreGenesis.privateKey);
+
+        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
+        
+        // transfer some gas fee to exocore validator set address
+        clientChain = vm.createSelectFork(clientChainRPCURL);
+        vm.startBroadcast(clientChainDeployer.privateKey);
+        if (exocoreValidatorSet.addr.balance < 0.1 ether) {
+            (bool sent, ) = exocoreValidatorSet.addr.call{value: 0.1 ether}("");
+            require(sent, "Failed to send Ether");
+        }
+        vm.stopBroadcast();
+        console.log("client chain deployer balance:", clientChainDeployer.addr.balance);
+        console.log("client chain exocore validator set balance", exocoreValidatorSet.addr.balance);
+
+        exocore = vm.createSelectFork(exocoreRPCURL);
+        vm.startBroadcast(exocoreGenesis.privateKey);
+        if (exocoreDeployer.addr.balance < 1 ether) {
+            (bool sent, ) = exocoreDeployer.addr.call{value: 1 ether}("");
+            require(sent, "Failed to send Ether");
+        }
+        if (exocoreValidatorSet.addr.balance < 1 ether) {
+            (bool sent, ) = exocoreValidatorSet.addr.call{value: 1 ether}("");
+            require(sent, "Failed to send Ether");
+        }
+        vm.stopBroadcast();
+        console.log("exocore deployer balance:", exocoreDeployer.addr.balance);
+        console.log("exocore validator set balance", exocoreValidatorSet.addr.balance);
     }
 
     function run() public {
         // deploy on client chain via rpc
-        uint256 clientChain = vm.createSelectFork(clientChainRPCURL);
+        vm.selectFork(clientChain);
         vm.startBroadcast(clientChainDeployer.privateKey);
-        payable(exocoreValidatorSet.addr).transfer(10 ether);
         // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
         restakeToken = new ERC20PresetFixedSupply(
             "rest",
@@ -72,19 +103,20 @@ contract DeployScript is Script {
         whitelistTokens.push(address(restakeToken));
         ClientChainGateway clientGatewayLogic = new ClientChainGateway();
         clientGateway = ClientChainGateway(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(clientGatewayLogic), 
-                    address(clientChainProxyAdmin), 
-                    abi.encodeWithSelector(
-                        clientGatewayLogic.initialize.selector,
-                        payable(exocoreValidatorSet.addr),
-                        whitelistTokens,
-                        address(clientChainLzEndpoint),
-                        exocoreChainId
+            payable(address(
+                    new TransparentUpgradeableProxy(
+                        address(clientGatewayLogic), 
+                        address(clientChainProxyAdmin), 
+                        abi.encodeWithSelector(
+                            clientGatewayLogic.initialize.selector,
+                            payable(exocoreValidatorSet.addr),
+                            whitelistTokens,
+                            address(clientChainLzEndpoint),
+                            exocoreChainId
+                        )
                     )
                 )
-            )
+            )   
         );
         Vault vaultLogic = new Vault();
         vault = Vault(
@@ -103,7 +135,7 @@ contract DeployScript is Script {
         vm.stopBroadcast();
 
         // deploy on Exocore via rpc
-        uint256 exocore = vm.createSelectFork(exocoreRPCURL);
+        vm.selectFork(exocore);
         vm.startBroadcast(exocoreDeployer.privateKey);
         // prepare outside contracts like layerzero endpoint contract
         exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);

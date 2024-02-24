@@ -62,7 +62,7 @@ contract DeployScript is Script {
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         
         ClientChainGateway clientGatewayLogic = new ClientChainGateway();
-        clientGateway = ClientChainGateway(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")));
+        clientGateway = ClientChainGateway(payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), ""))));
 
         Vault vaultLogic = new Vault();
         vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(proxyAdmin), "")));
