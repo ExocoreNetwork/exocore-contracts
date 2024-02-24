@@ -7,7 +7,7 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
-import {ValidatorContainer} from "../libraries/ValidatorContainer.sol",
+import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 
 contract ExoCapsule is 
     Initializable,
@@ -17,10 +17,13 @@ contract ExoCapsule is
     IExoCapsule
 {
     using BeaconChainProofs for bytes;
+    using ValidatorContainer for bytes32[];
 
     IETHPOSDeposit public immutable ethPOS;
 
-    error InvalidValidatorContainer();
+    error InvalidValidatorContainer(bytes32 pubkey);
+    error DoubleDepositedValidator(bytes32 pubkey);
+    error GetBeaconBlockRootFailure(uint64 timestamp);
 
     constructor(IETHPOSDeposit _ethPOS) {
         ethPOS = _ethPOS;
@@ -59,9 +62,41 @@ contract ExoCapsule is
 
     function deposit(
         bytes32[] validatorContainer,
-        ValidatorContainerProof proof
+        ValidatorContainerProof calldata proof
     ) external {
-        if (validatorContainer)
+        bytes32 validatorPubkey = validatorContainer.getPubkey();
+        bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
+        ValidatorInfo storage validatorInfo = validatorStore[validatorPubkey];
+
+        if (!validatorContainer.verifyBasic()) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
+        if (withdrawalCredentials != _capsuleWithdrawalCredentials()) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
+        if (validatorInfo.status != VALIDATOR_STATUS.WITHDRAWN) {
+            revert DoubleDepositedValidator(validatorPubkey);
+        }
+
+        bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
+        bytes32 validatorContainerRoot = validatorContainer.merklelize();
+        bool valid = validatorContainerRoot.verifyValidatorContainerRoot(
+            proof.validatorContainerRootProof,
+            proof.validatorContainerRootIndex,
+            beaconBlockRoot,
+            proof.stateRoot,
+            proof.stateRootProof
+        );
+        if (!valid) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
+        validatorInfo.status = VALIDATOR_STATUS.ACTIVE;
+        validatorInfo.validatorIndex = proof.validatorContainerRootIndex;
+        validatorInfo.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
+        validatorInfo.restakedBalanceGwei = validatorContainer.getEffectionBalance();
     }
 
     function updateStakeBalance(
@@ -94,5 +129,15 @@ contract ExoCapsule is
          * withdrawal_credentials[12:] == eth1_withdrawal_address
          */
         return abi.encodePacked(bytes1(uint8(1)), bytes11(0), address(this));
+    }
+
+    function getBeaconBlockRoot(uint64 timestamp) public view returns (bytes32) {
+        (bool success, bytes memory rootBytes) = BEACON_ROOTS_ADDRESS.call{value: bytes32(bytes8(timestamp))}
+        if (!success) {
+            revert GetBeaconBlockRootFailure(timestamp);
+        }
+
+        bytes32 beaconBlockRoot = abi.decode(rootBytes, (bytes32));
+        return beaconBlockRoot;
     }
 }
