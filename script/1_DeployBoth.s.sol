@@ -94,7 +94,7 @@ contract DeployScript is Script {
         restakeToken = new ERC20PresetFixedSupply(
             "rest",
             "rest",
-            1e16,
+            1e34,
             exocoreValidatorSet.addr
         );
         clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);

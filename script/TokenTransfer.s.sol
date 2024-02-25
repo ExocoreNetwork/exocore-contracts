@@ -76,28 +76,26 @@ contract DeployScript is Script {
         exocoreGateway = ExocoreGateway(payable(stdJson.readAddress(deployedContracts, ".exocore.exocoreGateway")));
         exocoreLzEndpoint = ILayerZeroEndpoint(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
 
-        // bind precompile mock contracts code to constant precompile address so that local simulation could pass
-        bytes memory DepositMockCode = vm.getDeployedCode("DepositMock.sol");
-        vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, DepositMockCode);
-
-        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
-        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
-
-        bytes memory WithdrawPrincipleMockCode = vm.getDeployedCode("WithdrawPrincipleMock.sol");
-        vm.etch(WITHDRAW_PRECOMPILE_ADDRESS, WithdrawPrincipleMockCode);
-
-        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
-        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
-
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        vm.startBroadcast(clientChainDeployer.privateKey);
-        if (depositor.addr.balance < 0.02 ether) {
-            (bool sent, ) = depositor.addr.call{value: 0.02 ether}("");
-            require(sent, "Failed to send Ether");
+        address alexTest = 0x41B2ddC309Af448f0B96ba1595320D7Dc5121Bc0;
+        address aduTest = 0x7Db30262Dbf13f464eb6126daFa7EB57623A7A01;
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        if (restakeToken.balanceOf(alexTest) < DEPOSIT_AMOUNT) {
+            restakeToken.transfer(alexTest, DEPOSIT_AMOUNT);
         }
-        if (address(clientGateway).balance < 0.02 ether) {
-            (bool sent, ) = address(clientGateway).call{value: 0.02 ether}("");
+        if (restakeToken.balanceOf(aduTest) < DEPOSIT_AMOUNT) {
+            restakeToken.transfer(aduTest, DEPOSIT_AMOUNT);
+        }
+        if (restakeToken.balanceOf(clientChainDeployer.addr) < DEPOSIT_AMOUNT) {
+            restakeToken.transfer(clientChainDeployer.addr, DEPOSIT_AMOUNT);
+        }
+        vm.stopBroadcast();
+
+        vm.startBroadcast(clientChainDeployer.privateKey);
+        restakeToken.approve(address(vault), type(uint256).max);
+        if (address(clientGateway).balance < 0.1 ether) {
+            (bool sent, ) = address(clientGateway).call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");
         }
         if (exocoreValidatorSet.addr.balance < 0.02 ether) {
@@ -106,57 +104,20 @@ contract DeployScript is Script {
         }
         vm.stopBroadcast();
 
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        if (restakeToken.balanceOf(depositor.addr) < DEPOSIT_AMOUNT) {
-            restakeToken.transfer(depositor.addr, DEPOSIT_AMOUNT);
-        }
-        vm.stopBroadcast();
-
         exocore = vm.createSelectFork(exocoreRPCURL);
         vm.startBroadcast(exocoreDeployer.privateKey);
-        if (depositor.addr.balance < 0.02 ether) {
-            (bool sent, ) = depositor.addr.call{value: 0.02 ether}("");
+        if (relayer.addr.balance < 0.1 ether) {
+            (bool sent, ) = relayer.addr.call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");
         }
-        if (relayer.addr.balance < 0.02 ether) {
-            (bool sent, ) = relayer.addr.call{value: 0.02 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        if (address(exocoreGateway).balance < 0.02 ether) {
-            (bool sent, ) = address(exocoreGateway).call{value: 0.02 ether}("");
+        if (address(exocoreGateway).balance < 0.1 ether) {
+            (bool sent, ) = address(exocoreGateway).call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();
     }
 
     function run() public {
-        vm.selectFork(clientChain);
-        vm.startBroadcast(depositor.privateKey);
-        restakeToken.approve(address(vault), type(uint256).max);
-        clientGateway.deposit(address(restakeToken), DEPOSIT_AMOUNT);
-        vm.stopBroadcast();
-
-        vm.selectFork(exocore);
-        vm.startBroadcast(relayer.privateKey);
-        bytes memory payload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT, 
-            abi.encodePacked(bytes32(bytes20(address(0xdAC17F958D2ee523a2206206994597C13D831ec7)))),
-            abi.encodePacked(bytes32(bytes20(depositor.addr))),
-            uint256(1234)
-        );
-        bytes memory path = abi.encodePacked(address(clientGateway), address(exocoreGateway));
-        if (exocoreLzEndpoint.hasStoredPayload(clientChainId, path)) {
-            exocoreLzEndpoint.forceResumeReceive(clientChainId, path);
-        }
-        uint64 nonce_ = exocoreLzEndpoint.getInboundNonce(clientChainId, path);
-        exocoreLzEndpoint.receivePayload{gas: 500000}(
-            clientChainId,
-            path,
-            address(exocoreGateway),
-            nonce_+1,
-            DEFAULT_ENDPOINT_CALL_GAS_LIMIT,
-            payload
-        );
-        vm.stopBroadcast();
+    
     }
 }
