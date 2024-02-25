@@ -32,8 +32,8 @@ contract DeployScript is Script {
     ILayerZeroEndpoint clientChainLzEndpoint;
     ILayerZeroEndpoint exocoreLzEndpoint;
 
-    uint16 exocoreChainId = 0;
-    uint16 clientChainId = 101;
+    uint16 exocoreChainId = 10253; // LayerZero chainId
+    uint16 clientChainId = 10161; // LayerZero chainId
 
     struct Player {
         uint256 privateKey;
@@ -50,7 +50,7 @@ contract DeployScript is Script {
         exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
 
-        clientChainRPCURL = vm.envString("ETHEREUM_LOCAL_RPC");
+        clientChainRPCURL = vm.envString("ETHEREUM_SEPOLIA_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
     }
 
@@ -58,12 +58,12 @@ contract DeployScript is Script {
         // deploy on client chain via rpc
         uint256 clientChain = vm.createSelectFork(clientChainRPCURL);
         vm.startBroadcast(clientChainDeployer.privateKey);
-        payable(exocoreValidatorSet.addr).transfer(10 ether);
+        payable(exocoreValidatorSet.addr).transfer(0.1 ether);
         // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
         restakeToken = new ERC20PresetFixedSupply(
             "rest",
             "rest",
-            1e16,
+            1e34, // Mint 1e16 amount of tokens - 18 decimals
             exocoreValidatorSet.addr
         );
         clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);
