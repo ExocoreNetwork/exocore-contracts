@@ -40,7 +40,7 @@ contract DeployScript is Script {
     uint256 clientChain;
     uint256 exocore;
     uint constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
-    uint256 constant DEPOSIT_AMOUNT = 10000;
+    uint256 constant DEPOSIT_AMOUNT = 8e18;
 
     struct Player {
         uint256 privateKey;
@@ -110,6 +110,7 @@ contract DeployScript is Script {
         if (restakeToken.balanceOf(depositor.addr) < DEPOSIT_AMOUNT) {
             restakeToken.transfer(depositor.addr, DEPOSIT_AMOUNT);
         }
+        console.log("depositor balance:", restakeToken.balanceOf(depositor.addr));
         vm.stopBroadcast();
 
         exocore = vm.createSelectFork(exocoreRPCURL);
@@ -130,33 +131,36 @@ contract DeployScript is Script {
     }
 
     function run() public {
+        vm.selectFork(exocore);
+        bytes memory path = abi.encodePacked(address(clientGateway), address(exocoreGateway));
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        if (exocoreLzEndpoint.hasStoredPayload(clientChainId, path)) {
+            exocoreGateway.forceResumeReceive(clientChainId, path);
+        }
+        vm.stopBroadcast();
+
         vm.selectFork(clientChain);
         vm.startBroadcast(depositor.privateKey);
         restakeToken.approve(address(vault), type(uint256).max);
         clientGateway.deposit(address(restakeToken), DEPOSIT_AMOUNT);
         vm.stopBroadcast();
-
-        vm.selectFork(exocore);
-        vm.startBroadcast(relayer.privateKey);
-        bytes memory payload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT, 
-            abi.encodePacked(bytes32(bytes20(address(0xdAC17F958D2ee523a2206206994597C13D831ec7)))),
-            abi.encodePacked(bytes32(bytes20(depositor.addr))),
-            uint256(1234)
-        );
-        bytes memory path = abi.encodePacked(address(clientGateway), address(exocoreGateway));
-        if (exocoreLzEndpoint.hasStoredPayload(clientChainId, path)) {
-            exocoreLzEndpoint.forceResumeReceive(clientChainId, path);
-        }
-        uint64 nonce_ = exocoreLzEndpoint.getInboundNonce(clientChainId, path);
-        exocoreLzEndpoint.receivePayload{gas: 500000}(
-            clientChainId,
-            path,
-            address(exocoreGateway),
-            nonce_+1,
-            DEFAULT_ENDPOINT_CALL_GAS_LIMIT,
-            payload
-        );
-        vm.stopBroadcast();
+        
+        // vm.startBroadcast(relayer.privateKey);
+        // bytes memory payload = abi.encodePacked(
+        //     GatewayStorage.Action.REQUEST_DEPOSIT, 
+        //     abi.encodePacked(bytes32(bytes20(address(0xdAC17F958D2ee523a2206206994597C13D831ec7)))),
+        //     abi.encodePacked(bytes32(bytes20(depositor.addr))),
+        //     uint256(1234)
+        // );
+        // uint64 nonce_ = exocoreLzEndpoint.getInboundNonce(clientChainId, path);
+        // exocoreLzEndpoint.receivePayload{gas: 500000}(
+        //     clientChainId,
+        //     path,
+        //     address(exocoreGateway),
+        //     nonce_+1,
+        //     DEFAULT_ENDPOINT_CALL_GAS_LIMIT,
+        //     payload
+        // );
+        // vm.stopBroadcast();
     }
 }

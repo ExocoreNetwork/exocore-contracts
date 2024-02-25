@@ -33,8 +33,8 @@ contract DeployScript is Script {
     ILayerZeroEndpoint clientChainLzEndpoint;
     ILayerZeroEndpoint exocoreLzEndpoint;
 
-    uint16 exocoreChainId = 0;
-    uint16 clientChainId = 101;
+    uint16 exocoreChainId = 10259;
+    uint16 clientChainId = 10161;
 
     uint256 clientChain;
     uint256 exocore;
@@ -59,6 +59,9 @@ contract DeployScript is Script {
 
         clientChainRPCURL = vm.envString("SEPOLIA_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
+
+        clientChainLzEndpoint = ILayerZeroEndpoint(0xae92d5aD7583AD66E49A0c67BAd18F6ba52dDDc1);
+        exocoreLzEndpoint = ILayerZeroEndpoint(0x83c73Da98cf733B03315aFa8758834b36a195b87);
         
         // transfer some gas fee to exocore validator set address
         clientChain = vm.createSelectFork(clientChainRPCURL);
@@ -94,10 +97,10 @@ contract DeployScript is Script {
         restakeToken = new ERC20PresetFixedSupply(
             "rest",
             "rest",
-            1e16,
+            1e28,
             exocoreValidatorSet.addr
         );
-        clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);
+        // clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);
         // deploy and initialize client chain contracts
         ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
         whitelistTokens.push(address(restakeToken));
@@ -138,7 +141,7 @@ contract DeployScript is Script {
         vm.selectFork(exocore);
         vm.startBroadcast(exocoreDeployer.privateKey);
         // prepare outside contracts like layerzero endpoint contract
-        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
+        // exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
         // deploy Exocore network contracts
         ProxyAdmin exocoreProxyAdmin = new ProxyAdmin();
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
@@ -163,7 +166,7 @@ contract DeployScript is Script {
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock
-        NonShortCircuitLzEndpointMock(address(clientChainLzEndpoint)).setDestLzEndpoint(address(exocoreGateway), address(exocoreLzEndpoint));
+        // NonShortCircuitLzEndpointMock(address(clientChainLzEndpoint)).setDestLzEndpoint(address(exocoreGateway), address(exocoreLzEndpoint));
         // add token vaults to gateway
         vaults.push(address(vault));
         clientGateway.addTokenVaults(vaults);
@@ -176,7 +179,7 @@ contract DeployScript is Script {
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock
-        NonShortCircuitLzEndpointMock(address(exocoreLzEndpoint)).setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));        
+        // NonShortCircuitLzEndpointMock(address(exocoreLzEndpoint)).setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));        
         exocoreGateway.setTrustedRemote(clientChainId, abi.encodePacked(address(clientGateway), address(exocoreGateway)));
         vm.stopBroadcast();
 
