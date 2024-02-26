@@ -137,17 +137,20 @@ contract DeployScript is Script {
         vm.stopBroadcast();
 
         vm.selectFork(exocore);
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        bytes memory path = abi.encodePacked(address(clientGateway), address(exocoreGateway));
+        if (exocoreLzEndpoint.hasStoredPayload(clientChainId, path)) {
+            exocoreGateway.forceResumeReceive(clientChainId, path);
+        }
+        vm.stopBroadcast();
+
         vm.startBroadcast(relayer.privateKey);
         bytes memory payload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_DEPOSIT, 
-            abi.encodePacked(bytes32(bytes20(address(0xdAC17F958D2ee523a2206206994597C13D831ec7)))),
+            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
-            uint256(1234)
+            uint256(DEPOSIT_AMOUNT)
         );
-        bytes memory path = abi.encodePacked(address(clientGateway), address(exocoreGateway));
-        if (exocoreLzEndpoint.hasStoredPayload(clientChainId, path)) {
-            exocoreLzEndpoint.forceResumeReceive(clientChainId, path);
-        }
         uint64 nonce_ = exocoreLzEndpoint.getInboundNonce(clientChainId, path);
         exocoreLzEndpoint.receivePayload{gas: 500000}(
             clientChainId,
