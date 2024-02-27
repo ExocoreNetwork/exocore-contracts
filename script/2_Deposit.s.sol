@@ -35,8 +35,8 @@ contract DeployScript is Script {
     ILayerZeroEndpoint clientChainLzEndpoint;
     ILayerZeroEndpoint exocoreLzEndpoint;
 
-    uint16 exocoreChainId = 0;
-    uint16 clientChainId = 101;
+    uint16 exocoreChainId = 10259;
+    uint16 clientChainId = 10161;
     uint256 clientChain;
     uint256 exocore;
     uint constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
@@ -92,8 +92,8 @@ contract DeployScript is Script {
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
         vm.startBroadcast(clientChainDeployer.privateKey);
-        if (depositor.addr.balance < 0.02 ether) {
-            (bool sent, ) = depositor.addr.call{value: 0.02 ether}("");
+        if (depositor.addr.balance < 0.2 ether) {
+            (bool sent, ) = depositor.addr.call{value: 0.2 ether}("");
             require(sent, "Failed to send Ether");
         }
         if (address(clientGateway).balance < 0.02 ether) {

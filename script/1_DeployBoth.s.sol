@@ -33,8 +33,8 @@ contract DeployScript is Script {
     ILayerZeroEndpoint clientChainLzEndpoint;
     ILayerZeroEndpoint exocoreLzEndpoint;
 
-    uint16 exocoreChainId = 0;
-    uint16 clientChainId = 101;
+    uint16 exocoreChainId = 10259;
+    uint16 clientChainId = 10161;
 
     uint256 clientChain;
     uint256 exocore;
@@ -92,8 +92,8 @@ contract DeployScript is Script {
         vm.startBroadcast(clientChainDeployer.privateKey);
         // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
         restakeToken = new ERC20PresetFixedSupply(
-            "rest",
-            "rest",
+            "exoETH",
+            "exoETH",
             1e34,
             exocoreValidatorSet.addr
         );
