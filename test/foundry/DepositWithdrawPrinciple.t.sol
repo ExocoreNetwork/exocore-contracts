@@ -23,8 +23,11 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         vm.startPrank(exocoreValidatorSet.addr);
         restakeToken.transfer(depositor.addr, 1000000);
         vm.stopPrank();
-        deal(address(clientGateway), 1e22);
-        deal(address(exocoreGateway), 1e22);
+
+        // Commented for testing 0 relay fee
+        // deal(address(clientGateway), 1e22);
+        // deal(address(exocoreGateway), 1e22);
+
         uint256 depositAmount = 10000;
         uint256 lastlyUpdatedPrincipleBalance;
 
