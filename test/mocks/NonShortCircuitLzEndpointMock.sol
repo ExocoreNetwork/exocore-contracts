@@ -32,6 +32,8 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
     uint public oracleFee;
     bytes public defaultAdapterParams;
 
+    address exocoreValidatorSet;
+
     // path = remote addrss + local address
     // inboundNonce = [srcChainId][path].
     mapping(uint16 => mapping(bytes => uint64)) public inboundNonce;
@@ -94,7 +96,8 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
     event ValueTransferFailed(address indexed to, uint indexed quantity);
     event Packet(uint16, address, address, uint64, bytes);
 
-    constructor(uint16 _chainId) {
+    constructor(uint16 _chainId, address _exocoreValidatorSet) {
+        require(_exocoreValidatorSet != address(0), "exocore validator set address should not be empty");
         mockChainId = _chainId;
 
         // init config
@@ -108,6 +111,13 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
         protocolFeeConfig = ProtocolFeeConfig({zroFee: 1e18, nativeBP: 1000}); // BP 0.1
         oracleFee = 1e16;
         defaultAdapterParams = LzLib.buildDefaultAdapterParams(200000);
+
+        exocoreValidatorSet = _exocoreValidatorSet;
+    }
+
+    modifier onlyExocoreValidatorSet() {
+        require(msg.sender == exocoreValidatorSet, "only authorized to exocore validator set");
+        _;
     }
 
     // ------------------------------ ILayerZeroEndpoint Functions ------------------------------
@@ -202,22 +212,33 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
         return inboundNonce[_chainID][_path];
     }
 
+    function resetInboundNonce(uint16 _srcChainId, bytes calldata _path, uint64 _nonce) external onlyExocoreValidatorSet {
+        inboundNonce[_srcChainId][_path] = _nonce;
+    }
+
     function getOutboundNonce(uint16 _chainID, address _srcAddress) external view override returns (uint64) {
         return outboundNonce[_chainID][_srcAddress];
     }
 
+    function resetOutboundNonce(uint16 _dstChainId, address _srcAddress, uint64 _nonce) external onlyExocoreValidatorSet {
+        outboundNonce[_dstChainId][_srcAddress] = _nonce;
+    }
+
     function estimateFees(uint16 _dstChainId, address _userApplication, bytes memory _payload, bool _payInZRO, bytes memory _adapterParams) public view override returns (uint nativeFee, uint zroFee) {
-        bytes memory adapterParams = _adapterParams.length > 0 ? _adapterParams : defaultAdapterParams;
+        // bytes memory adapterParams = _adapterParams.length > 0 ? _adapterParams : defaultAdapterParams;
 
-        // Relayer Fee
-        uint relayerFee = _getRelayerFee(_dstChainId, 1, _userApplication, _payload.length, adapterParams);
+        // // Relayer Fee
+        // uint relayerFee = _getRelayerFee(_dstChainId, 1, _userApplication, _payload.length, adapterParams);
 
-        // LayerZero Fee
-        uint protocolFee = _getProtocolFees(_payInZRO, relayerFee, oracleFee);
-        _payInZRO ? zroFee = protocolFee : nativeFee = protocolFee;
+        // // LayerZero Fee
+        // uint protocolFee = _getProtocolFees(_payInZRO, relayerFee, oracleFee);
+        // _payInZRO ? zroFee = protocolFee : nativeFee = protocolFee;
 
-        // return the sum of fees
-        nativeFee = nativeFee + relayerFee + oracleFee;
+        // // return the sum of fees
+        // nativeFee = nativeFee + relayerFee + oracleFee;
+
+        // TEST ONLY
+        return (0, 0);
     }
 
     function getChainId() external view override returns (uint16) {

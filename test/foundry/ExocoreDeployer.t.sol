@@ -54,8 +54,8 @@ contract ExocoreDeployer is Test {
             1e16,
             exocoreValidatorSet.addr
         );
-        clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);
-        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
+        clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId, exocoreValidatorSet.addr);
+        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId, exocoreValidatorSet.addr);
 
         // deploy and initialize client chain contracts
         ProxyAdmin proxyAdmin = new ProxyAdmin();

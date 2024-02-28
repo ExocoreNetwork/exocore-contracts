@@ -98,7 +98,7 @@ contract DeployScript is Script {
         //     1e34,
         //     exocoreValidatorSet.addr
         // );
-        clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);
+        clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId, exocoreValidatorSet.addr);
         // deploy and initialize client chain contracts
         ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
         whitelistTokens.push(address(restakeToken));
@@ -139,7 +139,7 @@ contract DeployScript is Script {
         vm.selectFork(exocore);
         vm.startBroadcast(exocoreDeployer.privateKey);
         // prepare outside contracts like layerzero endpoint contract
-        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId);
+        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId, exocoreValidatorSet.addr);
         // deploy Exocore network contracts
         ProxyAdmin exocoreProxyAdmin = new ProxyAdmin();
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();

@@ -82,17 +82,17 @@ contract DeployScript is Script {
         address alexTest = 0x41B2ddC309Af448f0B96ba1595320D7Dc5121Bc0;
         address aduTest = 0x7Db30262Dbf13f464eb6126daFa7EB57623A7A01;
         address faucet = 0x8A21AE3e1344A83Bb05D5b1c9cFF04A9614F2567;
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        if (restakeToken.balanceOf(faucet) < AIRDEOP_AMOUNT) {
-            restakeToken.transfer(faucet, AIRDEOP_AMOUNT);
-        }
+        // vm.startBroadcast(exocoreValidatorSet.privateKey);
+        // if (restakeToken.balanceOf(faucet) < AIRDEOP_AMOUNT) {
+        //     restakeToken.transfer(faucet, AIRDEOP_AMOUNT);
+        // }
         // if (restakeToken.balanceOf(aduTest) < DEPOSIT_AMOUNT) {
         //     restakeToken.transfer(aduTest, DEPOSIT_AMOUNT);
         // }
         // if (restakeToken.balanceOf(clientChainDeployer.addr) < DEPOSIT_AMOUNT) {
         //     restakeToken.transfer(clientChainDeployer.addr, DEPOSIT_AMOUNT);
         // }
-        vm.stopBroadcast();
+        // vm.stopBroadcast();
 
         vm.startBroadcast(clientChainDeployer.privateKey);
         if (address(clientGateway).balance < 0.2 ether) {

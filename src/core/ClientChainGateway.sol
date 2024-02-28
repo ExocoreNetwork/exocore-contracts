@@ -30,6 +30,9 @@ contract ClientChainGateway is
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
     event MessageFailed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason);
     event RequestSent(Action indexed act);
+    event WhitelistTokenAdded(address _token);
+    event WhitelistTokenRemoved(address _token);
+    event VaultAdded(address _vault);
     error UnauthorizedSigner();
     error UnauthorizedToken();
     error UnsupportedRequest(Action act);
@@ -91,6 +94,28 @@ contract ClientChainGateway is
         _unpause();
     }
 
+    function addWhitelistToken(address _token)
+        external
+        onlyOwner
+        whenNotPaused
+    {
+        require(!whitelistTokens[_token], "token should be not whitelisted before");
+        whitelistTokens[_token] = true;
+
+        emit WhitelistTokenAdded(_token);
+    }
+
+    function removeWhitelistToken(address _token)
+        external
+        onlyOwner
+        whenNotPaused
+    {   
+        require(whitelistTokens[_token], "token should be already whitelisted");
+        whitelistTokens[_token] = false;
+
+        emit WhitelistTokenRemoved(_token);
+    }
+
     function addTokenVaults(address[] calldata vaults) 
         external 
         onlyOwner
@@ -102,6 +127,8 @@ contract ClientChainGateway is
                 revert UnauthorizedToken();
             }
             tokenVaults[underlyingToken] = IVault(vaults[i]);
+
+            emit VaultAdded(vaults[i]);
         }
     }
 

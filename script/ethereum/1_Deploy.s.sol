@@ -67,7 +67,7 @@ contract DeployScript is Script {
         Vault vaultLogic = new Vault();
         vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(proxyAdmin), "")));
 
-        clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);
+        clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId, exocoreValidatorSet.addr);
 
         clientGateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainId);
         vault.initialize(address(restakeToken), address(clientGateway));
