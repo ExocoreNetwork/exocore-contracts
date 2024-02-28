@@ -41,6 +41,7 @@ contract DeployScript is Script {
     uint256 exocore;
     uint constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
     uint256 constant DEPOSIT_AMOUNT = 1e22;
+    uint256 constant AIRDEOP_AMOUNT = 1e28;
 
     struct Player {
         uint256 privateKey;
@@ -80,22 +81,22 @@ contract DeployScript is Script {
         clientChain = vm.createSelectFork(clientChainRPCURL);
         address alexTest = 0x41B2ddC309Af448f0B96ba1595320D7Dc5121Bc0;
         address aduTest = 0x7Db30262Dbf13f464eb6126daFa7EB57623A7A01;
+        address faucet = 0x8A21AE3e1344A83Bb05D5b1c9cFF04A9614F2567;
         vm.startBroadcast(exocoreValidatorSet.privateKey);
-        if (restakeToken.balanceOf(alexTest) < DEPOSIT_AMOUNT) {
-            restakeToken.transfer(alexTest, DEPOSIT_AMOUNT);
+        if (restakeToken.balanceOf(faucet) < AIRDEOP_AMOUNT) {
+            restakeToken.transfer(faucet, AIRDEOP_AMOUNT);
         }
-        if (restakeToken.balanceOf(aduTest) < DEPOSIT_AMOUNT) {
-            restakeToken.transfer(aduTest, DEPOSIT_AMOUNT);
-        }
-        if (restakeToken.balanceOf(clientChainDeployer.addr) < DEPOSIT_AMOUNT) {
-            restakeToken.transfer(clientChainDeployer.addr, DEPOSIT_AMOUNT);
-        }
+        // if (restakeToken.balanceOf(aduTest) < DEPOSIT_AMOUNT) {
+        //     restakeToken.transfer(aduTest, DEPOSIT_AMOUNT);
+        // }
+        // if (restakeToken.balanceOf(clientChainDeployer.addr) < DEPOSIT_AMOUNT) {
+        //     restakeToken.transfer(clientChainDeployer.addr, DEPOSIT_AMOUNT);
+        // }
         vm.stopBroadcast();
 
         vm.startBroadcast(clientChainDeployer.privateKey);
-        restakeToken.approve(address(vault), type(uint256).max);
-        if (address(clientGateway).balance < 0.1 ether) {
-            (bool sent, ) = address(clientGateway).call{value: 0.1 ether}("");
+        if (address(clientGateway).balance < 0.2 ether) {
+            (bool sent, ) = address(clientGateway).call{value: 0.2 ether}("");
             require(sent, "Failed to send Ether");
         }
         if (exocoreValidatorSet.addr.balance < 0.02 ether) {
@@ -106,11 +107,11 @@ contract DeployScript is Script {
 
         exocore = vm.createSelectFork(exocoreRPCURL);
         vm.startBroadcast(exocoreDeployer.privateKey);
-        if (relayer.addr.balance < 0.1 ether) {
+        if (relayer.addr.balance < 1 ether) {
             (bool sent, ) = relayer.addr.call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");
         }
-        if (address(exocoreGateway).balance < 0.1 ether) {
+        if (address(exocoreGateway).balance < 1 ether) {
             (bool sent, ) = address(exocoreGateway).call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");
         }

@@ -25,7 +25,6 @@ contract DeployScript is Script {
 
     address[] whitelistTokens;
     address[] vaults;
-    ERC20PresetFixedSupply restakeToken;
 
     ClientChainGateway clientGateway;
     Vault vault;
@@ -38,6 +37,8 @@ contract DeployScript is Script {
 
     uint256 clientChain;
     uint256 exocore;
+
+    ERC20PresetFixedSupply restakeToken = ERC20PresetFixedSupply(address(0x83E6850591425e3C1E263c054f4466838B9Bd9e4));
 
     struct Player {
         uint256 privateKey;
@@ -91,12 +92,12 @@ contract DeployScript is Script {
         vm.selectFork(clientChain);
         vm.startBroadcast(clientChainDeployer.privateKey);
         // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
-        restakeToken = new ERC20PresetFixedSupply(
-            "exoETH",
-            "exoETH",
-            1e34,
-            exocoreValidatorSet.addr
-        );
+        // restakeToken = new ERC20PresetFixedSupply(
+        //     "exoETH",
+        //     "exoETH",
+        //     1e34,
+        //     exocoreValidatorSet.addr
+        // );
         clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId);
         // deploy and initialize client chain contracts
         ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
