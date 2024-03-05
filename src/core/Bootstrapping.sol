@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+// Do not use IERC20 because it does not expose the decimals() function.
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 contract BootstrappingContract is Ownable, Pausable {
-    using SafeERC20 for IERC20;
+    using SafeERC20 for ERC20;
 
     /**
      * @dev Represents an operator in the system, including their registration status,
@@ -122,6 +123,16 @@ contract BootstrappingContract is Ownable, Pausable {
         address operatorAddress;
         uint256 amountDelegated;
     }
+    /**
+     * @dev A public array holding the Ethereum addresses of all operators that have been
+     * registered in the contract. These operators, sorted by their vote power, will be
+     * used to initialize the Exocore chain's validator set.
+     *
+     * The system used is a delegated POS system, where the vote power of each operator
+     * is determined by the total amount of tokens delegated to them across all supported
+     * tokens.
+    */
+    address[] public registeredOperators;
 
     /**
      * @notice A dynamic array of ERC20 token addresses that are supported by the contract
@@ -410,7 +421,11 @@ contract BootstrappingContract is Ownable, Pausable {
             commissionRate <= 100,
             "Commission rate must be between 0 and 100"
         );
-
+        require(
+            !consensusPublicKeyInUse(consensusPublicKey),
+            "Consensus public key already in use"
+        );
+        // TODO(mm): check the consensusPublicKey is valid, and not duplicated.
         operators[msg.sender] = Operator(
             true,
             consensusPublicKey,
@@ -419,7 +434,35 @@ contract BootstrappingContract is Ownable, Pausable {
             name,
             website
         );
+        registeredOperators.push(msg.sender);
         emit OperatorRegistered(msg.sender);
+    }
+
+    /**
+     * @dev Checks if a given consensus public key is already in use by any registered operator.
+     *
+     * This function iterates over all registered operators stored in the contract's state
+     * to determine if the provided consensus public key matches any existing operator's
+     * public key. It is designed to ensure the uniqueness of consensus public keys among
+     * operators, as each operator must have a distinct consensus public key to maintain
+     * integrity and avoid potential conflicts or security issues.
+     *
+     * @param newKey The consensus public key to check for uniqueness. This key is expected
+     * to be provided as a byte array (`bytes memory`), which is the typical format for 
+     * storing and handling public keys in Ethereum smart contracts.
+     *
+     * @return bool Returns `true` if the consensus public key is already in use by an
+     * existing operator, indicating that the key is not unique. Returns `false` if the 
+     * public key is not found among the registered operators, indicating that the key 
+     * is unique and can be safely used for a new or updating operator.
+    */
+    function consensusPublicKeyInUse(bytes memory newKey) private view returns (bool) {
+        for (uint256 i = 0; i < registeredOperators.length; i++) {
+            if (keccak256(operators[registeredOperators[i]].consensusPublicKey) == keccak256(newKey)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -431,6 +474,16 @@ contract BootstrappingContract is Ownable, Pausable {
     function deregisterOperator() external whenNotPaused operationAllowed {
         require(operators[msg.sender].isRegistered, "Operator not registered");
         delete operators[msg.sender];
+        for (uint256 i = 0; i < registeredOperators.length; i++) {
+            if (registeredOperators[i] == msg.sender) {
+                if (i != registeredOperators.length - 1) {
+                    registeredOperators[i] = registeredOperators[registeredOperators.length - 1];
+                }
+                // Remove the last element
+                registeredOperators.pop();
+                break;
+            }
+        }
         emit OperatorDeregistered(msg.sender);
     }
 
@@ -445,6 +498,10 @@ contract BootstrappingContract is Ownable, Pausable {
         bytes memory newKey
     ) external whenNotPaused operationAllowed {
         require(operators[msg.sender].isRegistered, "Operator not registered");
+        require(
+            !consensusPublicKeyInUse(newKey),
+            "Consensus public key already in use"
+        );
         operators[msg.sender].consensusPublicKey = newKey;
         emit OperatorKeyReplaced(msg.sender, newKey);
     }
@@ -545,7 +602,7 @@ contract BootstrappingContract is Ownable, Pausable {
         uint256 amount
     ) external whenNotPaused operationAllowed {
         require(isTokenSupported(token), "Token not supported");
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        ERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         userDeposits[msg.sender][token].totalDeposit += amount;
         userDeposits[msg.sender][token].availableFunds += amount;
         if (!isDepositor[msg.sender]) {
@@ -625,7 +682,7 @@ contract BootstrappingContract is Ownable, Pausable {
             "Available balance less than withdrawal amount"
         );
 
-        IERC20(token).safeTransfer(msg.sender, amount);
+        ERC20(token).safeTransfer(msg.sender, amount);
         userDeposits[msg.sender][token].totalDeposit -= amount;
         userDeposits[msg.sender][token].availableFunds -= amount;
 
@@ -638,12 +695,12 @@ contract BootstrappingContract is Ownable, Pausable {
      * USD using supplied exchange rates. The function assumes exchange rates are
      * provided with a precision of 18 decimals.
      *
-     * @param exchangeRates A mapping from token addresses to their exchange rates in USD.
+     * @param exchangeRates An array of tokens to their exchange rates in USD.
      * @return Validator[] An array of Validator structs, each containing the operator's
      * public key and calculated vote power in USD.
      */
     function getInitialValidators(
-        mapping(uint256 => address) memory exchangeRates
+        uint256[] memory exchangeRates
     ) external view returns (Validator[] memory) {
         Validator[] memory validators = new Validator[](
             registeredOperators.length
@@ -657,11 +714,11 @@ contract BootstrappingContract is Ownable, Pausable {
                 uint256 delegatedAmount = totalDelegatedToOperator[
                     operatorAddr
                 ][tokenAddr];
-                uint256 exchangeRate = exchangeRates[tokenAddr];
+                uint256 exchangeRate = exchangeRates[j];
                 // Convert token amount to USD equivalent
                 totalVotePower +=
                     (delegatedAmount * exchangeRate) /
-                    (1e18 * IERC(tokenAddr).decimals());
+                    (1e18 * ERC20(tokenAddr).decimals());
             }
             validators[i] = Validator(op.consensusPublicKey, totalVotePower);
         }
@@ -744,10 +801,10 @@ contract BootstrappingContract is Ownable, Pausable {
         TokenInfo[] memory tokensInfo = new TokenInfo[](supportedTokens.length);
         for (uint256 i = 0; i < supportedTokens.length; i++) {
             address tokenAddress = supportedTokens[i];
-            IERC20 token = IERC20(tokenAddress);
-            string memory name = IERC20(tokenAddress).name();
-            string memory symbol = IERC20(tokenAddress).symbol();
-            uint8 decimals = IERC20(tokenAddress).decimals();
+            ERC20 token = ERC20(tokenAddress);
+            string memory name = ERC20(tokenAddress).name();
+            string memory symbol = ERC20(tokenAddress).symbol();
+            uint8 decimals = ERC20(tokenAddress).decimals();
             uint256 totalSupply = token.totalSupply();
 
             tokensInfo[i] = TokenInfo({
