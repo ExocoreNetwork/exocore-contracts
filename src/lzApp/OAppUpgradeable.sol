@@ -4,23 +4,31 @@ pragma solidity ^0.8.20;
 
 // @dev Import the 'MessagingFee' and 'MessagingReceipt' so it's exposed to OApp implementers
 // solhint-disable-next-line no-unused-import
-import { OAppSender, MessagingFee, MessagingReceipt } from "./OAppSender.sol";
+import { OAppSenderUpgradeable, MessagingFee, MessagingReceipt } from "./OAppSenderUpgradeable.sol";
 // @dev Import the 'Origin' so it's exposed to OApp implementers
 // solhint-disable-next-line no-unused-import
-import { OAppReceiver, Origin } from "./OAppReceiver.sol";
-import { OAppCore } from "./OAppCore.sol";
+import { OAppReceiverUpgradeble, Origin } from "./OAppReceiverUpgradeable.sol";
+import { OAppCoreUpgradeable } from "./OAppCoreUpgradeable.sol";
 
 /**
  * @title OApp
  * @dev Abstract contract serving as the base for OApp implementation, combining OAppSender and OAppReceiver functionality.
  */
-abstract contract OApp is OAppSender, OAppReceiver {
+abstract contract OAppUpgradeable is OAppSenderUpgradeable, OAppReceiverUpgradeable {
     /**
      * @dev Constructor to initialize the OApp with the provided endpoint and owner.
      * @param _endpoint The address of the LOCAL LayerZero endpoint.
      * @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
      */
-    constructor(address _endpoint, address _delegate) OAppCore(_endpoint, _delegate) {}
+    constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {}
+
+    function __OApp_init(address _delegate) internal onlyInitializing {
+        __OAppCore_init(_delegate);
+    }
+
+    function __OApp_init_unchained(address _delegate) internal onlyInitializing {
+        __OAppCore_init_unchained(_delegate);
+    }
 
     /**
      * @notice Retrieves the OApp version information.

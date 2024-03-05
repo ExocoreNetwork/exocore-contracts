@@ -10,7 +10,7 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
 import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
-import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
+import {OAppUpgradeable} from "../lzApp/OAppUpgradeable.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
@@ -19,10 +19,10 @@ contract ClientChainGateway is
     Initializable,
     OwnableUpgradeable,
     PausableUpgradeable,
+    OAppUpgradeable,
     ClientChainGatewayStorage,
     ITSSReceiver,
     IController,
-    LzAppUpgradeable
 {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
@@ -47,7 +47,7 @@ contract ClientChainGateway is
         _;
     }
 
-    constructor() {
+    constructor()  {
         _disableInitializers();
     }
 

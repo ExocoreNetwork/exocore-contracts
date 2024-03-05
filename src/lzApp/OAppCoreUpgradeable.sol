@@ -2,14 +2,14 @@
 
 pragma solidity ^0.8.20;
 
-import { Ownable } from "@openzeppelin/contracts/access/Ownable.sol";
-import { IOAppCore, ILayerZeroEndpointV2 } from "./interfaces/IOAppCore.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import { IOAppCore, ILayerZeroEndpointV2 } from "@layerzero-v2/oapp/contracts/oap/interfaces/IOAppCore.sol";
 
 /**
  * @title OAppCore
  * @dev Abstract contract implementing the IOAppCore interface with basic OApp configurations.
  */
-abstract contract OAppCore is IOAppCore, Ownable {
+abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
     // The LayerZero endpoint associated with the given OApp
     ILayerZeroEndpointV2 public immutable endpoint;
 
@@ -26,6 +26,16 @@ abstract contract OAppCore is IOAppCore, Ownable {
     constructor(address _endpoint, address _delegate) {
         endpoint = ILayerZeroEndpointV2(_endpoint);
 
+        _disableInitializers();
+    }
+
+    function __OAppCore_init(address _delegate) internal onlyInitializing {
+        if (_delegate == address(0)) revert InvalidDelegate();
+        endpoint.setDelegate(_delegate);
+        __Ownable_init_unchained(_delegate);
+    }
+
+    function __OAppCore_init_unchained(address _delegate) internal onlyInitializing {
         if (_delegate == address(0)) revert InvalidDelegate();
         endpoint.setDelegate(_delegate);
     }
