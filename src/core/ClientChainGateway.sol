@@ -22,7 +22,7 @@ contract ClientChainGateway is
     OAppUpgradeable,
     ClientChainGatewayStorage,
     ITSSReceiver,
-    IController,
+    IController
 {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;

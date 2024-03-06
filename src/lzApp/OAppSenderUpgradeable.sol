@@ -2,111 +2,123 @@
 
 pragma solidity ^0.8.20;
 
-import { IOAppReceiver, Origin } from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppReceiver.sol";
+import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import { MessagingParams, MessagingFee, MessagingReceipt } from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import { OAppCoreUpgradeable } from "./OAppCoreUpgradeable.sol";
 
 /**
- * @title OAppReceiver
- * @dev Abstract contract implementing the ILayerZeroReceiver interface and extending OAppCore for OApp receivers.
+ * @title OAppSenderUpgradeable
+ * @dev Abstract contract implementing the OAppSender functionality for sending messages to a LayerZero endpoint.
  */
-abstract contract OAppReceiverUpgradeable is IOAppReceiver, OAppCoreUpgradeable {
-    // Custom error message for when the caller is not the registered endpoint/
-    error OnlyEndpoint(address addr);
+abstract contract OAppSenderUpgradeable is OAppCoreUpgradeable {
+    using SafeERC20 for IERC20;
 
-    // @dev The version of the OAppReceiver implementation.
+    // Custom error messages
+    error NotEnoughNative(uint256 msgValue);
+    error LzTokenUnavailable();
+
+    // @dev The version of the OAppSender implementation.
     // @dev Version is bumped when changes are made to this contract.
-    uint64 internal constant RECEIVER_VERSION = 1;
+    uint64 internal constant SENDER_VERSION = 1;
 
     /**
      * @notice Retrieves the OApp version information.
      * @return senderVersion The version of the OAppSender.sol contract.
      * @return receiverVersion The version of the OAppReceiver.sol contract.
      *
-     * @dev Providing 0 as the default for OAppSender version. Indicates that the OAppSender is not implemented.
-     * ie. this is a RECEIVE only OApp.
-     * @dev If the OApp uses both OAppSender and OAppReceiver, then this needs to be override returning the correct versions.
+     * @dev Providing 0 as the default for OAppReceiver version. Indicates that the OAppReceiver is not implemented.
+     * ie. this is a SEND only OApp.
+     * @dev If the OApp uses both OAppSender and OAppReceiver, then this needs to be override returning the correct versions
      */
     function oAppVersion() public view virtual returns (uint64 senderVersion, uint64 receiverVersion) {
-        return (0, RECEIVER_VERSION);
+        return (SENDER_VERSION, 0);
     }
 
     /**
-     * @notice Retrieves the address responsible for 'sending' composeMsg's to the Endpoint.
-     * @return sender The address responsible for 'sending' composeMsg's to the Endpoint.
+     * @dev Internal function to interact with the LayerZero EndpointV2.quote() for fee calculation.
+     * @param _dstEid The destination endpoint ID.
+     * @param _message The message payload.
+     * @param _options Additional options for the message.
+     * @param _payInLzToken Flag indicating whether to pay the fee in LZ tokens.
+     * @return fee The calculated MessagingFee for the message.
+     *      - nativeFee: The native fee for the message.
+     *      - lzTokenFee: The LZ token fee for the message.
+     */
+    function _quote(
+        uint32 _dstEid,
+        bytes memory _message,
+        bytes memory _options,
+        bool _payInLzToken
+    ) internal view virtual returns (MessagingFee memory fee) {
+        return
+            endpoint.quote(
+                MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _payInLzToken),
+                address(this)
+            );
+    }
+
+    /**
+     * @dev Internal function to interact with the LayerZero EndpointV2.send() for sending a message.
+     * @param _dstEid The destination endpoint ID.
+     * @param _message The message payload.
+     * @param _options Additional options for the message.
+     * @param _fee The calculated LayerZero fee for the message.
+     *      - nativeFee: The native fee.
+     *      - lzTokenFee: The lzToken fee.
+     * @param _refundAddress The address to receive any excess fee values sent to the endpoint.
+     * @return receipt The receipt for the sent message.
+     *      - guid: The unique identifier for the sent message.
+     *      - nonce: The nonce of the sent message.
+     *      - fee: The LayerZero fee incurred for the message.
+     */
+    function _lzSend(
+        uint32 _dstEid,
+        bytes memory _message,
+        bytes memory _options,
+        MessagingFee memory _fee,
+        address _refundAddress
+    ) internal virtual returns (MessagingReceipt memory receipt) {
+        // @dev Push corresponding fees to the endpoint, any excess is sent back to the _refundAddress from the endpoint.
+        uint256 messageValue = _payNative(_fee.nativeFee);
+        if (_fee.lzTokenFee > 0) _payLzToken(_fee.lzTokenFee);
+
+        return
+            // solhint-disable-next-line check-send-result
+            endpoint.send{ value: messageValue }(
+                MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _fee.lzTokenFee > 0),
+                _refundAddress
+            );
+    }
+
+    /**
+     * @dev Internal function to pay the native fee associated with the message.
+     * @param _nativeFee The native fee to be paid.
+     * @return nativeFee The amount of native currency paid.
      *
-     * @dev Applications can optionally choose to implement a separate composeMsg sender that is NOT the bridging layer.
-     * @dev The default sender IS the OApp implementer.
+     * @dev If the OApp needs to initiate MULTIPLE LayerZero messages in a single transaction,
+     * this will need to be overridden because msg.value would contain multiple lzFees.
+     * @dev Should be overridden in the event the LayerZero endpoint requires a different native currency.
+     * @dev Some EVMs use an ERC20 as a method for paying transactions/gasFees.
+     * @dev The endpoint is EITHER/OR, ie. it will NOT support both types of native payment at a time.
      */
-    function composeMsgSender() public view virtual returns (address sender) {
-        return address(this);
+    function _payNative(uint256 _nativeFee) internal virtual returns (uint256 nativeFee) {
+        if (msg.value != _nativeFee) revert NotEnoughNative(msg.value);
+        return _nativeFee;
     }
 
     /**
-     * @notice Checks if the path initialization is allowed based on the provided origin.
-     * @param origin The origin information containing the source endpoint and sender address.
-     * @return Whether the path has been initialized.
+     * @dev Internal function to pay the LZ token fee associated with the message.
+     * @param _lzTokenFee The LZ token fee to be paid.
      *
-     * @dev This indicates to the endpoint that the OApp has enabled msgs for this particular path to be received.
-     * @dev This defaults to assuming if a peer has been set, its initialized.
-     * Can be overridden by the OApp if there is other logic to determine this.
+     * @dev If the caller is trying to pay in the specified lzToken, then the lzTokenFee is passed to the endpoint.
+     * @dev Any excess sent, is passed back to the specified _refundAddress in the _lzSend().
      */
-    function allowInitializePath(Origin calldata origin) public view virtual returns (bool) {
-        return peers[origin.srcEid] == origin.sender;
+    function _payLzToken(uint256 _lzTokenFee) internal virtual {
+        // @dev Cannot cache the token because it is not immutable in the endpoint.
+        address lzToken = endpoint.lzToken();
+        if (lzToken == address(0)) revert LzTokenUnavailable();
+
+        // Pay LZ token fee by sending tokens to the endpoint.
+        IERC20(lzToken).safeTransferFrom(msg.sender, address(endpoint), _lzTokenFee);
     }
-
-    /**
-     * @notice Retrieves the next nonce for a given source endpoint and sender address.
-     * @dev _srcEid The source endpoint ID.
-     * @dev _sender The sender address.
-     * @return nonce The next nonce.
-     *
-     * @dev The path nonce starts from 1. If 0 is returned it means that there is NO nonce ordered enforcement.
-     * @dev Is required by the off-chain executor to determine the OApp expects msg execution is ordered.
-     * @dev This is also enforced by the OApp.
-     * @dev By default this is NOT enabled. ie. nextNonce is hardcoded to return 0.
-     */
-    function nextNonce(uint32 /*_srcEid*/, bytes32 /*_sender*/) public view virtual returns (uint64 nonce) {
-        return 0;
-    }
-
-    /**
-     * @dev Entry point for receiving messages or packets from the endpoint.
-     * @param _origin The origin information containing the source endpoint and sender address.
-     *  - srcEid: The source chain endpoint ID.
-     *  - sender: The sender address on the src chain.
-     *  - nonce: The nonce of the message.
-     * @param _guid The unique identifier for the received LayerZero message.
-     * @param _message The payload of the received message.
-     * @param _executor The address of the executor for the received message.
-     * @param _extraData Additional arbitrary data provided by the corresponding executor.
-     *
-     * @dev Entry point for receiving msg/packet from the LayerZero endpoint.
-     */
-    function lzReceive(
-        Origin calldata _origin,
-        bytes32 _guid,
-        bytes calldata _message,
-        address _executor,
-        bytes calldata _extraData
-    ) public payable virtual {
-        // Ensures that only the endpoint can attempt to lzReceive() messages to this OApp.
-        if (address(endpoint) != msg.sender) revert OnlyEndpoint(msg.sender);
-
-        // Ensure that the sender matches the expected peer for the source endpoint.
-        if (_getPeerOrRevert(_origin.srcEid) != _origin.sender) revert OnlyPeer(_origin.srcEid, _origin.sender);
-
-        // Call the internal OApp implementation of lzReceive.
-        _lzReceive(_origin, _guid, _message, _executor, _extraData);
-    }
-
-    /**
-     * @dev Internal function to implement lzReceive logic without needing to copy the basic parameter validation.
-     */
-    function _lzReceive(
-        Origin calldata _origin,
-        bytes32 _guid,
-        bytes calldata _message,
-        address _executor,
-        bytes calldata _extraData
-    ) internal virtual;
 }

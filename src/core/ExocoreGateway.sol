@@ -4,7 +4,7 @@ import {ExocoreGatewayStorage} from "../storage/ExocoreGatewayStorage.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
-import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
+import {OAppUpgradeable} from "../lzApp/OAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";

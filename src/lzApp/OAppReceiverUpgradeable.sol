@@ -2,11 +2,11 @@
 
 pragma solidity ^0.8.20;
 
-import { IOAppReceiver, Origin } from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppReceiver.sol";
+import { IOAppReceiver, Origin } from "./IOAppReceiver.sol";
 import { OAppCoreUpgradeable } from "./OAppCoreUpgradeable.sol";
 
 /**
- * @title OAppReceiver
+ * @title OAppReceiverUpgradeable
  * @dev Abstract contract implementing the ILayerZeroReceiver interface and extending OAppCore for OApp receivers.
  */
 abstract contract OAppReceiverUpgradeable is IOAppReceiver, OAppCoreUpgradeable {

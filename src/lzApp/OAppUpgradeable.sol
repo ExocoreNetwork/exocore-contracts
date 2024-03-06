@@ -7,7 +7,7 @@ pragma solidity ^0.8.20;
 import { OAppSenderUpgradeable, MessagingFee, MessagingReceipt } from "./OAppSenderUpgradeable.sol";
 // @dev Import the 'Origin' so it's exposed to OApp implementers
 // solhint-disable-next-line no-unused-import
-import { OAppReceiverUpgradeble, Origin } from "./OAppReceiverUpgradeable.sol";
+import { OAppReceiverUpgradeable, Origin } from "./OAppReceiverUpgradeable.sol";
 import { OAppCoreUpgradeable } from "./OAppCoreUpgradeable.sol";
 
 /**
@@ -16,12 +16,15 @@ import { OAppCoreUpgradeable } from "./OAppCoreUpgradeable.sol";
  */
 abstract contract OAppUpgradeable is OAppSenderUpgradeable, OAppReceiverUpgradeable {
     /**
-     * @dev Constructor to initialize the OApp with the provided endpoint and owner.
+     * @dev Constructor to initialize the OApp with the provided endpoint.
      * @param _endpoint The address of the LOCAL LayerZero endpoint.
-     * @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
      */
     constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {}
 
+    /**
+     * @dev Initialize delegate
+     * @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
+     */
     function __OApp_init(address _delegate) internal onlyInitializing {
         __OAppCore_init(_delegate);
     }
@@ -39,7 +42,7 @@ abstract contract OAppUpgradeable is OAppSenderUpgradeable, OAppReceiverUpgradea
         public
         pure
         virtual
-        override(OAppSender, OAppReceiver)
+        override(OAppSenderUpgradeable, OAppReceiverUpgradeable)
         returns (uint64 senderVersion, uint64 receiverVersion)
     {
         return (SENDER_VERSION, RECEIVER_VERSION);

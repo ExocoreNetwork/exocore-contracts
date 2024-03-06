@@ -3,10 +3,10 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import { IOAppCore, ILayerZeroEndpointV2 } from "@layerzero-v2/oapp/contracts/oap/interfaces/IOAppCore.sol";
+import { IOAppCore, ILayerZeroEndpointV2 } from "./IOAppCore.sol";
 
 /**
- * @title OAppCore
+ * @title OAppCoreUpgradeable
  * @dev Abstract contract implementing the IOAppCore interface with basic OApp configurations.
  */
 abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
