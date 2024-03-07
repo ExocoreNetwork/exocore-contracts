@@ -19,22 +19,27 @@ abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
     /**
      * @dev Constructor to initialize the OAppCore with the provided endpoint and delegate.
      * @param _endpoint The address of the LOCAL Layer Zero endpoint.
-     * @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
-     *
-     * @dev The delegate typically should be set as the owner of the contract.
      */
-    constructor(address _endpoint, address _delegate) {
+    constructor(address _endpoint) {
         endpoint = ILayerZeroEndpointV2(_endpoint);
 
         _disableInitializers();
     }
 
+    /**
+     * @dev The delegate typically should be set as the owner of the contract.
+     * @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
+     */
     function __OAppCore_init(address _delegate) internal onlyInitializing {
         if (_delegate == address(0)) revert InvalidDelegate();
         endpoint.setDelegate(_delegate);
         __Ownable_init_unchained(_delegate);
     }
 
+    /**
+     * @dev The delegate typically should be set as the owner of the contract.
+     * @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
+     */
     function __OAppCore_init_unchained(address _delegate) internal onlyInitializing {
         if (_delegate == address(0)) revert InvalidDelegate();
         endpoint.setDelegate(_delegate);

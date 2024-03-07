@@ -14,5 +14,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     bytes4 constant WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR = bytes4(keccak256("withdrawPrinciple(uint16,bytes,bytes,uint256)"));
     bytes4 constant CLAIM_REWARD_FUNCTION_SELECTOR = bytes4(keccak256("claimReward(uint16,bytes,bytes,uint256)"));
 
+    event ResponseSent(Action act);
+
     uint256[40] private __gap;
 }

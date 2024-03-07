@@ -12,7 +12,7 @@ contract GatewayStorage {
     }
     
     mapping(Action => bytes4) public whiteListFunctionSelectors;
-    address payable public ExocoreValidatorSetAddress;
+    address payable public exocoreValidatorSetAddress;
 
     uint256[40] private __gap;
 }

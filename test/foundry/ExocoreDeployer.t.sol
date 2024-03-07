@@ -1,10 +1,10 @@
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../../src/core/ClientChainGateway.sol";
-import "../../src/core/Vault.sol";
+import {Vault} from "../../src/core/Vault.sol";
 import "../../src/core/ExocoreGateway.sol";
 import "../mocks/NonShortCircuitLzEndpointMock.sol";
 import "forge-std/console.sol";
@@ -121,8 +121,8 @@ contract ExocoreDeployer is Test {
         vaults.push(address(vault));
         clientGateway.addTokenVaults(vaults);
         // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive messages
-        clientGateway.setTrustedRemote(exocoreChainId, abi.encodePacked(address(exocoreGateway), address(clientGateway)));
-        exocoreGateway.setTrustedRemote(clientChainId, abi.encodePacked(address(clientGateway), address(exocoreGateway)));
+        clientGateway.setPeer(exocoreChainId, bytes32(bytes20(address(exocoreGateway))));
+        exocoreGateway.setPeer(clientChainId, bytes32(bytes20(address(clientGateway))));
         vm.stopPrank();
 
         // bind precompile mock contracts code to constant precompile address

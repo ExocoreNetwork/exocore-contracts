@@ -1,11 +1,11 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
-import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../src/core/ClientChainGateway.sol";
-import "../src/core/Vault.sol";
+import {Vault} from "../src/core/Vault.sol";
 import "../src/core/ExocoreGateway.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
 import "../src/interfaces/precompiles/IDeposit.sol";
@@ -14,7 +14,7 @@ import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../test/mocks/NonShortCircuitLzEndpointMock.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import "../src/storage/GatewayStorage.sol";
-import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
 contract DeployScript is Script {
     Player[] players;

@@ -1,10 +1,10 @@
 pragma solidity ^0.8.19;
 
-import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../../src/core/ClientChainGateway.sol";
-import "../../src/core/Vault.sol";
+import {Vault} from "../../src/core/Vault.sol";
 import "../../src/core/ExocoreGateway.sol";
 import "@layerzero-contracts/mocks/LZEndpointMock.sol";
 import "forge-std/console.sol";
@@ -56,7 +56,7 @@ contract ExocoreGatewayTest is Test {
         vm.stopPrank();
 
         vm.prank(exocoreValidatorSet.addr);
-        exocoreGateway.setTrustedRemote(clientChainId, abi.encodePacked(address(deployer.addr), address(exocoreGateway)));
+        exocoreGateway.setPeer(clientChainId, bytes32(bytes20(address(deployer.addr))));
     }
 
     function test_PauseExocoreGateway() public {
