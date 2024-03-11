@@ -6,17 +6,20 @@ import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSu
 import "../../src/core/ClientChainGateway.sol";
 import {Vault} from "../../src/core/Vault.sol";
 import "../../src/core/ExocoreGateway.sol";
-import "../mocks/NonShortCircuitLzEndpointMock.sol";
+import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../../src/interfaces/precompiles/IClaimReward.sol";
-import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
-
+import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 
 contract ExocoreDeployer is Test {
+    using AddressCast for address;
+
     Player[] players;
     address[] whitelistTokens;
     Player exocoreValidatorSet;
@@ -26,11 +29,11 @@ contract ExocoreDeployer is Test {
     ClientChainGateway clientGateway;
     Vault vault;
     ExocoreGateway exocoreGateway;
-    ILayerZeroEndpoint clientChainLzEndpoint;
-    ILayerZeroEndpoint exocoreLzEndpoint;
+    ILayerZeroEndpointV2 clientChainLzEndpoint;
+    ILayerZeroEndpointV2 exocoreLzEndpoint;
 
-    uint16 exocoreChainId = 0;
-    uint16 clientChainId = 1;
+    uint32 exocoreChainId = 1;
+    uint32 clientChainId = 2;
 
     struct Player {
         uint256 privateKey;
@@ -42,37 +45,32 @@ contract ExocoreDeployer is Test {
         players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
         players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
         exocoreValidatorSet = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
-        
+
         _deploy();
     }
 
     function _deploy() internal {
         // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
-        restakeToken = new ERC20PresetFixedSupply(
-            "rest",
-            "rest",
-            1e16,
-            exocoreValidatorSet.addr
-        );
-        clientChainLzEndpoint = new NonShortCircuitLzEndpointMock(clientChainId, exocoreValidatorSet.addr);
-        exocoreLzEndpoint = new NonShortCircuitLzEndpointMock(exocoreChainId, exocoreValidatorSet.addr);
+        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
+        clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
+        exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
 
         // deploy and initialize client chain contracts
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        
+
         whitelistTokens.push(address(restakeToken));
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway();
+        ClientChainGateway clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint));
         clientGateway = ClientChainGateway(
-            payable(address(
+            payable(
+                address(
                     new TransparentUpgradeableProxy(
-                        address(clientGatewayLogic), 
-                        address(proxyAdmin), 
+                        address(clientGatewayLogic),
+                        address(proxyAdmin),
                         abi.encodeWithSelector(
                             clientGatewayLogic.initialize.selector,
+                            exocoreChainId,
                             payable(exocoreValidatorSet.addr),
-                            whitelistTokens,
-                            address(clientChainLzEndpoint),
-                            exocoreChainId
+                            whitelistTokens
                         )
                     )
                 )
@@ -83,28 +81,25 @@ contract ExocoreDeployer is Test {
         vault = Vault(
             address(
                 new TransparentUpgradeableProxy(
-                    address(vaultLogic), 
+                    address(vaultLogic),
                     address(proxyAdmin),
                     abi.encodeWithSelector(
-                        vaultLogic.initialize.selector,
-                        address(restakeToken),
-                        address(clientGateway)
+                        vaultLogic.initialize.selector, address(restakeToken), address(clientGateway)
                     )
                 )
             )
         );
 
         // deploy Exocore network contracts
-        ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
+        ExocoreGateway exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
         exocoreGateway = ExocoreGateway(
-            payable(address(
+            payable(
+                address(
                     new TransparentUpgradeableProxy(
                         address(exocoreGatewayLogic),
-                        address(proxyAdmin), 
+                        address(proxyAdmin),
                         abi.encodeWithSelector(
-                            exocoreGatewayLogic.initialize.selector,
-                            payable(exocoreValidatorSet.addr),
-                            address(exocoreLzEndpoint)
+                            exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
                         )
                     )
                 )
@@ -112,17 +107,21 @@ contract ExocoreDeployer is Test {
         );
 
         // set the destination endpoint for corresponding destinations in endpoint mock
-        NonShortCircuitLzEndpointMock(address(clientChainLzEndpoint)).setDestLzEndpoint(address(exocoreGateway), address(exocoreLzEndpoint));
-        NonShortCircuitLzEndpointMock(address(exocoreLzEndpoint)).setDestLzEndpoint(address(clientGateway), address(clientChainLzEndpoint));
-        
+        NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
+            address(exocoreGateway), address(exocoreLzEndpoint)
+        );
+        NonShortCircuitEndpointV2Mock(address(exocoreLzEndpoint)).setDestLzEndpoint(
+            address(clientGateway), address(clientChainLzEndpoint)
+        );
+
         // Exocore validator set should be the owner of gateway contracts and only owner could call these functions.
         vm.startPrank(exocoreValidatorSet.addr);
         // add token vaults to gateway
         vaults.push(address(vault));
         clientGateway.addTokenVaults(vaults);
         // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive messages
-        clientGateway.setPeer(exocoreChainId, bytes32(bytes20(address(exocoreGateway))));
-        exocoreGateway.setPeer(clientChainId, bytes32(bytes20(address(clientGateway))));
+        clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
+        exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
         vm.stopPrank();
 
         // bind precompile mock contracts code to constant precompile address

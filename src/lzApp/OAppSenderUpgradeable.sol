@@ -2,9 +2,13 @@
 
 pragma solidity ^0.8.20;
 
-import { SafeERC20, IERC20 } from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import { MessagingParams, MessagingFee, MessagingReceipt } from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import { OAppCoreUpgradeable } from "./OAppCoreUpgradeable.sol";
+import {SafeERC20, IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {
+    MessagingParams,
+    MessagingFee,
+    MessagingReceipt
+} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import {OAppCoreUpgradeable} from "./OAppCoreUpgradeable.sol";
 
 /**
  * @title OAppSenderUpgradeable
@@ -44,17 +48,15 @@ abstract contract OAppSenderUpgradeable is OAppCoreUpgradeable {
      *      - nativeFee: The native fee for the message.
      *      - lzTokenFee: The LZ token fee for the message.
      */
-    function _quote(
-        uint32 _dstEid,
-        bytes memory _message,
-        bytes memory _options,
-        bool _payInLzToken
-    ) internal view virtual returns (MessagingFee memory fee) {
-        return
-            endpoint.quote(
-                MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _payInLzToken),
-                address(this)
-            );
+    function _quote(uint32 _dstEid, bytes memory _message, bytes memory _options, bool _payInLzToken)
+        internal
+        view
+        virtual
+        returns (MessagingFee memory fee)
+    {
+        return endpoint.quote(
+            MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _payInLzToken), address(this)
+        );
     }
 
     /**
@@ -66,6 +68,8 @@ abstract contract OAppSenderUpgradeable is OAppCoreUpgradeable {
      *      - nativeFee: The native fee.
      *      - lzTokenFee: The lzToken fee.
      * @param _refundAddress The address to receive any excess fee values sent to the endpoint.
+     * @param byApp Whether the native fee is paid by the app itself or by the app caller,
+     * if byApp is true, app caller does not need to specify msg.value to pay for the native fee.
      * @return receipt The receipt for the sent message.
      *      - guid: The unique identifier for the sent message.
      *      - nonce: The nonce of the sent message.
@@ -76,23 +80,25 @@ abstract contract OAppSenderUpgradeable is OAppCoreUpgradeable {
         bytes memory _message,
         bytes memory _options,
         MessagingFee memory _fee,
-        address _refundAddress
+        address _refundAddress,
+        bool byApp
     ) internal virtual returns (MessagingReceipt memory receipt) {
         // @dev Push corresponding fees to the endpoint, any excess is sent back to the _refundAddress from the endpoint.
-        uint256 messageValue = _payNative(_fee.nativeFee);
+        uint256 messageValue = _payNative(_fee.nativeFee, byApp);
         if (_fee.lzTokenFee > 0) _payLzToken(_fee.lzTokenFee);
 
-        return
+        return endpoint
             // solhint-disable-next-line check-send-result
-            endpoint.send{ value: messageValue }(
-                MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _fee.lzTokenFee > 0),
-                _refundAddress
-            );
+            .send{value: messageValue}(
+            MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _fee.lzTokenFee > 0), _refundAddress
+        );
     }
 
     /**
      * @dev Internal function to pay the native fee associated with the message.
      * @param _nativeFee The native fee to be paid.
+     * @param byApp Whether the native fee is paid by the app itself or by the app caller,
+     * if byApp is true, do not check that the msg.value is equal to nativeFee.
      * @return nativeFee The amount of native currency paid.
      *
      * @dev If the OApp needs to initiate MULTIPLE LayerZero messages in a single transaction,
@@ -101,8 +107,8 @@ abstract contract OAppSenderUpgradeable is OAppCoreUpgradeable {
      * @dev Some EVMs use an ERC20 as a method for paying transactions/gasFees.
      * @dev The endpoint is EITHER/OR, ie. it will NOT support both types of native payment at a time.
      */
-    function _payNative(uint256 _nativeFee) internal virtual returns (uint256 nativeFee) {
-        if (msg.value != _nativeFee) revert NotEnoughNative(msg.value);
+    function _payNative(uint256 _nativeFee, bool byApp) internal virtual returns (uint256 nativeFee) {
+        if (!byApp && msg.value != _nativeFee) revert NotEnoughNative(msg.value);
         return _nativeFee;
     }
 

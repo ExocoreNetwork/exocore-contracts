@@ -6,14 +6,10 @@ import "./DepositMock.sol";
 
 contract WithdrawPrincipleMock is IWithdraw {
     mapping(uint16 => mapping(bytes => mapping(bytes => uint256))) principleBalances;
-    function depositTo(
-        uint16 clientChainLzId,
-        bytes memory assetsAddress,
-        bytes memory stakerAddress,
-        uint256 opAmount
-    ) 
-        external 
-        returns (bool success,uint256 latestAssetState) 
+
+    function depositTo(uint16 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
+        external
+        returns (bool success, uint256 latestAssetState)
     {
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
     }
@@ -23,10 +19,7 @@ contract WithdrawPrincipleMock is IWithdraw {
         bytes memory assetsAddress,
         bytes memory withdrawer,
         uint256 opAmount
-    ) 
-        external 
-        returns (bool success,uint256 latestAssetState) 
-    {   
+    ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid staker address");
         require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");

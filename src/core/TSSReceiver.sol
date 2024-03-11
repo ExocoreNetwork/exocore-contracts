@@ -8,36 +8,34 @@ import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
-import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import {OAppUpgradeable} from "../lzApp/OAppUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
-abstract contract TSSReceiver is 
-    PausableUpgradeable,
-    ClientChainGatewayStorage,
-    ITSSReceiver
-{
+abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage, ITSSReceiver {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {
         require(_msg.nonce == ++lastMessageNonce, "wrong message nonce");
-        require(_msg.srcChainID == exocoreChainID, "wrong source chain id");
+        require(_msg.srcChainID == exocoreChainId, "wrong source chain id");
         require(keccak256(_msg.srcAddress) == keccak256(bytes("0x")), "wrong source address");
         require(_msg.dstChainID == block.chainid, "mismatch destination chain id");
-        require(keccak256(_msg.dstAddress) == keccak256(abi.encodePacked(address(this))), "mismatch destination contract address");
+        require(
+            keccak256(_msg.dstAddress) == keccak256(abi.encodePacked(address(this))),
+            "mismatch destination contract address"
+        );
         bool isValid = verifyInterchainMsg(_msg, signature);
         if (!isValid) {
             revert UnauthorizedSigner();
         }
-        
+
         Action act = Action(uint8(_msg.payload[0]));
         require(act == Action.UPDATE_USERS_BALANCES, "not supported action");
         bytes memory args = _msg.payload[1:];
-        (bool success, bytes memory reason) = address(this).call(abi.encodePacked(whiteListFunctionSelectors[act], args));
+        (bool success, bytes memory reason) =
+            address(this).call(abi.encodePacked(whiteListFunctionSelectors[act], args));
         if (!success) {
             emit MessageFailed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload, reason);
         } else {
@@ -45,15 +43,14 @@ abstract contract TSSReceiver is
         }
     }
 
-    function verifyInterchainMsg(InterchainMsg calldata msg_, bytes calldata signature) internal view returns(bool isValid) {
+    function verifyInterchainMsg(InterchainMsg calldata msg_, bytes calldata signature)
+        internal
+        view
+        returns (bool isValid)
+    {
         bytes32 digest = keccak256(
             abi.encodePacked(
-                msg_.srcChainID, 
-                msg_.srcAddress, 
-                msg_.dstChainID, 
-                msg_.dstAddress, 
-                msg_.nonce, 
-                msg_.payload
+                msg_.srcChainID, msg_.srcAddress, msg_.dstChainID, msg_.dstAddress, msg_.nonce, msg_.payload
             )
         );
         (uint8 v, bytes32 r, bytes32 s) = splitSignature(signature);

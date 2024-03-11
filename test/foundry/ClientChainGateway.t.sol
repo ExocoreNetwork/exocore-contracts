@@ -6,7 +6,7 @@ import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSu
 import "../../src/core/ClientChainGateway.sol";
 import {Vault} from "../../src/core/Vault.sol";
 import "../../src/core/ExocoreGateway.sol";
-import "@layerzero-contracts/mocks/LZEndpointMock.sol";
+import {EndpointV2Mock} from "../mocks/EndpointV2Mock.sol";
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
@@ -25,12 +25,12 @@ contract ClientChainGatewayTest is Test {
     ClientChainGateway clientGateway;
     Vault vault;
     ExocoreGateway exocoreGateway;
-    LZEndpointMock clientChainLzEndpoint;
-    LZEndpointMock exocoreLzEndpoint;
+    EndpointV2Mock clientChainLzEndpoint;
+    EndpointV2Mock exocoreLzEndpoint;
 
-    string operatorAddress = "evmos1v4s6vtjpmxwu9rlhqms5urzrc3tc2ae2gnuqhc";
-    uint16 exocoreChainId = 0;
-    uint16 clientChainId = 1;
+    string operatorAddress = "exo1v4s6vtjpmxwu9rlhqms5urzrc3tc2ae2gnuqhc";
+    uint16 exocoreChainId = 1;
+    uint16 clientChainId = 2;
 
     struct Player {
         uint256 privateKey;
@@ -39,6 +39,9 @@ contract ClientChainGatewayTest is Test {
 
     event Paused(address account);
     event Unpaused(address account);
+
+    error EnforcedPause();
+    error ExpectedPause();
 
     function setUp() public virtual {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
@@ -56,24 +59,20 @@ contract ClientChainGatewayTest is Test {
     function _deploy() internal {
         vm.startPrank(deployer.addr);
 
-        restakeToken = new ERC20PresetFixedSupply(
-            "rest",
-            "rest",
-            1e16,
-            exocoreValidatorSet.addr
-        );
+        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
         whitelistTokens.push(address(restakeToken));
 
+        clientChainLzEndpoint = new EndpointV2Mock(clientChainId);
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway();
-        clientGateway = ClientChainGateway(payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), ""))));
+        ClientChainGateway clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint));
+        clientGateway = ClientChainGateway(
+            payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))
+        );
 
         Vault vaultLogic = new Vault();
         vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(proxyAdmin), "")));
 
-        clientChainLzEndpoint = new LZEndpointMock(clientChainId);
-
-        clientGateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens, address(clientChainLzEndpoint), exocoreChainId);
+        clientGateway.initialize(exocoreChainId, payable(exocoreValidatorSet.addr), whitelistTokens);
         vault.initialize(address(restakeToken), address(clientGateway));
         vaults.push(address(vault));
         vm.stopPrank();
@@ -111,25 +110,25 @@ contract ClientChainGatewayTest is Test {
         vm.startPrank(exocoreValidatorSet.addr);
         clientGateway.pause();
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert(EnforcedPause.selector);
         clientGateway.addTokenVaults(vaults);
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert(EnforcedPause.selector);
         clientGateway.claim(address(restakeToken), uint256(1), deployer.addr);
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert(EnforcedPause.selector);
         clientGateway.delegateTo(operatorAddress, address(restakeToken), uint256(1));
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert(EnforcedPause.selector);
         clientGateway.deposit(address(restakeToken), uint256(1));
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert(EnforcedPause.selector);
         clientGateway.withdrawPrincipleFromExocore(address(restakeToken), uint256(1));
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert(EnforcedPause.selector);
         clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
 
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert(EnforcedPause.selector);
         ITSSReceiver.InterchainMsg memory msg_;
         clientGateway.receiveInterchainMsg(msg_, bytes(""));
     }

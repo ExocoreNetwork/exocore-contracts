@@ -26,7 +26,7 @@ import {DVNOptions} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/libs
 import {UlnOptions} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/libs/UlnOptions.sol";
 import {CalldataBytesLib} from "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/CalldataBytesLib.sol";
 
-contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
+contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
     using ExecutorOptions for bytes;
     using OFTMsgCodec for bytes;
     using OFTMsgCodec for bytes32;
@@ -67,7 +67,6 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
     uint8 internal constant _NOT_ENTERED = 1;
     uint8 internal constant _ENTERED = 2;
     uint8 internal _receive_entered_state = 1;
-    address exocoreValidatorSet;
 
     modifier receiveNonReentrant() {
         require(_receive_entered_state == _NOT_ENTERED, "LayerZeroMock: no receive reentrancy");
@@ -76,18 +75,9 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         _receive_entered_state = _NOT_ENTERED;
     }
 
-    modifier onlyExocoreValidatorSet() {
-        require(msg.sender == exocoreValidatorSet, "only authorized to exocore validator set");
-        _;
-    }
-
     event ValueTransferFailed(address indexed to, uint256 indexed quantity);
-    event NewPacket(uint32, address, bytes32, uint64, bytes);
 
-    constructor(uint32 _eid, address _exocoreValidatorSet) {
-        require(_exocoreValidatorSet != address(0), "exocore validator set address should not be empty");
-
-        exocoreValidatorSet = _exocoreValidatorSet;
+    constructor(uint32 _eid) {
         eid = _eid;
         // init config
         relayerFeeConfig = RelayerFeeConfig({
@@ -143,41 +133,33 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         // TODO fix
         // composed calls with correct gas
 
-        // Origin memory origin = Origin({
-        //     srcEid: packet.srcEid,
-        //     sender: packet.sender.addressToBytes32(),
-        //     nonce: packet.nonce
-        // });
+        Origin memory origin =
+            Origin({srcEid: packet.srcEid, sender: packet.sender.addressToBytes32(), nonce: packet.nonce});
 
-        // bytes memory payload = PacketV1Codec.encodePayload(packet);
-        // bytes32 payloadHash = keccak256(payload);
+        bytes memory payload = PacketV1Codec.encodePayload(packet);
+        bytes32 payloadHash = keccak256(payload);
 
-        _sendMessage(packet.dstEid, msg.sender, packet.receiver, packet.nonce, packet.message);
+        EndpointV2Mock(lzEndpoint).receivePayload{value: dstAmount}(
+            origin, packet.receiver.bytes32ToAddress(), payloadHash, packet.message, totalGas, dstAmount, packet.guid
+        );
     }
 
-    function _sendMessage(uint32 dstChainId, address srcAddress, bytes32 dstAddr, uint64 nonce, bytes memory payload)
-        internal
-    {
-        emit NewPacket(dstChainId, srcAddress, dstAddr, nonce, payload);
-    }
-
-    function lzReceive(
+    function receivePayload(
         Origin calldata _origin,
         address _receiver,
-        bytes32 _guid,
+        bytes32 _payloadHash,
         bytes calldata _message,
-        bytes calldata
+        uint256 _gas,
+        uint256 _msgValue,
+        bytes32 _guid
     ) external payable receiveNonReentrant {
-        require(
-            _origin.nonce == ++lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender],
-            "nonce should match expected inbound nonce"
-        );
-        inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
-        if (msg.value > 0) {
-            try ILayerZeroReceiver(_receiver).lzReceive{value: msg.value}(_origin, _guid, _message, address(0), "") {}
-                catch (bytes memory) /*reason*/ {}
+        inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = _payloadHash;
+        if (_msgValue > 0) {
+            try ILayerZeroReceiver(_receiver).lzReceive{value: _msgValue, gas: _gas}(
+                _origin, _guid, _message, address(0), ""
+            ) {} catch (bytes memory) /*reason*/ {}
         } else {
-            try ILayerZeroReceiver(_receiver).lzReceive(_origin, _guid, _message, address(0), "") {}
+            try ILayerZeroReceiver(_receiver).lzReceive{gas: _gas}(_origin, _guid, _message, address(0), "") {}
                 catch (bytes memory) /*reason*/ {}
         }
     }
@@ -231,28 +213,6 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         unchecked {
             nonce = ++outboundNonce[_sender][_dstEid][_receiver];
         }
-    }
-
-    function getInboundNonce(address _receiver, uint32 _srcEid, bytes32 _sender) external view returns (uint64) {
-        return lazyInboundNonce[_receiver][_srcEid][_sender];
-    }
-
-    function resetInboundNonce(address _receiver, uint32 _srcEid, bytes32 _sender, uint64 _nonce)
-        external
-        onlyExocoreValidatorSet
-    {
-        lazyInboundNonce[_receiver][_srcEid][_sender] = _nonce;
-    }
-
-    function getOutboundNonce(address _sender, uint32 _dstEid, bytes32 _receiver) external view returns (uint64) {
-        return outboundNonce[_sender][_dstEid][_receiver];
-    }
-
-    function resetOutboundNonce(address _sender, uint32 _dstEid, bytes32 _receiver, uint64 _nonce)
-        external
-        onlyExocoreValidatorSet
-    {
-        outboundNonce[_sender][_dstEid][_receiver] = _nonce;
     }
 
     function setDestLzEndpoint(address destAddr, address lzEndpointAddr) external {
@@ -524,13 +484,13 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         bytes calldata /*_extraData*/
     ) external payable {}
 
-    // function lzReceive(
-    //     Origin calldata /*_origin,*/,
-    //     address /*_receiver,*/,
-    //     bytes32 /*_guid,*/,
-    //     bytes calldata /*_message,*/,
-    //     bytes calldata /*_extraData*/
-    // ) external payable {}
+    function lzReceive(
+        Origin calldata, /*_origin,*/
+        address, /*_receiver,*/
+        bytes32, /*_guid,*/
+        bytes calldata, /*_message,*/
+        bytes calldata /*_extraData*/
+    ) external payable {}
 
     function lzToken() external pure returns (address) {
         return address(0);

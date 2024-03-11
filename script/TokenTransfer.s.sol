@@ -39,7 +39,7 @@ contract DeployScript is Script {
     uint16 clientChainId = 101;
     uint256 clientChain;
     uint256 exocore;
-    uint constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
+    uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
     uint256 constant DEPOSIT_AMOUNT = 1e22;
     uint256 constant AIRDEOP_AMOUNT = 1e28;
 
@@ -47,7 +47,7 @@ contract DeployScript is Script {
         uint256 privateKey;
         address addr;
     }
-    
+
     function setUp() public {
         clientChainDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
         clientChainDeployer.addr = vm.addr(clientChainDeployer.privateKey);
@@ -57,7 +57,7 @@ contract DeployScript is Script {
 
         exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
-        
+
         depositor.privateKey = vm.envUint("TEST_ACCOUNT_FOUR_PRIVATE_KEY");
         depositor.addr = vm.addr(depositor.privateKey);
 
@@ -69,7 +69,8 @@ contract DeployScript is Script {
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
-        clientGateway = ClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
+        clientGateway =
+            ClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
         clientChainLzEndpoint = ILayerZeroEndpoint(stdJson.readAddress(deployedContracts, ".clientChain.lzEndpoint"));
         restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(deployedContracts, ".clientChain.erc20Token"));
         vault = Vault(stdJson.readAddress(deployedContracts, ".clientChain.resVault"));
@@ -96,11 +97,11 @@ contract DeployScript is Script {
 
         vm.startBroadcast(clientChainDeployer.privateKey);
         if (address(clientGateway).balance < 0.2 ether) {
-            (bool sent, ) = address(clientGateway).call{value: 0.2 ether}("");
+            (bool sent,) = address(clientGateway).call{value: 0.2 ether}("");
             require(sent, "Failed to send Ether");
         }
         if (exocoreValidatorSet.addr.balance < 0.02 ether) {
-            (bool sent, ) = exocoreValidatorSet.addr.call{value: 0.02 ether}("");
+            (bool sent,) = exocoreValidatorSet.addr.call{value: 0.02 ether}("");
             require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();
@@ -108,17 +109,15 @@ contract DeployScript is Script {
         exocore = vm.createSelectFork(exocoreRPCURL);
         vm.startBroadcast(exocoreDeployer.privateKey);
         if (relayer.addr.balance < 1 ether) {
-            (bool sent, ) = relayer.addr.call{value: 0.1 ether}("");
+            (bool sent,) = relayer.addr.call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");
         }
         if (address(exocoreGateway).balance < 1 ether) {
-            (bool sent, ) = address(exocoreGateway).call{value: 0.1 ether}("");
+            (bool sent,) = address(exocoreGateway).call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();
     }
 
-    function run() public {
-    
-    }
+    function run() public {}
 }

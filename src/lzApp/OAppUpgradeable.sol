@@ -4,11 +4,11 @@ pragma solidity ^0.8.20;
 
 // @dev Import the 'MessagingFee' and 'MessagingReceipt' so it's exposed to OApp implementers
 // solhint-disable-next-line no-unused-import
-import { OAppSenderUpgradeable, MessagingFee, MessagingReceipt } from "./OAppSenderUpgradeable.sol";
+import {OAppSenderUpgradeable, MessagingFee, MessagingReceipt} from "./OAppSenderUpgradeable.sol";
 // @dev Import the 'Origin' so it's exposed to OApp implementers
 // solhint-disable-next-line no-unused-import
-import { OAppReceiverUpgradeable, Origin } from "./OAppReceiverUpgradeable.sol";
-import { OAppCoreUpgradeable } from "./OAppCoreUpgradeable.sol";
+import {OAppReceiverUpgradeable, Origin} from "./OAppReceiverUpgradeable.sol";
+import {OAppCoreUpgradeable} from "./OAppCoreUpgradeable.sol";
 
 /**
  * @title OApp

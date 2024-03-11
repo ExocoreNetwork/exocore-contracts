@@ -6,13 +6,14 @@ import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSu
 import "../../src/core/ClientChainGateway.sol";
 import {Vault} from "../../src/core/Vault.sol";
 import "../../src/core/ExocoreGateway.sol";
-import "@layerzero-contracts/mocks/LZEndpointMock.sol";
+import {EndpointV2Mock} from "../mocks/EndpointV2Mock.sol";
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../../src/interfaces/ITSSReceiver.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 
 contract ExocoreGatewayTest is Test {
     Player[] players;
@@ -20,10 +21,10 @@ contract ExocoreGatewayTest is Test {
     Player deployer;
 
     ExocoreGateway exocoreGateway;
-    LZEndpointMock exocoreLzEndpoint;
+    EndpointV2Mock exocoreLzEndpoint;
 
-    uint16 exocoreChainId = 0;
-    uint16 clientChainId = 1;
+    uint16 exocoreChainId = 1;
+    uint16 clientChainId = 2;
 
     struct Player {
         uint256 privateKey;
@@ -32,6 +33,9 @@ contract ExocoreGatewayTest is Test {
 
     event Paused(address account);
     event Unpaused(address account);
+
+    error EnforcedPause();
+    error ExpectedPause();
 
     function setUp() public virtual {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
@@ -46,13 +50,15 @@ contract ExocoreGatewayTest is Test {
     function _deploy() internal {
         vm.startPrank(deployer.addr);
 
+        exocoreLzEndpoint = new EndpointV2Mock(exocoreChainId);
+
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
-        exocoreGateway = ExocoreGateway(payable(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), ""))));
+        ExocoreGateway exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
+        exocoreGateway = ExocoreGateway(
+            payable(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")))
+        );
 
-        exocoreLzEndpoint = new LZEndpointMock(exocoreChainId);
-
-        exocoreGateway.initialize(payable(exocoreValidatorSet.addr), address(exocoreLzEndpoint));
+        exocoreGateway.initialize(payable(exocoreValidatorSet.addr));
         vm.stopPrank();
 
         vm.prank(exocoreValidatorSet.addr);
@@ -82,7 +88,7 @@ contract ExocoreGatewayTest is Test {
     }
 
     function test_RevertWhen_UnauthorizedPauser() public {
-        vm.expectRevert("only Exocore validator set aggregated address could call this");
+        vm.expectRevert(bytes("only Exocore validator set aggregated address could call this"));
         vm.startPrank(deployer.addr);
         exocoreGateway.pause();
     }
@@ -92,11 +98,12 @@ contract ExocoreGatewayTest is Test {
         exocoreGateway.pause();
 
         vm.prank(address(exocoreLzEndpoint));
-        vm.expectRevert("Pausable: paused");
+        vm.expectRevert(EnforcedPause.selector);
         exocoreGateway.lzReceive(
-            clientChainId, 
-            abi.encodePacked(address(deployer.addr), address(exocoreGateway)), 
-            uint64(1), 
+            Origin(clientChainId, bytes32(bytes20(address(deployer.addr))), uint64(1)),
+            bytes32(0),
+            bytes(""),
+            address(0x2),
             bytes("")
         );
     }

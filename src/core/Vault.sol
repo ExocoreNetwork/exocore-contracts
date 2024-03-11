@@ -19,11 +19,11 @@ contract Vault is Initializable, VaultStorage, IVault {
         _disableInitializers();
     }
 
-    function getUnderlyingToken() public view returns(address) {
+    function getUnderlyingToken() public view returns (address) {
         return address(underlyingToken);
     }
 
-    function getWithdrawableBalance(address withdrawer) external view returns(uint256 balance) {
+    function getWithdrawableBalance(address withdrawer) external view returns (uint256 balance) {
         return withdrawableBalances[withdrawer];
     }
 
@@ -33,8 +33,11 @@ contract Vault is Initializable, VaultStorage, IVault {
     }
 
     function withdraw(address withdrawer, address recipient, uint256 amount) external onlyGateway {
-        require(amount <= withdrawableBalances[withdrawer], "can not withdraw more amount than depositor's withdrawable balance");
-        
+        require(
+            amount <= withdrawableBalances[withdrawer],
+            "can not withdraw more amount than depositor's withdrawable balance"
+        );
+
         withdrawableBalances[withdrawer] -= amount;
         underlyingToken.safeTransfer(recipient, amount);
     }
@@ -52,11 +55,20 @@ contract Vault is Initializable, VaultStorage, IVault {
         rewardBalances[user] = lastlyUpdatedRewardBalance;
     }
 
-    function updateWithdrawableBalance(address user, uint256 unlockPrincipleAmount, uint256 unlockRewardAmount) external onlyGateway {
-        require(unlockPrincipleAmount <= totalDepositedPrincipleAmount[user], "cannot unlock a principal amount larger than the total deposited");
+    function updateWithdrawableBalance(address user, uint256 unlockPrincipleAmount, uint256 unlockRewardAmount)
+        external
+        onlyGateway
+    {
+        require(
+            unlockPrincipleAmount <= totalDepositedPrincipleAmount[user],
+            "cannot unlock a principal amount larger than the total deposited"
+        );
 
         totalUnlockPrincipleAmount[user] += unlockPrincipleAmount;
-        require(totalUnlockPrincipleAmount[user] <= totalDepositedPrincipleAmount[user], "total unlocked principle amount cannot be larger than the total deposited");
+        require(
+            totalUnlockPrincipleAmount[user] <= totalDepositedPrincipleAmount[user],
+            "total unlocked principle amount cannot be larger than the total deposited"
+        );
 
         withdrawableBalances[user] = withdrawableBalances[user] + unlockPrincipleAmount + unlockRewardAmount;
     }

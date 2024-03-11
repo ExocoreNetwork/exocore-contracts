@@ -3,7 +3,7 @@
 pragma solidity ^0.8.20;
 
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import { IOAppCore, ILayerZeroEndpointV2 } from "./IOAppCore.sol";
+import {IOAppCore, ILayerZeroEndpointV2} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 
 /**
  * @title OAppCoreUpgradeable
@@ -21,6 +21,7 @@ abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
      * @param _endpoint The address of the LOCAL Layer Zero endpoint.
      */
     constructor(address _endpoint) {
+        require(_endpoint != address(0), "layerzero endpoint should not be empty");
         endpoint = ILayerZeroEndpointV2(_endpoint);
 
         _disableInitializers();

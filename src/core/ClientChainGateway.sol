@@ -9,7 +9,6 @@ import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/Saf
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
-import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
@@ -32,36 +31,34 @@ contract ClientChainGateway is
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
-    constructor(address _endpoint) OAppCoreUpgradeable(_endpoint)  {
+    constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {
         _disableInitializers();
     }
 
     function initialize(
+        uint32 _exocoreChainId,
         address payable _exocoreValidatorSetAddress,
-        address[] calldata _whitelistTokens,
-        address _lzEndpoint,
-        uint16 _exocoreChainID
-    ) 
-        external 
-        initializer 
-    {
+        address[] calldata _whitelistTokens
+    ) external initializer {
         require(_exocoreValidatorSetAddress != address(0), "exocore validator set address should not be empty");
-        require(_exocoreChainID != 0, "exocore chain id should not be empty");
+        require(_exocoreChainId != 0, "exocore chain id should not be empty");
 
         exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
-        exocoreChainID = _exocoreChainID;
+        exocoreChainId = _exocoreChainId;
 
-        for (uint i = 0; i < _whitelistTokens.length; i++) {
+        for (uint256 i = 0; i < _whitelistTokens.length; i++) {
             whitelistTokens[_whitelistTokens[i]] = true;
         }
 
         whiteListFunctionSelectors[Action.UPDATE_USERS_BALANCES] = this.updateUsersBalances.selector;
 
         registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
-        registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.afterReceiveWithdrawPrincipleResponse.selector;
+        registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
+            this.afterReceiveWithdrawPrincipleResponse.selector;
         registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
         registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
-        registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.afterReceiveWithdrawRewardResponse.selector;
+        registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
+            this.afterReceiveWithdrawRewardResponse.selector;
 
         __Ownable_init_unchained(exocoreValidatorSetAddress);
         __OAppCore_init_unchained(exocoreValidatorSetAddress);
@@ -69,43 +66,35 @@ contract ClientChainGateway is
     }
 
     function pause() external {
-        require(msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
+        require(
+            msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this"
+        );
         _pause();
     }
 
     function unpause() external {
-        require(msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
+        require(
+            msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this"
+        );
         _unpause();
     }
 
-    function addWhitelistToken(address _token)
-        external
-        onlyOwner
-        whenNotPaused
-    {
+    function addWhitelistToken(address _token) external onlyOwner whenNotPaused {
         require(!whitelistTokens[_token], "token should be not whitelisted before");
         whitelistTokens[_token] = true;
 
         emit WhitelistTokenAdded(_token);
     }
 
-    function removeWhitelistToken(address _token)
-        external
-        onlyOwner
-        whenNotPaused
-    {   
+    function removeWhitelistToken(address _token) external onlyOwner whenNotPaused {
         require(whitelistTokens[_token], "token should be already whitelisted");
         whitelistTokens[_token] = false;
 
         emit WhitelistTokenRemoved(_token);
     }
 
-    function addTokenVaults(address[] calldata vaults) 
-        external 
-        onlyOwner
-        whenNotPaused 
-    {
-        for (uint i =0; i < vaults.length; i++) {
+    function addTokenVaults(address[] calldata vaults) external onlyOwner whenNotPaused {
+        for (uint256 i = 0; i < vaults.length; i++) {
             address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
             if (!whitelistTokens[underlyingToken]) {
                 revert UnauthorizedToken();

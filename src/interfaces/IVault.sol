@@ -11,7 +11,8 @@ interface IVault {
 
     function updateRewardBalance(address user, uint256 lastlyUpdatedRewardBalance) external;
 
-    function updateWithdrawableBalance(address user, uint256 unlockPrincipleAmount, uint256 unlockRewardAmount) external;
+    function updateWithdrawableBalance(address user, uint256 unlockPrincipleAmount, uint256 unlockRewardAmount)
+        external;
 
-    function getUnderlyingToken() external returns(address);
+    function getUnderlyingToken() external returns (address);
 }

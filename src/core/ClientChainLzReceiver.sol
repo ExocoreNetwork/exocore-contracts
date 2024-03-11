@@ -8,18 +8,12 @@ import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
-import {ILayerZeroEndpoint} from "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
-abstract contract ClientChainLzReceiver is 
-    PausableUpgradeable,
-    OAppReceiverUpgradeable,
-    ClientChainGatewayStorage
-{
+abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
     using SafeERC20 for IERC20;
 
     modifier onlyCalledFromThis() {
@@ -27,13 +21,7 @@ abstract contract ClientChainLzReceiver is
         _;
     }
 
-    function _lzReceive(
-        Origin calldata _origin,
-        bytes32 _guid,
-        bytes calldata payload,
-        address _executor,
-        bytes calldata _extraData
-    ) internal virtual override {
+    function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override {
         Action act = Action(uint8(payload[0]));
         if (act == Action.RESPOND) {
             uint64 requestId = uint64(bytes8(payload[1:9]));
@@ -49,12 +37,8 @@ abstract contract ClientChainLzReceiver is
                 revert UnexpectedResponse(requestId);
             }
 
-            (bool success, bytes memory reason) = address(this).call(
-                abi.encodePacked(
-                    hookSelector, 
-                    abi.encode(requestPayload, payload[9:])
-                )
-            );
+            (bool success, bytes memory reason) =
+                address(this).call(abi.encodePacked(hookSelector, abi.encode(requestPayload, payload[9:])));
             if (!success) {
                 revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
@@ -66,18 +50,19 @@ abstract contract ClientChainLzReceiver is
                 revert UnsupportedRequest(act);
             }
 
-            (bool success, bytes memory reason) = address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
+            (bool success, bytes memory reason) =
+                address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
             if (!success) {
                 revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
         }
     }
 
-    function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload) 
-        public 
-        onlyCalledFromThis 
-    {   
-        (address token, address depositor, uint256 amount) = abi.decode(requestPayload, (address,address,uint256));
+    function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, address depositor, uint256 amount) = abi.decode(requestPayload, (address, address, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:]));
@@ -86,18 +71,19 @@ abstract contract ClientChainLzReceiver is
             if (address(vault) == address(0)) {
                 revert VaultNotExist();
             }
-            
+
             vault.updatePrincipleBalance(depositor, lastlyUpdatedPrincipleBalance);
         }
 
         emit DepositResult(success, token, depositor, amount);
     }
 
-    function afterReceiveWithdrawPrincipleResponse(bytes memory requestPayload, bytes calldata responsePayload) 
-        public 
-        onlyCalledFromThis 
-    {   
-        (address token, address withdrawer, uint256 unlockPrincipleAmount) = abi.decode(requestPayload, (address,address,uint256));
+    function afterReceiveWithdrawPrincipleResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, address withdrawer, uint256 unlockPrincipleAmount) =
+            abi.decode(requestPayload, (address, address, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:33]));
@@ -114,11 +100,12 @@ abstract contract ClientChainLzReceiver is
         emit WithdrawPrincipleResult(success, token, withdrawer, unlockPrincipleAmount);
     }
 
-    function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload) 
-        public 
-        onlyCalledFromThis 
-    {   
-        (address token, address withdrawer, uint256 unlockRewardAmount) = abi.decode(requestPayload, (address,address,uint256));
+    function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, address withdrawer, uint256 unlockRewardAmount) =
+            abi.decode(requestPayload, (address, address, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedRewardBalance = uint256(bytes32(responsePayload[1:33]));
@@ -135,22 +122,24 @@ abstract contract ClientChainLzReceiver is
         emit WithdrawRewardResult(success, token, withdrawer, unlockRewardAmount);
     }
 
-    function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload) 
-        public 
-        onlyCalledFromThis 
-    {   
-        (address token, string memory operator, address delegator, uint256 amount) = abi.decode(requestPayload, (address,string,address,uint256));
+    function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, string memory operator, address delegator, uint256 amount) =
+            abi.decode(requestPayload, (address, string, address, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 
         emit DelegateResult(success, delegator, operator, token, amount);
     }
 
-    function afterReceiveUndelegateResponse(bytes memory requestPayload, bytes calldata responsePayload) 
-        public 
-        onlyCalledFromThis 
+    function afterReceiveUndelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
     {
-        (address token, string memory operator, address undelegator, uint256 amount) = abi.decode(requestPayload, (address,string,address,uint256));
+        (address token, string memory operator, address undelegator, uint256 amount) =
+            abi.decode(requestPayload, (address, string, address, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 

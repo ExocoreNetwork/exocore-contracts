@@ -23,10 +23,10 @@ interface IController {
      * @dev This function should:
      * 1) lock the @param amount of @param token into vault.
      * 2) ask Exocore validator set to account for the deposited @param amount of @param token.
-     * Deposit should always be considered successful on Exocore chain side. 
+     * Deposit should always be considered successful on Exocore chain side.
      * @param token - The address of specific token that the user wants to deposit.
      * @param amount - The amount of @param token that the user wants to deposit.
-     */ 
+     */
     function deposit(address token, uint256 amount) external payable;
 
     /**

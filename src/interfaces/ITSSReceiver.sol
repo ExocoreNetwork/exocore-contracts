@@ -11,10 +11,10 @@ interface ITSSReceiver {
      * @param params - custom params for extension.
      */
     struct InterchainMsg {
-        uint16 srcChainID;
+        uint32 srcChainID;
         bytes srcAddress;
-        uint16  dstChainID;
-        bytes  dstAddress;
+        uint32 dstChainID;
+        bytes dstAddress;
         uint64 nonce;
         bytes payload;
     }
