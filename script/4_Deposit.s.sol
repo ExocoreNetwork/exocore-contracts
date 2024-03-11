@@ -18,11 +18,8 @@ contract DepositScript is Script, BaseScriptStorage {
     using AddressCast for address;
 
     function setUp() public {
-        clientChainDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
-        clientChainDeployer.addr = vm.addr(clientChainDeployer.privateKey);
-
-        exocoreDeployer.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
-        exocoreDeployer.addr = vm.addr(exocoreDeployer.privateKey);
+        deployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
+        deployer.addr = vm.addr(deployer.privateKey);
 
         exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
@@ -72,7 +69,7 @@ contract DepositScript is Script, BaseScriptStorage {
 
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        vm.startBroadcast(clientChainDeployer.privateKey);
+        vm.startBroadcast(deployer.privateKey);
         if (depositor.addr.balance < 0.2 ether) {
             (bool sent,) = depositor.addr.call{value: 0.2 ether}("");
             require(sent, "Failed to send Ether");
@@ -94,7 +91,7 @@ contract DepositScript is Script, BaseScriptStorage {
         vm.stopBroadcast();
 
         exocore = vm.createSelectFork(exocoreRPCURL);
-        vm.startBroadcast(exocoreDeployer.privateKey);
+        vm.startBroadcast(deployer.privateKey);
         if (depositor.addr.balance < 2 ether) {
             (bool sent,) = depositor.addr.call{value: 2 ether}("");
             require(sent, "Failed to send Ether");

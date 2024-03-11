@@ -14,11 +14,8 @@ contract SetupScript is Script, BaseScriptStorage {
     using AddressCast for address;
 
     function setUp() public {
-        clientChainDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
-        clientChainDeployer.addr = vm.addr(clientChainDeployer.privateKey);
-
-        exocoreDeployer.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
-        exocoreDeployer.addr = vm.addr(exocoreDeployer.privateKey);
+        deployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
+        deployer.addr = vm.addr(deployer.privateKey);
 
         exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
@@ -52,7 +49,7 @@ contract SetupScript is Script, BaseScriptStorage {
 
         // transfer some gas fee to exocore validator set address
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        vm.startBroadcast(clientChainDeployer.privateKey);
+        vm.startBroadcast(deployer.privateKey);
         if (exocoreValidatorSet.addr.balance < 0.1 ether) {
             (bool sent,) = exocoreValidatorSet.addr.call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");

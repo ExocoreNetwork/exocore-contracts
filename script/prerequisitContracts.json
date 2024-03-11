@@ -1,9 +1,9 @@
 {
   "clientChain": {
     "erc20Token": "0x83E6850591425e3C1E263c054f4466838B9Bd9e4",
-    "lzEndpoint": "0x43B57f4fA1E4445296c133B1C3814655E2d77c35"
+    "lzEndpoint": "0xb51962E3Eb3A90ad65E68eff992Cdae5bF686325"
   },
   "exocore": {
-    "lzEndpoint": "0xbfFacF3BA1A0D782f8bd94c3B1517E1A25AeC80C"
+    "lzEndpoint": "0x43B57f4fA1E4445296c133B1C3814655E2d77c35"
   }
 }

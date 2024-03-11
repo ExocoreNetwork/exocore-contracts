@@ -12,11 +12,8 @@ import "./BaseScriptStorage.sol";
 
 contract DeployScript is Script, BaseScriptStorage {
     function setUp() public {
-        clientChainDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
-        clientChainDeployer.addr = vm.addr(clientChainDeployer.privateKey);
-
-        exocoreDeployer.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
-        exocoreDeployer.addr = vm.addr(exocoreDeployer.privateKey);
+        deployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
+        deployer.addr = vm.addr(deployer.privateKey);
 
         exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
@@ -42,8 +39,8 @@ contract DeployScript is Script, BaseScriptStorage {
 
         exocore = vm.createSelectFork(exocoreRPCURL);
         vm.startBroadcast(exocoreGenesis.privateKey);
-        if (exocoreDeployer.addr.balance < 1 ether) {
-            (bool sent,) = exocoreDeployer.addr.call{value: 1 ether}("");
+        if (deployer.addr.balance < 1 ether) {
+            (bool sent,) = deployer.addr.call{value: 1 ether}("");
             require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();
@@ -52,7 +49,7 @@ contract DeployScript is Script, BaseScriptStorage {
     function run() public {
         // deploy gateway and vault on client chain via rpc
         vm.selectFork(clientChain);
-        vm.startBroadcast(clientChainDeployer.privateKey);
+        vm.startBroadcast(deployer.privateKey);
         ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
         whitelistTokens.push(address(restakeToken));
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint));
@@ -88,7 +85,7 @@ contract DeployScript is Script, BaseScriptStorage {
 
         // deploy on Exocore via rpc
         vm.selectFork(exocore);
-        vm.startBroadcast(exocoreDeployer.privateKey);
+        vm.startBroadcast(deployer.privateKey);
         // deploy Exocore network contracts
         ProxyAdmin exocoreProxyAdmin = new ProxyAdmin();
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));

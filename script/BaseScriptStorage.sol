@@ -12,9 +12,8 @@ contract BaseScriptStorage {
         address addr;
     }
 
-    Player clientChainDeployer;
+    Player deployer;
     Player exocoreValidatorSet;
-    Player exocoreDeployer;
     Player exocoreGenesis;
     Player depositor;
     Player relayer;

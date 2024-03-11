@@ -8,11 +8,8 @@ import "./BaseScriptStorage.sol";
 
 contract PrerequisitiesScript is Script, BaseScriptStorage {
     function setUp() public {
-        clientChainDeployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
-        clientChainDeployer.addr = vm.addr(clientChainDeployer.privateKey);
-
-        exocoreDeployer.privateKey = vm.envUint("TEST_ACCOUNT_TWO_PRIVATE_KEY");
-        exocoreDeployer.addr = vm.addr(exocoreDeployer.privateKey);
+        deployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
+        deployer.addr = vm.addr(deployer.privateKey);
 
         exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
@@ -23,11 +20,13 @@ contract PrerequisitiesScript is Script, BaseScriptStorage {
         clientChainRPCURL = vm.envString("SEPOLIA_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
 
+        clientChain = vm.createSelectFork(clientChainRPCURL);
+
         // transfer some eth to deployer address
         exocore = vm.createSelectFork(exocoreRPCURL);
         vm.startBroadcast(exocoreGenesis.privateKey);
-        if (exocoreDeployer.addr.balance < 1 ether) {
-            (bool sent,) = exocoreDeployer.addr.call{value: 1 ether}("");
+        if (deployer.addr.balance < 1 ether) {
+            (bool sent,) = deployer.addr.call{value: 1 ether}("");
             require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();
@@ -37,12 +36,12 @@ contract PrerequisitiesScript is Script, BaseScriptStorage {
         // deploy NonShortCircuitEndpointV2Mock first if USE_ENDPOINT_MOCK is true, otherwise use real endpoints.
         if (vm.envBool("USE_ENDPOINT_MOCK")) {
             vm.selectFork(clientChain);
-            vm.startBroadcast(clientChainDeployer.privateKey);
+            vm.startBroadcast(deployer.privateKey);
             clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
             vm.stopBroadcast();
 
             vm.selectFork(exocore);
-            vm.startBroadcast(exocoreDeployer.privateKey);
+            vm.startBroadcast(deployer.privateKey);
             exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
             vm.stopBroadcast();
         } else {
