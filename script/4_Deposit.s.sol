@@ -24,6 +24,9 @@ contract DepositScript is Script, BaseScriptStorage {
         exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
 
+        exocoreGenesis.privateKey = vm.envUint("EXOCORE_GENESIS_PRIVATE_KEY");
+        exocoreGenesis.addr = vm.addr(exocoreGenesis.privateKey);
+
         depositor.privateKey = vm.envUint("TEST_ACCOUNT_FOUR_PRIVATE_KEY");
         depositor.addr = vm.addr(depositor.privateKey);
 
@@ -91,7 +94,7 @@ contract DepositScript is Script, BaseScriptStorage {
         vm.stopBroadcast();
 
         exocore = vm.createSelectFork(exocoreRPCURL);
-        vm.startBroadcast(deployer.privateKey);
+        vm.startBroadcast(exocoreGenesis.privateKey);
         if (depositor.addr.balance < 2 ether) {
             (bool sent,) = depositor.addr.call{value: 2 ether}("");
             require(sent, "Failed to send Ether");
@@ -108,29 +111,36 @@ contract DepositScript is Script, BaseScriptStorage {
     }
 
     function run() public {
+        bytes memory msg_ = abi.encodePacked(
+                GatewayStorage.Action.REQUEST_DEPOSIT,
+                abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+                abi.encodePacked(bytes32(bytes20(depositor.addr))),
+                uint256(DEPOSIT_AMOUNT)
+                );
+
         vm.selectFork(clientChain);
         vm.startBroadcast(depositor.privateKey);
+
         restakeToken.approve(address(vault), type(uint256).max);
-        clientGateway.deposit(address(restakeToken), DEPOSIT_AMOUNT);
+
+        uint256 nativeFee = clientGateway.quote(msg_);
+        console.log("l0 native fee:", nativeFee);
+
+        clientGateway.deposit{value: nativeFee}(address(restakeToken), DEPOSIT_AMOUNT);
         uint64 nonce = clientGateway.getOutboundNonce();
+        
         vm.stopBroadcast();
 
         if (vm.envBool("USE_ENDPOINT_MOCK")) {
             vm.selectFork(exocore);
             vm.startBroadcast(relayer.privateKey);
-            bytes memory payload = abi.encodePacked(
-                GatewayStorage.Action.REQUEST_DEPOSIT,
-                abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
-                abi.encodePacked(bytes32(bytes20(depositor.addr))),
-                uint256(DEPOSIT_AMOUNT)
-            );
             exocoreLzEndpoint.lzReceive{gas: 500000}(
                 Origin(clientChainId, address(clientGateway).toBytes32(), nonce),
                 address(exocoreGateway),
                 GUID.generate(
                     nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
                 ),
-                payload,
+                msg_,
                 bytes("")
             );
             vm.stopBroadcast();
