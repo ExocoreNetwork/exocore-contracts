@@ -16,7 +16,8 @@ contract BootstrappingContract is Ownable, Pausable {
      * and identifying information such as name and website.
      *
      * @param isRegistered Indicates whether the operator is currently registered.
-     * @param consensusPublicKey The public key used by the operator for consensus on the Exocore chain.
+     * @param consensusPublicKey The public key used by the operator for consensus
+     *                           on the Exocore chain.
      * @param exocoreAddress The operator's address on the Exocore chain.
      * @param commissionRate The operator's commission rate, as a percentage from 0 to 100.
      * @param name The name of the operator.
@@ -24,8 +25,8 @@ contract BootstrappingContract is Ownable, Pausable {
      */
     struct Operator {
         bool isRegistered;
-        bytes consensusPublicKey;
-        string exocoreAddress;
+        bytes32 consensusPublicKey;
+        address exocoreAddress;
         uint8 commissionRate; // 0 to 100
         string name;
         string website;
@@ -37,15 +38,16 @@ contract BootstrappingContract is Ownable, Pausable {
      *
      * @param exocoreAddress The operator's address on the Exocore chain.
      * @param ethereumAddress The Ethereum address of the operator.
-     * @param consensusPublicKey The public key used by the operator for consensus on the Exocore chain.
+     * @param consensusPublicKey The public key used by the operator for consensus
+     *                           on the Exocore chain.
      * @param commissionRate The operator's commission rate, from 0 to 100.
      * @param name The name of the operator.
      * @param website The website URL of the operator.
      */
     struct ExportedOperator {
-        string exocoreAddress;
+        address exocoreAddress;
         address ethereumAddress;
-        bytes consensusPublicKey;
+        bytes32 consensusPublicKey;
         uint8 commissionRate;
         string name;
         string website;
@@ -56,7 +58,8 @@ contract BootstrappingContract is Ownable, Pausable {
      * amount deposited and the amount currently available (not delegated).
      *
      * @param totalDeposit The total amount of the token deposited by the user.
-     * @param availableFunds The portion of the total deposit that is currently available for use.
+     * @param availableFunds The portion of the total deposit that is currently available 
+     *                       for use.
      */
     struct TokenDeposit {
         uint256 totalDeposit;
@@ -71,7 +74,7 @@ contract BootstrappingContract is Ownable, Pausable {
      * @param votePower The total vote power of the validator, aggregated from all delegations.
      */
     struct Validator {
-        bytes pubKey;
+        bytes32 pubKey;
         uint256 votePower;
     }
 
@@ -151,44 +154,44 @@ contract BootstrappingContract is Ownable, Pausable {
      *
      * @dev This mapping stores detailed information about each registered operator, including
      * whether they are currently registered, their consensus public key for the Exocore chain,
-     * and additional metadata such as their Exocore address, commission rate, name, and website.
-     * Operators can register, update their information, replace their public key, or deregister
-     * through the contract's functions.
+     * and additional metadata such as their Exocore address, commission rate, name, and
+     * website. Operators can register, update their information, replace their public key, or
+     * deregister through the contract's functions.
      */
     mapping(address => Operator) public operators;
 
     /**
-     * @notice A nested mapping that tracks each user's deposited amounts for each supported token,
-     * along with the available funds that haven't been delegated.
+     * @notice A nested mapping that tracks each user's deposited amounts for each supported
+     * token, along with the available funds that haven't been delegated.
      *
      * @dev The mapping's first key is the user's address, the second key is the token address,
-     * and the value is a TokenDeposit struct that contains the total amount of the token deposited
-     * by the user and the amount of the token available for delegation. This structure allows the
-     * contract to track both the total deposits and how much of those deposits are currently
-     * allocated to delegations.
+     * and the value is a TokenDeposit struct that contains the total amount of the token
+     * deposited by the user and the amount of the token available for delegation. This
+     * structure allows the contract to track both the total deposits and how much of those
+     * deposits are currently allocated to delegations.
      */
     mapping(address => mapping(address => TokenDeposit)) public userDeposits;
 
     /**
-     * @notice A triple-nested mapping that records the amount of each token a user has delegated
-     * to each operator.
+     * @notice A triple-nested mapping that records the amount of each token a user has
+     * delegated to each operator.
      *
-     * @dev The first key is the delegator's address, the second key is the operator's address to
-     * whom the tokens are delegated, and the third key is the token address. The value is the
-     * amount of the specified token that has been delegated. This mapping enables the contract to
-     * manage and track delegations across different tokens and operators.
+     * @dev The first key is the delegator's address, the second key is the operator's address
+     * to whom the tokens are delegated, and the third key is the token address. The value is
+     * the amount of the specified token that has been delegated. This mapping enables the
+     * contract to manage and track delegations across different tokens and operators.
      */
     mapping(address => mapping(address => mapping(address => uint256)))
         public delegations;
 
     /**
-     * @notice A nested mapping that tracks the total amount of each token delegated to each operator
-     * by all users, facilitating reverse lookup of delegated amounts.
+     * @notice A nested mapping that tracks the total amount of each token delegated to each
+     * operator by all users, facilitating reverse lookup of delegated amounts.
      *
-     * @dev The first key is the operator's address, and the second key is the token address. The
-     * value is the total amount of the specified token that has been delegated to the operator
-     * from all delegators. This mapping is useful for calculating the total resources or "vote power"
-     * controlled by each operator.
+     * @dev The first key is the operator's address, and the second key is the token address.
+     * The value is the total amount of the specified token that has been delegated to the
+     * operator from all delegators. This mapping is useful for calculating the total resources
+     * or "vote power" controlled by each operator.
      */
     mapping(address => mapping(address => uint256))
         public totalDelegatedToOperator;
@@ -199,19 +202,20 @@ contract BootstrappingContract is Ownable, Pausable {
      *
      * @dev This variable sets a specific point in time (in UNIX timestamp format) that triggers
      * a freeze period for the contract 24 hours before the Exocore chain is expected to launch.
-     * Operations that could alter the state of the contract significantly are not allowed during
-     * this freeze period to ensure stability and integrity leading up to the spawn time.
+     * Operations that could alter the state of the contract significantly are not allowed
+     * during this freeze period to ensure stability and integrity leading up to the spawn time.
      */
     uint256 public exocoreSpawnTime;
 
     /**
-     * @notice The amount of time before the Exocore spawn time during which operations are restricted.
+     * @notice The amount of time before the Exocore spawn time during which operations are
+     * restricted.
      *
-     * @dev This variable defines a period in seconds before the scheduled spawn time of the Exocore
-     * chain, during which certain contract operations are locked to prevent state changes. The lock
-     * period is intended to ensure stability and integrity of the contract state leading up to the
-     * critical event. This period can be customized at the time of contract deployment according
-     * to operational needs and security considerations.
+     * @dev This variable defines a period in seconds before the scheduled spawn time of the
+     * Exocore chain, during which certain contract operations are locked to prevent state
+     * changes. The lock period is intended to ensure stability and integrity of the contract
+     * state leading up to the critical event. This period can be customized at the time of
+     * contract deployment according to operational needs and security considerations.
      */
     uint256 public offsetTime;
 
@@ -251,21 +255,19 @@ contract BootstrappingContract is Ownable, Pausable {
      * @param operator The Ethereum address of the operator whose key was replaced.
      * @param newKey The new consensus public key that replaces the old one.
      */
-    event OperatorKeyReplaced(address operator, bytes newKey);
+    event OperatorKeyReplaced(address operator, bytes32 newKey);
 
     /**
      * @notice Emitted when an operator updates their registration parameters.
      * @param operator The Ethereum address of the operator whose parameters were updated.
      * @param exocoreAddress The new Exocore address of the operator.
      * @param commissionRate The new commission rate set by the operator.
-     * @param name The new name of the operator.
      * @param website The new website URL of the operator.
      */
     event OperatorParamsUpdated(
         address operator,
-        string exocoreAddress,
+        address exocoreAddress,
         uint8 commissionRate,
-        string name,
         string website
     );
 
@@ -342,14 +344,14 @@ contract BootstrappingContract is Ownable, Pausable {
     event OffsetTimeUpdated(uint256 newOffsetTime);
 
     /**
-     * @notice Creates a new instance of the BootstrappingContract, initializing supported tokens,
-     * the Exocore spawn time, and the operational offset time.
+     * @notice Creates a new instance of the BootstrappingContract, initializing supported
+     * tokens, the Exocore spawn time, and the operational offset time.
      *
-     * @dev The constructor sets up the initial configuration for the contract, including the list
-     * of ERC20 tokens that will be supported for deposit and delegation operations, the scheduled
-     * spawn time for the Exocore chain, and the period before this spawn time during which
-     * operations are restricted to ensure stability. The offset time provides flexibility in
-     * managing the operational lock period, allowing it to be adjusted according to security
+     * @dev The constructor sets up the initial configuration for the contract, including the
+     * list of ERC20 tokens that will be supported for deposit and delegation operations, the
+     * scheduled spawn time for the Exocore chain, and the period before this spawn time during
+     * which operations are restricted to ensure stability. The offset time provides flexibility
+     * in managing the operational lock period, allowing it to be adjusted according to security
      * needs or other considerations. This contract inherits from OpenZeppelin's Ownable and
      * Pausable contracts, leveraging their functionalities for ownership management and
      * pausing/unpausing contract operations.
@@ -360,9 +362,9 @@ contract BootstrappingContract is Ownable, Pausable {
      * @param spawnTime The UNIX timestamp representing the scheduled spawn time of the Exocore
      * chain. This timestamp is used to calculate the lock period during which certain contract
      * operations are restricted.
-     * @param _offsetTime The duration in seconds before the spawn time during which the contract
-     * operations are locked. This period is intended to freeze the contract state to ensure
-     * stability and integrity before the Exocore chain's launch.
+     * @param _offsetTime The duration in seconds before the spawn time during which the
+     * contract operations are locked. This period is intended to freeze the contract state to
+     * ensure stability and integrity before the Exocore chain's launch.
      */
     constructor(
         address[] memory tokenAddresses,
@@ -401,14 +403,14 @@ contract BootstrappingContract is Ownable, Pausable {
      * allowed based on the defined timeline.
      *
      * @param consensusPublicKey The operator's public key for consensus on the Exocore chain.
-     * @param exocoreAddress The operator's address on the Exocore chain, represented as a string.
+     * @param exocoreAddress The operator's address on the Exocore chain.
      * @param commissionRate The commission rate charged by the operator, from 0 to 100.
      * @param name The name of the operator.
      * @param website The website URL of the operator.
      */
     function registerOperator(
-        bytes memory consensusPublicKey,
-        string memory exocoreAddress,
+        bytes32 consensusPublicKey,
+        address exocoreAddress,
         uint8 commissionRate,
         string memory name,
         string memory website
@@ -421,11 +423,23 @@ contract BootstrappingContract is Ownable, Pausable {
             commissionRate <= 100,
             "Commission rate must be between 0 and 100"
         );
+        // the keys are bytes32 so their length is fixed. no need to validate it.
         require(
             !consensusPublicKeyInUse(consensusPublicKey),
             "Consensus public key already in use"
         );
-        // TODO(mm): check the consensusPublicKey is valid, and not duplicated.
+        require(
+            !nameInUse(name),
+            "Name already in use"
+        );
+        require(
+            exocoreAddress != address(0),
+            "Exocore address cannot be zero"
+        );
+        require(
+            commissionRate <= 100,
+            "Commission rate must be between 0 and 100"
+        );
         operators[msg.sender] = Operator(
             true,
             consensusPublicKey,
@@ -448,7 +462,7 @@ contract BootstrappingContract is Ownable, Pausable {
      * integrity and avoid potential conflicts or security issues.
      *
      * @param newKey The consensus public key to check for uniqueness. This key is expected
-     * to be provided as a byte array (`bytes memory`), which is the typical format for 
+     * to be provided as a byte32 array (`bytes32`), which is the typical format for 
      * storing and handling public keys in Ethereum smart contracts.
      *
      * @return bool Returns `true` if the consensus public key is already in use by an
@@ -456,13 +470,39 @@ contract BootstrappingContract is Ownable, Pausable {
      * public key is not found among the registered operators, indicating that the key 
      * is unique and can be safely used for a new or updating operator.
     */
-    function consensusPublicKeyInUse(bytes memory newKey) private view returns (bool) {
+    function consensusPublicKeyInUse(bytes32 newKey) private view returns (bool) {
         for (uint256 i = 0; i < registeredOperators.length; i++) {
-            if (keccak256(operators[registeredOperators[i]].consensusPublicKey) == keccak256(newKey)) {
-                return false;
+            if (operators[registeredOperators[i]].consensusPublicKey == newKey) {
+                return true;
             }
         }
-        return true;
+        return false;
+    }
+
+    /**
+     * @dev Checks if a given name is already in use by any registered operator.
+     *
+     * This function iterates over all registered operators stored in the contract's state
+     * to determine if the provided name matches any existing operator's name. It is
+     * designed to ensure the uniqueness of name (identity) among operators, as each
+     * operator must have a distinct name to maintain integrity and avoid potential
+     * conflicts or security issues.
+     *
+     * @param newName The name to check for uniqueness, as a string.
+     *
+     * @return bool Returns `true` if the name is already in use by an existing operator,
+     * indicating that the name is not unique. Returns `false` if the name is not found
+     * among the registered operators, indicating that the name is unique and can be
+     * safely used for a new operator.
+    */
+    function nameInUse(string memory newName) private view returns (bool) {
+        for (uint256 i = 0; i < registeredOperators.length; i++) {
+            if (keccak256(abi.encodePacked(operators[registeredOperators[i]].name)) ==
+                keccak256(abi.encodePacked(newName))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -477,7 +517,9 @@ contract BootstrappingContract is Ownable, Pausable {
         for (uint256 i = 0; i < registeredOperators.length; i++) {
             if (registeredOperators[i] == msg.sender) {
                 if (i != registeredOperators.length - 1) {
-                    registeredOperators[i] = registeredOperators[registeredOperators.length - 1];
+                    registeredOperators[i] = registeredOperators[
+                        registeredOperators.length - 1
+                    ];
                 }
                 // Remove the last element
                 registeredOperators.pop();
@@ -495,9 +537,10 @@ contract BootstrappingContract is Ownable, Pausable {
      * @param newKey The new public key to replace the existing one.
      */
     function replaceKey(
-        bytes memory newKey
+        bytes32 newKey
     ) external whenNotPaused operationAllowed {
         require(operators[msg.sender].isRegistered, "Operator not registered");
+        // if you send a transaction with the same public key, it will revert
         require(
             !consensusPublicKeyInUse(newKey),
             "Consensus public key already in use"
@@ -507,19 +550,17 @@ contract BootstrappingContract is Ownable, Pausable {
     }
 
     /**
-     * @dev Updates an operator's Exocore address, commission rate, name, and website URL.
+     * @dev Updates an operator's Exocore address, commission rate, and website URL.
      * This operation can only be performed by the operator themselves and is subject
      * to both pausing and timeline restrictions of the contract.
      *
      * @param exocoreAddress The new Exocore address of the operator.
      * @param commissionRate The new commission rate of the operator.
-     * @param name The new name of the operator.
      * @param website The new website URL of the operator.
      */
     function updateOperatorParams(
-        string memory exocoreAddress,
+        address exocoreAddress,
         uint8 commissionRate,
-        string memory name,
         string memory website
     ) external whenNotPaused operationAllowed {
         require(operators[msg.sender].isRegistered, "Operator not registered");
@@ -527,16 +568,18 @@ contract BootstrappingContract is Ownable, Pausable {
             commissionRate <= 100,
             "Commission rate must be between 0 and 100"
         );
+        require(
+            exocoreAddress != address(0),
+            "Exocore address cannot be zero"
+        );
 
         operators[msg.sender].exocoreAddress = exocoreAddress;
         operators[msg.sender].commissionRate = commissionRate;
-        operators[msg.sender].name = name;
         operators[msg.sender].website = website;
         emit OperatorParamsUpdated(
             msg.sender,
             exocoreAddress,
             commissionRate,
-            name,
             website
         );
     }
@@ -549,6 +592,8 @@ contract BootstrappingContract is Ownable, Pausable {
      *
      * @param token The address of the ERC20 token to add to the supported list.
      */
+    // TODO: for bootstrap, if we know that we only intend to support USDT
+    // should this even be retained?
     function addSupportedToken(
         address token
     ) external whenNotPaused operationAllowed onlyOwner {
@@ -628,6 +673,7 @@ contract BootstrappingContract is Ownable, Pausable {
     ) external whenNotPaused operationAllowed {
         require(operators[operator].isRegistered, "Operator not registered");
         require(isTokenSupported(token), "Token not supported");
+        require(amount > 0, "Delegation amount must be greater than zero");
         require(
             userDeposits[msg.sender][token].availableFunds >= amount,
             "Insufficient available funds"
@@ -653,6 +699,9 @@ contract BootstrappingContract is Ownable, Pausable {
         address token,
         uint256 amount
     ) external whenNotPaused operationAllowed {
+        require(operators[operator].isRegistered, "Operator not registered");
+        require(isTokenSupported(token), "Token not supported");
+        require(amount > 0, "Undelegation amount must be greater than zero");
         require(
             delegations[msg.sender][operator][token] >= amount,
             "Undelegation amount exceeds delegation"
@@ -677,9 +726,10 @@ contract BootstrappingContract is Ownable, Pausable {
         uint256 amount
     ) external whenNotPaused operationAllowed {
         require(isTokenSupported(token), "Token not supported");
+        require(amount > 0, "Withdrawal amount must be greater than zero");
         require(
             amount <= userDeposits[msg.sender][token].availableFunds,
-            "Available balance less than withdrawal amount"
+            "Insufficient available funds"
         );
 
         ERC20(token).safeTransfer(msg.sender, amount);
@@ -726,26 +776,28 @@ contract BootstrappingContract is Ownable, Pausable {
     }
 
     /**
-     * @notice Retrieves a list of all registered operators along with their detailed information.
+     * @notice Retrieves a list of all registered operators along with their detailed
+     * information.
      *
-     * @dev This function iterates through the list of registered operator Ethereum addresses and
-     * compiles an array of ExportedOperator structs, each containing an operator's detailed
+     * @dev This function iterates through the list of registered operator Ethereum addresses
+     * and compiles an array of ExportedOperator structs, each containing an operator's detailed
      * information such as their Exocore address, Ethereum address, consensus public key,
      * commission rate, name, and website. This provides a comprehensive view of all operators
-     * registered in the contract, useful for external applications or for auditability purposes.
+     * registered in the contract, useful for external applications or for auditability purposes
      *
      * @return ExportedOperator[] An array of ExportedOperator structs, each representing a
      * registered operator's details. The structure includes:
-     * - exocoreAddress: The operator's address on the Exocore chain, represented as a string.
+     * - exocoreAddress: The operator's address on the Exocore chain.
      * - ethereumAddress: The Ethereum address of the operator.
      * - consensusPublicKey: The operator's public key used for consensus on the Exocore chain.
      * - commissionRate: The commission rate set by the operator, ranging from 0 to 100.
      * - name: The name of the operator.
      * - website: The website URL of the operator.
      *
-     * This function can be called by any user to obtain information about the registered operators.
+     * This function can be called by any user to obtain information about the registered
+     * operators.
      */
-    function getRegisteredOperators()
+    function exportRegisteredOperators()
         public
         view
         returns (ExportedOperator[] memory)
@@ -766,6 +818,22 @@ contract BootstrappingContract is Ownable, Pausable {
             });
         }
         return exportedOperators;
+    }
+
+
+    /**
+     * @notice Retrieves the total number of registered operators in the contract.
+     *
+     * @dev Returns the length of the `registeredOperators` array, which contains the Ethereum
+     * addresses of all operators that have been registered in the contract. This function is
+     * useful for understanding the scale of operator participation in the contract and for
+     * iterating over the list of all registered operators when accessing individual operator
+     * addresses one at a time.
+     *
+     * @return uint256 The total number of registered operators.
+     */
+    function getRegisteredOperatorsLength() public view returns (uint256) {
+        return registeredOperators.length;
     }
 
     /**
@@ -852,7 +920,8 @@ contract BootstrappingContract is Ownable, Pausable {
     }
 
     /**
-     * @notice Retrieves the total number of unique depositors who have made deposits into the contract.
+     * @notice Retrieves the total number of unique depositors who have made deposits into the
+     * contract.
      *
      * @dev Returns the count of unique depositor addresses stored in the `depositors` array.
      * This function is useful for understanding the scale of participation in the contract
@@ -866,15 +935,16 @@ contract BootstrappingContract is Ownable, Pausable {
     }
 
     /**
-     * @notice Retrieves the depositor address at a specific index within the list of all depositors.
+     * @notice Retrieves the depositor address at a specific index within the list of all
+     * depositors.
      *
      * @dev Given an index, returns the address of the depositor located at that index in the
      * `depositors` array. This function is useful for iterating over all depositors when direct
      * access to the dynamic array of addresses is not feasible or desired, especially from
      * external calls that require piecemeal data retrieval.
      *
-     * @param index The index within the `depositors` array for which to retrieve the depositor address.
-     * Must be less than the total count of depositors returned by `getDepositorCount`.
+     * @param index The index within the `depositors` array for which to retrieve the depositor
+     * address. Must be less than the total count of depositors returned by `getDepositorCount`.
      *
      * @return address The address of the depositor at the specified index.
      *
@@ -893,7 +963,8 @@ contract BootstrappingContract is Ownable, Pausable {
      * @dev Returns an array of all unique depositor addresses stored in the `depositors` array.
      * This method facilitates easy access to the full list of depositors but should be used
      * with caution due to potential gas constraints when dealing with large lists, especially
-     * in transactions. It is most suitable for off-chain calls where gas costs are not a concern.
+     * in transactions. It is most suitable for off-chain calls where gas costs are not a
+     * concern.
      *
      * @return address[] An array containing the addresses of all depositors.
      *
@@ -912,8 +983,9 @@ contract BootstrappingContract is Ownable, Pausable {
      * the specified depositor to an operator with a specific token.
      *
      * @param depositor The address of the depositor whose delegations are to be retrieved.
-     * @return DelegationInfo[] An array of DelegationInfo structs, each representing a delegation
-     * made by the depositor, including the token address, operator address, and amount delegated.
+     * @return DelegationInfo[] An array of DelegationInfo structs, each representing a
+     * delegation made by the depositor, including the token address, operator address,
+     * and amount delegated.
      */
     function getDelegationsByDepositor(
         address depositor
