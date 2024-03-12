@@ -64,6 +64,8 @@ contract ExocoreGateway is
         // TODO: current exocore precompiles take srcChainId as uint16, so this check should be removed after exocore network fixes it
         require(_origin.srcEid <= type(uint16).max, "source chain endpoint id should not exceed uint16.max");
 
+        _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
+
         Action act = Action(uint8(payload[0]));
         bytes4 selector_ = whiteListFunctionSelectors[act];
         if (selector_ == bytes4(0)) {
@@ -212,5 +214,16 @@ contract ExocoreGateway is
             OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE);
         MessagingFee memory fee = _quote(srcChainid, _message, options, false);
         return fee.nativeFee;
+    }
+
+    function getInboundNonce(uint32 srcEid, bytes32 sender) public view returns (uint64) {
+        return inboundNonce[srcEid][sender];
+    }
+
+    function _consumeInboundNonce(uint32 srcEid, bytes32 sender, uint64 nonce) internal {
+        inboundNonce[srcEid][sender] += 1;
+        if (nonce != inboundNonce[srcEid][sender]) {
+            revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
+        }
     }
 }

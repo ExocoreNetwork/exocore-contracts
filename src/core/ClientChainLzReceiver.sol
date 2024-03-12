@@ -22,6 +22,12 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override {
+        if (_origin.srcEid != exocoreChainId) {
+            revert UnexpectedSourceChain(_origin.srcEid);
+        }
+
+        _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
+
         Action act = Action(uint8(payload[0]));
         if (act == Action.RESPOND) {
             uint64 requestId = uint64(bytes8(payload[1:9]));
@@ -55,6 +61,17 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
             if (!success) {
                 revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
+        }
+    }
+
+    function getInboundNonce(uint32 srcEid, bytes32 sender) public view returns (uint64) {
+        return inboundNonce[srcEid][sender];
+    }
+
+    function _consumeInboundNonce(uint32 srcEid, bytes32 sender, uint64 nonce) internal {
+        inboundNonce[srcEid][sender] += 1;
+        if (nonce != inboundNonce[srcEid][sender]) {
+            revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
         }
     }
 

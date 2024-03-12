@@ -11,11 +11,12 @@ contract ClientChainGatewayStorage is GatewayStorage {
     mapping(uint64 => Action) public registeredRequestActions;
     mapping(Action => bytes4) public registeredResponseHooks;
     uint32 public exocoreChainId;
+
     uint64 outboundNonce;
+    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) inboundNonce;
+
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
-
-    uint256[40] private __gap;
 
     event WhitelistTokenAdded(address _token);
     event WhitelistTokenRemoved(address _token);
@@ -43,4 +44,8 @@ contract ClientChainGatewayStorage is GatewayStorage {
     error VaultNotExist();
     error ActionFailed(Action act, uint64 nonce);
     error UnexpectedResponse(uint64 nonce);
+    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
+    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
+
+    uint256[40] private __gap;
 }
