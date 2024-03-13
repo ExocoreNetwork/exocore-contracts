@@ -14,16 +14,6 @@ contract PrerequisitiesScript is BaseScript {
         super.setUp();
 
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        // vm.startBroadcast(deployer.privateKey);
-        // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
-        // restakeToken = new ERC20PresetFixedSupply(
-        //     "rest",
-        //     "rest",
-        //     1e34,
-        //     exocoreValidatorSet.addr
-        // );
-        // erc20TokenAddress = address(restakeToken);
-        // vm.stopBroadcast();
 
         // transfer some eth to deployer address
         exocore = vm.createSelectFork(exocoreRPCURL);
