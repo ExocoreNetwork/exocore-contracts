@@ -3,26 +3,17 @@ pragma solidity ^0.8.19;
 import "forge-std/Script.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../src/core/ClientChainGateway.sol";
 import {Vault} from "../src/core/Vault.sol";
 import "../src/core/ExocoreGateway.sol";
+import "../test/mocks/ExocoreGatewayMock.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import "./BaseScriptStorage.sol";
+import {BaseScript} from "./BaseScript.sol";
 
-contract DeployScript is Script, BaseScriptStorage {
-    function setUp() public {
-        deployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
-        deployer.addr = vm.addr(deployer.privateKey);
-
-        exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
-        exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
-
-        exocoreGenesis.privateKey = vm.envUint("EXOCORE_GENESIS_PRIVATE_KEY");
-        exocoreGenesis.addr = vm.addr(exocoreGenesis.privateKey);
-
-        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
-        exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
+contract DeployScript is BaseScript {
+    function setUp() public virtual override {
+        super.setUp();
 
         string memory deployedContracts = vm.readFile("script/prerequisitContracts.json");
 
@@ -34,6 +25,20 @@ contract DeployScript is Script, BaseScriptStorage {
 
         exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
         require(address(exocoreLzEndpoint) != address(0), "exocore l0 endpoint should not be empty");
+
+        if (useExocorePrecompileMock) {
+            depositMock = stdJson.readAddress(deployedContracts, ".exocore.depositPrecompileMock");
+            require(depositMock != address(0), "depositMock should not be empty");
+
+            withdrawMock = stdJson.readAddress(deployedContracts, ".exocore.withdrawPrecompileMock");
+            require(withdrawMock != address(0), "withdrawMock should not be empty");
+
+            delegationMock = stdJson.readAddress(deployedContracts, ".exocore.delegationPrecompileMock");
+            require(delegationMock != address(0), "delegationMock should not be empty");
+
+            claimRewardMock = stdJson.readAddress(deployedContracts, ".exocore.claimRewardPrecompileMock");
+            require(claimRewardMock != address(0), "claimRewardMock should not be empty");
+        }
 
         clientChain = vm.createSelectFork(clientChainRPCURL);
 
@@ -88,20 +93,45 @@ contract DeployScript is Script, BaseScriptStorage {
         vm.startBroadcast(deployer.privateKey);
         // deploy Exocore network contracts
         ProxyAdmin exocoreProxyAdmin = new ProxyAdmin();
-        ExocoreGateway exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
-        exocoreGateway = ExocoreGateway(
-            payable(
-                address(
-                    new TransparentUpgradeableProxy(
-                        address(exocoreGatewayLogic),
-                        address(exocoreProxyAdmin),
-                        abi.encodeWithSelector(
-                            exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
+
+        if (useExocorePrecompileMock) {
+            ExocoreGatewayMock exocoreGatewayLogic = new ExocoreGatewayMock(
+                address(exocoreLzEndpoint),
+                depositMock,
+                withdrawMock,
+                delegationMock,
+                claimRewardMock
+            );
+            exocoreGateway = ExocoreGateway(
+                payable(
+                    address(
+                        new TransparentUpgradeableProxy(
+                            address(exocoreGatewayLogic),
+                            address(exocoreProxyAdmin),
+                            abi.encodeWithSelector(
+                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
+                            )
                         )
                     )
                 )
-            )
-        );
+            );
+        } else {
+            ExocoreGateway exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
+            exocoreGateway = ExocoreGateway(
+                payable(
+                    address(
+                        new TransparentUpgradeableProxy(
+                            address(exocoreGatewayLogic),
+                            address(exocoreProxyAdmin),
+                            abi.encodeWithSelector(
+                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
+                            )
+                        )
+                    )
+                )
+            );
+        }
+
         vm.stopBroadcast();
 
         string memory deployedContracts = "deployedContracts";
@@ -116,6 +146,14 @@ contract DeployScript is Script, BaseScriptStorage {
 
         vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
         vm.serializeAddress(exocoreContracts, "exocoreGateway", address(exocoreGateway));
+
+        if (useExocorePrecompileMock) {
+            vm.serializeAddress(exocoreContracts, "depositPrecompileMock", depositMock);
+            vm.serializeAddress(exocoreContracts, "withdrawPrecompileMock", withdrawMock);
+            vm.serializeAddress(exocoreContracts, "delegationPrecompileMock", delegationMock);
+            vm.serializeAddress(exocoreContracts, "claimRewardPrecompileMock", claimRewardMock);
+        }
+        
         string memory exocoreContractsOutput =
             vm.serializeAddress(exocoreContracts, "proxyAdmin", address(exocoreProxyAdmin));
 

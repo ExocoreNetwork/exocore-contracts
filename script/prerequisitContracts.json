@@ -1,9 +1,13 @@
 {
   "clientChain": {
     "erc20Token": "0x83E6850591425e3C1E263c054f4466838B9Bd9e4",
-    "lzEndpoint": "0x126950186d132348ed06888Dd319B174D68337e9"
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
   },
   "exocore": {
-    "lzEndpoint": "0x43B57f4fA1E4445296c133B1C3814655E2d77c35"
+    "claimRewardPrecompileMock": "0x4Cd16deA3b324914DA6E084Da4c0D878d730F224",
+    "delegationPrecompileMock": "0x93e991FAbAB2e43f3584d22AC986f851772837d1",
+    "depositPrecompileMock": "0x6A787B868206fEfd3052c35f085E8a3a71974EAF",
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+    "withdrawPrecompileMock": "0x6A787B868206fEfd3052c35f085E8a3a71974EAF"
   }
 }

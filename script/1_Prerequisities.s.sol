@@ -1,26 +1,29 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
-import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import {NonShortCircuitEndpointV2Mock} from "test/mocks/NonShortCircuitEndpointV2Mock.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import "./BaseScriptStorage.sol";
+import "test/mocks/ClaimRewardMock.sol";
+import "test/mocks/DelegationMock.sol";
+import "test/mocks/DepositWithdrawMock.sol";
+import "./BaseScript.sol";
 
-contract PrerequisitiesScript is Script, BaseScriptStorage {
-    function setUp() public {
-        deployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
-        deployer.addr = vm.addr(deployer.privateKey);
-
-        exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
-        exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
-
-        exocoreGenesis.privateKey = vm.envUint("EXOCORE_GENESIS_PRIVATE_KEY");
-        exocoreGenesis.addr = vm.addr(exocoreGenesis.privateKey);
-
-        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
-        exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
+contract PrerequisitiesScript is BaseScript {
+    function setUp() public virtual override {
+        super.setUp();
 
         clientChain = vm.createSelectFork(clientChainRPCURL);
+        // vm.startBroadcast(deployer.privateKey);
+        // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
+        // restakeToken = new ERC20PresetFixedSupply(
+        //     "rest",
+        //     "rest",
+        //     1e34,
+        //     exocoreValidatorSet.addr
+        // );
+        // erc20TokenAddress = address(restakeToken);
+        // vm.stopBroadcast();
 
         // transfer some eth to deployer address
         exocore = vm.createSelectFork(exocoreRPCURL);
@@ -34,7 +37,7 @@ contract PrerequisitiesScript is Script, BaseScriptStorage {
 
     function run() public {
         // deploy NonShortCircuitEndpointV2Mock first if USE_ENDPOINT_MOCK is true, otherwise use real endpoints.
-        if (vm.envBool("USE_ENDPOINT_MOCK")) {
+        if (useEndpointMock) {
             vm.selectFork(clientChain);
             vm.startBroadcast(deployer.privateKey);
             clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
@@ -45,8 +48,18 @@ contract PrerequisitiesScript is Script, BaseScriptStorage {
             exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
             vm.stopBroadcast();
         } else {
-            clientChainLzEndpoint = NonShortCircuitEndpointV2Mock(sepoliaEndpointV2);
-            exocoreLzEndpoint = NonShortCircuitEndpointV2Mock(exocoreEndpointV2);
+            clientChainLzEndpoint = ILayerZeroEndpointV2(sepoliaEndpointV2);
+            exocoreLzEndpoint = ILayerZeroEndpointV2(exocoreEndpointV2);
+        }
+
+        if (useExocorePrecompileMock) {
+            vm.selectFork(exocore);
+            vm.startBroadcast(deployer.privateKey);
+            depositMock = address(new DepositWithdrawMock());
+            withdrawMock = depositMock;
+            delegationMock = address(new DelegationMock());
+            claimRewardMock = address(new ClaimRewardMock());
+            vm.stopBroadcast();
         }
 
         // use deployed ERC20 token as restake token
@@ -58,6 +71,13 @@ contract PrerequisitiesScript is Script, BaseScriptStorage {
         vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
         string memory clientChainContractsOutput =
             vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
+
+        if (useExocorePrecompileMock) {
+            vm.serializeAddress(exocoreContracts, "depositPrecompileMock", depositMock);
+            vm.serializeAddress(exocoreContracts, "withdrawPrecompileMock", withdrawMock);
+            vm.serializeAddress(exocoreContracts, "delegationPrecompileMock", delegationMock);
+            vm.serializeAddress(exocoreContracts, "claimRewardPrecompileMock", claimRewardMock);
+        }
 
         string memory exocoreContractsOutput =
             vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));

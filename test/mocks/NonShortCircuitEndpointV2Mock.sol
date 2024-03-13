@@ -83,6 +83,9 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
 
     event ValueTransferFailed(address indexed to, uint256 indexed quantity);
     event NewPacket(uint32, address, bytes32, uint64, bytes);
+    event PayloadStored(
+        uint32 srcChainId, bytes32 srcAddress, address dstAddress, uint64 nonce, bytes payload, bytes reason
+    );
 
     constructor(uint32 _eid, address _exocoreValidatorSet) {
         require(_exocoreValidatorSet != address(0), "exocore validator set address should not be empty");
@@ -169,17 +172,35 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         bytes calldata
     ) external payable receiveNonReentrant {
         require(
-            _origin.nonce == ++lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender],
+            _origin.nonce == lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender] + 1,
             "nonce should match expected inbound nonce"
         );
-        inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
         if (msg.value > 0) {
-            try ILayerZeroReceiver(_receiver).lzReceive{value: msg.value}(_origin, _guid, _message, address(0), "") {}
-                catch (bytes memory) /*reason*/ {}
+            try ILayerZeroReceiver(_receiver).lzReceive{value: msg.value}(_origin, _guid, _message, address(0), "") {
+                lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender]++;
+            }
+                catch (bytes memory reason) /*reason*/ {
+                    inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
+                    emit PayloadStored(_origin.srcEid, _origin.sender, _receiver, _origin.nonce, _message, reason);
+                }
         } else {
-            try ILayerZeroReceiver(_receiver).lzReceive(_origin, _guid, _message, address(0), "") {}
-                catch (bytes memory) /*reason*/ {}
+            try ILayerZeroReceiver(_receiver).lzReceive(_origin, _guid, _message, address(0), "") {
+                lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender]++;
+            }
+                catch (bytes memory reason) /*reason*/ {
+                    inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
+                    emit PayloadStored(_origin.srcEid, _origin.sender, _receiver, _origin.nonce, _message, reason);
+                }
         }
+    }
+
+    function _hasPayloadHash(
+        address _receiver,
+        uint32 _srcEid,
+        bytes32 _sender,
+        uint64 _nonce
+    ) internal view returns (bool) {
+        return inboundPayloadHash[_receiver][_srcEid][_sender][_nonce] != EMPTY_PAYLOAD_HASH;
     }
 
     function getExecutorFee(uint256 _payloadSize, bytes calldata _options) public view returns (uint256) {
@@ -259,41 +280,57 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         lzEndpointLookup[destAddr] = lzEndpointAddr;
     }
 
-    function _decodeExecutorOptions(bytes calldata _options)
-        internal
-        view
-        returns (uint256 dstAmount, uint256 totalGas)
-    {
+    function _decodeExecutorOptions(
+        bytes calldata _options
+    ) internal view returns (uint256 dstAmount, uint256 totalGas) {
         if (_options.length == 0) {
             revert IExecutorFeeLib.Executor_NoOptions();
         }
 
-        uint256 cursor = 0;
-        totalGas = relayerFeeConfig.baseGas;
+        uint64 _baseGas = relayerFeeConfig.baseGas;
+        uint128 _nativeCap = relayerFeeConfig.dstNativeAmtCap;
+        bool _v1Eid = false;
 
+        uint256 cursor = 0;
+        bool ordered = false;
+        totalGas = _baseGas;
+
+        uint256 lzReceiveGas;
         while (cursor < _options.length) {
             (uint8 optionType, bytes calldata option, uint256 newCursor) = _options.nextExecutorOption(cursor);
             cursor = newCursor;
 
             if (optionType == ExecutorOptions.OPTION_TYPE_LZRECEIVE) {
                 (uint128 gas, uint128 value) = ExecutorOptions.decodeLzReceiveOption(option);
+
+                // endpoint v1 does not support lzReceive with value
+                if (_v1Eid && value > 0) revert IExecutorFeeLib.Executor_UnsupportedOptionType(optionType);
+
                 dstAmount += value;
-                totalGas += gas;
+                lzReceiveGas += gas;
             } else if (optionType == ExecutorOptions.OPTION_TYPE_NATIVE_DROP) {
-                (uint128 nativeDropAmount,) = ExecutorOptions.decodeNativeDropOption(option);
+                (uint128 nativeDropAmount, ) = ExecutorOptions.decodeNativeDropOption(option);
                 dstAmount += nativeDropAmount;
             } else if (optionType == ExecutorOptions.OPTION_TYPE_LZCOMPOSE) {
+                // endpoint v1 does not support lzCompose
+                if (_v1Eid) revert IExecutorFeeLib.Executor_UnsupportedOptionType(optionType);
+
                 (, uint128 gas, uint128 value) = ExecutorOptions.decodeLzComposeOption(option);
                 dstAmount += value;
                 totalGas += gas;
+            } else if (optionType == ExecutorOptions.OPTION_TYPE_ORDERED_EXECUTION) {
+                ordered = true;
             } else {
                 revert IExecutorFeeLib.Executor_UnsupportedOptionType(optionType);
             }
         }
-
         if (cursor != _options.length) revert IExecutorFeeLib.Executor_InvalidExecutorOptions(cursor);
-        if (dstAmount > relayerFeeConfig.dstNativeAmtCap) {
-            revert IExecutorFeeLib.Executor_NativeAmountExceedsCap(dstAmount, relayerFeeConfig.dstNativeAmtCap);
+        if (dstAmount > _nativeCap) revert IExecutorFeeLib.Executor_NativeAmountExceedsCap(dstAmount, _nativeCap);
+        if (lzReceiveGas == 0) revert IExecutorFeeLib.Executor_ZeroLzReceiveGasProvided();
+        totalGas += lzReceiveGas;
+
+        if (ordered) {
+            totalGas = (totalGas * 102) / 100;
         }
     }
 
@@ -647,6 +684,8 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
                 if (!success) {
                     emit ValueTransferFailed(receiver.bytes32ToAddress(), nativeDropAmount);
                 }
+            } else if (optionType == ExecutorOptions.OPTION_TYPE_ORDERED_EXECUTION) {
+                // ordered = true;
             } else {
                 revert IExecutorFeeLib.Executor_UnsupportedOptionType(optionType);
             }

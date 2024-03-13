@@ -1,35 +1,25 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Script.sol";
-import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "../src/core/ClientChainGateway.sol";
-import {Vault} from "../src/core/Vault.sol";
-import "../src/core/ExocoreGateway.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "../src/interfaces/IClientChainGateway.sol";
+import "../src/interfaces/IVault.sol";
+import "../src/interfaces/IExocoreGateway.sol";
 import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
-import "./BaseScriptStorage.sol";
+import {BaseScript} from "./BaseScript.sol";
 
-contract SetupScript is Script, BaseScriptStorage {
+contract SetupScript is BaseScript {
     using AddressCast for address;
 
-    function setUp() public {
-        deployer.privateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
-        deployer.addr = vm.addr(deployer.privateKey);
-
-        exocoreValidatorSet.privateKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
-        exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
-
-        exocoreGenesis.privateKey = vm.envUint("EXOCORE_GENESIS_PRIVATE_KEY");
-        exocoreGenesis.addr = vm.addr(exocoreGenesis.privateKey);
-
-        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
-        exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
+    function setUp() public virtual override {
+        super.setUp();
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
         clientGateway =
-            ClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
+            IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
         require(address(clientGateway) != address(0), "clientGateway address should not be empty");
 
         clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".clientChain.lzEndpoint"));
@@ -38,10 +28,10 @@ contract SetupScript is Script, BaseScriptStorage {
         restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(deployedContracts, ".clientChain.erc20Token"));
         require(address(restakeToken) != address(0), "restakeToken address should not be empty");
 
-        vault = Vault(stdJson.readAddress(deployedContracts, ".clientChain.resVault"));
+        vault = IVault(stdJson.readAddress(deployedContracts, ".clientChain.resVault"));
         require(address(vault) != address(0), "vault address should not be empty");
 
-        exocoreGateway = ExocoreGateway(payable(stdJson.readAddress(deployedContracts, ".exocore.exocoreGateway")));
+        exocoreGateway = IExocoreGateway(payable(stdJson.readAddress(deployedContracts, ".exocore.exocoreGateway")));
         require(address(exocoreGateway) != address(0), "exocoreGateway address should not be empty");
 
         exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
@@ -71,7 +61,7 @@ contract SetupScript is Script, BaseScriptStorage {
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
-        if (vm.envBool("USE_ENDPOINT_MOCK")) {
+        if (useEndpointMock) {
             NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
                 address(exocoreGateway), address(exocoreLzEndpoint)
             );
@@ -88,7 +78,7 @@ contract SetupScript is Script, BaseScriptStorage {
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
-        if (vm.envBool("USE_ENDPOINT_MOCK")) {
+        if (useEndpointMock) {
             NonShortCircuitEndpointV2Mock(address(exocoreLzEndpoint)).setDestLzEndpoint(
                 address(clientGateway), address(clientChainLzEndpoint)
             );

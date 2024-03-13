@@ -156,22 +156,11 @@ abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, Clie
         outboundNonce++;
         bytes memory payload = abi.encodePacked(act, actionArgs);
         bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE);
+            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(exocoreChainId, payload, options, false);
 
         MessagingReceipt memory receipt =
             _lzSend(exocoreChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false);
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
-    }
-
-    function quote(bytes memory _message) public view returns (uint256 nativeFee) {
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE);
-        MessagingFee memory fee = _quote(exocoreChainId, _message, options, false);
-        return fee.nativeFee;
-    }
-
-    function getOutboundNonce() public view returns (uint64) {
-        return outboundNonce;
     }
 }

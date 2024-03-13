@@ -11,7 +11,6 @@ import "../src/interfaces/precompiles/IDelegation.sol";
 import "../src/interfaces/precompiles/IDeposit.sol";
 import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../src/interfaces/precompiles/IClaimReward.sol";
-import "../test/mocks/NonShortCircuitLzEndpointMock.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import "../src/storage/GatewayStorage.sol";
 import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";

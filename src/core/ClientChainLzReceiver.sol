@@ -12,6 +12,7 @@ import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
 
 abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
     using SafeERC20 for IERC20;
@@ -64,8 +65,14 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
         }
     }
 
-    function getInboundNonce(uint32 srcEid, bytes32 sender) public view returns (uint64) {
-        return inboundNonce[srcEid][sender];
+    function nextNonce(uint32 srcEid, bytes32 sender)
+        public 
+        view 
+        virtual 
+        override(OAppReceiverUpgradeable)
+        returns (uint64) 
+    {
+        return inboundNonce[srcEid][sender] + 1;
     }
 
     function _consumeInboundNonce(uint32 srcEid, bytes32 sender, uint64 nonce) internal {

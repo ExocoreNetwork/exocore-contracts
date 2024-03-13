@@ -8,9 +8,8 @@ import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {ILayerZeroReceiver} from "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
-import {OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
+import {OAppSenderUpgradeable, MessagingFee} from "../lzApp/OAppSenderUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
@@ -18,18 +17,22 @@ import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/Pau
 import {Controller} from "./Controller.sol";
 import {ClientChainLzReceiver} from "./ClientChainLzReceiver.sol";
 import {TSSReceiver} from "./TSSReceiver.sol";
+import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
+import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 
 contract ClientChainGateway is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
-    ClientChainGatewayStorage,
+    IClientChainGateway,
     Controller,
     ClientChainLzReceiver,
     TSSReceiver
 {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
+    using OptionsBuilder for bytes;
 
     constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {
         _disableInitializers();
@@ -105,6 +108,13 @@ contract ClientChainGateway is
         }
     }
 
+    function quote(bytes memory _message) public view returns (uint256 nativeFee) {
+        bytes memory options =
+            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE).addExecutorOrderedExecutionOption();
+        MessagingFee memory fee = _quote(exocoreChainId, _message, options, false);
+        return fee.nativeFee;
+    }
+
     /**
      * @notice Retrieves the OApp version information.
      * @return senderVersion The version of the OAppSender.sol implementation.
@@ -114,7 +124,7 @@ contract ClientChainGateway is
         public
         pure
         virtual
-        override(OAppSenderUpgradeable, OAppReceiverUpgradeable)
+        override(IOAppCore, OAppSenderUpgradeable, OAppReceiverUpgradeable)
         returns (uint64 senderVersion, uint64 receiverVersion)
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
