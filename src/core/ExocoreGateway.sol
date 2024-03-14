@@ -3,7 +3,13 @@ pragma solidity ^0.8.19;
 import {ExocoreGatewayStorage} from "../storage/ExocoreGatewayStorage.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OAppReceiverUpgradeable, OAppUpgradeable, Origin, MessagingFee, MessagingReceipt} from "../lzApp/OAppUpgradeable.sol";
+import {
+    OAppReceiverUpgradeable,
+    OAppUpgradeable,
+    Origin,
+    MessagingFee,
+    MessagingReceipt
+} from "../lzApp/OAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -203,8 +209,9 @@ contract ExocoreGateway is
 
     function _sendInterchainMsg(uint32 srcChainId, Action act, bytes memory actionArgs) internal whenNotPaused {
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE).addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
         MessagingReceipt memory receipt =
@@ -213,18 +220,19 @@ contract ExocoreGateway is
     }
 
     function quote(uint32 srcChainid, bytes memory _message) public view returns (uint256 nativeFee) {
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE).addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(srcChainid, _message, options, false);
         return fee.nativeFee;
     }
 
     function nextNonce(uint32 srcEid, bytes32 sender)
-        public 
-        view 
-        virtual 
+        public
+        view
+        virtual
         override(ILayerZeroReceiver, OAppReceiverUpgradeable)
-        returns (uint64) 
+        returns (uint64)
     {
         return inboundNonce[srcEid][sender] + 1;
     }

@@ -1,18 +1,14 @@
 {
   "clientChain": {
-    "clientChainGateway": "0x8c71558fd2d2715F537F3525f0E1132eF143413A",
+    "clientChainGateway": "0xEa6FCdF9f155FD9251Afa2465e2ed53918A09D27",
     "erc20Token": "0x83E6850591425e3C1E263c054f4466838B9Bd9e4",
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
-    "proxyAdmin": "0x33a553f9F336f4c62221B7Aec040BA9C458E0292",
-    "resVault": "0x052f9E529Ae027AC1AdD57Ca974B5AE2001b60C4"
+    "proxyAdmin": "0xf4E4d48fDCB72B1B1E66595f684ECbb2d7f02Cb8",
+    "resVault": "0x3084b038A5C3C2730C5e6Ee0F38e5025949869bE"
   },
   "exocore": {
-    "claimRewardPrecompileMock": "0x4Cd16deA3b324914DA6E084Da4c0D878d730F224",
-    "delegationPrecompileMock": "0x93e991FAbAB2e43f3584d22AC986f851772837d1",
-    "depositPrecompileMock": "0x6A787B868206fEfd3052c35f085E8a3a71974EAF",
-    "exocoreGateway": "0x01c1bea65C6F64F1dD1ee2e8Fbf034a25dC0cbf4",
+    "exocoreGateway": "0x6a422ac958754B0d99ddF506a1691108775E5D80",
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
-    "proxyAdmin": "0xa548DD0010bDFc82EEA95e14273e2AB03c27729c",
-    "withdrawPrecompileMock": "0x6A787B868206fEfd3052c35f085E8a3a71974EAF"
+    "proxyAdmin": "0x22126aC1e80fE072b131C5bd6733433de800c1B8"
   }
 }

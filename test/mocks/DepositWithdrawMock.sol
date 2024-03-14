@@ -27,7 +27,7 @@ contract DepositWithdrawMock is IDeposit, IWithdraw {
         require(withdrawer.length == 32, "invalid staker address");
         require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
         principleBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
-        
+
         return (success, principleBalances[clientChainLzId][assetsAddress][withdrawer]);
     }
 }

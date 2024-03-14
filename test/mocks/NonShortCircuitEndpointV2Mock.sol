@@ -178,28 +178,25 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         if (msg.value > 0) {
             try ILayerZeroReceiver(_receiver).lzReceive{value: msg.value}(_origin, _guid, _message, address(0), "") {
                 lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender]++;
+            } catch (bytes memory reason) /*reason*/ {
+                inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
+                emit PayloadStored(_origin.srcEid, _origin.sender, _receiver, _origin.nonce, _message, reason);
             }
-                catch (bytes memory reason) /*reason*/ {
-                    inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
-                    emit PayloadStored(_origin.srcEid, _origin.sender, _receiver, _origin.nonce, _message, reason);
-                }
         } else {
             try ILayerZeroReceiver(_receiver).lzReceive(_origin, _guid, _message, address(0), "") {
                 lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender]++;
+            } catch (bytes memory reason) /*reason*/ {
+                inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
+                emit PayloadStored(_origin.srcEid, _origin.sender, _receiver, _origin.nonce, _message, reason);
             }
-                catch (bytes memory reason) /*reason*/ {
-                    inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] = keccak256(_message);
-                    emit PayloadStored(_origin.srcEid, _origin.sender, _receiver, _origin.nonce, _message, reason);
-                }
         }
     }
 
-    function _hasPayloadHash(
-        address _receiver,
-        uint32 _srcEid,
-        bytes32 _sender,
-        uint64 _nonce
-    ) internal view returns (bool) {
+    function _hasPayloadHash(address _receiver, uint32 _srcEid, bytes32 _sender, uint64 _nonce)
+        internal
+        view
+        returns (bool)
+    {
         return inboundPayloadHash[_receiver][_srcEid][_sender][_nonce] != EMPTY_PAYLOAD_HASH;
     }
 
@@ -280,9 +277,11 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         lzEndpointLookup[destAddr] = lzEndpointAddr;
     }
 
-    function _decodeExecutorOptions(
-        bytes calldata _options
-    ) internal view returns (uint256 dstAmount, uint256 totalGas) {
+    function _decodeExecutorOptions(bytes calldata _options)
+        internal
+        view
+        returns (uint256 dstAmount, uint256 totalGas)
+    {
         if (_options.length == 0) {
             revert IExecutorFeeLib.Executor_NoOptions();
         }
@@ -309,7 +308,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
                 dstAmount += value;
                 lzReceiveGas += gas;
             } else if (optionType == ExecutorOptions.OPTION_TYPE_NATIVE_DROP) {
-                (uint128 nativeDropAmount, ) = ExecutorOptions.decodeNativeDropOption(option);
+                (uint128 nativeDropAmount,) = ExecutorOptions.decodeNativeDropOption(option);
                 dstAmount += nativeDropAmount;
             } else if (optionType == ExecutorOptions.OPTION_TYPE_LZCOMPOSE) {
                 // endpoint v1 does not support lzCompose

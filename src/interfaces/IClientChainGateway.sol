@@ -11,4 +11,3 @@ interface IClientChainGateway is IOAppReceiver, IOAppCore, ITSSReceiver, IContro
     function addTokenVaults(address[] calldata vaults) external;
     function quote(bytes memory _message) external view returns (uint256 nativeFee);
 }
-

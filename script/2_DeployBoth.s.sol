@@ -96,11 +96,7 @@ contract DeployScript is BaseScript {
 
         if (useExocorePrecompileMock) {
             ExocoreGatewayMock exocoreGatewayLogic = new ExocoreGatewayMock(
-                address(exocoreLzEndpoint),
-                depositMock,
-                withdrawMock,
-                delegationMock,
-                claimRewardMock
+                address(exocoreLzEndpoint), depositMock, withdrawMock, delegationMock, claimRewardMock
             );
             exocoreGateway = ExocoreGateway(
                 payable(
@@ -153,7 +149,7 @@ contract DeployScript is BaseScript {
             vm.serializeAddress(exocoreContracts, "delegationPrecompileMock", delegationMock);
             vm.serializeAddress(exocoreContracts, "claimRewardPrecompileMock", claimRewardMock);
         }
-        
+
         string memory exocoreContractsOutput =
             vm.serializeAddress(exocoreContracts, "proxyAdmin", address(exocoreProxyAdmin));
 

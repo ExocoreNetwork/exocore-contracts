@@ -6,4 +6,3 @@ import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.
 interface IExocoreGateway is IOAppReceiver, IOAppCore {
     function quote(uint32 srcChainid, bytes memory _message) external view returns (uint256 nativeFee);
 }
-

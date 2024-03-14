@@ -4,10 +4,6 @@
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
   },
   "exocore": {
-    "claimRewardPrecompileMock": "0x4Cd16deA3b324914DA6E084Da4c0D878d730F224",
-    "delegationPrecompileMock": "0x93e991FAbAB2e43f3584d22AC986f851772837d1",
-    "depositPrecompileMock": "0x6A787B868206fEfd3052c35f085E8a3a71974EAF",
-    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
-    "withdrawPrecompileMock": "0x6A787B868206fEfd3052c35f085E8a3a71974EAF"
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
   }
 }

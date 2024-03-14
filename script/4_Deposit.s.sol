@@ -41,7 +41,7 @@ contract DepositScript is BaseScript {
 
         exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
         require(address(exocoreLzEndpoint) != address(0), "exocoreLzEndpoint address should not be empty");
-        
+
         if (!useExocorePrecompileMock) {
             // bind precompile mock contracts code to constant precompile address so that local simulation could pass
             bytes memory DepositMockCode = vm.getDeployedCode("DepositWithdrawMock.sol");
@@ -95,11 +95,11 @@ contract DepositScript is BaseScript {
 
     function run() public {
         bytes memory msg_ = abi.encodePacked(
-                GatewayStorage.Action.REQUEST_DEPOSIT,
-                abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
-                abi.encodePacked(bytes32(bytes20(depositor.addr))),
-                uint256(DEPOSIT_AMOUNT)
-                );
+            GatewayStorage.Action.REQUEST_DEPOSIT,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            abi.encodePacked(bytes32(bytes20(depositor.addr))),
+            uint256(DEPOSIT_AMOUNT)
+        );
 
         vm.selectFork(clientChain);
         vm.startBroadcast(depositor.privateKey);

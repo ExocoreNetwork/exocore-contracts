@@ -109,8 +109,9 @@ contract ClientChainGateway is
     }
 
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE).addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(exocoreChainId, _message, options, false);
         return fee.nativeFee;
     }

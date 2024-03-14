@@ -155,8 +155,9 @@ abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, Clie
     function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
         outboundNonce++;
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE).addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(exocoreChainId, payload, options, false);
 
         MessagingReceipt memory receipt =
