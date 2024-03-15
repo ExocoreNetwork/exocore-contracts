@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import {VaultStorage} from "../storage/VaultStorage.sol";
 import {IVault} from "../interfaces/IVault.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {IController} from "../interfaces/IController.sol";

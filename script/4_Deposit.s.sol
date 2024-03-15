@@ -117,7 +117,7 @@ contract DepositScript is BaseScript {
             vm.selectFork(exocore);
             vm.startBroadcast(relayer.privateKey);
             uint64 nonce = exocoreGateway.nextNonce(clientChainId, address(clientGateway).toBytes32());
-            exocoreLzEndpoint.lzReceive{gas: 5000000}(
+            exocoreLzEndpoint.lzReceive{gas: 500000}(
                 Origin(clientChainId, address(clientGateway).toBytes32(), nonce),
                 address(exocoreGateway),
                 GUID.generate(
