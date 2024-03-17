@@ -15,7 +15,7 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 
-contract ClientChainGateway is 
+contract ClientChainGateway is
     Initializable,
     OwnableUpgradeable,
     PausableUpgradeable,
@@ -33,7 +33,7 @@ contract ClientChainGateway is
     error UnauthorizedSigner();
     error UnauthorizedToken();
     error UnsupportedRequest(Action act);
-    error UnsupportedResponse(Action act); 
+    error UnsupportedResponse(Action act);
     error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
     error VaultNotExist();
     error ActionFailed(Action act, uint64 nonce);
@@ -53,9 +53,9 @@ contract ClientChainGateway is
         address[] calldata _whitelistTokens,
         address _lzEndpoint,
         uint16 _ExocoreChainID
-    ) 
-        external 
-        initializer 
+    )
+        external
+        initializer
     {
         require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
         ExocoreValidatorSetAddress = _ExocoreValidatorSetAddress;
@@ -88,10 +88,10 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    function addTokenVaults(address[] calldata vaults) 
-        external 
+    function addTokenVaults(address[] calldata vaults)
+        external
         onlyOwner
-        whenNotPaused 
+        whenNotPaused
     {
         for (uint i =0; i < vaults.length; i++) {
             address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
@@ -105,7 +105,7 @@ contract ClientChainGateway is
     function deposit(address token, uint256 amount) payable external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
-        
+
         IVault vault = tokenVaults[token];
         require(address(vault) != address(0), "no vault added for this token");
 
@@ -122,7 +122,7 @@ contract ClientChainGateway is
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(principleAmount > 0, "amount should be greater than zero");
-        
+
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
@@ -139,7 +139,7 @@ contract ClientChainGateway is
     function claim(address token, uint256 amount, address recipient) external whenNotPaused {
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
-        
+
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
@@ -155,7 +155,7 @@ contract ClientChainGateway is
             for (uint j = 0; j < userBalanceUpdate.tokenBalances.length; j++) {
                 TokenBalanceUpdateInfo memory tokenBalanceUpdate = userBalanceUpdate.tokenBalances[j];
                 require(whitelistTokens[tokenBalanceUpdate.token], "not whitelisted token");
-                
+
                 IVault vault = tokenVaults[tokenBalanceUpdate.token];
                 if (address(vault) == address(0)) {
                     revert VaultNotExist();
@@ -171,7 +171,7 @@ contract ClientChainGateway is
 
                 if (tokenBalanceUpdate.unlockPrincipleAmount > 0 || tokenBalanceUpdate.unlockRewardAmount > 0) {
                     vault.updateWithdrawableBalance(
-                        userBalanceUpdate.user, 
+                        userBalanceUpdate.user,
                         tokenBalanceUpdate.unlockPrincipleAmount,
                         tokenBalanceUpdate.unlockRewardAmount
                     );
@@ -184,7 +184,7 @@ contract ClientChainGateway is
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         require(operator != bytes32(0), "empty operator address");
-        
+
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
@@ -202,7 +202,7 @@ contract ClientChainGateway is
         require(whitelistTokens[token], "not whitelisted token");
         require(amount > 0, "amount should be greater than zero");
         require(operator != bytes32(0), "empty operator address");
-        
+
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
@@ -226,7 +226,7 @@ contract ClientChainGateway is
         if (!isValid) {
             revert UnauthorizedSigner();
         }
-        
+
         Action act = Action(uint8(_msg.payload[0]));
         require(act == Action.UPDATE_USERS_BALANCES, "not supported action");
         bytes memory args = _msg.payload[1:];
@@ -248,11 +248,11 @@ contract ClientChainGateway is
     function verifyInterchainMsg(InterchainMsg calldata msg_, bytes calldata signature) internal view returns(bool isValid) {
         bytes32 digest = keccak256(
             abi.encodePacked(
-                msg_.srcChainID, 
-                msg_.srcAddress, 
-                msg_.dstChainID, 
-                msg_.dstAddress, 
-                msg_.nonce, 
+                msg_.srcChainID,
+                msg_.srcAddress,
+                msg_.dstChainID,
+                msg_.dstAddress,
+                msg_.nonce,
                 msg_.payload
             )
         );
@@ -296,7 +296,7 @@ contract ClientChainGateway is
 
             (bool success, bytes memory reason) = address(this).call(
                 abi.encodePacked(
-                    hookSelector, 
+                    hookSelector,
                     abi.encode(requestPayload, payload[9:])
                 )
             );
@@ -318,10 +318,10 @@ contract ClientChainGateway is
         }
     }
 
-    function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload) 
-        public 
-        onlyCalledFromThis 
-    {   
+    function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
         (address token, address depositor, uint256 amount) = abi.decode(requestPayload, (address,address,uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
@@ -331,17 +331,17 @@ contract ClientChainGateway is
             if (address(vault) == address(0)) {
                 revert VaultNotExist();
             }
-            
+
             vault.updatePrincipleBalance(depositor, lastlyUpdatedPrincipleBalance);
         }
 
         emit DepositResult(success, token, depositor, amount);
     }
 
-    function afterReceiveWithdrawPrincipleResponse(bytes memory requestPayload, bytes calldata responsePayload) 
-        public 
-        onlyCalledFromThis 
-    {   
+    function afterReceiveWithdrawPrincipleResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
         (address token, address withdrawer, uint256 unlockPrincipleAmount) = abi.decode(requestPayload, (address,address,uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
@@ -359,10 +359,10 @@ contract ClientChainGateway is
         emit WithdrawResult(success, token, withdrawer, unlockPrincipleAmount);
     }
 
-    function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload) 
-        public 
-        onlyCalledFromThis 
-    {   
+    function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
         (address token, bytes32 operator, address delegator, uint256 amount) = abi.decode(requestPayload, (address,bytes32,address,uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
@@ -370,9 +370,9 @@ contract ClientChainGateway is
         emit DelegateResult(success, delegator, operator, token, amount);
     }
 
-    function afterReceiveUndelegateResponse(bytes memory requestPayload, bytes calldata responsePayload) 
-        public 
-        onlyCalledFromThis 
+    function afterReceiveUndelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
     {
         (address token, bytes32 operator, address undelegator, uint256 amount) = abi.decode(requestPayload, (address,bytes32,address,uint256));
 

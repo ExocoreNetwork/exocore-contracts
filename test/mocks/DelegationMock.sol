@@ -11,8 +11,8 @@ contract DelegationMock is IDelegation {
         bytes memory stakerAddress,
         bytes memory operatorAddr,
         uint256 opAmount
-    ) 
-        external 
+    )
+        external
         returns(bool success)
     {
         delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
@@ -25,9 +25,9 @@ contract DelegationMock is IDelegation {
         bytes memory stakerAddress,
         bytes memory operatorAddr,
         uint256 opAmount
-    ) 
-        external 
-        returns(bool success) 
+    )
+        external
+        returns(bool success)
     {
         require(opAmount <= delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress], "amount overflow");
         delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;

@@ -34,7 +34,7 @@ contract DeployScript is Script {
         uint256 privateKey;
         address addr;
     }
-    
+
     function setUp() public {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
         players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
@@ -42,7 +42,7 @@ contract DeployScript is Script {
 
         deployer.privateKey = vm.envUint("EXOCORE_DEPLOYER_PRIVATE_KEY");
         deployer.addr = vm.addr(deployer.privateKey);
-        
+
         exocoreValidatorSet.privateKey = vm.envUint("EXOCORE_VALIDATOR_SET_PRIVATE_KEY");
         exocoreValidatorSet.addr = vm.addr(exocoreValidatorSet.privateKey);
     }
@@ -52,7 +52,7 @@ contract DeployScript is Script {
         console.log("deployer address:", deployer.addr);
 
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        
+
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway();
         exocoreGateway = ExocoreGateway(address(new TransparentUpgradeableProxy(address(exocoreGatewayLogic), address(proxyAdmin), "")));
         exocoreLzEndpoint = new LZEndpointMock(exocoreChainId);

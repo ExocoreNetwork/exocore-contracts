@@ -56,7 +56,7 @@ contract ExocoreDeployer is Test {
 
     function _deploy() internal {
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        
+
         ClientChainGateway clientGatewayLogic = new ClientChainGateway();
         clientGateway = ClientChainGateway(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")));
 

@@ -17,7 +17,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
 
     function test_DepositWithdrawByLayerZero() public {
-        // -- deposit workflow test -- 
+        // -- deposit workflow test --
 
         vm.chainId(clientChainID);
 
@@ -46,7 +46,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
         emit DepositResult(true, address(restakeToken), depositor.addr, depositAmount);
         clientGateway.deposit(address(restakeToken), depositAmount);
 
-        // -- withdraw workflow -- 
+        // -- withdraw workflow --
 
         uint256 withdrawAmount = 100;
 
@@ -98,11 +98,11 @@ contract DepositWithdrawTest is ExocoreDeployer {
         bytes memory args = abi.encode(userBalances);
         bytes memory payload = abi.encodePacked(GatewayStorage.Action.UPDATE_USERS_BALANCES, args);
         _msg = ITSSReceiver.InterchainMsg({
-            srcChainID: exocoreChainID, 
-            srcAddress: bytes("0x"), 
-            dstChainID: clientChainID, 
-            dstAddress: abi.encodePacked(bytes20(address(clientGateway))), 
-            nonce: 1, 
+            srcChainID: exocoreChainID,
+            srcAddress: bytes("0x"),
+            dstChainID: clientChainID,
+            dstAddress: abi.encodePacked(bytes20(address(clientGateway))),
+            nonce: 1,
             payload: payload
         });
         bytes32 digest = keccak256(abi.encodePacked(

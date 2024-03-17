@@ -8,12 +8,12 @@ import {LzAppUpgradeable} from "../lzApp/LzAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 
-contract ExocoreGateway is 
-    LzAppUpgradeable, 
+contract ExocoreGateway is
+    LzAppUpgradeable,
     ExocoreGatewayStorage,
     PausableUpgradeable
 {
-    error UnSupportedRequest(Action act); 
+    error UnSupportedRequest(Action act);
     error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
     event InterchainMsgReceived(
@@ -62,11 +62,11 @@ contract ExocoreGateway is
         _unpause();
     }
 
-    function _blockingLzReceive(uint16 srcChainId, bytes memory srcAddress, uint64 nonce, bytes calldata payload) 
-        internal 
-        virtual 
+    function _blockingLzReceive(uint16 srcChainId, bytes memory srcAddress, uint64 nonce, bytes calldata payload)
+        internal
+        virtual
         override
-        whenNotPaused 
+        whenNotPaused
     {
         address fromAddress;
         assembly {
@@ -85,9 +85,9 @@ contract ExocoreGateway is
         }
     }
 
-    function requestDeposit(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 
-        public 
-        onlyCalledFromThis 
+    function requestDeposit(uint16 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
     {
         bytes calldata token = payload[:32];
         bytes calldata depositor = payload[32:64];
@@ -95,10 +95,10 @@ contract ExocoreGateway is
 
         (bool success, bytes memory responseOrReason) = DEPOSIT_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
-                DEPOSIT_FUNCTION_SELECTOR, 
-                srcChainId, 
-                token, 
-                depositor, 
+                DEPOSIT_FUNCTION_SELECTOR,
+                srcChainId,
+                token,
+                depositor,
                 amount
             )
         );
@@ -110,9 +110,9 @@ contract ExocoreGateway is
         _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance));
     }
 
-    function requestWithdrawPrinciple(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 
-        public 
-        onlyCalledFromThis 
+    function requestWithdrawPrinciple(uint16 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
     {
         bytes calldata token = payload[:32];
         bytes calldata withdrawer = payload[32:64];
@@ -120,10 +120,10 @@ contract ExocoreGateway is
 
         (bool success, bytes memory responseOrReason) = WITHDRAW_PRINCIPLE_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
-                WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR, 
-                srcChainId, 
-                token, 
-                withdrawer, 
+                WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR,
+                srcChainId,
+                token,
+                withdrawer,
                 amount
             )
         );
@@ -135,9 +135,9 @@ contract ExocoreGateway is
         _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance));
     }
 
-    function requestDelegateTo(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 
-        public 
-        onlyCalledFromThis 
+    function requestDelegateTo(uint16 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
     {
         bytes calldata token = payload[:32];
         bytes calldata depositor = payload[32:64];
@@ -146,20 +146,20 @@ contract ExocoreGateway is
 
         (bool success, ) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
-                DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR, 
+                DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
                 srcChainId,
-                lzNonce, 
-                token, 
+                lzNonce,
+                token,
                 depositor,
-                operator, 
+                operator,
                 amount
             )
         );
         _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
     }
 
-    function requestUndelegateFrom(uint16 srcChainId, uint64 lzNonce, bytes calldata payload) 
-        public 
+    function requestUndelegateFrom(uint16 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
         onlyCalledFromThis
     {
         bytes memory token = payload[1:32];
@@ -169,12 +169,12 @@ contract ExocoreGateway is
 
         (bool success, ) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
-                UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR, 
+                UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
                 srcChainId,
-                lzNonce, 
-                token, 
+                lzNonce,
+                token,
                 depositor,
-                operator, 
+                operator,
                 amount
             )
         );

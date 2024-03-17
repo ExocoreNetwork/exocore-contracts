@@ -11,9 +11,9 @@ contract DepositMock is IDeposit {
         bytes memory assetsAddress,
         bytes memory stakerAddress,
         uint256 opAmount
-    ) 
-        external 
-        returns (bool success,uint256 latestAssetState) 
+    )
+        external
+        returns (bool success,uint256 latestAssetState)
     {
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
         WithdrawPrincipleMock(WITHDRAW_PRINCIPLE_PRECOMPILE_ADDRESS).depositTo(clientChainLzId, assetsAddress, stakerAddress, opAmount);
@@ -25,10 +25,10 @@ contract DepositMock is IDeposit {
         bytes memory assetsAddress,
         bytes memory withdrawer,
         uint256 opAmount
-    ) 
-        external 
-        returns (bool success,uint256 latestAssetState) 
-    {   
+    )
+        external
+        returns (bool success,uint256 latestAssetState)
+    {
         require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
         principleBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
     }

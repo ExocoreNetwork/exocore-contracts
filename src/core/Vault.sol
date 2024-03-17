@@ -34,7 +34,7 @@ contract Vault is Initializable, VaultStorage, IVault {
 
     function withdraw(address withdrawer, address recipient, uint256 amount) external onlyGateway {
         require(amount <= withdrawableBalances[withdrawer], "can not withdraw more amount than depositor's withdrawable balance");
-        
+
         withdrawableBalances[withdrawer] -= amount;
         underlyingToken.safeTransfer(recipient, amount);
     }

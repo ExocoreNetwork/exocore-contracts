@@ -94,9 +94,9 @@ contract ExocoreGatewayTest is Test {
         vm.prank(address(exocoreLzEndpoint));
         vm.expectRevert("Pausable: paused");
         exocoreGateway.lzReceive(
-            clientChainID, 
-            abi.encodePacked(address(deployer.addr), address(exocoreGateway)), 
-            uint64(1), 
+            clientChainID,
+            abi.encodePacked(address(deployer.addr), address(exocoreGateway)),
+            uint64(1),
             bytes("")
         );
     }

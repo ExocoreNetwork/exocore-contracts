@@ -58,7 +58,7 @@ contract BootstrappingContract is Ownable, Pausable {
      * amount deposited and the amount currently available (not delegated).
      *
      * @param totalDeposit The total amount of the token deposited by the user.
-     * @param availableFunds The portion of the total deposit that is currently available 
+     * @param availableFunds The portion of the total deposit that is currently available
      *                       for use.
      */
     struct TokenDeposit {
@@ -462,12 +462,12 @@ contract BootstrappingContract is Ownable, Pausable {
      * integrity and avoid potential conflicts or security issues.
      *
      * @param newKey The consensus public key to check for uniqueness. This key is expected
-     * to be provided as a byte32 array (`bytes32`), which is the typical format for 
+     * to be provided as a byte32 array (`bytes32`), which is the typical format for
      * storing and handling public keys in Ethereum smart contracts.
      *
      * @return bool Returns `true` if the consensus public key is already in use by an
-     * existing operator, indicating that the key is not unique. Returns `false` if the 
-     * public key is not found among the registered operators, indicating that the key 
+     * existing operator, indicating that the key is not unique. Returns `false` if the
+     * public key is not found among the registered operators, indicating that the key
      * is unique and can be safely used for a new or updating operator.
     */
     function consensusPublicKeyInUse(bytes32 newKey) private view returns (bool) {
@@ -741,17 +741,24 @@ contract BootstrappingContract is Ownable, Pausable {
 
     /**
      * @dev Computes and returns the initial list of validators based on the total
-     * amount delegated to each operator across all supported tokens, converted to
-     * USD using supplied exchange rates. The function assumes exchange rates are
-     * provided with a precision of 18 decimals.
+     * amount delegated to each operator across all supported tokens, converted
+     * using supplied exchange rates. The function assumes exchange rates are
+     * provided with enough precision such that all rates can be depicted within
+     * uint256. For example, rates [10.01, 1, 3.5] may be represented as
+     * [1001, 100, 350].
      *
-     * @param exchangeRates An array of tokens to their exchange rates in USD.
-     * @return Validator[] An array of Validator structs, each containing the operator's
-     * public key and calculated vote power in USD.
+     * @param exchangeRates An array of tokens to their exchange rates in USD (or
+     * a base currency).
+     * @return Validator[] An array of Validator structs, each containing the
+     * operator's public key and calculated vote power in USD (or the base currency).
      */
     function getInitialValidators(
         uint256[] memory exchangeRates
     ) external view returns (Validator[] memory) {
+        require(
+            exchangeRates.length == supportedTokens.length,
+            "Mismatch between exchangeRates and supportedTokens count."
+        );
         Validator[] memory validators = new Validator[](
             registeredOperators.length
         );
@@ -761,14 +768,11 @@ contract BootstrappingContract is Ownable, Pausable {
             uint256 totalVotePower = 0;
             for (uint256 j = 0; j < supportedTokens.length; j++) {
                 address tokenAddr = supportedTokens[j];
-                uint256 delegatedAmount = totalDelegatedToOperator[
-                    operatorAddr
-                ][tokenAddr];
+                uint256 delegatedAmount =
+                    totalDelegatedToOperator[operatorAddr][tokenAddr];
                 uint256 exchangeRate = exchangeRates[j];
-                // Convert token amount to USD equivalent
-                totalVotePower +=
-                    (delegatedAmount * exchangeRate) /
-                    (1e18 * ERC20(tokenAddr).decimals());
+                // with Solidity ^0.8.0, overflow reverts by itself.
+                totalVotePower += (delegatedAmount * exchangeRate);
             }
             validators[i] = Validator(op.consensusPublicKey, totalVotePower);
         }
@@ -798,9 +802,7 @@ contract BootstrappingContract is Ownable, Pausable {
      * operators.
      */
     function exportRegisteredOperators()
-        public
-        view
-        returns (ExportedOperator[] memory)
+        public view returns (ExportedOperator[] memory)
     {
         ExportedOperator[] memory exportedOperators = new ExportedOperator[](
             registeredOperators.length
@@ -858,8 +860,7 @@ contract BootstrappingContract is Ownable, Pausable {
      * decimals, total supply, and the provided LayerZero chain ID and meta information.
      */
     function getSupportedTokens(
-        int64 layerZeroChainId,
-        string[] memory metaInfos
+        int64 layerZeroChainId, string[] memory metaInfos
     ) public view returns (TokenInfo[] memory) {
         require(
             metaInfos.length == supportedTokens.length,
@@ -872,6 +873,7 @@ contract BootstrappingContract is Ownable, Pausable {
             ERC20 token = ERC20(tokenAddress);
             string memory name = ERC20(tokenAddress).name();
             string memory symbol = ERC20(tokenAddress).symbol();
+            // this is why we use ERC20 and not IERC20.
             uint8 decimals = ERC20(tokenAddress).decimals();
             uint256 totalSupply = token.totalSupply();
 

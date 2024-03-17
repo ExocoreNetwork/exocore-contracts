@@ -16,7 +16,7 @@ contract DepositWithdrawTest is ExocoreDeployer {
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
 
     function test_Delegation() public {
-        // -- deposit workflow test -- 
+        // -- deposit workflow test --
 
         vm.chainId(clientChainID);
 
@@ -46,11 +46,11 @@ contract DepositWithdrawTest is ExocoreDeployer {
         emit DepositResult(true, address(restakeToken), depositor.addr, depositAmount);
         clientGateway.deposit(address(restakeToken), depositAmount);
 
-        // -- delegate workflow -- 
+        // -- delegate workflow --
 
         uint256 delegateAmount = 100;
         Player memory operator = players[1];
-        
+
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit DelegateResult(true, depositor.addr, bytes32(bytes20(operator.addr)), address(restakeToken), delegateAmount);
         clientGateway.delegateTo(bytes32(bytes20(operator.addr)), address(restakeToken), delegateAmount);

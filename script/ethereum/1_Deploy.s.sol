@@ -34,7 +34,7 @@ contract DeployScript is Script {
         uint256 privateKey;
         address addr;
     }
-    
+
     function setUp() public {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
         players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
@@ -59,7 +59,7 @@ contract DeployScript is Script {
         whitelistTokens.push(address(restakeToken));
 
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        
+
         ClientChainGateway clientGatewayLogic = new ClientChainGateway();
         clientGateway = ClientChainGateway(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")));
 
@@ -73,7 +73,7 @@ contract DeployScript is Script {
 
         vaults.push(address(vault));
         vm.stopBroadcast();
-        
+
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         clientGateway.addTokenVaults(vaults);
     }
