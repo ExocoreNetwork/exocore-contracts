@@ -133,14 +133,12 @@ contract BootstrappingTest is Test {
     function test03_RegisterOperator() public {
         assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 0);
         // Register operators
-        string[3] memory names = ["operator1", "operator2", "operator3"];
-        string[3] memory websites = ["operator1.com", "operator2.com", "operator3.com"];
+        string[3] memory metaInfos = ["operator1", "operator2", "operator3"];
         bytes32[3] memory pubKeys = [
             bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782),
             bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9),
             bytes32(0xa29429a3ca352334fbe75df9485544bd517e3718df73725f33c6d06f3c1caade)
         ];
-        uint8[3] memory commissions = [1, 2, 3];
         // We can convert an operator's bech32 address to hex as follows.
         // exocored keys add --algo eth_secp256k1 MY_KEY --keyring-backend file
         // Then convert it to Eth-compatible version.
@@ -150,7 +148,7 @@ contract BootstrappingTest is Test {
         for (uint256 i = 0; i < 3; i++) {
             vm.startPrank(addrs[i]);
             bootstrappingContract.registerOperator(
-                pubKeys[i], addrs[i], commissions[i], names[i], websites[i]
+                pubKeys[i], addrs[i], metaInfos[i]
             );
              assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == i + 1);
             vm.stopPrank();
@@ -160,23 +158,19 @@ contract BootstrappingTest is Test {
     function test03_RegisterOperator_AlreadyRegistered() public {
         // Register operator
         string memory name = "operator1";
-        string memory website = "operator1.com";
         bytes32 pubKey =
             bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
-        uint8 commission = 1;
         vm.startPrank(addrs[0]);
         bootstrappingContract.registerOperator(
-            pubKey, addrs[0], commission, name, website
+            pubKey, addrs[0], name
         );
         // change all params except address of operator
         pubKey =
             bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
-        commission = 2;
         name = "operator1_re";
-        website = "operator1_re.com";
         vm.expectRevert("Operator already registered");
         bootstrappingContract.registerOperator(
-            pubKey, addrs[0], commission, name, website
+            pubKey, addrs[0], name
         );
         vm.stopPrank();
     }
@@ -184,24 +178,20 @@ contract BootstrappingTest is Test {
     function test03_RegisterOperator_ConsensusKeyInUse() public {
         // Register operator
         string memory name = "operator1";
-        string memory website = "operator1.com";
         bytes32 pubKey =
             bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
-        uint8 commission = 1;
         vm.startPrank(addrs[0]);
         bootstrappingContract.registerOperator(
-            pubKey, addrs[0], commission, name, website
+            pubKey, addrs[0], name
         );
         vm.stopPrank();
 
         // Register another operator with the same consensus key
         vm.startPrank(addrs[1]);
         name = "operator2";
-        website = "operator2.com";
-        commission = 2;
         vm.expectRevert("Consensus public key already in use");
         bootstrappingContract.registerOperator(
-            pubKey, addrs[1], commission, name, website
+            pubKey, addrs[1], name
         );
         vm.stopPrank();
     }
@@ -209,29 +199,12 @@ contract BootstrappingTest is Test {
     function test03_RegisterOperator_ExocoreZeroAddress() public {
         // Register operator
         string memory name = "operator1";
-        string memory website = "operator1.com";
         bytes32 pubKey =
             bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
-        uint8 commission = 1;
         vm.startPrank(addrs[0]);
         vm.expectRevert("Exocore address cannot be zero");
         bootstrappingContract.registerOperator(
-            pubKey, address(0), commission, name, website
-        );
-        vm.stopPrank();
-    }
-
-    function test03_RegisterOperator_CommissionTooHigh() public {
-        // Register operator
-        string memory name = "operator1";
-        string memory website = "operator1.com";
-        bytes32 pubKey =
-            bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
-        uint8 commission = 101;
-        vm.startPrank(addrs[0]);
-        vm.expectRevert("Commission rate must be between 0 and 100");
-        bootstrappingContract.registerOperator(
-            pubKey, addrs[0], commission, name, website
+            pubKey, address(0), name
         );
         vm.stopPrank();
     }
@@ -239,26 +212,22 @@ contract BootstrappingTest is Test {
     function test03_RegisterOperator_NameInUse() public {
         // Register operator
         string memory name = "operator1";
-        string memory website = "operator1.com";
         bytes32 pubKey =
             bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
-        uint8 commission = 1;
         vm.startPrank(addrs[0]);
         bootstrappingContract.registerOperator(
-            pubKey, addrs[0], commission, name, website
+            pubKey, addrs[0], name
         );
         vm.stopPrank();
 
         // Register another operator with the same name
         vm.startPrank(addrs[1]);
         name = "operator1";
-        website = "operator2.com";
-        commission = 2;
         pubKey =
             bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
         vm.expectRevert("Name already in use");
         bootstrappingContract.registerOperator(
-            pubKey, addrs[1], commission, name, website
+            pubKey, addrs[1], name
         );
         vm.stopPrank();
     }
@@ -271,7 +240,7 @@ contract BootstrappingTest is Test {
         vm.startPrank(addr);
         bootstrappingContract.registerOperator(
             bytes32(0x440eeb74aa733f646fbe53e0e26c1659b4e2f081e9cbe0163521380eebb93771),
-            addr, 2, "operator4", "operator4.com"
+            addr, "operator4"
         );
         assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 1);
         // Then deregister it
@@ -296,16 +265,16 @@ contract BootstrappingTest is Test {
         bytes32 oldKey =
             bytes32(0x440eeb74aa733f646fbe53e0e26c1659b4e2f081e9cbe0163521380eebb93771);
         bootstrappingContract.registerOperator(
-            oldKey, addr, 2, "operator4", "operator4.com"
+            oldKey, addr, "operator4"
         );
         assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 1);
-        (, bytes32 consensusPublicKey, , , , ) = bootstrappingContract.operators(addr);
+        (, bytes32 consensusPublicKey, ,  ) = bootstrappingContract.operators(addr);
         assertTrue(consensusPublicKey == oldKey);
         // Then change the key
         bytes32 newKey =
             bytes32(0xd995b7f4b2178b0466cfa512955ce2299a4487ebcd86f817d686880dd2b7c4b0);
         bootstrappingContract.replaceKey(newKey);
-        (, consensusPublicKey, , , , ) = bootstrappingContract.operators(addr);
+        (, consensusPublicKey, , ) = bootstrappingContract.operators(addr);
         assertTrue(consensusPublicKey == newKey);
         vm.stopPrank();
     }
@@ -339,24 +308,16 @@ contract BootstrappingTest is Test {
         bytes32 oldKey =
             bytes32(0x440eeb74aa733f646fbe53e0e26c1659b4e2f081e9cbe0163521380eebb93771);
         bootstrappingContract.registerOperator(
-            oldKey, addr, 2, "operator4", "operator4.com"
+            oldKey, addr, "operator4"
         );
         assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 1);
-        (, , address exocoreAddress, uint8 commission, , string memory website) =
+        (, , address exocoreAddress, ) =
             bootstrappingContract.operators(addr);
-        assertTrue(commission == 2);
         assertTrue(exocoreAddress == addr);
-        assertTrue(keccak256(abi.encodePacked(website)) ==
-                    keccak256(abi.encodePacked("operator4.com")));
         // Change commission, exocoreAddress and website
-        bootstrappingContract.updateOperatorParams(
-            address(0x8), uint8(3), "operator4.com/updated");
-        (, , exocoreAddress, commission, , website) =
-            bootstrappingContract.operators(addr);
-        assertTrue(commission == 3);
+        bootstrappingContract.updateOperatorExocoreAddress(address(0x8));
+        (, , exocoreAddress, ) = bootstrappingContract.operators(addr);
         assertTrue(exocoreAddress == address(0x8));
-        assertTrue(keccak256(abi.encodePacked(website)) ==
-                    keccak256(abi.encodePacked("operator4.com/updated")));
         vm.stopPrank();
     }
 
@@ -365,25 +326,7 @@ contract BootstrappingTest is Test {
         address addr = address(0x7);
         vm.startPrank(addr);
         vm.expectRevert("Operator not registered");
-        bootstrappingContract.updateOperatorParams(
-            addr, 2, "operator4.com"
-        );
-        vm.stopPrank();
-    }
-
-    function test06_UpdateOperatorParams_CommissionTooHigh() public {
-        // Register one operator
-        address addr = address(0x7);
-        vm.startPrank(addr);
-        bytes32 key =
-            bytes32(0x440eeb74aa733f646fbe53e0e26c1659b4e2f081e9cbe0163521380eebb93771);
-        bootstrappingContract.registerOperator(
-            key, addr, 2, "operator4", "operator4.com"
-        );
-        vm.expectRevert("Commission rate must be between 0 and 100");
-        bootstrappingContract.updateOperatorParams(
-            addr, 101, "operator4.com"
-        );
+        bootstrappingContract.updateOperatorExocoreAddress(addr);
         vm.stopPrank();
     }
 
@@ -394,12 +337,10 @@ contract BootstrappingTest is Test {
         bytes32 key =
             bytes32(0x440eeb74aa733f646fbe53e0e26c1659b4e2f081e9cbe0163521380eebb93771);
         bootstrappingContract.registerOperator(
-            key, addr, 2, "operator4", "operator4.com"
+            key, addr, "operator4"
         );
         vm.expectRevert("Exocore address cannot be zero");
-        bootstrappingContract.updateOperatorParams(
-            address(0), 2, "operator4.com"
-        );
+        bootstrappingContract.updateOperatorExocoreAddress(address(0));
         vm.stopPrank();
     }
 
@@ -431,8 +372,8 @@ contract BootstrappingTest is Test {
         vm.startPrank(deployer);
         bootstrappingContract.setOffsetTime(newOffsetTime);
         vm.stopPrank();
-        uint256 offsetTime = bootstrappingContract.offsetTime();
-        assertTrue(offsetTime == newOffsetTime);
+        uint256 offsetTimeInContract = bootstrappingContract.offsetTime();
+        assertTrue(offsetTimeInContract == newOffsetTime);
     }
 
     function test09_DelegateToOperator() public {
@@ -710,5 +651,15 @@ contract BootstrappingTest is Test {
         vm.expectRevert("Operations are locked");
         bootstrappingContract.deposit(address(myToken), amounts[0]);
         vm.stopPrank();
+    }
+
+    function test14_getInitialValidators() public {
+        test09_DelegateToOperator();
+        vm.warp(spawnTime - offsetTime);
+        uint256[] memory exchangeRates = new uint256[](1);
+        exchangeRates[0] = uint256(1);
+        BootstrappingContract.Validator[] memory validators =
+            bootstrappingContract.getInitialValidators(exchangeRates);
+        assertTrue(validators.length == 3);
     }
 }

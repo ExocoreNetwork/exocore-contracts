@@ -34,17 +34,13 @@ contract BootstrappingContract is Ownable, Pausable {
      * @param consensusPublicKey The public key used by the operator for consensus
      *                           on the Exocore chain.
      * @param exocoreAddress The operator's address on the Exocore chain.
-     * @param commissionRate The operator's commission rate, as a percentage from 0 to 100.
-     * @param name The name of the operator.
-     * @param website The website URL of the operator.
+     * @param metaInfo The meta info for the operator.
      */
     struct Operator {
         bool isRegistered;
         bytes32 consensusPublicKey;
         address exocoreAddress;
-        uint8 commissionRate; // 0 to 100
-        string name;
-        string website;
+        string metaInfo;
     }
     /**
      * @dev Struct for exporting operator details, designed for external consumption,
@@ -63,9 +59,7 @@ contract BootstrappingContract is Ownable, Pausable {
         address exocoreAddress;
         address ethereumAddress;
         bytes32 consensusPublicKey;
-        uint8 commissionRate;
-        string name;
-        string website;
+        string metaInfo;
     }
 
     /**
@@ -276,14 +270,10 @@ contract BootstrappingContract is Ownable, Pausable {
      * @notice Emitted when an operator updates their registration parameters.
      * @param operator The Ethereum address of the operator whose parameters were updated.
      * @param exocoreAddress The new Exocore address of the operator.
-     * @param commissionRate The new commission rate set by the operator.
-     * @param website The new website URL of the operator.
      */
-    event OperatorParamsUpdated(
+    event OperatorExocoreAddressUpdated(
         address operator,
-        address exocoreAddress,
-        uint8 commissionRate,
-        string website
+        address exocoreAddress
     );
 
     /**
@@ -446,24 +436,16 @@ contract BootstrappingContract is Ownable, Pausable {
      *
      * @param consensusPublicKey The operator's public key for consensus on the Exocore chain.
      * @param exocoreAddress The operator's address on the Exocore chain.
-     * @param commissionRate The commission rate charged by the operator, from 0 to 100.
-     * @param name The name of the operator.
-     * @param website The website URL of the operator.
+     * @param metaInfo The meta info for the operator.
      */
     function registerOperator(
         bytes32 consensusPublicKey,
         address exocoreAddress,
-        uint8 commissionRate,
-        string memory name,
-        string memory website
+        string memory metaInfo
     ) external whenNotPaused operationAllowed notBootstrapped {
         require(
             !operators[msg.sender].isRegistered,
             "Operator already registered"
-        );
-        require(
-            commissionRate <= 100,
-            "Commission rate must be between 0 and 100"
         );
         // the keys are bytes32 so their length is fixed. no need to validate it.
         require(
@@ -471,24 +453,18 @@ contract BootstrappingContract is Ownable, Pausable {
             "Consensus public key already in use"
         );
         require(
-            !nameInUse(name),
+            !nameInUse(metaInfo),
             "Name already in use"
         );
         require(
             exocoreAddress != address(0),
             "Exocore address cannot be zero"
         );
-        require(
-            commissionRate <= 100,
-            "Commission rate must be between 0 and 100"
-        );
         operators[msg.sender] = Operator(
             true,
             consensusPublicKey,
             exocoreAddress,
-            commissionRate,
-            name,
-            website
+            metaInfo
         );
         registeredOperators.push(msg.sender);
         emit OperatorRegistered(msg.sender);
@@ -522,7 +498,7 @@ contract BootstrappingContract is Ownable, Pausable {
     }
 
     /**
-     * @dev Checks if a given name is already in use by any registered operator.
+     * @dev Checks if a given meta info is already in use by any registered operator.
      *
      * This function iterates over all registered operators stored in the contract's state
      * to determine if the provided name matches any existing operator's name. It is
@@ -539,7 +515,7 @@ contract BootstrappingContract is Ownable, Pausable {
     */
     function nameInUse(string memory newName) private view returns (bool) {
         for (uint256 i = 0; i < registeredOperators.length; i++) {
-            if (keccak256(abi.encodePacked(operators[registeredOperators[i]].name)) ==
+            if (keccak256(abi.encodePacked(operators[registeredOperators[i]].metaInfo)) ==
                 keccak256(abi.encodePacked(newName))) {
                 return true;
             }
@@ -592,37 +568,22 @@ contract BootstrappingContract is Ownable, Pausable {
     }
 
     /**
-     * @dev Updates an operator's Exocore address, commission rate, and website URL.
-     * This operation can only be performed by the operator themselves and is subject
+     * @dev Updates an operator's Exocore address and is subject
      * to both pausing and timeline restrictions of the contract.
      *
      * @param exocoreAddress The new Exocore address of the operator.
-     * @param commissionRate The new commission rate of the operator.
-     * @param website The new website URL of the operator.
      */
-    function updateOperatorParams(
-        address exocoreAddress,
-        uint8 commissionRate,
-        string memory website
+    function updateOperatorExocoreAddress(
+        address exocoreAddress
     ) external whenNotPaused operationAllowed notBootstrapped {
         require(operators[msg.sender].isRegistered, "Operator not registered");
-        require(
-            commissionRate <= 100,
-            "Commission rate must be between 0 and 100"
-        );
         require(
             exocoreAddress != address(0),
             "Exocore address cannot be zero"
         );
-
         operators[msg.sender].exocoreAddress = exocoreAddress;
-        operators[msg.sender].commissionRate = commissionRate;
-        operators[msg.sender].website = website;
-        emit OperatorParamsUpdated(
-            msg.sender,
-            exocoreAddress,
-            commissionRate,
-            website
+        emit OperatorExocoreAddressUpdated(
+            msg.sender, exocoreAddress
         );
     }
 
@@ -884,9 +845,7 @@ contract BootstrappingContract is Ownable, Pausable {
                 exocoreAddress: op.exocoreAddress,
                 ethereumAddress: operatorAddress,
                 consensusPublicKey: op.consensusPublicKey,
-                commissionRate: op.commissionRate,
-                name: op.name,
-                website: op.website
+                metaInfo: op.metaInfo
             });
         }
         return exportedOperators;
