@@ -11,6 +11,21 @@ contract BootstrappingContract is Ownable, Pausable {
     using SafeERC20 for ERC20;
 
     /**
+     * @dev Represents the state of the the Exocore chain. The chain is considered bootstrapped
+     * when at least 1 block is produced, and the validators collectively send a transaction to
+     * the client chain to indicate that the chain is bootstrapped. The transaction may be sent
+     * via LayerZero or using TSS, none of which have yet been implemented.
+    */
+    bool public bootstrapped = false;
+
+    /**
+     * @dev The address from which a bootstrapping request is expected to be sent. This address
+     * is expected to be the LayerZero contract address, which will be used to send the
+     * bootstrapping request to the client chain.
+    */
+    address bootstrappingAddress;
+
+    /**
      * @dev Represents an operator in the system, including their registration status,
      * consensus public key for the Exocore chain, Exocore chain address, commission rate,
      * and identifying information such as name and website.
@@ -344,6 +359,11 @@ contract BootstrappingContract is Ownable, Pausable {
     event OffsetTimeUpdated(uint256 newOffsetTime);
 
     /**
+     * @notice Emitted when the contract is bootstrapped.
+     */
+    event Bootstrapped();
+
+    /**
      * @notice Creates a new instance of the BootstrappingContract, initializing supported
      * tokens, the Exocore spawn time, and the operational offset time.
      *
@@ -369,11 +389,13 @@ contract BootstrappingContract is Ownable, Pausable {
     constructor(
         address[] memory tokenAddresses,
         uint256 spawnTime,
-        uint256 _offsetTime
+        uint256 _offsetTime,
+        address _bootstrappingAddress
     ) {
         supportedTokens = tokenAddresses;
         exocoreSpawnTime = spawnTime;
         offsetTime = _offsetTime;
+        bootstrappingAddress = _bootstrappingAddress;
     }
 
     /**
@@ -397,6 +419,26 @@ contract BootstrappingContract is Ownable, Pausable {
     }
 
     /**
+     * @dev Modifier to restrict operations to only occur before the Exocore chain has been
+     * bootstrapped.
+     */
+    modifier notBootstrapped() {
+        require(!bootstrapped, "Contract already bootstrapped");
+        _;
+    }
+
+    /**
+     * @dev Modifier to restrict operations to only occur from the bootstrapping address.
+     */
+    modifier onlyBootstrapAddress() {
+        require(
+            msg.sender == bootstrappingAddress,
+            "Only the bootstrapping address can call this function"
+        );
+        _;
+    }
+
+    /**
      * @dev Registers a new operator with the contract. This includes setting their
      * consensus public key, Exocore address, commission rate, name, and website URL.
      * Registration is subject to the contract not being paused and the operation being
@@ -414,7 +456,7 @@ contract BootstrappingContract is Ownable, Pausable {
         uint8 commissionRate,
         string memory name,
         string memory website
-    ) external whenNotPaused operationAllowed {
+    ) external whenNotPaused operationAllowed notBootstrapped {
         require(
             !operators[msg.sender].isRegistered,
             "Operator already registered"
@@ -511,7 +553,7 @@ contract BootstrappingContract is Ownable, Pausable {
      * information. Deregistration is subject to the operation being allowed based on
      * the defined timeline and the contract not being paused.
      */
-    function deregisterOperator() external whenNotPaused operationAllowed {
+    function deregisterOperator() external whenNotPaused operationAllowed notBootstrapped {
         require(operators[msg.sender].isRegistered, "Operator not registered");
         delete operators[msg.sender];
         for (uint256 i = 0; i < registeredOperators.length; i++) {
@@ -538,7 +580,7 @@ contract BootstrappingContract is Ownable, Pausable {
      */
     function replaceKey(
         bytes32 newKey
-    ) external whenNotPaused operationAllowed {
+    ) external whenNotPaused operationAllowed notBootstrapped {
         require(operators[msg.sender].isRegistered, "Operator not registered");
         // if you send a transaction with the same public key, it will revert
         require(
@@ -562,7 +604,7 @@ contract BootstrappingContract is Ownable, Pausable {
         address exocoreAddress,
         uint8 commissionRate,
         string memory website
-    ) external whenNotPaused operationAllowed {
+    ) external whenNotPaused operationAllowed notBootstrapped {
         require(operators[msg.sender].isRegistered, "Operator not registered");
         require(
             commissionRate <= 100,
@@ -596,10 +638,25 @@ contract BootstrappingContract is Ownable, Pausable {
     // should this even be retained?
     function addSupportedToken(
         address token
-    ) external whenNotPaused operationAllowed onlyOwner {
+    ) external whenNotPaused operationAllowed onlyOwner notBootstrapped {
         require(!isTokenSupported(token), "Token already supported");
         supportedTokens.push(token);
         emit TokenAdded(token);
+    }
+
+    /**
+     * @dev Sets the bootstrapping address, which is the address from which a bootstrapping
+     * request is expected to be sent. This address is expected to be the LayerZero contract
+     * address, which will be used to send the bootstrapping request to the client chain.
+     * This function can only be called by the contract owner and is subject to the contract
+     * not being paused and operation being allowed based on the defined timeline.
+     *
+     * @param _bootstrappingAddress The address from which a bootstrapping request is expected
+     * to be sent.
+     */
+    function setBootstrappingAddress(address _bootstrappingAddress)
+    external onlyOwner whenNotPaused operationAllowed notBootstrapped {
+        bootstrappingAddress = _bootstrappingAddress;
     }
 
     // Do not implement removeSupportedToken because too much complexity for bootstrapping.
@@ -629,7 +686,7 @@ contract BootstrappingContract is Ownable, Pausable {
      *
      * @param _offsetTime The new offset time in seconds.
      */
-    function setOffsetTime(uint256 _offsetTime) external onlyOwner {
+    function setOffsetTime(uint256 _offsetTime) external onlyOwner notBootstrapped {
         offsetTime = _offsetTime;
         emit OffsetTimeUpdated(_offsetTime);
     }
@@ -645,7 +702,7 @@ contract BootstrappingContract is Ownable, Pausable {
     function deposit(
         address token,
         uint256 amount
-    ) external whenNotPaused operationAllowed {
+    ) external whenNotPaused operationAllowed notBootstrapped {
         require(isTokenSupported(token), "Token not supported");
         ERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         userDeposits[msg.sender][token].totalDeposit += amount;
@@ -670,7 +727,7 @@ contract BootstrappingContract is Ownable, Pausable {
         address operator,
         address token,
         uint256 amount
-    ) external whenNotPaused operationAllowed {
+    ) external whenNotPaused operationAllowed notBootstrapped {
         require(operators[operator].isRegistered, "Operator not registered");
         require(isTokenSupported(token), "Token not supported");
         require(amount > 0, "Delegation amount must be greater than zero");
@@ -698,7 +755,7 @@ contract BootstrappingContract is Ownable, Pausable {
         address operator,
         address token,
         uint256 amount
-    ) external whenNotPaused operationAllowed {
+    ) external whenNotPaused operationAllowed notBootstrapped {
         require(operators[operator].isRegistered, "Operator not registered");
         require(isTokenSupported(token), "Token not supported");
         require(amount > 0, "Undelegation amount must be greater than zero");
@@ -724,7 +781,7 @@ contract BootstrappingContract is Ownable, Pausable {
     function withdraw(
         address token,
         uint256 amount
-    ) external whenNotPaused operationAllowed {
+    ) external whenNotPaused operationAllowed notBootstrapped {
         require(isTokenSupported(token), "Token not supported");
         require(amount > 0, "Withdrawal amount must be greater than zero");
         require(
@@ -737,6 +794,19 @@ contract BootstrappingContract is Ownable, Pausable {
         userDeposits[msg.sender][token].availableFunds -= amount;
 
         emit Withdrawn(msg.sender, token, amount);
+    }
+
+    /**
+     * @dev The bootstrapping address can call this function to indicate that the
+     * Exocore chain is now bootstrapped. This should be done after at least one
+     * block has been produced by the Exocore chain, and the validators collectively
+     * send the transaction to this function.
+    */
+    function markBootstrapped(
+    ) external onlyBootstrapAddress notBootstrapped whenNotPaused {
+        require(block.timestamp >= exocoreSpawnTime, "Spawn time not reached");
+        bootstrapped = true;
+        emit Bootstrapped();
     }
 
     /**
