@@ -19,6 +19,8 @@ contract BootstrappingTest is Test {
         8 * 10 ** 18    // 2 + 0 + 6
     ];
     address deployer = address(0xdeadbeef);
+    uint256 spawnTime;
+    uint256 offsetTime;
 
     function setUp() public {
 
@@ -29,8 +31,8 @@ contract BootstrappingTest is Test {
         addrs[4] = address(0x5); // Simulated STAKER2 address
         addrs[5] = address(0x6); // Simulated STAKER3 address
 
-        uint256 spawnTime = block.timestamp + 1 hours;
-        uint256 offsetTime = 30 minutes;
+        spawnTime = block.timestamp + 1 hours;
+        offsetTime = 30 minutes;
 
         vm.startPrank(deployer);
         // first deploy the token
@@ -40,7 +42,7 @@ contract BootstrappingTest is Test {
         tokenAddresses[0] = address(myToken);
         // finally, deploy the contract
         bootstrappingContract = new BootstrappingContract(
-            tokenAddresses, spawnTime, offsetTime
+            tokenAddresses, spawnTime, offsetTime, address(0x20)
         );
         vm.stopPrank();
     }
@@ -522,6 +524,16 @@ contract BootstrappingTest is Test {
         );
     }
 
+    function test09_DelegateToOperator_Excess() public {
+        test03_RegisterOperator();
+        test02_Deposit();
+        vm.startPrank(addrs[0]);
+        vm.expectRevert("Insufficient available funds");
+        bootstrappingContract.delegateToOperator(
+            addrs[0], address(myToken), amounts[0] + 1
+        );
+    }
+
     function test10_UndelegateFromOperator() public {
         test09_DelegateToOperator();
         // now, undelegate for operators
@@ -598,6 +610,15 @@ contract BootstrappingTest is Test {
         );
     }
 
+    function test10_UndelegateFromOperator_Excess() public {
+        test09_DelegateToOperator();
+        vm.startPrank(addrs[0]);
+        vm.expectRevert("Undelegation amount exceeds delegation");
+        bootstrappingContract.undelegateFromOperator(
+            addrs[0], address(myToken), amounts[0] + 1
+        );
+    }
+
     function test10_UndelegateFromOperator_NoDelegation() public {
         test03_RegisterOperator();
         vm.startPrank(addrs[0]);
@@ -641,6 +662,53 @@ contract BootstrappingTest is Test {
         vm.startPrank(addrs[0]);
         vm.expectRevert("Insufficient available funds");
         bootstrappingContract.withdraw(address(myToken), amounts[0]);
+        vm.stopPrank();
+    }
+
+    function test11_Withdraw_Excess() public {
+        test10_UndelegateFromOperator();
+        vm.startPrank(addrs[0]);
+        vm.expectRevert("Insufficient available funds");
+        bootstrappingContract.withdraw(address(myToken), amounts[0] + 1);
+        vm.stopPrank();
+    }
+
+    function test12_MarkBootstrapped() public {
+        vm.warp(block.timestamp + 1 hours);
+        vm.startPrank(address(0x20));
+        bootstrappingContract.markBootstrapped();
+        vm.stopPrank();
+        assertTrue(bootstrappingContract.bootstrapped());
+    }
+
+    function test12_MarkBootstrapped_NotTime() public {
+        vm.startPrank(address(0x20));
+        vm.expectRevert("Spawn time not reached");
+        bootstrappingContract.markBootstrapped();
+        vm.stopPrank();
+    }
+
+    function test12_MarkBootstrapped_AlreadyBootstrapped() public {
+        test12_MarkBootstrapped();
+        vm.startPrank(address(0x20));
+        vm.expectRevert("Contract already bootstrapped");
+        bootstrappingContract.markBootstrapped();
+        vm.stopPrank();
+    }
+
+    function test12_MarkBootstrapped_WrongAddress() public {
+        vm.warp(block.timestamp + 1 hours);
+        vm.startPrank(address(0x21));
+        vm.expectRevert("Only the bootstrapping address can call this function");
+        bootstrappingContract.markBootstrapped();
+        vm.stopPrank();
+    }
+
+    function test13_OperationAllowed() public {
+        vm.warp(spawnTime - offsetTime);
+        vm.startPrank(addrs[0]);
+        vm.expectRevert("Operations are locked");
+        bootstrappingContract.deposit(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 }
