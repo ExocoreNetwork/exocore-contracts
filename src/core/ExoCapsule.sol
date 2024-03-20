@@ -24,6 +24,7 @@ contract ExoCapsule is
     error InvalidValidatorContainer(bytes32 pubkey);
     error DoubleDepositedValidator(bytes32 pubkey);
     error GetBeaconBlockRootFailure(uint64 timestamp);
+    error StaleValidatorContainer(bytes32 pubkey, uint64 timestamp);
 
     constructor(IETHPOSDeposit _ethPOS) {
         ethPOS = _ethPOS;
@@ -61,23 +62,31 @@ contract ExoCapsule is
     }
 
     function deposit(
-        bytes32[] validatorContainer,
+        bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
     ) external {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
-        ValidatorInfo storage validatorInfo = validatorStore[validatorPubkey];
+        ValidatorInfo storage validator = validatorStore[validatorPubkey];
+
+        if (validator.status != VALIDATOR_STATUS.UNREGISTERED) {
+            revert DoubleDepositedValidator(validatorPubkey);
+        }
+
+        if (_isStaleProof(validator, proof.beaconBlockTimestamp)) {
+            revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
+        }
 
         if (!validatorContainer.verifyBasic()) {
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
-        if (withdrawalCredentials != _capsuleWithdrawalCredentials()) {
+        if (!_isActivatedAtEpoch(validatorContainer, proof.beaconBlockTimestamp)) {
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
-        if (validatorInfo.status != VALIDATOR_STATUS.WITHDRAWN) {
-            revert DoubleDepositedValidator(validatorPubkey);
+        if (withdrawalCredentials != _capsuleWithdrawalCredentials()) {
+            revert InvalidValidatorContainer(validatorPubkey);
         }
 
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
@@ -93,21 +102,35 @@ contract ExoCapsule is
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
-        validatorInfo.status = VALIDATOR_STATUS.ACTIVE;
-        validatorInfo.validatorIndex = proof.validatorContainerRootIndex;
-        validatorInfo.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
-        validatorInfo.restakedBalanceGwei = validatorContainer.getEffectionBalance();
+        validator.status = VALIDATOR_STATUS.REGISTERED;
+        validator.validatorIndex = proof.validatorContainerRootIndex;
+        validator.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
+        validator.restakedBalanceGwei = validatorContainer.getEffectiveBalance();
     }
 
     function updateStakeBalance(
-        uint64 beaconBlockTimestamp,
-        bytes32 beaconStateRoot,
-        bytes[] calldata beaconStateRootProof,
-        bytes32[][] calldata validatorFields,
-        uint40[] calldata validatorProofIndices,
-        bytes[] calldata validatorFieldsProof
+        bytes32[] calldata validatorContainer,
+        ValidatorContainerProof calldata proof
     ) external {
+        bytes32 validatorPubkey = validatorContainer.getPubkey();
+        bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
+        ValidatorInfo storage validator = validatorStore[validatorPubkey];
 
+        if (validatorInfo.status != VALIDATOR_STATUS.REGISTERED) {
+            revert DoubleDepositedValidator(validatorPubkey);
+        }
+
+        if (_isStaleProof(validator, proof.beaconBlockTimestamp)) {
+            revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
+        }
+
+        if (!validatorContainer.verifyBasic()) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
+        if (proof.beaconBlockTimestamp <= validatorInfo.mostRecentBalanceUpdateTimestamp) {
+            revert 
+        }
     }
 
     function withdraw(
@@ -139,5 +162,35 @@ contract ExoCapsule is
 
         bytes32 beaconBlockRoot = abi.decode(rootBytes, (bytes32));
         return beaconBlockRoot;
+    }
+
+    function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint64 atTimestamp) internal view returns (bool) {
+        uint64 atEpoch = _timestampToEpoch(atTimestamp);
+        uint64 activationEpoch = validatorContainer.getActivationEpoch();
+        uint64 exitEpoch = validatorContainer.getExitEpoch();
+        
+        return (atEpoch >= activationEpoch && atEpoch < exitEpoch);
+    }
+
+    function _isStaleProof(ValidatorInfo storage validator, uint64 proofTimestamp) internal view returns (bool) {
+        if (proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS >= block.timestamp) {
+            if (proofTimestamp > validator.mostRecentBalanceUpdateTimestamp) {
+                return false;
+            }
+        }
+    }
+
+    function _isMoreRecent(uint64 timestamp) internal view returns (bool) {
+        return timestamp > 
+    }
+
+    /**
+     * @dev Converts a timestamp to a beacon chain epoch by calculating the number of
+     * seconds since genesis, and dividing by seconds per epoch.
+     * reference: https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md
+     */
+    function _timestampToEpoch(uint64 timestamp) internal view returns (uint64) {
+        require(timestamp >= BEACON_CHAIN_GENESIS_TIME, "timestamp should be greater than beacon chain genesis timestamp");
+        return (timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH;
     }
 }
