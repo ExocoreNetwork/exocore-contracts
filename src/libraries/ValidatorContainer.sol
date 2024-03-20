@@ -1,5 +1,17 @@
 pragma solidity ^0.8.19;
 
+/**
+ * class Validator(Container):
+    pubkey: BLSPubkey
+    withdrawal_credentials: Bytes32  # Commitment to pubkey for withdrawals
+    effective_balance: Gwei  # Balance at stake
+    slashed: boolean
+    # Status epochs
+    activation_eligibility_epoch: Epoch  # When criteria for activation were met
+    activation_epoch: Epoch
+    exit_epoch: Epoch
+    withdrawable_epoch: Epoch  # When validator can withdraw funds
+ */
 library ValidatorContainer {
     uint256 internal constant VALID_LENGTH = 8;
     uint256 internal constant MERKLE_TREE_HEIGHT = 3;
@@ -16,7 +28,7 @@ library ValidatorContainer {
         return validatorContainer[1];
     }
 
-    function getEffectionBalance(bytes32[] calldata validatorContainer) internal pure returns (uint64) {
+    function getEffectiveBalance(bytes32[] calldata validatorContainer) internal pure returns (uint64) {
         return uint64(bytes8(validatorContainer[2]));
     }
 
