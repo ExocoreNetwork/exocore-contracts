@@ -47,7 +47,8 @@ contract BaseScript is Script {
     address constant exocoreEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
     address erc20TokenAddress = 0x83E6850591425e3C1E263c054f4466838B9Bd9e4;
 
-    uint256 constant DEPOSIT_AMOUNT = 1e22;
+    uint256 constant DEPOSIT_AMOUNT = 1 ether;
+    uint256 constant WITHDRAW_AMOUNT = 1 ether;
 
     bool useExocorePrecompileMock;
     bool useEndpointMock;
