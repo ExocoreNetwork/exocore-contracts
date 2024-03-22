@@ -25,6 +25,8 @@ contract ExoCapsule is
     error DoubleDepositedValidator(bytes32 pubkey);
     error GetBeaconBlockRootFailure(uint64 timestamp);
     error StaleValidatorContainer(bytes32 pubkey, uint64 timestamp);
+    error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
+    error FullyWithdrawnValidatorContainer(bytes32 pubkey);
 
     constructor(IETHPOSDeposit _ethPOS) {
         ethPOS = _ethPOS;
@@ -67,7 +69,7 @@ contract ExoCapsule is
     ) external {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
-        ValidatorInfo storage validator = validatorStore[validatorPubkey];
+        Validator storage validator = _capsuleValidators[validatorPubkey];
 
         if (validator.status != VALIDATOR_STATUS.UNREGISTERED) {
             revert DoubleDepositedValidator(validatorPubkey);
@@ -106,6 +108,8 @@ contract ExoCapsule is
         validator.validatorIndex = proof.validatorContainerRootIndex;
         validator.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
         validator.restakedBalanceGwei = validatorContainer.getEffectiveBalance();
+
+        _capsuleValidatorsByIndex[proof.ValidatorContainerRootIndex] = validatorPubkey;
     }
 
     function updateStakeBalance(
@@ -114,10 +118,10 @@ contract ExoCapsule is
     ) external {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
-        ValidatorInfo storage validator = validatorStore[validatorPubkey];
+        Validator storage validator = _capsuleValidators[validatorPubkey];
 
-        if (validatorInfo.status != VALIDATOR_STATUS.REGISTERED) {
-            revert DoubleDepositedValidator(validatorPubkey);
+        if (Validator.status != VALIDATOR_STATUS.REGISTERED) {
+            revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
         }
 
         if (_isStaleProof(validator, proof.beaconBlockTimestamp)) {
@@ -128,9 +132,25 @@ contract ExoCapsule is
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
-        if (proof.beaconBlockTimestamp <= validatorInfo.mostRecentBalanceUpdateTimestamp) {
-            revert 
+        if (_hasFullyWithdrawn(validatorContainer)) {
+            revert FullyWithdrawnValidatorContainer(validatorPubkey);
         }
+
+        bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
+        bytes32 validatorContainerRoot = validatorContainer.merklelize();
+        bool valid = validatorContainerRoot.verifyValidatorContainerRoot(
+            proof.validatorContainerRootProof,
+            proof.validatorContainerRootIndex,
+            beaconBlockRoot,
+            proof.stateRoot,
+            proof.stateRootProof
+        );
+        if (!valid) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
+        validator.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
+        validator.restakedBalanceGwei = validatorContainer.getEffectiveBalance();
     }
 
     function withdraw(
@@ -141,7 +161,25 @@ contract ExoCapsule is
         uint40[] calldata withdrawalProofIndices,
         bytes[] calldata withdrawalFieldsProof
     ) external {
+        bytes32 validatorPubkey = validatorContainer.getPubkey();
+        bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
+        Validator storage validator = _capsuleValidators[validatorPubkey];
 
+        if (validator.status != VALIDATOR_STATUS.REGISTERED) {
+            revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
+        }
+
+        if (_isStaleProof(validator, proof.beaconBlockTimestamp)) {
+            revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
+        }
+
+        if (!validatorContainer.verifyBasic()) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
+        if (_hasFullyWithdrawn(validatorContainer)) {
+            revert FullyWithdrawnValidatorContainer(validatorPubkey);
+        }
     }
 
     function _capsuleWithdrawalCredentials() internal view returns (bytes memory) {
@@ -172,16 +210,24 @@ contract ExoCapsule is
         return (atEpoch >= activationEpoch && atEpoch < exitEpoch);
     }
 
-    function _isStaleProof(ValidatorInfo storage validator, uint64 proofTimestamp) internal view returns (bool) {
+    function _isStaleProof(Validator storage validator, uint64 proofTimestamp) internal view returns (bool) {
         if (proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS >= block.timestamp) {
             if (proofTimestamp > validator.mostRecentBalanceUpdateTimestamp) {
                 return false;
             }
         }
+
+        return true;
     }
 
-    function _isMoreRecent(uint64 timestamp) internal view returns (bool) {
-        return timestamp > 
+    function _hasFullyWithdrawn(bytes32[] calldata validatorContainer) internal view returns (bool) {
+        if (validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp)) {
+            if (validatorContainer.getEffectiveBalance() == 0) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

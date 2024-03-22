@@ -10,6 +10,14 @@ interface IExoCapsule {
         uint256 validatorContainerRootIndex;
     }
 
+    struct WithdrawalContainerProof {
+        uint64 beaconBlockTimestamp;
+        bytes32 stateRoot;
+        bytes32[] stateRootProof;
+        bytes32[] withdrawalContainerProof;
+        uint256 withdrawalContainerIndex;
+    }
+
     event StakedWithThisCapsule();
 
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable;
@@ -20,12 +28,8 @@ interface IExoCapsule {
     ) external;
 
     function updateStakeBalance(
-        uint64 beaconBlockTimestamp,
-        bytes32 beaconStateRoot,
-        bytes[] calldata beaconStateRootProof,
-        bytes32[][] calldata validatorFields,
-        uint40[] calldata validatorProofIndices,
-        bytes[] calldata validatorFieldsProof
+        bytes32[] calldata validatorContainer,
+        ValidatorContainerProof calldata proof
     ) external;
 
     function withdraw(
