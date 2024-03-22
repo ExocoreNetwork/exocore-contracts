@@ -7,7 +7,7 @@ contract ExoCapsuleStorage {
         EXITED // withdrawn from the Beacon Chain
     }
 
-    struct ValidatorInfo {
+    struct Validator {
         // index of the validator in the beacon chain
         uint64 validatorIndex;
         // amount of beacon chain ETH restaked on EigenLayer in gwei
@@ -22,7 +22,8 @@ contract ExoCapsuleStorage {
     uint64 public constant BEACON_CHAIN_GENESIS_TIME = 1606824023;
 
     address payable exocoreValidatorSetAddress;
-    mapping(bytes32 pubkey => ValidatorInfo info) validatorStore;
+    mapping(bytes32 pubkey => Validator validator) _capsuleValidators;
+    mapping(uint64 index => bytes32 pubkey) _capsuleValidatorsByIndex;
 
     uint256[40] private __gap;
 }
