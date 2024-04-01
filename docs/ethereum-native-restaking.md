@@ -206,6 +206,7 @@ The same logics apply for situations where restaker's validators effective balan
 Now we would give an example of how restaker's beacon chain balance changes and restaker's `stakedETH` balance changes influence the price of `stakedETH`:
 
 1. At first Alice deposit `20` staked `ETH` into Exocore via native restaking interfaces, and after deposit Alice has `20` `stakedETH` and the price of `stakedETH` is 1 `ETH`.
+
 2. Secondly, because of Alice proposes an Ethereum beacon chain block, she receives `10` `ETH` as rewards and one of her deposited validator's effective balance increases `10` `ETH`. Now we should update the price of `stakedETH` like this:
 
 ```solidity
@@ -213,7 +214,9 @@ latestPrice = (20 * 1 + 10) / 20 /// result is 1.5
 ```
 
 That is to say after update the price of `stakedETH` has come to `1.5` `ETH`. And Now Alice has `20` `stakedETH` with value of `30` `ETH`.
+
 3. Thirdly, Alice delegates all `20` `stakedETH` to an operator, but unfortunately `10` `stakedETH` was penalized and burnt for operator misbehaviour. Now the supply of `stakedETH` is `10`, and Alice has `10` `stakedETH` with value of `15` `ETH`, but the price of `stakedETH` does not change.
+
 4. At last, Alice gets penalized on beacon chain and one of her deposited validator's effective balance suffer a `10` `ETH` decrease. Now we should update the price of `stakedETH` like this:
 
 ```solidity
@@ -221,3 +224,8 @@ latestPrice = (10 * 1.5 - 10) / 10 /// result is 0.5
 ```
 
 That is to say: after update the price of `stakedETH` has decreased to `0.5` `ETH` and now Alice has `10` `stakedETH` with value of `5` `ETH`.
+
+## Main Design Differences Compared With EigenLayer
+
+1. For EigenLayer EigenPod, you could deposit beacon chain validator even if it is exited or withdrawan, which means not activated. But for ExoCapsule, the validator is restricted to be deposited only when it is activated.
+2. For EigenLayer EigenPod, if restaker's deposited valdiator's effective balance changes owing to rewards/penalties/slashing, restaker's shares would be increased/decreased correspondingly if restaker has delegated. But Exocore would mint specialized LST(`stakedETH`) per restaker and the balance of this LST is not changed for beacon chain rewards/penalties/slash, instead the price of LST changes.
