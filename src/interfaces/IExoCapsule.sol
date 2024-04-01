@@ -12,10 +12,10 @@ interface IExoCapsule {
 
     struct WithdrawalContainerProof {
         uint64 beaconBlockTimestamp;
-        bytes32 stateRoot;
-        bytes32[] stateRootProof;
-        bytes32[] withdrawalContainerProof;
-        uint256 withdrawalContainerIndex;
+        bytes32 executionPayloadRoot;
+        bytes32[] executionPayloadRootProof;
+        bytes32[] withdrawalContainerRootProof;
+        uint256 withdrawalContainerRootIndex;
     }
 
     event StakedWithThisCapsule();

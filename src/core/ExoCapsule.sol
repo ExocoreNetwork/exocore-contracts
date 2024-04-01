@@ -7,7 +7,9 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
+import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
+import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 
 contract ExoCapsule is 
     Initializable,
@@ -18,6 +20,7 @@ contract ExoCapsule is
 {
     using BeaconChainProofs for bytes;
     using ValidatorContainer for bytes32[];
+    using WithdrawalContainer for bytes32[];
 
     IETHPOSDeposit public immutable ethPOS;
 
@@ -27,9 +30,17 @@ contract ExoCapsule is
     error StaleValidatorContainer(bytes32 pubkey, uint64 timestamp);
     error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
     error FullyWithdrawnValidatorContainer(bytes32 pubkey);
+    error UnmatchedValidatorAndWithdrawal(bytes32 pubkey);
+    error NotPartialWithdrawal(bytes32 pubkey);
 
-    constructor(IETHPOSDeposit _ethPOS) {
-        ethPOS = _ethPOS;
+    modifier onlyGateway() {
+        require(msg.sender == address(gateway), "only client chain gateway could call this function");
+        _;
+    }
+
+    constructor(address _ethPOS, address _gateway) {
+        ethPOS = IETHPOSDeposit(_ethPOS);
+        gateway = IClientChainGateway(_gateway);
 
         _disableInitializers();
     }
@@ -66,7 +77,7 @@ contract ExoCapsule is
     function deposit(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
-    ) external {
+    ) external onlyGateway {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         Validator storage validator = _capsuleValidators[validatorPubkey];
@@ -91,18 +102,7 @@ contract ExoCapsule is
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
-        bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
-        bytes32 validatorContainerRoot = validatorContainer.merklelize();
-        bool valid = validatorContainerRoot.verifyValidatorContainerRoot(
-            proof.validatorContainerRootProof,
-            proof.validatorContainerRootIndex,
-            beaconBlockRoot,
-            proof.stateRoot,
-            proof.stateRootProof
-        );
-        if (!valid) {
-            revert InvalidValidatorContainer(validatorPubkey);
-        }
+        _verifyValidatorContainer(validatorContainer, proof);
 
         validator.status = VALIDATOR_STATUS.REGISTERED;
         validator.validatorIndex = proof.validatorContainerRootIndex;
@@ -115,7 +115,7 @@ contract ExoCapsule is
     function updateStakeBalance(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
-    ) external {
+    ) external onlyGateway {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         Validator storage validator = _capsuleValidators[validatorPubkey];
@@ -136,50 +136,70 @@ contract ExoCapsule is
             revert FullyWithdrawnValidatorContainer(validatorPubkey);
         }
 
-        bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
-        bytes32 validatorContainerRoot = validatorContainer.merklelize();
-        bool valid = validatorContainerRoot.verifyValidatorContainerRoot(
-            proof.validatorContainerRootProof,
-            proof.validatorContainerRootIndex,
-            beaconBlockRoot,
-            proof.stateRoot,
-            proof.stateRootProof
-        );
-        if (!valid) {
-            revert InvalidValidatorContainer(validatorPubkey);
-        }
+        _verifyValidatorContainer(validatorContainer, proof);
 
         validator.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
         validator.restakedBalanceGwei = validatorContainer.getEffectiveBalance();
     }
 
-    function withdraw(
-        uint64 beaconBlockTimestamp,
-        bytes32 beaconStateRoot,
-        bytes[] calldata beaconStateRootProof,
-        bytes32[][] calldata withdrawalFields,
-        uint40[] calldata withdrawalProofIndices,
-        bytes[] calldata withdrawalFieldsProof
-    ) external {
+    function partiallyWithdraw(
+        bytes32[] calldata validatorContainer,
+        ValidatorContainerProof calldata validatorProof,
+        bytes32[] calldata withdrawalContainer,
+        WithdrawalContainerProof calldata withdrawalProof
+    ) external onlyGateway {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
-        Validator storage validator = _capsuleValidators[validatorPubkey];
+        uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
 
-        if (validator.status != VALIDATOR_STATUS.REGISTERED) {
-            revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
+        Validator storage validator = _capsuleValidators[validatorPubkey];
+        bool partialWithdrawal = _timestampToEpoch(validatorProof.beaconBlockTimestamp) < withdrawableEpoch;
+
+        if (!partialWithdrawal) {
+            revert NotPartialWithdrawal(validatorPubkey);
         }
 
-        if (_isStaleProof(validator, proof.beaconBlockTimestamp)) {
-            revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
+        if (validatorProof.beaconBlockTimestamp != withdrawalProof.beaconBlockTimestamp) {
+            revert UnmatchedValidatorAndWithdrawal(validatorPubkey);
         }
 
         if (!validatorContainer.verifyBasic()) {
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
-        if (_hasFullyWithdrawn(validatorContainer)) {
-            revert FullyWithdrawnValidatorContainer(validatorPubkey);
+        _verifyValidatorContainer(validatorContainer, validatorProof);
+        _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
+    }
+
+    function fullyWithdraw(
+        bytes32[] calldata validatorContainer,
+        ValidatorContainerProof calldata validatorProof,
+        bytes32[] calldata withdrawalContainer,
+        WithdrawalContainerProof calldata withdrawalProof
+    ) external onlyGateway {
+        bytes32 validatorPubkey = validatorContainer.getPubkey();
+        bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
+        uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
+
+        Validator storage validator = _capsuleValidators[validatorPubkey];
+        bool fullyWithdrawal = _timestampToEpoch(validatorProof.beaconBlockTimestamp) > withdrawableEpoch;
+
+        if (!fullyWithdrawal) {
+            revert NotPartialWithdrawal(validatorPubkey);
         }
+
+        if (validatorProof.beaconBlockTimestamp != withdrawalProof.beaconBlockTimestamp) {
+            revert UnmatchedValidatorAndWithdrawal(validatorPubkey);
+        }
+
+        if (!validatorContainer.verifyBasic()) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
+        _verifyValidatorContainer(validatorContainer, validatorProof);
+        _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
+
+        validator.status = VALIDATOR_STATUS.EXITED;
     }
 
     function _capsuleWithdrawalCredentials() internal view returns (bytes memory) {
@@ -200,6 +220,25 @@ contract ExoCapsule is
 
         bytes32 beaconBlockRoot = abi.decode(rootBytes, (bytes32));
         return beaconBlockRoot;
+    }
+
+    function _verifyValidatorContainer(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof) internal {
+        bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
+        bytes32 validatorContainerRoot = validatorContainer.merklelize();
+        bool valid = validatorContainerRoot.isValidValidatorContainerRoot(
+            proof.validatorContainerRootProof,
+            proof.validatorContainerRootIndex,
+            beaconBlockRoot,
+            proof.stateRoot,
+            proof.stateRootProof
+        );
+        if (!valid) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+    }
+
+    function _verifyValidatorContainer(bytes32[] calldata withdrawalContainer, WithdrawalContainerProof calldata proof) internal {
+        
     }
 
     function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint64 atTimestamp) internal view returns (bool) {

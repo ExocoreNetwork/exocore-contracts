@@ -1,44 +1,28 @@
 pragma solidity ^0.8.19;
 
-interface IController {
-    // @notice this info is used to update specific user's owned tokens balance
-    struct UserBalanceUpdateInfo {
-        address user;
-        uint256 updatedAt;
-        TokenBalanceUpdateInfo[] tokenBalances;
-    }
+import {IExoCapsule} from "./IExoCapsule.sol";
 
-    struct TokenBalanceUpdateInfo {
-        address token;
-        uint256 lastlyUpdatedPrincipleBalance;
-        uint256 lastlyUpdatedRewardBalance;
-        uint256 unlockPrincipleAmount;
-        uint256 unlockRewardAmount;
-    }
-
+interface INativeRestakingController {
     /// *** function signatures for staker operations ***
 
     /**
-     * @notice Client chain users call to deposit to Exocore system for further operations like delegation, staking...
-     * @dev This function should:
-     * 1) lock the @param amount of @param token into vault.
-     * 2) ask Exocore validator set to account for the deposited @param amount of @param token.
-     * Deposit should always be considered successful on Exocore chain side.
-     * @param token - The address of specific token that the user wants to deposit.
-     * @param amount - The amount of @param token that the user wants to deposit.
+     * @notice Ethereum native restaker should call this function to create owned ExoCapsule before staking to beacon chain.
      */
-    function deposit(address token, uint256 amount) external payable;
+    function createExoCapsule() external;
 
     /**
-     * @notice Client chain users call to delegate deposited token to specific node operator.
-     * @dev This assumes that the delegated assets should have already been deposited to Exocore system.
-     * @param operator - The address of a registered node operator that the user wants to delegate to.
-     * @param token - The address of specific token that the user wants to delegate to.
-     * @param amount - The amount of @param token that the user wants to delegate to node operator.
+     * @notice This is called to deposit ETH that is staked on Ethereum beacon chain to Exocore network to be restaked in future
+     * @dev Before deposit, staker should have created the ExoCapsule that it owns and point the validator's withdrawal crendentials
+     * to the ExoCapsule owned by staker.
      */
-    function delegateTo(string calldata operator, address token, uint256 amount) external payable;
+    function depositAsBeaconValidator(bytes32[] validatorContainer, IExoCapsule.WithdrawalContainerProof proof) external;
 
-    function undelegateFrom(string calldata, address token, uint256 amount) external payable;
+    /**
+     * @notice After native restaker deposits and delegates on Exocore network, the restaker's principle balance could be influenced by
+     * rewards/penalties/slashing from both Ethereum beacon chain and Exocore chain, so principle balance update owing to beacon chain
+     * consensus should be accounted for by Exocore chain as well.
+     */
+    function commitBeaconBalanceDelta(bytes32[] validatorContainer, IExoCapsule.WithdrawalContainerProof proof) external;
 
     /**
      * @notice Client chain users call to withdraw principle from Exocore to client chain before they are granted to withdraw from the vault.
