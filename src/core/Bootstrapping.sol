@@ -7,7 +7,7 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-contract BootstrappingContract is Ownable, Pausable {
+contract Bootstrapping is Ownable, Pausable {
     using SafeERC20 for ERC20;
 
     /**
@@ -40,25 +40,6 @@ contract BootstrappingContract is Ownable, Pausable {
         bool isRegistered;
         bytes32 consensusPublicKey;
         address exocoreAddress;
-        string metaInfo;
-    }
-    /**
-     * @dev Struct for exporting operator details, designed for external consumption,
-     * including the operator's Ethereum and Exocore chain addresses, consensus public key,
-     * commission rate, name, and website.
-     *
-     * @param exocoreAddress The operator's address on the Exocore chain.
-     * @param ethereumAddress The Ethereum address of the operator.
-     * @param consensusPublicKey The public key used by the operator for consensus
-     *                           on the Exocore chain.
-     * @param commissionRate The operator's commission rate, from 0 to 100.
-     * @param name The name of the operator.
-     * @param website The website URL of the operator.
-     */
-    struct ExportedOperator {
-        address exocoreAddress;
-        address ethereumAddress;
-        bytes32 consensusPublicKey;
         string metaInfo;
     }
 
@@ -99,6 +80,7 @@ contract BootstrappingContract is Ownable, Pausable {
      * @param totalSupply The total supply of the token.
      * @param layerZeroChainId The associated LayerZero chain ID for cross-chain identification.
      * @param metaInfo Arbitrary metadata associated with the token.
+     * @param deposits The total amount of the token that has been deposited into the contract.
      */
     struct TokenInfo {
         string name;
@@ -106,8 +88,7 @@ contract BootstrappingContract is Ownable, Pausable {
         address tokenAddress;
         uint8 decimals;
         uint256 totalSupply;
-        int64 layerZeroChainId;
-        string metaInfo;
+        uint256 depositAmount;
     }
 
     /**
@@ -156,6 +137,16 @@ contract BootstrappingContract is Ownable, Pausable {
      * restrictions.
      */
     address[] public supportedTokens;
+
+    /**
+     * @notice A mapping from a token's address to the total amount of deposits it has received.
+     * This information is used to load the `x/assets` genesis state.
+     *
+     * @dev This mapping is indexed by the address of a token and stores the total amount of
+     * that token that has been deposited into the contract. This information is used to
+     * generate the `x/assets` genesis state for the Exocore chain.
+     */
+    mapping(address => uint256) public depositsByToken;
 
     /**
      * @notice A mapping from an operator's address to their corresponding Operator struct,
@@ -383,6 +374,9 @@ contract BootstrappingContract is Ownable, Pausable {
         address _bootstrappingAddress
     ) {
         supportedTokens = tokenAddresses;
+        for(uint256 i = 0; i < tokenAddresses.length; i++) {
+            depositsByToken[tokenAddresses[i]] = 0;
+        }
         exocoreSpawnTime = spawnTime;
         offsetTime = _offsetTime;
         bootstrappingAddress = _bootstrappingAddress;
@@ -602,6 +596,7 @@ contract BootstrappingContract is Ownable, Pausable {
     ) external whenNotPaused operationAllowed onlyOwner notBootstrapped {
         require(!isTokenSupported(token), "Token already supported");
         supportedTokens.push(token);
+        depositsByToken[token] = 0;
         emit TokenAdded(token);
     }
 
@@ -668,6 +663,7 @@ contract BootstrappingContract is Ownable, Pausable {
         ERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         userDeposits[msg.sender][token].totalDeposit += amount;
         userDeposits[msg.sender][token].availableFunds += amount;
+        depositsByToken[token] += amount;
         if (!isDepositor[msg.sender]) {
             depositors.push(msg.sender);
             isDepositor[msg.sender] = true;
@@ -699,6 +695,7 @@ contract BootstrappingContract is Ownable, Pausable {
 
         delegations[msg.sender][operator][token] += amount;
         userDeposits[msg.sender][token].availableFunds -= amount;
+        totalDelegatedToOperator[operator][token] += amount;
 
         emit Delegated(msg.sender, operator, token, amount);
     }
@@ -727,6 +724,7 @@ contract BootstrappingContract is Ownable, Pausable {
 
         delegations[msg.sender][operator][token] -= amount;
         userDeposits[msg.sender][token].availableFunds += amount;
+        totalDelegatedToOperator[operator][token] -= amount;
 
         emit Undelegated(msg.sender, operator, token, amount);
     }
@@ -753,6 +751,7 @@ contract BootstrappingContract is Ownable, Pausable {
         ERC20(token).safeTransfer(msg.sender, amount);
         userDeposits[msg.sender][token].totalDeposit -= amount;
         userDeposits[msg.sender][token].availableFunds -= amount;
+        depositsByToken[token] -= amount;
 
         emit Withdrawn(msg.sender, token, amount);
     }
@@ -770,87 +769,6 @@ contract BootstrappingContract is Ownable, Pausable {
         emit Bootstrapped();
     }
 
-    /**
-     * @dev Computes and returns the initial list of validators based on the total
-     * amount delegated to each operator across all supported tokens, converted
-     * using supplied exchange rates. The function assumes exchange rates are
-     * provided with enough precision such that all rates can be depicted within
-     * uint256. For example, rates [10.01, 1, 3.5] may be represented as
-     * [1001, 100, 350].
-     *
-     * @param exchangeRates An array of tokens to their exchange rates in USD (or
-     * a base currency).
-     * @return Validator[] An array of Validator structs, each containing the
-     * operator's public key and calculated vote power in USD (or the base currency).
-     */
-    function getInitialValidators(
-        uint256[] memory exchangeRates
-    ) external view returns (Validator[] memory) {
-        require(
-            exchangeRates.length == supportedTokens.length,
-            "Mismatch between exchangeRates and supportedTokens count."
-        );
-        Validator[] memory validators = new Validator[](
-            registeredOperators.length
-        );
-        for (uint256 i = 0; i < registeredOperators.length; i++) {
-            address operatorAddr = registeredOperators[i];
-            Operator storage op = operators[operatorAddr];
-            uint256 totalVotePower = 0;
-            for (uint256 j = 0; j < supportedTokens.length; j++) {
-                address tokenAddr = supportedTokens[j];
-                uint256 delegatedAmount =
-                    totalDelegatedToOperator[operatorAddr][tokenAddr];
-                uint256 exchangeRate = exchangeRates[j];
-                // with Solidity ^0.8.0, overflow reverts by itself.
-                totalVotePower += (delegatedAmount * exchangeRate);
-            }
-            validators[i] = Validator(op.consensusPublicKey, totalVotePower);
-        }
-        return validators;
-    }
-
-    /**
-     * @notice Retrieves a list of all registered operators along with their detailed
-     * information.
-     *
-     * @dev This function iterates through the list of registered operator Ethereum addresses
-     * and compiles an array of ExportedOperator structs, each containing an operator's detailed
-     * information such as their Exocore address, Ethereum address, consensus public key,
-     * commission rate, name, and website. This provides a comprehensive view of all operators
-     * registered in the contract, useful for external applications or for auditability purposes
-     *
-     * @return ExportedOperator[] An array of ExportedOperator structs, each representing a
-     * registered operator's details. The structure includes:
-     * - exocoreAddress: The operator's address on the Exocore chain.
-     * - ethereumAddress: The Ethereum address of the operator.
-     * - consensusPublicKey: The operator's public key used for consensus on the Exocore chain.
-     * - commissionRate: The commission rate set by the operator, ranging from 0 to 100.
-     * - name: The name of the operator.
-     * - website: The website URL of the operator.
-     *
-     * This function can be called by any user to obtain information about the registered
-     * operators.
-     */
-    function exportRegisteredOperators()
-        public view returns (ExportedOperator[] memory)
-    {
-        ExportedOperator[] memory exportedOperators = new ExportedOperator[](
-            registeredOperators.length
-        );
-        for (uint256 i = 0; i < registeredOperators.length; i++) {
-            address operatorAddress = registeredOperators[i];
-            Operator storage op = operators[operatorAddress];
-            exportedOperators[i] = ExportedOperator({
-                exocoreAddress: op.exocoreAddress,
-                ethereumAddress: operatorAddress,
-                consensusPublicKey: op.consensusPublicKey,
-                metaInfo: op.metaInfo
-            });
-        }
-        return exportedOperators;
-    }
-
 
     /**
      * @notice Retrieves the total number of registered operators in the contract.
@@ -863,60 +781,36 @@ contract BootstrappingContract is Ownable, Pausable {
      *
      * @return uint256 The total number of registered operators.
      */
-    function getRegisteredOperatorsLength() public view returns (uint256) {
+    function getOperatorsCount() public view returns (uint256) {
         return registeredOperators.length;
     }
 
-    /**
-     * @notice Fetches and returns a list of supported tokens along with specified metadata.
+     /**
+     * @notice Retrieves the total number of supported tokens in the contract.
      *
-     * @dev Iterates over the array of supported ERC20 token addresses to gather and return
-     * detailed information about each token, including its name, symbol, address, decimals,
-     * total supply, and provided LayerZero chain ID and meta information. This function assumes
-     * that each token address corresponds to a contract that implements the ERC20 standard with
-     * extensions for name, symbol, and decimals (such as ERC20Detailed).
+     * @dev Returns the length of the `supportedTokens` array. This array contains the addresses
+     * of all ERC20 tokens that have been added to the contract as supported tokens. This is
+     * useful for understanding the scale of token support in the contract and for iterating
+     * over the list of all supported tokens when accessing individual token addresses one at a
+     * time.
      *
-     * @param layerZeroChainId An int64 representing the LayerZero chain ID to be included with
-     * each token's information. This ID can be used to identify the corresponding chain in
-     * cross-chain operations.
-     * @param metaInfos A list of string containing arbitrary metadata to be included with each
-     * token's information. This could be used to attach additional descriptive data relevant to
-     * the operation or context. The length of this array must match the length of the supported
-     * tokens array.
-     *
-     * @return TokenInfo[] An array of TokenInfo structs, each providing detailed information
-     * about a supported token. This includes the token's name, symbol, Ethereum address,
-     * decimals, total supply, and the provided LayerZero chain ID and meta information.
+     * @return uint256 The total number of supported tokens.
      */
-    function getSupportedTokens(
-        int64 layerZeroChainId, string[] memory metaInfos
-    ) public view returns (TokenInfo[] memory) {
-        require(
-            metaInfos.length == supportedTokens.length,
-            "Mismatch between tokens and meta info count."
-        );
+    function getSupportedTokensCount() public view returns (uint256) {
+        return supportedTokens.length;
+    }
 
-        TokenInfo[] memory tokensInfo = new TokenInfo[](supportedTokens.length);
-        for (uint256 i = 0; i < supportedTokens.length; i++) {
-            address tokenAddress = supportedTokens[i];
-            ERC20 token = ERC20(tokenAddress);
-            string memory name = ERC20(tokenAddress).name();
-            string memory symbol = ERC20(tokenAddress).symbol();
-            // this is why we use ERC20 and not IERC20.
-            uint8 decimals = ERC20(tokenAddress).decimals();
-            uint256 totalSupply = token.totalSupply();
-
-            tokensInfo[i] = TokenInfo({
-                name: name,
-                symbol: symbol,
-                tokenAddress: tokenAddress,
-                decimals: decimals,
-                totalSupply: totalSupply,
-                layerZeroChainId: layerZeroChainId,
-                metaInfo: metaInfos[i]
-            });
-        }
-        return tokensInfo;
+    function getSupportedTokenAtIndex(uint256 index) public view returns (TokenInfo memory) {
+        address tokenAddress = supportedTokens[index];
+        ERC20 token = ERC20(tokenAddress);
+        return TokenInfo({
+            name: token.name(),
+            symbol: token.symbol(),
+            tokenAddress: tokenAddress,
+            decimals: token.decimals(),
+            totalSupply: token.totalSupply(),
+            depositAmount: depositsByToken[tokenAddress]
+        });
     }
 
     /**
@@ -961,7 +855,7 @@ contract BootstrappingContract is Ownable, Pausable {
      *
      * @return uint256 The total number of unique depositors.
      */
-    function getDepositorCount() external view returns (uint256) {
+    function getDepositorsCount() external view returns (uint256) {
         return depositors.length;
     }
 
@@ -989,72 +883,160 @@ contract BootstrappingContract is Ownable, Pausable {
     }
 
     /**
-     * @notice Retrieves the complete list of depositor addresses who have made deposits.
-     *
-     * @dev Returns an array of all unique depositor addresses stored in the `depositors` array.
-     * This method facilitates easy access to the full list of depositors but should be used
-     * with caution due to potential gas constraints when dealing with large lists, especially
-     * in transactions. It is most suitable for off-chain calls where gas costs are not a
-     * concern.
-     *
-     * @return address[] An array containing the addresses of all depositors.
-     *
-     * @dev Warning: Using this function to perform on-chain operations on a large list of
-     * depositors can result in high gas costs and may exceed block gas limits.
+     * @title Operator Asset State
+     * @dev Stores the asset state for operators including their address and a list of tokens with amounts.
      */
-    function getAllDepositors() external view returns (address[] memory) {
-        return depositors;
+    struct getOperatorAssetStateResponse {
+        /// The address of the operator
+        address operatorAddress;
+        /// A dynamic array of token addresses and their corresponding amounts
+        tokenAddressAndAmount []tokenAddressAndAmounts;
     }
 
     /**
-     * @notice Retrieves a list of delegations made by a specified depositor to operators.
-     *
-     * @dev For a given depositor, iterates through all supported tokens and operators to
-     * compile a list of DelegationInfo structs, each detailing the amount delegated from
-     * the specified depositor to an operator with a specific token.
-     *
-     * @param depositor The address of the depositor whose delegations are to be retrieved.
-     * @return DelegationInfo[] An array of DelegationInfo structs, each representing a
-     * delegation made by the depositor, including the token address, operator address,
-     * and amount delegated.
+     * @title Token Address and Amount
+     * @dev Represents a token's address and the amount held.
      */
-    function getDelegationsByDepositor(
-        address depositor
-    ) public view returns (DelegationInfo[] memory) {
-        uint256 totalDelegations = 0;
-        // First, calculate the total number of delegations to size the array properly
-        for (uint256 i = 0; i < supportedTokens.length; i++) {
-            for (uint256 j = 0; j < registeredOperators.length; j++) {
-                if (
-                    delegations[depositor][registeredOperators[j]][
-                        supportedTokens[i]
-                    ] > 0
-                ) {
-                    totalDelegations++;
-                }
-            }
-        }
+    struct tokenAddressAndAmount {
+        /// The address of the token
+        address tokenAddress;
+        /// The amount of the token
+        uint256 amount;
+    }
 
-        DelegationInfo[] memory delegationsInfo = new DelegationInfo[](
-            totalDelegations
+    /**
+     * @notice Retrieves the asset state for an operator at a specific index.
+     * @dev Returns a `getOperatorAssetStateResponse` struct containing the operator's address and a list of their tokens with amounts.
+     * @param index The index of the operator whose asset state is to be retrieved.
+     * @return A `getOperatorAssetStateResponse` struct containing the asset state of the requested operator.
+     */
+    function getOperatorAssetStateAtIndex(uint256 index)
+    public view returns (getOperatorAssetStateResponse memory) {
+        address operatorAddress = registeredOperators[index];
+        tokenAddressAndAmount[] memory tokenAddressAndAmounts = new tokenAddressAndAmount[](
+            supportedTokens.length
         );
-        uint256 counter = 0;
-        // Populate the delegationsInfo array with actual delegations data
-        for (uint256 i = 0; i < supportedTokens.length; i++) {
-            for (uint256 j = 0; j < registeredOperators.length; j++) {
-                uint256 amount = delegations[depositor][registeredOperators[j]][
-                    supportedTokens[i]
-                ];
-                if (amount > 0) {
-                    delegationsInfo[counter++] = DelegationInfo({
-                        tokenAddress: supportedTokens[i],
-                        operatorAddress: registeredOperators[j],
-                        amountDelegated: amount
-                    });
-                }
-            }
+        for (uint256 j = 0; j < supportedTokens.length; j++) {
+            address tokenAddress = supportedTokens[j];
+            uint256 amount = totalDelegatedToOperator[operatorAddress][tokenAddress];
+            tokenAddressAndAmounts[j] = tokenAddressAndAmount({
+                tokenAddress: tokenAddress,
+                amount: amount
+            });
         }
+        return getOperatorAssetStateResponse({
+                operatorAddress: operatorAddress,
+                tokenAddressAndAmounts: tokenAddressAndAmounts
+        });
+    }
 
-        return delegationsInfo;
+    /**
+     * @title Staker Asset State
+     * @dev Stores the asset state for stakers, including their address and a list of token addresses with deposited and withdrawable amounts.
+     */
+    struct getStakerAssetStateResponse {
+        /// The Ethereum address of the staker.
+        address stakerAddress;
+        /// A dynamic array of tokens with deposited and withdrawable amounts for the staker.
+        stakerTokenAddressAndAmount []tokenAddressAndAmounts;
+    }
+
+    /**
+     * @title Staker Token Address and Amount
+     * @dev Represents a token's address along with the deposited and withdrawable amounts for a staker.
+     */
+    struct stakerTokenAddressAndAmount {
+        /// The Ethereum address of the token.
+        address tokenAddress;
+        /// The total amount of the token deposited by the staker.
+        uint256 deposited;
+        /// The amount of the token that is available for withdrawal by the staker.
+        uint256 withdrawable;
+    }
+
+    /**
+     * @notice Retrieves the asset state for a staker at a specified index.
+     * @dev Returns a `getStakerAssetStateResponse` struct containing the staker's address and a list of their tokens with deposited and withdrawable amounts.
+     * @param index The index of the staker whose asset state is to be retrieved.
+     * @return A `getStakerAssetStateResponse` struct containing the asset state of the requested staker.
+     */
+    function getStakerAssetStateAtIndex(uint256 index)
+    public view returns (getStakerAssetStateResponse memory) {
+        address stakerAddress = depositors[index];
+        stakerTokenAddressAndAmount[] memory tokenAddressAndAmounts = new stakerTokenAddressAndAmount[](
+            supportedTokens.length
+        );
+        for (uint256 j = 0; j < supportedTokens.length; j++) {
+            address tokenAddress = supportedTokens[j];
+            uint256 deposited = userDeposits[stakerAddress][tokenAddress].totalDeposit;
+            uint256 withdrawable = userDeposits[stakerAddress][tokenAddress].availableFunds;
+            tokenAddressAndAmounts[j] = stakerTokenAddressAndAmount({
+                tokenAddress: tokenAddress,
+                deposited: deposited,
+                withdrawable: withdrawable
+            });
+        }
+        return getStakerAssetStateResponse({
+            stakerAddress: stakerAddress,
+            tokenAddressAndAmounts: tokenAddressAndAmounts
+        });
+    }
+
+    /**
+     * @notice Retrieves the delegation state for a specific combination of depositor, operator, and token.
+     * @dev Fetches the delegation amount for the given indices representing a depositor, an operator, and a token.
+     * @param index1 The index of the depositor in the `depositors` array.
+     * @param index2 The index of the operator in the `registeredOperators` array.
+     * @param index3 The index of the token in the `supportedTokens` array.
+     * @return The amount delegated for the specified combination of depositor, operator, and token.
+     */
+    function getDelegationStateForIndices(uint256 index1, uint256 index2, uint256 index3)
+    public view returns (uint256) {
+        require(index1 < depositors.length, "Index1 out of bounds");
+        address depositor = depositors[index1];
+        require(index2 < registeredOperators.length, "Index2 out of bounds");
+        address operator = registeredOperators[index2];
+        require(index3 < supportedTokens.length, "Index3 out of bounds");
+        address token = supportedTokens[index3];
+        return delegations[depositor][operator][token];
+    }
+
+    /**
+     * @notice Retrieves the address of an operator at a given index.
+     * @dev Returns the address of an operator from the `registeredOperators` array based on the specified index.
+     * @param index The index of the operator in the `registeredOperators` array.
+     * @return The address of the operator at the specified index.
+     */
+    function getOperatorAtIndex(
+        uint256 index
+    ) external view returns (address) {
+        require(index < registeredOperators.length, "Index out of bounds");
+        return registeredOperators[index];
+    }
+
+    /**
+     * @notice Retrieves the consensus public key of an operator at a given index.
+     * @dev Fetches the consensus public key of an operator, using the `Bootstrapping` contract to get the operator's address by index.
+     * @param index The index of the operator in the `registeredOperators` array.
+     * @return The consensus public key of the operator at the specified index.
+     */
+    function getOperatorConsensusKeyAtIndex(
+        uint256 index
+    ) external view returns (bytes32) {
+        address operator = Bootstrapping(this).getOperatorAtIndex(index);
+        return operators[operator].consensusPublicKey;
+    }
+
+    /**
+     * @notice Retrieves information about a registered operator.
+     * @dev Returns the `Operator` struct for the given operator address if they are registered.
+     * @param operatorAddress The address of the operator to retrieve information for.
+     * @return An `Operator` struct containing details about the operator.
+     */
+    function getOperatorInfo(
+        address operatorAddress
+    ) external view returns (Operator memory) {
+        require(operators[operatorAddress].isRegistered, "Operator not registered");
+        return operators[operatorAddress];
     }
 }

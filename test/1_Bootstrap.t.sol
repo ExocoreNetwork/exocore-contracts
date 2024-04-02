@@ -8,7 +8,7 @@ import "../src/core/MyToken.sol";
 
 contract BootstrappingTest is Test {
     MyToken myToken;
-    BootstrappingContract bootstrappingContract;
+    Bootstrapping bootstrappingContract;
     address[] addrs = new address[](6);
     uint256[] amounts = [
         35 * 10 ** 18,  // self
@@ -36,12 +36,12 @@ contract BootstrappingTest is Test {
 
         vm.startPrank(deployer);
         // first deploy the token
-        myToken = new MyToken(1000000 * 10 ** 18);
+        myToken = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
         // then create the params
         address[] memory tokenAddresses = new address[](1);
         tokenAddresses[0] = address(myToken);
         // finally, deploy the contract
-        bootstrappingContract = new BootstrappingContract(
+        bootstrappingContract = new Bootstrapping(
             tokenAddresses, spawnTime, offsetTime, address(0x20)
         );
         vm.stopPrank();
@@ -114,7 +114,7 @@ contract BootstrappingTest is Test {
         address cloneDeployer = address(0xdebd);
         // Deploy a new token
         vm.startPrank(cloneDeployer);
-        MyToken myTokenClone = new MyToken(1000000 * 10 ** 18);
+        MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
         address cloneAddress = address(myTokenClone);
         vm.stopPrank();
 
@@ -131,7 +131,7 @@ contract BootstrappingTest is Test {
     }
 
     function test03_RegisterOperator() public {
-        assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 0);
+        assertTrue(bootstrappingContract.getOperatorsCount() == 0);
         // Register operators
         string[3] memory metaInfos = ["operator1", "operator2", "operator3"];
         bytes32[3] memory pubKeys = [
@@ -150,7 +150,7 @@ contract BootstrappingTest is Test {
             bootstrappingContract.registerOperator(
                 pubKeys[i], addrs[i], metaInfos[i]
             );
-             assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == i + 1);
+             assertTrue(bootstrappingContract.getOperatorsCount() == i + 1);
             vm.stopPrank();
         }
     }
@@ -234,7 +234,7 @@ contract BootstrappingTest is Test {
 
     function test04_DeregisterOperator() public {
         // the tests run independently, so we start with 0 again.
-        assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 0);
+        assertTrue(bootstrappingContract.getOperatorsCount() == 0);
         // Register one operator
         address addr = address(0x7);
         vm.startPrank(addr);
@@ -242,10 +242,10 @@ contract BootstrappingTest is Test {
             bytes32(0x440eeb74aa733f646fbe53e0e26c1659b4e2f081e9cbe0163521380eebb93771),
             addr, "operator4"
         );
-        assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 1);
+        assertTrue(bootstrappingContract.getOperatorsCount() == 1);
         // Then deregister it
         bootstrappingContract.deregisterOperator();
-        assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 0);
+        assertTrue(bootstrappingContract.getOperatorsCount() == 0);
         vm.stopPrank();
     }
 
@@ -258,7 +258,7 @@ contract BootstrappingTest is Test {
     }
 
     function test05_ReplaceKey() public {
-        assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 0);
+        assertTrue(bootstrappingContract.getOperatorsCount() == 0);
         // Register one operator
         address addr = address(0x7);
         vm.startPrank(addr);
@@ -267,7 +267,7 @@ contract BootstrappingTest is Test {
         bootstrappingContract.registerOperator(
             oldKey, addr, "operator4"
         );
-        assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 1);
+        assertTrue(bootstrappingContract.getOperatorsCount() == 1);
         (, bytes32 consensusPublicKey, ,  ) = bootstrappingContract.operators(addr);
         assertTrue(consensusPublicKey == oldKey);
         // Then change the key
@@ -310,7 +310,7 @@ contract BootstrappingTest is Test {
         bootstrappingContract.registerOperator(
             oldKey, addr, "operator4"
         );
-        assertTrue(bootstrappingContract.getRegisteredOperatorsLength() == 1);
+        assertTrue(bootstrappingContract.getOperatorsCount() == 1);
         (, , address exocoreAddress, ) =
             bootstrappingContract.operators(addr);
         assertTrue(exocoreAddress == addr);
@@ -347,7 +347,7 @@ contract BootstrappingTest is Test {
     function test07_AddSupportedToken() public {
         // any address can deploy the token
         vm.startPrank(address(0x1));
-        MyToken myTokenClone = new MyToken(1000000 * 10 ** 18);
+        MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
         address cloneAddress = address(myTokenClone);
         vm.stopPrank();
         // only the owner can add the token to the supported list
@@ -651,15 +651,5 @@ contract BootstrappingTest is Test {
         vm.expectRevert("Operations are locked");
         bootstrappingContract.deposit(address(myToken), amounts[0]);
         vm.stopPrank();
-    }
-
-    function test14_getInitialValidators() public {
-        test09_DelegateToOperator();
-        vm.warp(spawnTime - offsetTime);
-        uint256[] memory exchangeRates = new uint256[](1);
-        exchangeRates[0] = uint256(1);
-        BootstrappingContract.Validator[] memory validators =
-            bootstrappingContract.getInitialValidators(exchangeRates);
-        assertTrue(validators.length == 3);
     }
 }
