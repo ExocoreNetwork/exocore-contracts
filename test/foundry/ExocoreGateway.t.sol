@@ -88,7 +88,7 @@ contract ExocoreGatewayTest is Test {
     }
 
     function test_RevertWhen_UnauthorizedPauser() public {
-        vm.expectRevert(bytes("only Exocore validator set aggregated address could call this"));
+        vm.expectRevert(bytes("ExocoreGateway: caller is not Exocore validator set aggregated address"));
         vm.startPrank(deployer.addr);
         exocoreGateway.pause();
     }

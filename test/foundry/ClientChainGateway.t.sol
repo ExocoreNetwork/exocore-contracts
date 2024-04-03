@@ -101,7 +101,7 @@ contract ClientChainGatewayTest is Test {
     }
 
     function test_RevertWhen_UnauthorizedPauser() public {
-        vm.expectRevert("only Exocore validator set aggregated address could call this");
+        vm.expectRevert("ClientChainGateway: caller is not Exocore validator set aggregated address");
         vm.startPrank(deployer.addr);
         clientGateway.pause();
     }
