@@ -49,10 +49,14 @@ contract Vault is Initializable, VaultStorage, IVault {
 
     function updatePrincipleBalance(address user, uint256 lastlyUpdatedPrincipleBalance) external onlyGateway {
         principleBalances[user] = lastlyUpdatedPrincipleBalance;
+
+        emit PrincipleBalanceUpdated(user, lastlyUpdatedPrincipleBalance);
     }
 
     function updateRewardBalance(address user, uint256 lastlyUpdatedRewardBalance) external onlyGateway {
         rewardBalances[user] = lastlyUpdatedRewardBalance;
+
+        emit RewardBalanceUpdated(user, lastlyUpdatedRewardBalance);
     }
 
     function updateWithdrawableBalance(address user, uint256 unlockPrincipleAmount, uint256 unlockRewardAmount)
@@ -72,5 +76,7 @@ contract Vault is Initializable, VaultStorage, IVault {
         );
 
         withdrawableBalances[user] = withdrawableBalances[user] + unlockPrincipleAmount + unlockRewardAmount;
+
+        emit WithdrawableBalanceUpdated(user, unlockPrincipleAmount, unlockRewardAmount);
     }
 }

@@ -13,4 +13,8 @@ contract VaultStorage {
     mapping(address => uint256) public totalUnlockPrincipleAmount;
 
     IController public gateway;
+
+    event PrincipleBalanceUpdated(address, uint256);
+    event RewardBalanceUpdated(address, uint256);
+    event WithdrawableBalanceUpdated(address, uint256, uint256);
 }
