@@ -59,14 +59,15 @@ contract Vault is Initializable, VaultStorage, IVault {
         external
         onlyGateway
     {
+        uint256 totalDeposited = totalDepositedPrincipleAmount[user];
         require(
-            unlockPrincipleAmount <= totalDepositedPrincipleAmount[user],
+            unlockPrincipleAmount <= totalDeposited,
             "Vault: principle unlock amount is larger than the total deposited amount"
         );
 
         totalUnlockPrincipleAmount[user] += unlockPrincipleAmount;
         require(
-            totalUnlockPrincipleAmount[user] <= totalDepositedPrincipleAmount[user],
+            totalUnlockPrincipleAmount[user] <= totalDeposited,
             "Vault: total principle unlock amount is larger than the total deposited amount"
         );
 
