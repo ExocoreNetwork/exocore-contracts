@@ -17,13 +17,13 @@ abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage,
     using ECDSA for bytes32;
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {
-        require(_msg.nonce == ++lastMessageNonce, "wrong message nonce");
-        require(_msg.srcChainID == exocoreChainId, "wrong source chain id");
-        require(keccak256(_msg.srcAddress) == keccak256(bytes("0x")), "wrong source address");
-        require(_msg.dstChainID == block.chainid, "mismatch destination chain id");
+        require(_msg.nonce == ++lastMessageNonce, "TSSReceiver: message nonce is not expected");
+        require(_msg.srcChainID == exocoreChainId, "TSSReceiver: source chain id is incorrect");
+        require(keccak256(_msg.srcAddress) == keccak256(bytes("0x")), "TSSReceiver: source address is incorrect");
+        require(_msg.dstChainID == block.chainid, "TSSReceiver: destination chain id is not matched with this chain");
         require(
             keccak256(_msg.dstAddress) == keccak256(abi.encodePacked(address(this))),
-            "mismatch destination contract address"
+            "TSSReceiver: destination contract address is not matched with this contract"
         );
         bool isValid = verifyInterchainMsg(_msg, signature);
         if (!isValid) {
@@ -31,7 +31,7 @@ abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage,
         }
 
         Action act = Action(uint8(_msg.payload[0]));
-        require(act == Action.UPDATE_USERS_BALANCES, "not supported action");
+        require(act == Action.UPDATE_USERS_BALANCES, "TSSReceiver: action in message payload is not UPDATE_USERS_BALANCES");
         bytes memory args = _msg.payload[1:];
         (bool success, bytes memory reason) =
             address(this).call(abi.encodePacked(whiteListFunctionSelectors[act], args));

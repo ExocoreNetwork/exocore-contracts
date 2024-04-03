@@ -42,8 +42,8 @@ contract ClientChainGateway is
         address payable _exocoreValidatorSetAddress,
         address[] calldata _whitelistTokens
     ) external initializer {
-        require(_exocoreValidatorSetAddress != address(0), "exocore validator set address should not be empty");
-        require(_exocoreChainId != 0, "exocore chain id should not be empty");
+        require(_exocoreValidatorSetAddress != address(0), "ClientChainGateway: exocore validator set address should not be empty");
+        require(_exocoreChainId != 0, "ClientChainGateway: exocore chain id should not be empty");
 
         exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
         exocoreChainId = _exocoreChainId;
@@ -69,27 +69,27 @@ contract ClientChainGateway is
 
     function pause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this"
+            msg.sender == exocoreValidatorSetAddress, "ClientChainGateway: caller is not Exocore validator set aggregated address"
         );
         _pause();
     }
 
     function unpause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this"
+            msg.sender == exocoreValidatorSetAddress, "ClientChainGateway: caller is not Exocore validator set aggregated address"
         );
         _unpause();
     }
 
     function addWhitelistToken(address _token) external onlyOwner whenNotPaused {
-        require(!whitelistTokens[_token], "token should be not whitelisted before");
+        require(!whitelistTokens[_token], "ClientChainGateway: token should be not whitelisted before");
         whitelistTokens[_token] = true;
 
         emit WhitelistTokenAdded(_token);
     }
 
     function removeWhitelistToken(address _token) external onlyOwner whenNotPaused {
-        require(whitelistTokens[_token], "token should be already whitelisted");
+        require(whitelistTokens[_token], "ClientChainGateway: token should be already whitelisted");
         whitelistTokens[_token] = false;
 
         emit WhitelistTokenRemoved(_token);

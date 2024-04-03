@@ -17,7 +17,7 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
     using SafeERC20 for IERC20;
 
     modifier onlyCalledFromThis() {
-        require(msg.sender == address(this), "could only be called from this contract itself with low level call");
+        require(msg.sender == address(this), "ClientChainLzReceiver: could only be called from this contract itself with low level call");
         _;
     }
 

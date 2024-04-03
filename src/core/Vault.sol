@@ -11,7 +11,7 @@ contract Vault is Initializable, VaultStorage, IVault {
     using SafeERC20 for IERC20;
 
     modifier onlyGateway() {
-        require(msg.sender == address(gateway), "only callable for controller");
+        require(msg.sender == address(gateway), "Vault: caller is not the gateway");
         _;
     }
 
@@ -35,7 +35,7 @@ contract Vault is Initializable, VaultStorage, IVault {
     function withdraw(address withdrawer, address recipient, uint256 amount) external onlyGateway {
         require(
             amount <= withdrawableBalances[withdrawer],
-            "can not withdraw more amount than depositor's withdrawable balance"
+            "Vault: withdrawal amount is larger than depositor's withdrawable balance"
         );
 
         withdrawableBalances[withdrawer] -= amount;
@@ -61,13 +61,13 @@ contract Vault is Initializable, VaultStorage, IVault {
     {
         require(
             unlockPrincipleAmount <= totalDepositedPrincipleAmount[user],
-            "cannot unlock a principal amount larger than the total deposited"
+            "Vault: principle unlock amount is larger than the total deposited amount"
         );
 
         totalUnlockPrincipleAmount[user] += unlockPrincipleAmount;
         require(
             totalUnlockPrincipleAmount[user] <= totalDepositedPrincipleAmount[user],
-            "total unlocked principle amount cannot be larger than the total deposited"
+            "Vault: total principle unlock amount is larger than the total deposited amount"
         );
 
         withdrawableBalances[user] = withdrawableBalances[user] + unlockPrincipleAmount + unlockRewardAmount;

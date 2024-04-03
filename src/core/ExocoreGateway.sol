@@ -27,7 +27,7 @@ contract ExocoreGateway is
     using OptionsBuilder for bytes;
 
     modifier onlyCalledFromThis() {
-        require(msg.sender == address(this), "could only be called from this contract itself with low level call");
+        require(msg.sender == address(this), "ExocoreGateway: could only be called from this contract itself with low level call");
         _;
     }
 
@@ -38,7 +38,7 @@ contract ExocoreGateway is
     receive() external payable {}
 
     function initialize(address payable _exocoreValidatorSetAddress) external initializer {
-        require(_exocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
+        require(_exocoreValidatorSetAddress != address(0), "ExocoreGateway: invalid empty exocore validator set address");
 
         exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
 
@@ -56,21 +56,21 @@ contract ExocoreGateway is
 
     function pause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this"
+            msg.sender == exocoreValidatorSetAddress, "ExocoreGateway: caller is not Exocore validator set aggregated address"
         );
         _pause();
     }
 
     function unpause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this"
+            msg.sender == exocoreValidatorSetAddress, "ExocoreGateway: caller is not Exocore validator set aggregated address"
         );
         _unpause();
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
         // TODO: current exocore precompiles take srcChainId as uint16, so this check should be removed after exocore network fixes it
-        require(_origin.srcEid <= type(uint16).max, "source chain endpoint id should not exceed uint16.max");
+        require(_origin.srcEid <= type(uint16).max, "ExocoreGateway: source chain endpoint id should not exceed uint16.max");
 
         _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 

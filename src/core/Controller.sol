@@ -20,11 +20,11 @@ abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, Clie
     receive() external payable {}
 
     function deposit(address token, uint256 amount) external payable whenNotPaused {
-        require(whitelistTokens[token], "not whitelisted token");
-        require(amount > 0, "amount should be greater than zero");
+        require(whitelistTokens[token], "Controller: token is not whitelisted");
+        require(amount > 0, "Controller: amount should be greater than zero");
 
         IVault vault = tokenVaults[token];
-        require(address(vault) != address(0), "no vault added for this token");
+        require(address(vault) != address(0), "Controller: no vault added for this token");
 
         vault.deposit(msg.sender, amount);
 
@@ -36,8 +36,8 @@ abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, Clie
     }
 
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external payable whenNotPaused {
-        require(whitelistTokens[token], "not whitelisted token");
-        require(principleAmount > 0, "amount should be greater than zero");
+        require(whitelistTokens[token], "Controller: token is not whitelisted");
+        require(principleAmount > 0, "Controller: amount should be greater than zero");
 
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
@@ -53,8 +53,8 @@ abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, Clie
     }
 
     function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable whenNotPaused {
-        require(whitelistTokens[token], "not whitelisted token");
-        require(rewardAmount > 0, "amount should be greater than zero");
+        require(whitelistTokens[token], "Controller: token is not whitelisted");
+        require(rewardAmount > 0, "Controller: amount should be greater than zero");
 
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
@@ -69,8 +69,8 @@ abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, Clie
     }
 
     function claim(address token, uint256 amount, address recipient) external whenNotPaused {
-        require(whitelistTokens[token], "not whitelisted token");
-        require(amount > 0, "amount should be greater than zero");
+        require(whitelistTokens[token], "Controller: token is not whitelisted");
+        require(amount > 0, "Controller: amount should be greater than zero");
 
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
@@ -81,12 +81,12 @@ abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, Clie
     }
 
     function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) public whenNotPaused {
-        require(msg.sender == address(this), "caller must be client chain gateway itself");
+        require(msg.sender == address(this), "Controller: caller must be client chain gateway itself");
         for (uint256 i = 0; i < info.length; i++) {
             UserBalanceUpdateInfo memory userBalanceUpdate = info[i];
             for (uint256 j = 0; j < userBalanceUpdate.tokenBalances.length; j++) {
                 TokenBalanceUpdateInfo memory tokenBalanceUpdate = userBalanceUpdate.tokenBalances[j];
-                require(whitelistTokens[tokenBalanceUpdate.token], "not whitelisted token");
+                require(whitelistTokens[tokenBalanceUpdate.token], "Controller: token is not whitelisted");
 
                 IVault vault = tokenVaults[tokenBalanceUpdate.token];
                 if (address(vault) == address(0)) {
@@ -115,9 +115,9 @@ abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, Clie
     }
 
     function delegateTo(string calldata operator, address token, uint256 amount) external payable whenNotPaused {
-        require(whitelistTokens[token], "not whitelisted token");
-        require(amount > 0, "amount should be greater than zero");
-        require(bytes(operator).length == 44, "invalid bech32 address");
+        require(whitelistTokens[token], "Controller: token is not whitelisted");
+        require(amount > 0, "Controller: amount should be greater than zero");
+        require(bytes(operator).length == 44, "Controller: invalid bech32 address");
 
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
@@ -133,9 +133,9 @@ abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, Clie
     }
 
     function undelegateFrom(string calldata operator, address token, uint256 amount) external payable whenNotPaused {
-        require(whitelistTokens[token], "not whitelisted token");
-        require(amount > 0, "amount should be greater than zero");
-        require(bytes(operator).length == 44, "invalid bech32 address");
+        require(whitelistTokens[token], "Controller: token is not whitelisted");
+        require(amount > 0, "Controller: amount should be greater than zero");
+        require(bytes(operator).length == 44, "Controller: invalid bech32 address");
 
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
