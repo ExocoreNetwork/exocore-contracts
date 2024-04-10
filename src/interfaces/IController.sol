@@ -16,12 +16,6 @@ interface IController {
         uint256 unlockRewardAmount;
     }
 
-    event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
-    event WithdrawPrincipleResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
-    event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
-    event DelegateResult(bool indexed success, address indexed delegator, string delegatee, address token, uint256 amount);
-    event UndelegateResult(bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount);
-
     /// *** function signatures for staker operations ***
 
     /**
@@ -29,10 +23,10 @@ interface IController {
      * @dev This function should:
      * 1) lock the @param amount of @param token into vault.
      * 2) ask Exocore validator set to account for the deposited @param amount of @param token.
-     * Deposit should always be considered successful on Exocore chain side. 
+     * Deposit should always be considered successful on Exocore chain side.
      * @param token - The address of specific token that the user wants to deposit.
      * @param amount - The amount of @param token that the user wants to deposit.
-     */ 
+     */
     function deposit(address token, uint256 amount) external payable;
 
     /**

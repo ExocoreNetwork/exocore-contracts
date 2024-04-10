@@ -5,6 +5,7 @@ import "../../src/interfaces/precompiles/IDeposit.sol";
 contract PrecompileCallerMock {
     uint256 public balance;
     bool public lastDepositStatus;
+
     error PrecompileError();
 
     function deposit(uint256 amount) public {
