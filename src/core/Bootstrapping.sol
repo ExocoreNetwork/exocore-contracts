@@ -267,12 +267,6 @@ contract Bootstrapping is Ownable, Pausable {
     event OperatorRegistered(address operator);
 
     /**
-     * @notice Emitted when an operator is deregistered from the contract.
-     * @param operator The Ethereum address of the operator that was deregistered.
-     */
-    event OperatorDeregistered(address operator);
-
-    /**
      * @notice Emitted when an operator replaces their consensus public key.
      * @param operator The Ethereum address of the operator whose key was replaced.
      * @param newKey The new consensus public key that replaces the old one.
@@ -450,6 +444,11 @@ contract Bootstrapping is Ownable, Pausable {
      * Registration is subject to the contract not being paused and the operation being
      * allowed based on the defined timeline.
      *
+     * Following the registration, operators must self delegate. Until an operator
+     * self delegates enough tokens, it will not be included in the validator set.
+     * This "feature" can act as a mechanism of operator opt-out. There is no operator
+     * deregistration feature in this contract (or even in the Cosmos chain).
+     *
      * @param consensusPublicKey The operator's public key for consensus on the Exocore chain.
      * @param exocoreAddress The operator's address on the Exocore chain.
      * @param name The name (meta info) for the operator.
@@ -479,6 +478,10 @@ contract Bootstrapping is Ownable, Pausable {
         );
         require(
             isCommissionValid(commission), "Commission invalid"
+        );
+        require(
+            consensusPublicKey != bytes32(0),
+            "Consensus public key cannot be zero"
         );
         operators[msg.sender] = Operator(
             true,
@@ -560,31 +563,6 @@ contract Bootstrapping is Ownable, Pausable {
     }
 
     /**
-     * @dev Deregisters the calling operator from the contract. This action removes
-     * the operator's data, including their consensus public key and other registered
-     * information. Deregistration is subject to the operation being allowed based on
-     * the defined timeline and the contract not being paused.
-     */
-    function deregisterOperator() external whenNotPaused operationAllowed notBootstrapped {
-        require(operators[msg.sender].isRegistered, "Operator not registered");
-        delete operators[msg.sender];
-        for (uint256 i = 0; i < registeredOperators.length; i++) {
-            if (registeredOperators[i] == msg.sender) {
-                if (i != registeredOperators.length - 1) {
-                    registeredOperators[i] = registeredOperators[
-                        registeredOperators.length - 1
-                    ];
-                }
-                // Remove the last element
-                registeredOperators.pop();
-                break;
-            }
-        }
-        // update delegations
-        emit OperatorDeregistered(msg.sender);
-    }
-
-    /**
      * @dev Allows an operator to replace their existing consensus public key with a new one.
      * This operation is subject to the contract's timeline restrictions and the contract not
      * being paused.
@@ -599,6 +577,10 @@ contract Bootstrapping is Ownable, Pausable {
         require(
             !consensusPublicKeyInUse(newKey),
             "Consensus public key already in use"
+        );
+        require(
+            consensusPublicKey != bytes32(0),
+            "Consensus public key cannot be zero"
         );
         operators[msg.sender].consensusPublicKey = newKey;
         emit OperatorKeyReplaced(msg.sender, newKey);
