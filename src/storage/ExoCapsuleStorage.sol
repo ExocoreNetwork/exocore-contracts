@@ -1,5 +1,8 @@
 pragma solidity ^0.8.19;
 
+import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
+import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+
 contract ExoCapsuleStorage {
     enum VALIDATOR_STATUS {
         UNREGISTERED, // the validator has not been registered in this ExoCapsule
@@ -22,6 +25,9 @@ contract ExoCapsuleStorage {
     uint64 public constant BEACON_CHAIN_GENESIS_TIME = 1606824023;
 
     address payable exocoreValidatorSetAddress;
+    IETHPOSDeposit public ethPOS;
+    IClientChainGateway public gateway;
+
     mapping(bytes32 pubkey => Validator validator) _capsuleValidators;
     mapping(uint64 index => bytes32 pubkey) _capsuleValidatorsByIndex;
 

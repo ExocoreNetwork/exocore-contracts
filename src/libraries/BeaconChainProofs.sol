@@ -133,7 +133,7 @@ library BeaconChainProofs {
         bytes proof;
     }
 
-    function verifyValidatorContainerRoot(
+    function isValidValidatorContainerRoot(
         bytes32 validatorContainerRoot,
         bytes32[] calldata validatorContainerRootProof,
         uint256 validatorContainerRootIndex,
@@ -141,14 +141,14 @@ library BeaconChainProofs {
         bytes32 stateRoot,
         bytes32[] calldata stateRootProof
     ) internal view returns (bool valid) {
-        bool validStateRoot = verifyStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
-        bool validVCRootAgainstStateRoot = verifyVCRootAgainstStateRoot(validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorContainerRootIndex);
+        bool validStateRoot = isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
+        bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorContainerRootIndex);
         if (validStateRoot && validVCRootAgainstStateRoot) {
             valid = true;
         }
     }
 
-    function verifyStateRoot(
+    function isValidStateRoot(
         bytes32 stateRoot,
         bytes32 beaconBlockRoot,
         bytes32[] calldata stateRootProof
@@ -166,7 +166,7 @@ library BeaconChainProofs {
         });
     }
 
-    function verifyVCRootAgainstStateRoot(
+    function isValidVCRootAgainstStateRoot(
         bytes32 validatorContainerRoot,
         bytes32 stateRoot,
         bytes32[] calldata validatorContainerRootProof,
