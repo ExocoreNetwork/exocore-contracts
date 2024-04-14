@@ -284,4 +284,33 @@ contract Bootstrap is
         operators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
         emit OperatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
     }
+
+    // implementation of IOperatorRegistry
+    function updateRate(
+        uint256 newRate
+    ) external beforeLocked whenNotPaused {
+        string memory operatorAddress = ethToExocoreAddress[msg.sender];
+        require(
+            bytes(operatorAddress).length != 0,
+            "no such operator exists"
+        );
+        // across the lifetime of this contract before network bootstrap,
+        // allow the editing of commission only once.
+        require(!commissionEdited[operatorAddress], "Commission already edited once");
+        Commission memory commission = operators[operatorAddress].commission;
+        uint256 rate = commission.rate;
+        uint256 maxRate = commission.maxRate;
+        uint256 maxChangeRate = commission.maxChangeRate;
+        // newRate <= maxRate <= 1e18
+        require(newRate <= maxRate, "Rate exceeds max rate");
+        // to prevent operators from blindsiding users by first registering at low rate and
+        // subsequently increasing it, we should also check that the change is within the
+        // allowed rate change.
+        require(
+            newRate <= rate + maxChangeRate,
+            "Rate change exceeds max change rate"
+        );
+        operators[operatorAddress].commission.rate = newRate;
+        commissionEdited[operatorAddress] = true;
+    }
 }

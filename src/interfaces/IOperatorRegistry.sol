@@ -54,4 +54,15 @@ interface IOperatorRegistry {
         bytes32 newKey
     ) external;
 
+    /**
+     * @notice Updates the commission rate for the calling operator.
+     * @dev Can only be called by a registered operator. The function checks if the operation
+     * is allowed and not paused. Throws if the operator is not registered or the new rate
+     * exceeds the maximum allowed rate.
+     * @param newRate The new commission rate to be set for the calling operator.
+     * Must not exceed the operator's maximum rate.
+     */
+    function updateRate(
+        uint256 newRate
+    ) external;
 }

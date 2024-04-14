@@ -64,7 +64,6 @@ contract BootstrapStorage is GatewayStorage {
      */
     mapping(string => IOperatorRegistry.Operator) public operators;
 
-
     /**
      * @dev A public array holding the Exocore addresses of all operators that have been
      * registered in the contract. These operators, sorted by their vote power, will be
@@ -75,6 +74,15 @@ contract BootstrapStorage is GatewayStorage {
      * tokens.
     */
     string[] public registeredOperators;
+
+    /**
+     * @dev A mapping of operator Exocore address to a boolean indicating whether said operator
+     * has edited their commission rate.
+     *
+     * This mapping is used to enforce a once-only commission rate change for operators before
+     * the chain bootstrap.
+     */
+    mapping(string => bool) public commissionEdited;
 
     /**
      * @notice Emitted when the spawn time of the Exocore chain is updated.
