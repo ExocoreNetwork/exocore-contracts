@@ -1,7 +1,9 @@
 pragma solidity ^0.8.19;
 
-import {IVault} from "../interfaces/IVault.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
+
+import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
+import {IVault} from "../interfaces/IVault.sol";
 
 // BootstrapStorage should inherit from GatewayStorage since it exists
 // prior to ClientChainGateway. ClientChainGateway should inherit from
@@ -44,6 +46,35 @@ contract BootstrapStorage is GatewayStorage {
      * Each token address maps to an IVault contract instance handling its operations.
      */
     mapping(address => IVault) public tokenVaults;
+
+    /**
+     * @dev Maps Ethereum addresses to their corresponding Exocore addresses.
+     * @notice This mapping is used to track which Ethereum address is linked to which
+     * Exocore address.
+     * Useful for verifying if a particular Ethereum address has already registered an operator.
+     */
+    mapping(address => string) public ethToExocoreAddress;
+
+    /**
+     * @dev Maps Exocore addresses to their corresponding operator details stored in an 
+     * Operator` struct.
+     * @notice Use this mapping to access or modify operator details associated with a specific
+     * Exocore address.
+     * This helps in managing and accessing all registered operator data efficiently.
+     */
+    mapping(string => IOperatorRegistry.Operator) public operators;
+
+
+    /**
+     * @dev A public array holding the Exocore addresses of all operators that have been
+     * registered in the contract. These operators, sorted by their vote power, will be
+     * used to initialize the Exocore chain's validator set.
+     *
+     * The system used is a delegated POS system, where the vote power of each operator
+     * is determined by the total amount of tokens delegated to them across all supported
+     * tokens.
+    */
+    string[] public registeredOperators;
 
     /**
      * @dev Emitted when a new token is added to the whitelist.

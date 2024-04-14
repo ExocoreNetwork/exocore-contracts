@@ -6,6 +6,7 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
+import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
@@ -14,6 +15,7 @@ contract Bootstrap is
     Initializable,
     OwnableUpgradeable,
     PausableUpgradeable,
+    IOperatorRegistry,
     ITokenWhitelister
 {
     constructor() {
@@ -58,7 +60,10 @@ contract Bootstrap is
      * revert with an informative error message.
      */
     modifier beforeLocked {
-        require(block.timestamp < exocoreSpawnTime - offsetTime, "Bootstrap: operation not allowed after lock time");
+        require(
+            block.timestamp < exocoreSpawnTime - offsetTime,
+            "Bootstrap: operation not allowed after lock time"
+        );
         _;
     }
 
@@ -67,25 +72,41 @@ contract Bootstrap is
         _pause();
     }
 
+    // pausing and unpausing can happen at all times, including after locked time.
     function unpause() onlyOwner external {
         _unpause();
     }
 
-    function addWhitelistToken(address _token) external beforeLocked onlyOwner whenNotPaused {
-        require(!whitelistTokens[_token], "ClientChainGateway: token should be not whitelisted before");
+    // implementation of ITokenWhitelister
+    function addWhitelistToken(
+        address _token
+    ) external beforeLocked onlyOwner whenNotPaused {
+        require(
+            !whitelistTokens[_token],
+            "Bootstrap: token should be not whitelisted before"
+        );
         whitelistTokens[_token] = true;
 
         emit WhitelistTokenAdded(_token);
     }
 
-    function removeWhitelistToken(address _token) external beforeLocked onlyOwner whenNotPaused {
-        require(whitelistTokens[_token], "ClientChainGateway: token should be already whitelisted");
+    // implementation of ITokenWhitelister
+    function removeWhitelistToken(
+        address _token
+    ) external beforeLocked onlyOwner whenNotPaused {
+        require(
+            whitelistTokens[_token],
+            "Bootstrap: token should be already whitelisted"
+        );
         whitelistTokens[_token] = false;
 
         emit WhitelistTokenRemoved(_token);
     }
 
-    function addTokenVaults(address[] calldata vaults) external beforeLocked onlyOwner whenNotPaused {
+    // implementation of ITokenWhitelister
+    function addTokenVaults(
+        address[] calldata vaults
+    ) external beforeLocked onlyOwner whenNotPaused {
         for (uint256 i = 0; i < vaults.length; i++) {
             address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
             if (!whitelistTokens[underlyingToken]) {
@@ -96,4 +117,124 @@ contract Bootstrap is
             emit VaultAdded(vaults[i]);
         }
     }
+
+    // implementation of IOperatorRegistry
+    function registerOperator(
+        string calldata operatorExocoreAddress,
+        string calldata name,
+        Commission memory commission,
+        bytes32 consensusPublicKey
+    ) external beforeLocked whenNotPaused {
+        // ensure the address format is valid.
+        require(
+            bytes(operatorExocoreAddress).length == 44,
+            "Bootstrap: invalid bech32 address"
+        );
+        // ensure that there is only one operator per ethereum address
+        require(
+            bytes(ethToExocoreAddress[msg.sender]).length == 0,
+            "Ethereum address already linked to an operator."
+        );
+        // check if operator with the same exocore address already exists
+        require(
+            bytes(operators[operatorExocoreAddress].name).length == 0,
+            "Operator already registered."
+        );
+        // check that the consensus key is unique.
+        require(
+            !consensusPublicKeyInUse(consensusPublicKey),
+            "Consensus public key already in use"
+        );
+        // and that the name (meta info) is unique.
+        require(
+            !nameInUse(name),
+            "Name already in use"
+        );
+        // check that the commission is valid.
+        require(
+            isCommissionValid(commission),
+            "invalid commission"
+        );
+        ethToExocoreAddress[msg.sender] = operatorExocoreAddress;
+        operators[operatorExocoreAddress] = IOperatorRegistry.Operator({
+            name: name,
+            commission: commission,
+            consensusPublicKey: consensusPublicKey
+        });
+        registeredOperators.push(operatorExocoreAddress);
+    }
+
+    /**
+     * @dev Checks if a given consensus public key is already in use by any registered operator.
+     *
+     * This function iterates over all registered operators stored in the contract's state
+     * to determine if the provided consensus public key matches any existing operator's
+     * public key. It is designed to ensure the uniqueness of consensus public keys among
+     * operators, as each operator must have a distinct consensus public key to maintain
+     * integrity and avoid potential conflicts or security issues.
+     *
+     * @param newKey The consensus public key to check for uniqueness. This key is expected
+     * to be provided as a byte32 array (`bytes32`), which is the typical format for
+     * storing and handling public keys in Ethereum smart contracts.
+     *
+     * @return bool Returns `true` if the consensus public key is already in use by an
+     * existing operator, indicating that the key is not unique. Returns `false` if the
+     * public key is not found among the registered operators, indicating that the key
+     * is unique and can be safely used for a new or updating operator.
+    */
+    function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
+        for (uint256 i = 0; i < registeredOperators.length; i++) {
+            if (operators[registeredOperators[i]].consensusPublicKey == newKey) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @notice Checks if the given commission settings are valid.
+     * @dev Validates that the commission rate, max rate, and max change rate are within
+     * acceptable bounds. Each parameter must be less than or equal to 1e18. The commission rate
+     * must not exceed the max rate, and the max change rate must not exceed the max rate.
+     * @param commission The commission structure containing the rate, max rate, and max change
+     * rate to be validated.
+     * @return bool Returns `true` if all conditions for a valid commission are met,
+     * `false` otherwise.
+     */
+    function isCommissionValid(Commission memory commission) public pure returns (bool) {
+        return
+            commission.rate <= 1e18 &&
+            commission.maxRate <= 1e18 &&
+            commission.maxChangeRate <= 1e18 &&
+            commission.rate <= commission.maxRate &&
+            commission.maxChangeRate <= commission.maxRate;
+    }
+
+    /**
+     * @dev Checks if a given name is already in use by any registered operator.
+     *
+     * This function iterates over all registered operators stored in the contract's state
+     * to determine if the provided name matches any existing operator's name. It is
+     * designed to ensure the uniqueness of name (identity) among operators, as each
+     * operator must have a distinct name to maintain integrity and avoid potential
+     * conflicts or security issues.
+     *
+     * @param newName The name to check for uniqueness, as a string.
+     *
+     * @return bool Returns `true` if the name is already in use by an existing operator,
+     * indicating that the name is not unique. Returns `false` if the name is not found
+     * among the registered operators, indicating that the name is unique and can be
+     * safely used for a new operator.
+    */
+    function nameInUse(string memory newName) public view returns (bool) {
+        for (uint256 i = 0; i < registeredOperators.length; i++) {
+            if (keccak256(abi.encodePacked(operators[registeredOperators[i]].name)) ==
+                keccak256(abi.encodePacked(newName))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+
 }
