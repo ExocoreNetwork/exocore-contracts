@@ -77,6 +77,32 @@ contract BootstrapStorage is GatewayStorage {
     string[] public registeredOperators;
 
     /**
+     * @notice Emitted when the spawn time of the Exocore chain is updated.
+     *
+     * @dev This event is triggered whenever the contract owner updates the spawn time of the
+     * Exocore chain.
+     *
+     * @param newSpawnTime The new time (in seconds) that has been set.
+     */
+    event SpawnTimeUpdated(uint256 newSpawnTime);
+
+    /**
+     * @notice Emitted when the offset time before the Exocore spawn time, during which
+     * operations are restricted, is updated.
+     *
+     * @dev This event is triggered whenever the contract owner updates the offset time that
+     * defines the operational lock period leading up to the Exocore chain's launch. The
+     * offset time determines how long before the spawn time the contract will restrict certain
+     * operations to ensure stability and integrity. This event logs the new offset time for
+     * transparency and traceability.
+     *
+     * @param newOffsetTime The new offset time (in seconds) that has been set. This value
+     * represents the duration before the Exocore spawn time during which certain contract
+     * operations are locked.
+     */
+    event OffsetTimeUpdated(uint256 newOffsetTime);
+
+    /**
      * @dev Emitted when a new token is added to the whitelist.
      * @param _token The address of the token that has been added to the whitelist.
      */

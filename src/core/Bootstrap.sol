@@ -77,6 +77,31 @@ contract Bootstrap is
         _unpause();
     }
 
+    /**
+     * @dev Allows the contract owner to modify the spawn time of the Exocore
+     * chain. This function can only be called by the contract owner and must
+     * be called before the currently set lock time has started.
+     *
+     * @param spawnTime The new spawn time in seconds.
+     */
+    function setSpawnTime(uint256 spawnTime) external onlyOwner beforeLocked {
+        exocoreSpawnTime = spawnTime;
+        emit SpawnTimeUpdated(spawnTime);
+    }
+
+    /**
+     * @dev Allows the contract owner to modify the offset time that determines
+     * the lock period before the Exocore spawn time. This function can only be
+     * called by the contract owner and must be called before the currently set
+     * lock time has started.
+     *
+     * @param _offsetTime The new offset time in seconds.
+     */
+    function setOffsetTime(uint256 _offsetTime) external onlyOwner beforeLocked {
+        offsetTime = _offsetTime;
+        emit OffsetTimeUpdated(_offsetTime);
+    }
+
     // implementation of ITokenWhitelister
     function addWhitelistToken(
         address _token
