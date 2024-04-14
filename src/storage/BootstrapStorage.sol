@@ -31,5 +31,48 @@ contract BootstrapStorage is GatewayStorage {
      */
     uint256 public offsetTime;
 
+    /**
+     * @dev Stores a mapping of whitelisted token addresses to their status.
+     * @notice Use this to check if a token is allowed for processing.
+     * Each token address maps to a boolean indicating whether it is whitelisted.
+     */
+    mapping(address => bool) public whitelistTokens;
+
+    /**
+     * @dev Maps token addresses to their corresponding vault contracts.
+     * @notice Access the vault interface for a specific token using this mapping.
+     * Each token address maps to an IVault contract instance handling its operations.
+     */
+    mapping(address => IVault) public tokenVaults;
+
+    /**
+     * @dev Emitted when a new token is added to the whitelist.
+     * @param _token The address of the token that has been added to the whitelist.
+     */
+    event WhitelistTokenAdded(address _token);
+
+    /**
+     * @dev Emitted when a token is removed from the whitelist.
+     * @param _token The address of the token that has been removed from the whitelist.
+     */
+    event WhitelistTokenRemoved(address _token);
+
+    /**
+     * @dev Emitted when a new vault is added to the mapping of token vaults.
+     * @param _vault The address of the vault that has been added.
+     */
+    event VaultAdded(address _vault);
+
+    /**
+     * @dev Indicates an operation failed because the specified vault does not exist.
+     */
+    error VaultNotExist();
+
+    /**
+     * @dev Indicates an operation was attempted with a token that is not authorized.
+     */
+    error UnauthorizedToken();
+
+
     uint256[40] private __gap;
 }
