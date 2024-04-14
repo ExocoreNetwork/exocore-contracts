@@ -187,6 +187,13 @@ contract Bootstrap is
             consensusPublicKey: consensusPublicKey
         });
         registeredOperators.push(operatorExocoreAddress);
+        emit OperatorRegistered(
+            msg.sender,
+            operatorExocoreAddress,
+            name,
+            commission,
+            consensusPublicKey
+        );
     }
 
     /**
@@ -208,6 +215,7 @@ contract Bootstrap is
      * is unique and can be safely used for a new or updating operator.
     */
     function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
+        require(newKey != bytes32(0), "Consensus public key cannot be zero");
         for (uint256 i = 0; i < registeredOperators.length; i++) {
             if (operators[registeredOperators[i]].consensusPublicKey == newKey) {
                 return true;
@@ -261,5 +269,19 @@ contract Bootstrap is
         return false;
     }
 
-
+    // implementation of IOperatorRegistry
+    function replaceKey(
+        bytes32 newKey
+    ) external beforeLocked whenNotPaused {
+        require(
+            bytes(ethToExocoreAddress[msg.sender]).length != 0,
+            "no such operator exists"
+        );
+        require(
+            !consensusPublicKeyInUse(newKey),
+            "Consensus public key already in use"
+        );
+        operators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
+        emit OperatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
+    }
 }

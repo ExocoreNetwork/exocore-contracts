@@ -46,4 +46,12 @@ interface IOperatorRegistry {
         bytes32 consensusPublicKey
     ) external;
 
+    /**
+     * @dev Updates the consensus public key for the operator corresponding to `msg.sender`.
+     * @param newKey The new public key to use for consensus operations.
+     */
+    function replaceKey(
+        bytes32 newKey
+    ) external;
+
 }
