@@ -45,6 +45,24 @@ contract Bootstrap is
         __Pausable_init_unchained();
     }
 
+    /**
+     * @dev Modifier to restrict operations based on the contract's defined timeline.
+     * It checks if the current block timestamp is less than 24 hours before the
+     * Exocore spawn time, effectively locking operations as the spawn time approaches
+     * and afterwards. This is used to enforce a freeze period before the Exocore
+     * chain's launch, ensuring no changes can be made during this critical time.
+     *
+     * The modifier is applied to functions that should be restricted by this timeline,
+     * including registration, delegation, and token management operations. Attempting
+     * to perform these operations during the lock period will result in a transaction
+     * revert with an informative error message.
+     */
+    modifier beforeLocked {
+        require(block.timestamp < exocoreSpawnTime - offsetTime, "Bootstrap: operation not allowed after lock time");
+        _;
+    }
+
+    // pausing and unpausing can happen at all times, including after locked time.
     function pause() onlyOwner external {
         _pause();
     }
@@ -53,21 +71,21 @@ contract Bootstrap is
         _unpause();
     }
 
-    function addWhitelistToken(address _token) external onlyOwner whenNotPaused {
+    function addWhitelistToken(address _token) external beforeLocked onlyOwner whenNotPaused {
         require(!whitelistTokens[_token], "ClientChainGateway: token should be not whitelisted before");
         whitelistTokens[_token] = true;
 
         emit WhitelistTokenAdded(_token);
     }
 
-    function removeWhitelistToken(address _token) external onlyOwner whenNotPaused {
+    function removeWhitelistToken(address _token) external beforeLocked onlyOwner whenNotPaused {
         require(whitelistTokens[_token], "ClientChainGateway: token should be already whitelisted");
         whitelistTokens[_token] = false;
 
         emit WhitelistTokenRemoved(_token);
     }
 
-    function addTokenVaults(address[] calldata vaults) external onlyOwner whenNotPaused {
+    function addTokenVaults(address[] calldata vaults) external beforeLocked onlyOwner whenNotPaused {
         for (uint256 i = 0; i < vaults.length; i++) {
             address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
             if (!whitelistTokens[underlyingToken]) {
