@@ -8,11 +8,18 @@ contract GatewayStorage {
         REQUEST_DELEGATE_TO,
         REQUEST_UNDELEGATE_FROM,
         RESPOND,
-        UPDATE_USERS_BALANCES
+        UPDATE_USERS_BALANCES,
+        MARK_BOOTSTRAP
     }
 
     mapping(Action => bytes4) public whiteListFunctionSelectors;
     address payable public exocoreValidatorSetAddress;
+
+    event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
+
+    error UnsupportedRequest(Action act);
+    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
+    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
 
     uint256[40] private __gap;
 }

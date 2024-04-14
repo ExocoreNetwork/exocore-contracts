@@ -15,6 +15,7 @@ import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/Own
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IExocoreGateway} from "../interfaces/IExocoreGateway.sol";
 import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
+import {IClientChains} from "../interfaces/precompiles/IClientChains.sol";
 
 contract ExocoreGateway is
     Initializable,
@@ -52,6 +53,25 @@ contract ExocoreGateway is
         __Ownable_init_unchained(exocoreValidatorSetAddress);
         __OAppCore_init_unchained(exocoreValidatorSetAddress);
         __Pausable_init_unchained();
+    }
+
+    // TODO: call this function automatically, either within the initializer (which requires
+    // setPeer) or be triggered by Golang after the contract is deployed.
+    // For manual calls, this function should be called immediately after deployment and
+    // then never needs to be called again.
+    function markBootstrapOnAllChains() public {
+        (bool success, uint16[] memory clientChainIds) =
+            IClientChains(CLIENT_CHAINS_PRECOMPILE_ADDRESS).getClientChains();
+        require(success, "ExocoreGateway: failed to get client chain ids");
+
+        for (uint256 i = 0; i < clientChainIds.length; i++) {
+            uint16 clientChainId = clientChainIds[i];
+            if (!chainToBootstrapped[clientChainId]) {
+                _sendInterchainMsg(uint32(clientChainId), Action.MARK_BOOTSTRAP, "");
+                // TODO: should this be marked only when receiving a response?
+                chainToBootstrapped[clientChainId] = true;
+            }
+        }
     }
 
     function pause() external {
