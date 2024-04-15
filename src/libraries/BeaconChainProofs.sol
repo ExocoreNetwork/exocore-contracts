@@ -185,6 +185,69 @@ library BeaconChainProofs {
         });
     }
 
+    function isValidWithdrawalContainerRoot(
+        bytes32 withdrawalContainerRoot,
+        bytes32[] calldata withdrawalContainerRootProof,
+        uint256 withdrawalContainerRootIndex,
+        bytes32 beaconBlockRoot,
+        bytes32 executionPayloadRoot,
+        bytes32[] calldata executionPayloadRootProof
+    ) internal view returns (bool valid) {
+        bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(executionPayloadRoot, beaconBlockRoot, executionPayloadRootProof);
+        bool validWCRootAgainstExecutionPayloadRoot = isValidWCRootAgainstExecutionPayloadRoot(
+            withdrawalContainerRoot, 
+            executionPayloadRoot, 
+            withdrawalContainerRootProof, 
+            withdrawalContainerRootIndex
+        );
+        if (validExecutionPayloadRoot && validWCRootAgainstExecutionPayloadRoot) {
+            valid = true;
+        }
+    }
+
+    function isValidExecutionPayloadRoot(
+        bytes32 executionPayloadRoot,
+        bytes32 beaconBlockRoot,
+        bytes32[] calldata executionPayloadRootProof
+    ) internal view returns (bool) {
+        require(
+            executionPayloadRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT + BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT,
+            "state root proof should have 3 nodes"
+        );
+
+        uint256 executionPayloadIndex = (BODY_ROOT_INDEX << (BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT)) |
+                EXECUTION_PAYLOAD_INDEX;
+
+        return Merkle.verifyInclusionSha256({
+            proof: executionPayloadRootProof,
+            root: beaconBlockRoot,
+            leaf: executionPayloadRoot,
+            index: executionPayloadIndex
+        });
+    }
+
+    function isValidWCRootAgainstExecutionPayloadRoot(
+        bytes32 withdrawalContainerRoot,
+        bytes32 executionPayloadRoot,
+        bytes32[] calldata withdrawalContainerRootProof,
+        uint256 withdrawalContainerRootIndex
+    ) internal view returns (bool) {
+        require(
+            withdrawalContainerRootProof.length == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT,
+            "validator container root proof should have 46 nodes"
+        );
+
+        uint256 withdrawalIndex = (WITHDRAWALS_INDEX << (WITHDRAWALS_TREE_HEIGHT + 1)) |
+                uint256(withdrawalContainerRootIndex);
+
+        return Merkle.verifyInclusionSha256({
+            proof: withdrawalContainerRootProof,
+            root: executionPayloadRoot,
+            leaf: withdrawalContainerRoot,
+            index: withdrawalIndex
+        });
+    }
+
     /**
      * @notice This function replicates the ssz hashing of a validator's pubkey, outlined below:
      *  hh := ssz.NewHasher()
