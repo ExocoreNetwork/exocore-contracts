@@ -31,10 +31,12 @@ abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage,
         }
 
         Action act = Action(uint8(_msg.payload[0]));
-        require(act == Action.UPDATE_USERS_BALANCES, "TSSReceiver: action in message payload is not UPDATE_USERS_BALANCES");
-        bytes memory args = _msg.payload[1:];
+        bytes4 selector_ = whiteListFunctionSelectors[act];
+        if (selector_ == bytes4(0)) {
+            revert UnsupportedRequest(act);
+        }
         (bool success, bytes memory reason) =
-            address(this).call(abi.encodePacked(whiteListFunctionSelectors[act], args));
+            address(this).call(abi.encodePacked(selector_, abi.encode(_msg.payload[1:])));
         if (!success) {
             emit MessageFailed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload, reason);
         } else {

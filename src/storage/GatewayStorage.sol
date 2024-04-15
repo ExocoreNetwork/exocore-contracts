@@ -8,7 +8,8 @@ contract GatewayStorage {
         REQUEST_DELEGATE_TO,
         REQUEST_UNDELEGATE_FROM,
         RESPOND,
-        UPDATE_USERS_BALANCES
+        UPDATE_USERS_BALANCES,
+        MARK_BOOTSTRAP
     }
 
     mapping(Action => bytes4) public whiteListFunctionSelectors;

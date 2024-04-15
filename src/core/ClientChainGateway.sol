@@ -37,11 +37,14 @@ contract ClientChainGateway is
         _disableInitializers();
     }
 
+    // initialization happens from another contract so it must be external.
+    // reinitializer(2) is used so that the ownable and oappcore functions can be called again.
     function initialize(
         uint32 _exocoreChainId,
         address payable _exocoreValidatorSetAddress,
         address[] calldata _whitelistTokens
-    ) external initializer {
+    ) external reinitializer(2) {
+        clearBootstrapData();
         require(_exocoreValidatorSetAddress != address(0), "ClientChainGateway: exocore validator set address should not be empty");
         require(_exocoreChainId != 0, "ClientChainGateway: exocore chain id should not be empty");
 
@@ -65,6 +68,46 @@ contract ClientChainGateway is
         __Ownable_init_unchained(exocoreValidatorSetAddress);
         __OAppCore_init_unchained(exocoreValidatorSetAddress);
         __Pausable_init_unchained();
+    }
+
+    function clearBootstrapData() internal {
+        // mandatory to clear!
+        delete whiteListFunctionSelectors[Action.MARK_BOOTSTRAP];
+        // the set below is recommended to clear, so that any possibilities of upgrades
+        // can then be removed.
+        delete customProxyAdmin;
+        delete clientChainGatewayLogic;
+        delete clientChainInitializationData;
+        // no risk keeping these but they are cheap to clear.
+        delete exocoreSpawnTime;
+        delete offsetTime;
+        // TODO: are these loops even worth it?
+        // if not, we can remove them.
+        // the lines above this set of comments are at least cheaper to clear,
+        // and have no utility after initialization.
+        for(uint i = 0; i < depositors.length; i++) {
+            address depositor = depositors[i];
+            for(uint j = 0; j < whitelistTokensArray.length; j++) {
+                address token = whitelistTokensArray[j];
+                delete totalDepositAmounts[depositor][token];
+                delete withdrawableAmounts[depositor][token];
+                for(uint k = 0; k < registeredOperators.length; k++) {
+                    address eth = registeredOperators[k];
+                    string memory exo = ethToExocoreAddress[eth];
+                    delete delegations[depositor][exo][token];
+                }
+            }
+        }
+        delete depositors;
+        delete whitelistTokensArray;
+        for(uint k = 0; k < registeredOperators.length; k++) {
+            address eth = registeredOperators[k];
+            string memory exo = ethToExocoreAddress[eth];
+            delete operators[exo];
+            delete commissionEdited[exo];
+            delete ethToExocoreAddress[eth];
+        }
+        delete registeredOperators;
     }
 
     function pause() external {

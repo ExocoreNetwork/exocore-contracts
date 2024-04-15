@@ -1,26 +1,37 @@
 pragma solidity ^0.8.19;
 
-import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
-
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {ITransparentUpgradeableProxy} from "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+
+import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 
 import {IController} from "../interfaces/IController.sol";
+import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
+import {ClientChainLzReceiver} from "./ClientChainLzReceiver.sol";
+import {TSSReceiver} from "./TSSReceiver.sol";
+
+// ClientChainGateway differences:
+// replace IClientChainGateway with ITokenWhitelister (excludes only quote function).
+// and add a new interface for operator registration.
+// note that bootstrap storage by itself is not used, but rather we are using
+// ClientChainGatewayStorage indirectly through the layer zero receiver and the TSS receiver.
 contract Bootstrap is
-    BootstrapStorage,
     Initializable,
-    OwnableUpgradeable,
     PausableUpgradeable,
+    OwnableUpgradeable,
+    ITokenWhitelister,
     IController,
     IOperatorRegistry,
-    ITokenWhitelister
+    ClientChainLzReceiver,
+    TSSReceiver
 {
-    constructor() {
+    constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {
         _disableInitializers();
     }
 
@@ -28,23 +39,36 @@ contract Bootstrap is
         address owner,
         uint256 _spawnTime,
         uint256 _offsetTime,
-        address[] calldata _whitelistTokens
+        uint32 _exocoreChainId,
+        address payable _exocoreValidatorSetAddress,
+        address[] calldata _whitelistTokens,
+        address _customProxyAdmin
     ) external initializer {
         require(owner != address(0), "Bootstrap: owner should not be empty");
         require(_spawnTime > block.timestamp, "Bootstrap: spawn time should be in the future");
         require(_offsetTime > 0, "Bootstrap: offset time should be greater than 0");
+        require(_exocoreChainId != 0, "Bootstrap: exocore chain id should not be empty");
+        require(_exocoreValidatorSetAddress != address(0),
+            "Bootstrap: exocore validator set address should not be empty");
 
         exocoreSpawnTime = _spawnTime;
         offsetTime = _offsetTime;
-
+        exocoreChainId = _exocoreChainId;
+        exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
         for (uint256 i = 0; i < _whitelistTokens.length; i++) {
             whitelistTokens[_whitelistTokens[i]] = true;
+            whitelistTokensArray.push(_whitelistTokens[i]);
         }
+
+        whiteListFunctionSelectors[Action.MARK_BOOTSTRAP] = 
+            this.markBootstrapped.selector;
+
+        customProxyAdmin = _customProxyAdmin;
 
         // msg.sender is not the proxy admin but the transparent proxy itself, and hence,
         // cannot be used here. we must require a separate owner. since the Exocore validator
-        // set also does not exist, the owner is likely to be an EOA or a contract controlled
-        // by one.
+        // set can not sign without the chain, the owner is likely to be an EOA or a
+        // contract controlled by one.
         __Ownable_init_unchained(owner);
         __Pausable_init_unchained();
     }
@@ -108,11 +132,17 @@ contract Bootstrap is
     function addWhitelistToken(
         address _token
     ) external beforeLocked onlyOwner whenNotPaused {
+        // modifiers: onlyOwner and whenNotPaused copied from client chain gateway.
+        // i added beforeLocked to ensure that new tokens may not be added after
+        // the offset time before the spawn time begins.
+        // anyway it would be pointless to add such tokens since other operations
+        // cannot be performed.
         require(
             !whitelistTokens[_token],
             "Bootstrap: token should be not whitelisted before"
         );
         whitelistTokens[_token] = true;
+        whitelistTokensArray.push(_token);
 
         emit WhitelistTokenAdded(_token);
     }
@@ -126,6 +156,13 @@ contract Bootstrap is
             "Bootstrap: token should be already whitelisted"
         );
         whitelistTokens[_token] = false;
+        for(uint i = 0; i < whitelistTokensArray.length; i++) {
+            if (whitelistTokensArray[i] == _token) {
+                whitelistTokensArray[i] = whitelistTokensArray[whitelistTokensArray.length - 1];
+                whitelistTokensArray.pop();
+                break;
+            }
+        }
 
         emit WhitelistTokenRemoved(_token);
     }
@@ -188,7 +225,7 @@ contract Bootstrap is
             commission: commission,
             consensusPublicKey: consensusPublicKey
         });
-        registeredOperators.push(operatorExocoreAddress);
+        registeredOperators.push(msg.sender);
         emit OperatorRegistered(
             msg.sender,
             operatorExocoreAddress,
@@ -219,7 +256,9 @@ contract Bootstrap is
     function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
         require(newKey != bytes32(0), "Consensus public key cannot be zero");
         for (uint256 i = 0; i < registeredOperators.length; i++) {
-            if (operators[registeredOperators[i]].consensusPublicKey == newKey) {
+            address ethAddress = registeredOperators[i];
+            string memory exoAddress = ethToExocoreAddress[ethAddress];
+            if (operators[exoAddress].consensusPublicKey == newKey) {
                 return true;
             }
         }
@@ -263,7 +302,9 @@ contract Bootstrap is
     */
     function nameInUse(string memory newName) public view returns (bool) {
         for (uint256 i = 0; i < registeredOperators.length; i++) {
-            if (keccak256(abi.encodePacked(operators[registeredOperators[i]].name)) ==
+            address ethAddress = registeredOperators[i];
+            string memory exoAddress = ethToExocoreAddress[ethAddress];
+            if (keccak256(abi.encodePacked(operators[exoAddress].name)) ==
                 keccak256(abi.encodePacked(newName))) {
                 return true;
             }
@@ -328,6 +369,11 @@ contract Bootstrap is
             revert VaultNotExist();
         }
         vault.deposit(msg.sender, amount);
+
+        uint256 previous = totalDepositAmounts[msg.sender][token];
+        if (previous == 0) {
+            depositors.push(msg.sender);
+        }
 
         // staker_asset.go duplicate here. the duplication is required (and not simply inferred
         // from vault) because the vault is not altered by the gateway in response to
@@ -431,6 +477,7 @@ contract Bootstrap is
         withdrawableAmounts[msg.sender][token] -= amount;
     }
 
+    // implementation of IController
     function undelegateFrom(
         string calldata operator, address token, uint256 amount
     ) override external payable beforeLocked whenNotPaused {
@@ -458,5 +505,54 @@ contract Bootstrap is
         // the undelegation is released immediately since it is not at stake yet.
         delegations[msg.sender][operator][token] -= amount;
         withdrawableAmounts[msg.sender][token] += amount;
+    }
+
+    /**
+     * @dev Marks the contract as bootstrapped when called from a valid source such as
+     * LayerZero or the validator set via TSS.
+     * @notice This function is triggered internally and is part of the bootstrapping process
+     * that switches the contract's state to allow further interactions specific to the
+     * bootstrapped mode.
+     * It should only be called through `address(this).call(selector, data)` to ensure it
+     * executes under specific security conditions.
+     * This function includes modifiers to ensure it's called only internally and while the
+     * contract is not paused.
+     */
+    function markBootstrapped() public onlyCalledFromThis whenNotPaused {
+        // whenNotPaused is applied so that the upgrade does not proceed without unpausing it.
+        // LZ checks made so far include:
+        // lzReceive called by endpoint
+        // correct address on remote (peer match)
+        // chainId match
+        // nonce match, which requires that inbound nonce is uint64(1).
+        // TSS checks are not super clear since they can be set by anyone
+        // but at this point that does not matter since it is not fully implemented anyway.
+        require(
+            block.timestamp >= exocoreSpawnTime,
+            "Bootstrap: not yet in the bootstrap time"
+        );
+        ICustomProxyAdmin(customProxyAdmin).changeImplementation(
+            // address(this) is storage address and not logic address. so it is a proxy.
+            ITransparentUpgradeableProxy(address(this)),
+            clientChainGatewayLogic, clientChainInitializationData
+        );
+    }
+
+    /**
+     * @dev Sets a new client chain gateway logic and its initialization data.
+     * @notice Allows the contract owner to update the address and initialization data for the
+     * client chain gateway logic. This is critical for preparing the contract setup before it's
+     * bootstrapped. The change can only occur prior to bootstrapping.
+     * @param _clientChainGatewayLogic The address of the new client chain gateway logic
+     * contract.
+     * @param _clientChainInitializationData The initialization data to be used when setting up
+     * the new logic contract.
+     */
+    function setClientChainGatewayLogic(
+        address _clientChainGatewayLogic,
+        bytes calldata _clientChainInitializationData
+    ) public onlyOwner {
+        clientChainGatewayLogic = _clientChainGatewayLogic;
+        clientChainInitializationData = _clientChainInitializationData;
     }
 }

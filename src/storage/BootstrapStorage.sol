@@ -41,6 +41,14 @@ contract BootstrapStorage is GatewayStorage {
     mapping(address => bool) public whitelistTokens;
 
     /**
+     * @dev An array containing all the token addresses that have been added to the whitelist.
+     * @notice Use this array to iterate through all whitelisted tokens.
+     * This helps in operations like audits, UI display, or when removing tokens
+     * from the whitelist needs an indexed approach.
+     */
+    address[] public whitelistTokensArray;
+
+    /**
      * @dev Maps token addresses to their corresponding vault contracts.
      * @notice Access the vault interface for a specific token using this mapping.
      * Each token address maps to an IVault contract instance handling its operations.
@@ -65,7 +73,7 @@ contract BootstrapStorage is GatewayStorage {
     mapping(string => IOperatorRegistry.Operator) public operators;
 
     /**
-     * @dev A public array holding the Exocore addresses of all operators that have been
+     * @dev A public array holding the Ethereum addresses of all operators that have been
      * registered in the contract. These operators, sorted by their vote power, will be
      * used to initialize the Exocore chain's validator set.
      *
@@ -73,7 +81,7 @@ contract BootstrapStorage is GatewayStorage {
      * is determined by the total amount of tokens delegated to them across all supported
      * tokens.
     */
-    string[] public registeredOperators;
+    address[] public registeredOperators;
 
     /**
      * @dev A mapping of operator Exocore address to a boolean indicating whether said operator
@@ -108,6 +116,41 @@ contract BootstrapStorage is GatewayStorage {
      * token.
      */
     mapping(address => mapping(address => uint256)) withdrawableAmounts;
+
+    /**
+     * @dev List of addresses that have staked or deposited into the contract.
+     * @notice This array stores all unique depositor addresses to manage and track staking
+     * participation.
+     */
+    address[] public depositors;
+
+    /**
+     * @dev Stores the Layer Zero chain ID of the Exocore chain.
+     * @notice Used to identify the specific Exocore chain this contract interacts with for
+     * cross-chain functionalities.
+     */
+    uint32 public exocoreChainId;
+
+    /**
+     * @dev Address of the custom proxy admin used to manage upgradeability of this contract.
+     * @notice This proxy admin facilitates the implementation switch from Bootstrap to
+     * ClientChainGateway based on conditions met by the Exocore validator set's transactions.
+     */
+    address public customProxyAdmin;
+
+    /**
+     * @dev Address of the Client Chain Gateway logic implementation.
+     * @notice This address points to the logic contract that the proxy should switch to upon
+     * successful bootstrapping.
+     */
+    address public clientChainGatewayLogic;
+
+    /**
+     * @dev Contains the initialization data for the Client Chain Gateway logic when upgrading.
+     * @notice This data is used to initialize the new logic contract (ClientChainGateway) when
+     * the proxy admin switches the implementation post-bootstrapping.
+     */
+    bytes clientChainInitializationData;
 
     /**
      * @notice Emitted when the spawn time of the Exocore chain is updated.
@@ -194,6 +237,12 @@ contract BootstrapStorage is GatewayStorage {
      */
     error NotYetSupported();
 
+    /**
+     * @dev This error is used to indicate that a received transaction originates from an
+     * unexpected Layer Zero source chain.
+     * @param unexpectedSrcEndpointId The source chain ID that was not expected or recognized.
+     */
+    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
 
     uint256[40] private __gap;
 }

@@ -7,7 +7,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     mapping(uint64 => bytes) public registeredRequests;
     mapping(uint64 => Action) public registeredRequestActions;
     mapping(Action => bytes4) public registeredResponseHooks;
-    uint32 public exocoreChainId;
 
     uint64 outboundNonce;
     mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) inboundNonce;
@@ -37,7 +36,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     error ActionFailed(Action act, uint64 nonce);
     error UnexpectedResponse(uint64 nonce);
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
-    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
 
     uint256[40] private __gap;
 }
