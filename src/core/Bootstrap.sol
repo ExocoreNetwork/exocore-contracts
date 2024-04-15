@@ -6,6 +6,7 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
+import {IController} from "../interfaces/IController.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
@@ -15,6 +16,7 @@ contract Bootstrap is
     Initializable,
     OwnableUpgradeable,
     PausableUpgradeable,
+    IController,
     IOperatorRegistry,
     ITokenWhitelister
 {
@@ -312,5 +314,149 @@ contract Bootstrap is
         );
         operators[operatorAddress].commission.rate = newRate;
         commissionEdited[operatorAddress] = true;
+    }
+
+    // implementation of IController
+    function deposit(
+        address token, uint256 amount
+    ) override external payable beforeLocked whenNotPaused {
+        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
+        require(amount > 0, "Bootstrap: amount should be greater than zero");
+
+        IVault vault = tokenVaults[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+        vault.deposit(msg.sender, amount);
+
+        // staker_asset.go duplicate here. the duplication is required (and not simply inferred
+        // from vault) because the vault is not altered by the gateway in response to
+        // delegations or undelegations. hence, this is not something we can do either.
+        totalDepositAmounts[msg.sender][token] += amount;
+        withdrawableAmounts[msg.sender][token] += amount;
+
+        // afterReceiveDepositResponse stores the TotalDepositAmount in the principle.
+        vault.updatePrincipleBalance(msg.sender, totalDepositAmounts[msg.sender][token]);
+    }
+
+    // implementation of IController
+    // This will allow release of undelegated (free) funds to the user for claiming separately.
+    function withdrawPrincipleFromExocore(
+        address token, uint256 amount
+    ) override external payable beforeLocked whenNotPaused {
+        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
+        require(amount > 0, "Bootstrap: amount should be greater than zero");
+
+        IVault vault = tokenVaults[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+
+        uint256 deposited = totalDepositAmounts[msg.sender][token];
+        require(
+            deposited >= amount,
+            "Bootstrap: insufficient deposited balance"
+        );
+        uint256 withdrawable = withdrawableAmounts[msg.sender][token];
+        require(
+            withdrawable >= amount,
+            "Bootstrap: insufficient withdrawable balance"
+        );
+
+        totalDepositAmounts[msg.sender][token] -= amount;
+        withdrawableAmounts[msg.sender][token] -= amount;
+
+        // afterReceiveWithdrawPrincipleResponse
+        vault.updatePrincipleBalance(msg.sender, totalDepositAmounts[msg.sender][token]);
+        vault.updateWithdrawableBalance(msg.sender, amount, 0);
+    }
+
+    // implementation of IController
+    // there are no rewards before the network bootstrap, so this function is not supported.
+    function withdrawRewardFromExocore(
+        address, uint256
+    ) override external payable beforeLocked whenNotPaused {
+        revert NotYetSupported();
+    }
+
+    // implementation of IController
+    function claim(
+        address token, uint256 amount, address recipient
+    ) override external beforeLocked whenNotPaused {
+        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
+        require(amount > 0, "Bootstrap: amount should be greater than zero");
+
+        IVault vault = tokenVaults[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+
+        vault.withdraw(msg.sender, recipient, amount);
+    }
+
+    // implementation of IController
+    // this function is not required before the network bootstrap.
+    function updateUsersBalances(
+        UserBalanceUpdateInfo[] calldata
+    ) view override external beforeLocked whenNotPaused {
+        revert NotYetSupported();
+    }
+
+    // implementation of IController
+    function delegateTo(
+        string calldata operator, address token, uint256 amount
+    ) override external payable beforeLocked whenNotPaused {
+        // client chain checks
+        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
+        require(amount > 0, "Bootstrap: amount should be greater than zero");
+        require(bytes(operator).length == 44, "Bootstrap: invalid bech32 address");
+        IVault vault = tokenVaults[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+        // check that operator is registered
+        require(
+            bytes(operators[operator].name).length != 0,
+            "Operator does not exist"
+        );
+        // operator can't be frozen and amount can't be negative
+        // asset validity has been checked.
+        // now check amounts.
+        uint256 withdrawable = withdrawableAmounts[msg.sender][token];
+        require(
+            withdrawable >= amount,
+            "Bootstrap: insufficient withdrawable balance"
+        );
+        delegations[msg.sender][operator][token] += amount;
+        withdrawableAmounts[msg.sender][token] -= amount;
+    }
+
+    function undelegateFrom(
+        string calldata operator, address token, uint256 amount
+    ) override external payable beforeLocked whenNotPaused {
+        // client chain checks
+        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
+        require(amount > 0, "Bootstrap: amount should be greater than zero");
+        require(bytes(operator).length == 44, "Bootstrap: invalid bech32 address");
+        IVault vault = tokenVaults[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+        // check that operator is registered
+        require(
+            bytes(operators[operator].name).length != 0,
+            "Operator does not exist"
+        );
+        // operator can't be frozen and amount can't be negative
+        // asset validity has been checked.
+        // now check amounts.
+        uint256 delegated = delegations[msg.sender][operator][token];
+        require(
+            delegated >= amount,
+            "Bootstrap: insufficient delegated balance"
+        );
+        // the undelegation is released immediately since it is not at stake yet.
+        delegations[msg.sender][operator][token] -= amount;
+        withdrawableAmounts[msg.sender][token] += amount;
     }
 }

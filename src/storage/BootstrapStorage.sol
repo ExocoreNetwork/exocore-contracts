@@ -85,6 +85,31 @@ contract BootstrapStorage is GatewayStorage {
     mapping(string => bool) public commissionEdited;
 
     /**
+     * @dev Maps a delegator address to a nested mapping, where the first key the operator
+     * address and the second key is the token's address, pointing to the amount of tokens
+     * delegated.
+     * @notice This allows tracking of how much each delegator has delegated to each operator
+     * for all of the whitelisted tokens.
+     */
+    mapping(address => mapping(string => mapping(address => uint256))) delegations;
+
+    /**
+     * @dev Maps depositor addresses to another mapping, where the key is an token address and
+     * the value is the total amount of that token deposited by the depositor.
+     * @notice This mapping is used to keep track of the total deposits made by each account
+     * for each token.
+     */
+    mapping(address => mapping(address => uint256)) totalDepositAmounts;
+
+    /**
+     * @dev Maps depositor addresses to another mapping, where the key is an token address and
+     * the value is the total amount of that token deposited and free to bond by the depositor.
+     * @notice Use this to check the amount available for withdrawal by each account for each
+     * token.
+     */
+    mapping(address => mapping(address => uint256)) withdrawableAmounts;
+
+    /**
      * @notice Emitted when the spawn time of the Exocore chain is updated.
      *
      * @dev This event is triggered whenever the contract owner updates the spawn time of the
@@ -163,6 +188,11 @@ contract BootstrapStorage is GatewayStorage {
      * @dev Indicates an operation was attempted with a token that is not authorized.
      */
     error UnauthorizedToken();
+
+    /**
+     * @dev Indicates that an operation which is not yet supported is requested.
+     */
+    error NotYetSupported();
 
 
     uint256[40] private __gap;
