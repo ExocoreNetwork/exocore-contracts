@@ -25,6 +25,7 @@ contract ExoCapsule is
     IETHPOSDeposit public immutable ethPOS;
 
     error InvalidValidatorContainer(bytes32 pubkey);
+    error InvalidWithdrawalContainer(uint64 validatorIndex);
     error DoubleDepositedValidator(bytes32 pubkey);
     error GetBeaconBlockRootFailure(uint64 timestamp);
     error StaleValidatorContainer(bytes32 pubkey, uint64 timestamp);
@@ -233,12 +234,23 @@ contract ExoCapsule is
             proof.stateRootProof
         );
         if (!valid) {
-            revert InvalidValidatorContainer(validatorPubkey);
+            revert InvalidValidatorContainer(validatorContainer.getPubkey());
         }
     }
 
     function _verifyWithdrawalContainer(bytes32[] calldata withdrawalContainer, WithdrawalContainerProof calldata proof) internal {
-        
+        bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
+        bytes32 withdrawalContainerRoot = withdrawalContainer.merklelize();
+        bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(
+            proof.withdrawalContainerRootProof,
+            proof.withdrawalContainerRootIndex,
+            beaconBlockRoot,
+            proof.executionPayloadRoot,
+            proof.executionPayloadRootProof
+        );
+        if (!valid) {
+            revert InvalidWithdrawalContainer(withdrawalContainer.getValidatorIndex());
+        }
     }
 
     function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint64 atTimestamp) internal view returns (bool) {
