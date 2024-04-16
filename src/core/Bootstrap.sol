@@ -1,5 +1,7 @@
 pragma solidity ^0.8.19;
 
+// Do not use IERC20 because it does not expose the decimals() function.
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
@@ -381,6 +383,7 @@ contract Bootstrap is
         // delegations or undelegations. hence, this is not something we can do either.
         totalDepositAmounts[msg.sender][token] += amount;
         withdrawableAmounts[msg.sender][token] += amount;
+        depositsByToken[token] += amount;
 
         // afterReceiveDepositResponse stores the TotalDepositAmount in the principle.
         vault.updatePrincipleBalance(msg.sender, totalDepositAmounts[msg.sender][token]);
@@ -410,8 +413,10 @@ contract Bootstrap is
             "Bootstrap: insufficient withdrawable balance"
         );
 
+        // when the withdraw precompile is called, it does these things.
         totalDepositAmounts[msg.sender][token] -= amount;
         withdrawableAmounts[msg.sender][token] -= amount;
+        depositsByToken[token] -= amount;
 
         // afterReceiveWithdrawPrincipleResponse
         vault.updatePrincipleBalance(msg.sender, totalDepositAmounts[msg.sender][token]);
@@ -475,6 +480,7 @@ contract Bootstrap is
             "Bootstrap: insufficient withdrawable balance"
         );
         delegations[msg.sender][operator][token] += amount;
+        delegationsByOperator[operator][token] += amount;
         withdrawableAmounts[msg.sender][token] -= amount;
     }
 
@@ -505,6 +511,7 @@ contract Bootstrap is
         );
         // the undelegation is released immediately since it is not at stake yet.
         delegations[msg.sender][operator][token] -= amount;
+        delegationsByOperator[operator][token] -= amount;
         withdrawableAmounts[msg.sender][token] += amount;
     }
 
@@ -578,5 +585,25 @@ contract Bootstrap is
     function getWhitelistedTokensCount(
     ) external view returns (uint256) {
         return whitelistTokensArray.length;
+    }
+
+    /**
+     * @notice Retrieves information for a supported token by its index in the storage array.
+     * @dev Returns comprehensive details about a token, including its ERC20 attributes and deposit amount.
+     * @param index The index of the token in the `supportedTokens` array.
+     * @return A `TokenInfo` struct containing the token's name, symbol, address, decimals, total supply, and deposit amount.
+     */
+    function getWhitelistedTokenAtIndex(uint256 index) public view returns (TokenInfo memory) {
+        require(index < whitelistTokensArray.length, "Index out of bounds");
+        address tokenAddress = whitelistTokensArray[index];
+        ERC20 token = ERC20(tokenAddress);
+        return TokenInfo({
+            name: token.name(),
+            symbol: token.symbol(),
+            tokenAddress: tokenAddress,
+            decimals: token.decimals(),
+            totalSupply: token.totalSupply(),
+            depositAmount: depositsByToken[tokenAddress]
+        });
     }
 }

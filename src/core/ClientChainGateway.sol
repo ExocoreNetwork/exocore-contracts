@@ -83,7 +83,7 @@ contract ClientChainGateway is
         // no risk keeping these but they are cheap to clear.
         delete exocoreSpawnTime;
         delete offsetTime;
-        // TODO: are these loops even worth it?
+        // TODO: are these loops even worth it? the maximum refund is 50% of the gas cost.
         // if not, we can remove them.
         // the lines above this set of comments are at least cheaper to clear,
         // and have no utility after initialization.
@@ -100,15 +100,23 @@ contract ClientChainGateway is
                 }
             }
         }
-        delete depositors;
-        delete whitelistTokensArray;
         for(uint k = 0; k < registeredOperators.length; k++) {
             address eth = registeredOperators[k];
             string memory exo = ethToExocoreAddress[eth];
             delete operators[exo];
             delete commissionEdited[exo];
             delete ethToExocoreAddress[eth];
+            for(uint j = 0; j < whitelistTokensArray.length; j++) {
+                address token = whitelistTokensArray[j];
+                delete delegationsByOperator[exo][token];
+            }
         }
+        for(uint j = 0; j < whitelistTokensArray.length; j++) {
+            address token = whitelistTokensArray[j];
+            delete depositsByToken[token];
+        }
+        delete depositors;
+        delete whitelistTokensArray;
         delete registeredOperators;
     }
 
@@ -173,5 +181,93 @@ contract ClientChainGateway is
         returns (uint64 senderVersion, uint64 receiverVersion)
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
+    }
+
+    function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, address depositor, uint256 amount) = abi.decode(requestPayload, (address, address, uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:]));
+        if (success) {
+            IVault vault = tokenVaults[token];
+            if (address(vault) == address(0)) {
+                revert VaultNotExist();
+            }
+
+            vault.updatePrincipleBalance(depositor, lastlyUpdatedPrincipleBalance);
+        }
+
+        emit DepositResult(success, token, depositor, amount);
+    }
+
+    function afterReceiveWithdrawPrincipleResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, address withdrawer, uint256 unlockPrincipleAmount) =
+            abi.decode(requestPayload, (address, address, uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:33]));
+        if (success) {
+            IVault vault = tokenVaults[token];
+            if (address(vault) == address(0)) {
+                revert VaultNotExist();
+            }
+
+            vault.updatePrincipleBalance(withdrawer, lastlyUpdatedPrincipleBalance);
+            vault.updateWithdrawableBalance(withdrawer, unlockPrincipleAmount, 0);
+        }
+
+        emit WithdrawPrincipleResult(success, token, withdrawer, unlockPrincipleAmount);
+    }
+
+    function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, address withdrawer, uint256 unlockRewardAmount) =
+            abi.decode(requestPayload, (address, address, uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        uint256 lastlyUpdatedRewardBalance = uint256(bytes32(responsePayload[1:33]));
+        if (success) {
+            IVault vault = tokenVaults[token];
+            if (address(vault) == address(0)) {
+                revert VaultNotExist();
+            }
+
+            vault.updateRewardBalance(withdrawer, lastlyUpdatedRewardBalance);
+            vault.updateWithdrawableBalance(withdrawer, 0, unlockRewardAmount);
+        }
+
+        emit WithdrawRewardResult(success, token, withdrawer, unlockRewardAmount);
+    }
+
+    function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, string memory operator, address delegator, uint256 amount) =
+            abi.decode(requestPayload, (address, string, address, uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+
+        emit DelegateResult(success, delegator, operator, token, amount);
+    }
+
+    function afterReceiveUndelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, string memory operator, address undelegator, uint256 amount) =
+            abi.decode(requestPayload, (address, string, address, uint256));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+
+        emit UndelegateResult(success, undelegator, operator, token, amount);
     }
 }

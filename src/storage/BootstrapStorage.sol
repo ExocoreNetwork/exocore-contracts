@@ -102,6 +102,16 @@ contract BootstrapStorage is GatewayStorage {
     mapping(address => mapping(string => mapping(address => uint256))) public delegations;
 
     /**
+     * @dev Maps an operator address to a mapping, where the key is the token address and the
+     * value is the amount of delegated tokens.
+     * @notice This allows tracking of how much each operator has been delegated by all
+     * delegators for each of the whitelisted tokens.
+     */
+    // delegationsByOperator means it is indexed by operator address and not that is is
+    // a delegation made by the operator.
+    mapping(string => mapping(address => uint256)) public delegationsByOperator;
+
+    /**
      * @dev Maps depositor addresses to another mapping, where the key is an token address and
      * the value is the total amount of that token deposited by the depositor.
      * @notice This mapping is used to keep track of the total deposits made by each account
@@ -153,6 +163,8 @@ contract BootstrapStorage is GatewayStorage {
     bytes clientChainInitializationData;
 
     bool public bootstrapped;
+
+    mapping(address => uint256) public depositsByToken;
 
     /**
      * @notice Emitted when the spawn time of the Exocore chain is updated.
@@ -245,6 +257,27 @@ contract BootstrapStorage is GatewayStorage {
      * @param unexpectedSrcEndpointId The source chain ID that was not expected or recognized.
      */
     error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
+
+    /**
+     * @dev Struct to hold detailed information about a token, including its name, symbol,
+     * address, decimals, total supply, and additional metadata for cross-chain operations
+     * and contextual data.
+     *
+     * @param name The name of the token.
+     * @param symbol The symbol of the token.
+     * @param tokenAddress The contract address of the token.
+     * @param decimals The number of decimals the token uses.
+     * @param totalSupply The total supply of the token.
+     * @param depositAmount The total amount of the token deposited into the contract.
+     */
+    struct TokenInfo {
+        string name;
+        string symbol;
+        address tokenAddress;
+        uint8 decimals;
+        uint256 totalSupply;
+        uint256 depositAmount;
+    }
 
     uint256[40] private __gap;
 }
