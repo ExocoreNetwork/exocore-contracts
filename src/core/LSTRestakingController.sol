@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
-import {IController} from "../interfaces/IController.sol";
+import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -13,7 +13,7 @@ import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
-abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, ClientChainGatewayStorage, IController {
+abstract contract LSTRestakingController is PausableUpgradeable, OAppSenderUpgradeable, ClientChainGatewayStorage, ILSTRestakingController {
     using SafeERC20 for IERC20;
     using OptionsBuilder for bytes;
 

@@ -27,17 +27,17 @@ interface IExoCapsule {
         ValidatorContainerProof calldata proof
     ) external;
 
-    function updateStakeBalance(
+    function partiallyWithdraw(
         bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata proof
+        ValidatorContainerProof calldata validatorProof,
+        bytes32[] calldata withdrawalContainer,
+        WithdrawalContainerProof calldata withdrawalProof
     ) external;
 
-    function withdraw(
-        uint64 beaconBlockTimestamp,
-        bytes32 beaconStateRoot,
-        bytes[] calldata beaconStateRootProof,
-        bytes32[][] calldata withdrawalFields,
-        uint40[] calldata withdrawalProofIndices,
-        bytes[] calldata withdrawalFieldsProof
+    function fullyWithdraw(
+        bytes32[] calldata validatorContainer,
+        ValidatorContainerProof calldata validatorProof,
+        bytes32[] calldata withdrawalContainer,
+        WithdrawalContainerProof calldata withdrawalProof
     ) external;
 }

@@ -113,36 +113,6 @@ contract ExoCapsule is
         _capsuleValidatorsByIndex[proof.ValidatorContainerRootIndex] = validatorPubkey;
     }
 
-    function updateStakeBalance(
-        bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata proof
-    ) external onlyGateway {
-        bytes32 validatorPubkey = validatorContainer.getPubkey();
-        bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
-        Validator storage validator = _capsuleValidators[validatorPubkey];
-
-        if (Validator.status != VALIDATOR_STATUS.REGISTERED) {
-            revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
-        }
-
-        if (_isStaleProof(validator, proof.beaconBlockTimestamp)) {
-            revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
-        }
-
-        if (!validatorContainer.verifyBasic()) {
-            revert InvalidValidatorContainer(validatorPubkey);
-        }
-
-        if (_hasFullyWithdrawn(validatorContainer)) {
-            revert FullyWithdrawnValidatorContainer(validatorPubkey);
-        }
-
-        _verifyValidatorContainer(validatorContainer, proof);
-
-        validator.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
-        validator.restakedBalanceGwei = validatorContainer.getEffectiveBalance();
-    }
-
     function partiallyWithdraw(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
