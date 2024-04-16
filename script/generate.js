@@ -44,7 +44,7 @@ const clientChainInfo = {
   const exchangeRates = EXCHANGE_RATES.split(',').map(Decimal);
 
   async function updateGenesisFile() {
-    // try {
+    try {
       // Read the genesis file
       const genesisData = fs.readFileSync(GENESIS_FILE_PATH);
       const genesisJSON = JSON.parse(genesisData);
@@ -205,13 +205,7 @@ const clientChainInfo = {
       }
       // x/dogfood: initial_val_set (validators.go)
       if (!genesisJSON.app_state.dogfood) {
-        genesisJSON.app_state.dogfood = {
-          params: {
-            max_validators: 100,
-            asset_ids: [],
-          }
-        };
-        // throw new Error('The dogfood section is missing from the genesis file.');
+        throw new Error('The dogfood section is missing from the genesis file.');
       }
       if (!genesisJSON.app_state.dogfood.initial_val_set) {
         genesisJSON.app_state.dogfood.initial_val_set = [];
@@ -382,11 +376,11 @@ const clientChainInfo = {
       });
       genesisJSON.app_state.delegation.delegations = baseLevel;
 
-      // fs.writeFileSync(GENESIS_FILE_PATH, JSON.stringify(genesisJSON, null, 2));
+      fs.writeFileSync(GENESIS_FILE_PATH, JSON.stringify(genesisJSON, null, 2));
       console.log('Genesis file updated successfully.');
-    // } catch (error) {
-      // console.error('Error updating genesis file:', error.message);
-    // }
+    } catch (error) {
+      console.error('Error updating genesis file:', error.message);
+    }
   }
 
   updateGenesisFile();
