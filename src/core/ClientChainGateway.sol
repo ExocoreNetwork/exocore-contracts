@@ -2,7 +2,6 @@ pragma solidity ^0.8.19;
 
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
-import {IController} from "../interfaces/IController.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -13,8 +12,9 @@ import {OAppSenderUpgradeable, MessagingFee} from "../lzApp/OAppSenderUpgradeabl
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {Controller} from "./Controller.sol";
-import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
+import {LSTRestakingController} from "./LSTRestakingController.sol";
+import {NativeRestakingController} from "./NativeRestakingController.sol";
+import {ClientChainLzReceiver} from "./ClientChainLzReceiver.sol";
 import {TSSReceiver} from "./TSSReceiver.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
@@ -25,8 +25,9 @@ contract ClientChainGateway is
     PausableUpgradeable,
     OwnableUpgradeable,
     IClientChainGateway,
-    Controller,
-    ClientGatewayLzReceiver,
+    LSTRestakingController,
+    NativeRestakingController,
+    ClientChainLzReceiver,
     TSSReceiver
 {
     using SafeERC20 for IERC20;
