@@ -26,5 +26,6 @@ contract CustomProxyAdmin is ProxyAdmin {
             "CustomProxyAdmin: sender must be the proxy itself"
         );
         proxy.upgradeToAndCall(implementation, data);
+        bootstrapper = address(0);
     }
 }

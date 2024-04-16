@@ -60,10 +60,11 @@ contract Bootstrap is
             whitelistTokensArray.push(_whitelistTokens[i]);
         }
 
-        whiteListFunctionSelectors[Action.MARK_BOOTSTRAP] = 
+        whiteListFunctionSelectors[Action.MARK_BOOTSTRAP] =
             this.markBootstrapped.selector;
 
         customProxyAdmin = _customProxyAdmin;
+        bootstrapped = false;
 
         // msg.sender is not the proxy admin but the transparent proxy itself, and hence,
         // cannot be used here. we must require a separate owner. since the Exocore validator
@@ -191,18 +192,18 @@ contract Bootstrap is
     ) external beforeLocked whenNotPaused {
         // ensure the address format is valid.
         require(
-            bytes(operatorExocoreAddress).length == 44,
+            bytes(operatorExocoreAddress).length == 42,
             "Bootstrap: invalid bech32 address"
         );
         // ensure that there is only one operator per ethereum address
         require(
             bytes(ethToExocoreAddress[msg.sender]).length == 0,
-            "Ethereum address already linked to an operator."
+            "Ethereum address already linked to an operator"
         );
         // check if operator with the same exocore address already exists
         require(
             bytes(operators[operatorExocoreAddress].name).length == 0,
-            "Operator already registered."
+            "Operator with this Exocore address is already registered"
         );
         // check that the consensus key is unique.
         require(
@@ -455,7 +456,7 @@ contract Bootstrap is
         // client chain checks
         require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
         require(amount > 0, "Bootstrap: amount should be greater than zero");
-        require(bytes(operator).length == 44, "Bootstrap: invalid bech32 address");
+        require(bytes(operator).length == 42, "Bootstrap: invalid bech32 address");
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
@@ -484,7 +485,7 @@ contract Bootstrap is
         // client chain checks
         require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
         require(amount > 0, "Bootstrap: amount should be greater than zero");
-        require(bytes(operator).length == 44, "Bootstrap: invalid bech32 address");
+        require(bytes(operator).length == 42, "Bootstrap: invalid bech32 address");
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
@@ -531,6 +532,14 @@ contract Bootstrap is
             block.timestamp >= exocoreSpawnTime,
             "Bootstrap: not yet in the bootstrap time"
         );
+        require(
+            !bootstrapped,
+            "Bootstrap: already bootstrapped"
+        );
+        require(
+            clientChainGatewayLogic != address(0),
+            "Bootstrap: client chain gateway logic not set"
+        );
         ICustomProxyAdmin(customProxyAdmin).changeImplementation(
             // address(this) is storage address and not logic address. so it is a proxy.
             ITransparentUpgradeableProxy(address(this)),
@@ -554,5 +563,20 @@ contract Bootstrap is
     ) public onlyOwner {
         clientChainGatewayLogic = _clientChainGatewayLogic;
         clientChainInitializationData = _clientChainInitializationData;
+    }
+
+    function getOperatorsCount(
+    ) external view returns (uint256) {
+        return registeredOperators.length;
+    }
+
+    function getDepositorsCount(
+    ) external view returns (uint256) {
+        return depositors.length;
+    }
+
+    function getWhitelistedTokensCount(
+    ) external view returns (uint256) {
+        return whitelistTokensArray.length;
     }
 }

@@ -99,7 +99,7 @@ contract BootstrapStorage is GatewayStorage {
      * @notice This allows tracking of how much each delegator has delegated to each operator
      * for all of the whitelisted tokens.
      */
-    mapping(address => mapping(string => mapping(address => uint256))) delegations;
+    mapping(address => mapping(string => mapping(address => uint256))) public delegations;
 
     /**
      * @dev Maps depositor addresses to another mapping, where the key is an token address and
@@ -107,7 +107,7 @@ contract BootstrapStorage is GatewayStorage {
      * @notice This mapping is used to keep track of the total deposits made by each account
      * for each token.
      */
-    mapping(address => mapping(address => uint256)) totalDepositAmounts;
+    mapping(address => mapping(address => uint256)) public totalDepositAmounts;
 
     /**
      * @dev Maps depositor addresses to another mapping, where the key is an token address and
@@ -115,7 +115,7 @@ contract BootstrapStorage is GatewayStorage {
      * @notice Use this to check the amount available for withdrawal by each account for each
      * token.
      */
-    mapping(address => mapping(address => uint256)) withdrawableAmounts;
+    mapping(address => mapping(address => uint256)) public withdrawableAmounts;
 
     /**
      * @dev List of addresses that have staked or deposited into the contract.
@@ -151,6 +151,8 @@ contract BootstrapStorage is GatewayStorage {
      * the proxy admin switches the implementation post-bootstrapping.
      */
     bytes clientChainInitializationData;
+
+    bool public bootstrapped;
 
     /**
      * @notice Emitted when the spawn time of the Exocore chain is updated.

@@ -29,6 +29,8 @@ contract ClientChainGatewayStorage is BootstrapStorage {
         bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
     );
 
+    event UnsupportedRequestEvent(Action act);
+
     error UnauthorizedSigner();
     error UnsupportedRequest(Action act);
     error UnsupportedResponse(Action act);

@@ -53,6 +53,7 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
         } else {
             bytes4 selector_ = whiteListFunctionSelectors[act];
             if (selector_ == bytes4(0)) {
+                emit UnsupportedRequestEvent(act);
                 revert UnsupportedRequest(act);
             }
 

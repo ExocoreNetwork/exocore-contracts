@@ -65,6 +65,8 @@ contract ClientChainGateway is
         registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
             this.afterReceiveWithdrawRewardResponse.selector;
 
+        bootstrapped = true;
+
         __Ownable_init_unchained(exocoreValidatorSetAddress);
         __OAppCore_init_unchained(exocoreValidatorSetAddress);
         __Pausable_init_unchained();
