@@ -2,7 +2,6 @@ pragma solidity ^0.8.19;
 
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
-import {IController} from "../interfaces/IController.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";

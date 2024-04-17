@@ -5,7 +5,7 @@ import {IVault} from "../interfaces/IVault.sol";
 import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {IController} from "../interfaces/IController.sol";
+import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 
 contract Vault is Initializable, VaultStorage, IVault {
     using SafeERC20 for IERC20;
@@ -29,7 +29,7 @@ contract Vault is Initializable, VaultStorage, IVault {
 
     function initialize(address _underlyingToken, address _gateway) external initializer {
         underlyingToken = IERC20(_underlyingToken);
-        gateway = IController(_gateway);
+        gateway = ILSTRestakingController(_gateway);
     }
 
     function withdraw(address withdrawer, address recipient, uint256 amount) external onlyGateway {
