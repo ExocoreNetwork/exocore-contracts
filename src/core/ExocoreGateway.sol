@@ -15,7 +15,7 @@ import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/Own
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IExocoreGateway} from "../interfaces/IExocoreGateway.sol";
 import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
-import {IClientChains} from "../interfaces/IClientChains.sol";
+import {IClientChains} from "../interfaces/precompiles/IClientChains.sol";
 
 contract ExocoreGateway is
     Initializable,
@@ -53,25 +53,22 @@ contract ExocoreGateway is
         __Ownable_init_unchained(exocoreValidatorSetAddress);
         __OAppCore_init_unchained(exocoreValidatorSetAddress);
         __Pausable_init_unchained();
-
-        // when this contract is initialized, it means that LayerZero has been set up and we
-        // have produced (at least) the genesis block. the bootstrap logic can now be replaced
-        // with the ClientChainGateway logic.
-        // TODO: when TSS is implemented, this should be moved to the Golang level across all
-        // client chains post bootstrap.
-        markBootstrapOnAllChains();
     }
 
-    function markBootstrapOnAllChains() public onlyOwner {
+    // TODO: call this function automatically, either within the initializer (which requires
+    // setPeer) or be triggered by Golang after the contract is deployed.
+    function markBootstrapOnAllChains() public {
         (bool success, uint16[] memory clientChainIds) =
             IClientChains(CLIENT_CHAINS_PRECOMPILE_ADDRESS).getClientChains();
         require(success, "ExocoreGateway: failed to get client chain ids");
 
         for (uint256 i = 0; i < clientChainIds.length; i++) {
-            _sendInterchainMsg(uint32(clientChainIds[i]), Action.MARK_BOOTSTRAP, "");
-            // TODO: should we handle a response to this call?
-            // I don't see a point because LayerZero guarantees delivery and
-            // the client chain cannot do anything until it is marked as bootstrapped.
+            uint16 clientChainId = clientChainIds[i];
+            if (!chainToBootstrapped[clientChainId]) {
+                _sendInterchainMsg(uint32(clientChainId), Action.MARK_BOOTSTRAP, "");
+                // TODO: should this be marked only when receiving a response?
+                chainToBootstrapped[clientChainId] = true;
+            }
         }
     }
 
