@@ -464,7 +464,6 @@ contract Bootstrap is
         // client chain checks
         require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
         require(amount > 0, "Bootstrap: amount should be greater than zero");
-        require(bytes(operator).length == 42, "Bootstrap: invalid bech32 address");
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
@@ -494,7 +493,6 @@ contract Bootstrap is
         // client chain checks
         require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
         require(amount > 0, "Bootstrap: amount should be greater than zero");
-        require(bytes(operator).length == 42, "Bootstrap: invalid bech32 address");
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
