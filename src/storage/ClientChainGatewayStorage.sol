@@ -17,7 +17,10 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     // native restaking state variables
     mapping(address => IExoCapsule) public ownerToCapsule;
+    mapping(IExoCapsule => bool) public isExoCapsule;
     address constant ETH_STAKING_DEPOSIT_CONTRACT_ADDRESS = 0x00000000219ab540356cBB839Cbe05303d7705Fa;
+    address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    uint256 constant GWEI_TO_WEI = 1e9;
 
     event WhitelistTokenAdded(address _token);
     event WhitelistTokenRemoved(address _token);
@@ -39,6 +42,9 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     error UnsupportedRequest(Action act);
     error UnsupportedResponse(Action act);
     error UnexpectedResponse(uint64 nonce);
+
+    // native restaking errors
+    error CapsuleNotExistForOwner(address owner);
 
     uint256[40] private __gap;
 }

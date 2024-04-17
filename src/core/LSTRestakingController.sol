@@ -150,7 +150,7 @@ abstract contract LSTRestakingController is PausableUpgradeable, OAppSenderUpgra
         _sendInterchainMsg(Action.REQUEST_UNDELEGATE_FROM, actionArgs);
     }
 
-    function _sendInterchainMsg(Action act, bytes memory actionArgs) internal {
+    function _sendMsgToExocore(Action act, bytes memory actionArgs) internal {
         outboundNonce++;
         bytes memory payload = abi.encodePacked(act, actionArgs);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(

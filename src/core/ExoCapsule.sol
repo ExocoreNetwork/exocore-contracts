@@ -4,7 +4,6 @@ import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
@@ -13,7 +12,6 @@ import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 
 contract ExoCapsule is 
     Initializable,
-    OwnableUpgradeable,
     PausableUpgradeable,
     ExoCapsuleStorage,
     IExoCapsule
@@ -46,16 +44,10 @@ contract ExoCapsule is
         _disableInitializers();
     }
 
-    function initialize(
-        address payable _ExocoreValidatorSetAddress
-    ) 
-        external 
-        initializer 
-    {
-        require(_ExocoreValidatorSetAddress != address(0), "invalid empty exocore validator set address");
-        exocoreValidatorSetAddress = _ExocoreValidatorSetAddress;
+    function initialize(address _capsuleOwner) external initializer {
+        require(_capsuleOwner != address(0), "invalid empty exocore validator set address");
+        capsuleOwner = _capsuleOwner;
 
-        _transferOwnership(exocoreValidatorSetAddress);
         __Pausable_init();
     }
 
@@ -170,7 +162,7 @@ contract ExoCapsule is
         _verifyValidatorContainer(validatorContainer, validatorProof);
         _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
 
-        validator.status = VALIDATOR_STATUS.EXITED;
+        validator.status = VALIDATOR_STATUS.WITHDRAWN;
     }
 
     function _capsuleWithdrawalCredentials() internal view returns (bytes memory) {
