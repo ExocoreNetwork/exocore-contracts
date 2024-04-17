@@ -36,7 +36,7 @@ abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage,
             revert UnsupportedRequest(act);
         }
         (bool success, bytes memory reason) =
-            address(this).call(abi.encodePacked(selector_, abi.encode(_msg.payload[1:])));
+            address(this).call(abi.encodePacked(selector_, _msg.payload[1:]));
         if (!success) {
             emit MessageFailed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload, reason);
         } else {
