@@ -57,6 +57,8 @@ contract ExocoreGateway is
 
     // TODO: call this function automatically, either within the initializer (which requires
     // setPeer) or be triggered by Golang after the contract is deployed.
+    // For manual calls, this function should be called immediately after deployment and
+    // then never needs to be called again.
     function markBootstrapOnAllChains() public {
         (bool success, uint16[] memory clientChainIds) =
             IClientChains(CLIENT_CHAINS_PRECOMPILE_ADDRESS).getClientChains();
