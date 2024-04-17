@@ -84,7 +84,7 @@ contract BootstrapTest is Test {
         assertTrue(bootstrap.whiteListFunctionSelectors(GatewayStorage.Action.MARK_BOOTSTRAP) != bytes4(0));
         // any one case
         assertTrue(bootstrap.whiteListFunctionSelectors(GatewayStorage.Action.REQUEST_DEPOSIT) == bytes4(0));
-        proxyAdmin.setBootstrapper(address(bootstrap));
+        proxyAdmin.initialize(address(bootstrap));
         // deployer is the owner
         Vault vaultLogic = new Vault();
         Vault vault = Vault(address(new TransparentUpgradeableProxy(
