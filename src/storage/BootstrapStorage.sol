@@ -242,6 +242,11 @@ contract BootstrapStorage is GatewayStorage {
     error VaultNotExist();
 
     /**
+     * @dev Indicates an operation failed because the specified vault already exists.
+     */
+    error VaultAlreadyAdded();
+
+    /**
      * @dev Indicates an operation was attempted with a token that is not authorized.
      */
     error UnauthorizedToken();

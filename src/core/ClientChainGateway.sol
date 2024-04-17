@@ -154,6 +154,9 @@ contract ClientChainGateway is
             if (!whitelistTokens[underlyingToken]) {
                 revert UnauthorizedToken();
             }
+            if (address(tokenVaults[underlyingToken]) != address(0)) {
+                revert VaultAlreadyAdded();
+            }
             tokenVaults[underlyingToken] = IVault(vaults[i]);
 
             emit VaultAdded(vaults[i]);
