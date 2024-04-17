@@ -99,6 +99,7 @@ contract ClientChainGateway is
                     delete delegations[depositor][exo][token];
                 }
             }
+            delete isDepositor[depositor];
         }
         for(uint k = 0; k < registeredOperators.length; k++) {
             address eth = registeredOperators[k];
