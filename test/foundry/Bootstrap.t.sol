@@ -15,6 +15,7 @@ import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {Origin} from "../../src/lzApp/OAppReceiverUpgradeable.sol";
 import {GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 import {ClientChainGatewayStorage} from "../../src/storage/ClientChainGatewayStorage.sol";
+import {IController} from "../../src/interfaces/IController.sol";
 
 contract BootstrapTest is Test {
     MyToken myToken;
@@ -48,9 +49,6 @@ contract BootstrapTest is Test {
         addrs[4] = address(0x5); // Simulated STAKER2 address
         addrs[5] = address(0x6); // Simulated STAKER3 address
 
-        spawnTime = block.timestamp + 1 hours;
-        offsetTime = 30 minutes;
-
         vm.startPrank(deployer);
         // first deploy the token
         myToken = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
@@ -77,6 +75,14 @@ contract BootstrapTest is Test {
                 )
             ))
         );
+        // validate the initialization
+        assertTrue(bootstrap.whitelistTokens(address(myToken)));
+        assertFalse(bootstrap.whitelistTokens(address(0xa)));
+        assertTrue(bootstrap.getWhitelistedTokensCount() == 1);
+        assertFalse(bootstrap.bootstrapped());
+        assertTrue(bootstrap.whiteListFunctionSelectors(GatewayStorage.Action.MARK_BOOTSTRAP) != bytes4(0));
+        // any one case
+        assertTrue(bootstrap.whiteListFunctionSelectors(GatewayStorage.Action.REQUEST_DEPOSIT) == bytes4(0));
         proxyAdmin.setBootstrapper(address(bootstrap));
         // deployer is the owner
         Vault vaultLogic = new Vault();
@@ -86,6 +92,7 @@ contract BootstrapTest is Test {
         vault.initialize(address(myToken), address(bootstrap));
         vaults.push(address(vault));
         bootstrap.addTokenVaults(vaults);
+        assertTrue(address(bootstrap.tokenVaults(address(myToken))) == address(vault));
         // now set the gateway address for Exocore.
         clientChainLzEndpoint.setDestLzEndpoint(
             undeployedExocoreGateway, undeployedExocoreLzEndpoint
@@ -118,42 +125,63 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test01_IsTokenWhitelisted() public {
-        assertTrue(
-            bootstrap.whitelistTokens(address(myToken)),
-            "MyToken"
-        );
-        assertTrue(
-            !bootstrap.whitelistTokens(address(0xa)),
-            "Random"
-        );
+    function test01_AddWhitelistToken() public returns (MyToken) {
+        vm.startPrank(deployer);
+        MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
+        bootstrap.addWhitelistToken(address(myTokenClone));
+        vm.stopPrank();
+        assertTrue(bootstrap.whitelistTokens(address(myTokenClone)));
+        assertTrue(bootstrap.getWhitelistedTokensCount() == 2);
+        return myTokenClone;
+    }
+
+    function test01_AddWhitelistToken_AlreadyExists() public {
+        vm.startPrank(deployer);
+        vm.expectRevert("Bootstrap: token should be not whitelisted before");
+        bootstrap.addWhitelistToken(address(myToken));
+        vm.stopPrank();
     }
 
     function test02_Deposit() public {
         // Distribute MyToken to addresses
         vm.startPrank(deployer);
         for (uint256 i = 0; i < 6; i++) {
+            // from constructor logic, some initial balance is present.
+            uint256 prevBalance = myToken.balanceOf(addrs[i]);
             myToken.transfer(addrs[i], amounts[i]);
+            uint256 newBalance = myToken.balanceOf(addrs[i]);
+            assertTrue(newBalance == prevBalance + amounts[i]);
         }
         vm.stopPrank();
-        // check balance
-        for (uint256 i = 0; i < 6; i++) {
-            uint256 balance = myToken.balanceOf(addrs[i]);
-            assertTrue(balance >= amounts[i]);
-        }
 
-        // Make deposits
+        // Make deposits and check values
         for (uint256 i = 0; i < 6; i++) {
             vm.startPrank(addrs[i]);
             myToken.approve(vaults[0], amounts[i]);
+            uint256 prevDepositorsCount = bootstrap.getDepositorsCount();
+            bool prevIsDepositor = bootstrap.isDepositor(addrs[i]);
+            uint256 prevBalance = myToken.balanceOf(addrs[i]);
+            uint256 prevDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
+            uint256 prevWithdrawable = bootstrap.withdrawableAmounts(
+                addrs[i], address(myToken)
+            );
+            uint256 prevTokenDeposit = bootstrap.depositsByToken(address(myToken));
             bootstrap.deposit(address(myToken), amounts[i]);
+            uint256 newBalance = myToken.balanceOf(addrs[i]);
+            assertTrue(newBalance == prevBalance - amounts[i]);
+            uint256 newDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
+            assertTrue(newDeposit == prevDeposit + amounts[i]);
+            uint256 newWithdrawable = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
+            assertTrue(newWithdrawable == prevWithdrawable + amounts[i]);
+            if (!prevIsDepositor) {
+                assertTrue(bootstrap.isDepositor(addrs[i]));
+                assertTrue(bootstrap.getDepositorsCount() == prevDepositorsCount + 1);
+            } else {
+                assertTrue(bootstrap.getDepositorsCount() == prevDepositorsCount);
+            }
+            assertTrue(bootstrap.depositsByToken(address(myToken)) ==
+                prevTokenDeposit + amounts[i]);
             vm.stopPrank();
-        }
-
-        // check values
-        for (uint256 i = 0; i < 6; i++) {
-            uint256 amount = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
-            assertTrue(amount == amounts[i]);
         }
     }
 
@@ -203,7 +231,7 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test02_Deposit_WhitelistedTokenWithoutVault() public {
+    function test02_Deposit_VaultNotExist() public {
         address cloneDeployer = address(0xdebd);
         // Deploy a new token
         vm.startPrank(cloneDeployer);
@@ -249,7 +277,25 @@ contract BootstrapTest is Test {
             bootstrap.registerOperator(
                 operators[i], names[i], commission, pubKeys[i]
             );
+            // check count
             assertTrue(bootstrap.getOperatorsCount() == i + 1);
+            // check ethToExocoreAddress mapping
+            string memory exoAddress = bootstrap.ethToExocoreAddress(addrs[i]);
+            assertTrue(
+                keccak256(abi.encodePacked(exoAddress)) ==
+                keccak256(abi.encodePacked(operators[i]))
+            );
+            (
+                string memory name,
+                IOperatorRegistry.Commission memory thisCommision,
+                bytes32 key
+            ) = bootstrap.operators(exoAddress);
+            assertTrue(
+                keccak256(abi.encodePacked(name)) ==
+                keccak256(abi.encodePacked(names[i]))
+            );
+            assertTrue(key == pubKeys[i]);
+            assertTrue(thisCommision.rate == commission.rate);
             vm.stopPrank();
         }
     }
@@ -522,15 +568,7 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test08_SetOffsetTime() public {
-        assertTrue(bootstrap.offsetTime() == 30 minutes);
-        uint256 newOffsetTime = 60 minutes;
-        vm.startPrank(deployer);
-        bootstrap.setOffsetTime(newOffsetTime);
-        vm.stopPrank();
-        uint256 offsetTimeInContract = bootstrap.offsetTime();
-        assertTrue(offsetTimeInContract == newOffsetTime);
-    }
+    // can add test08 next.
 
     function test09_DelegateTo() public {
         // first, register the operators
@@ -541,9 +579,30 @@ contract BootstrapTest is Test {
         for (uint256 i = 0; i < 3; i++) {
             vm.startPrank(addrs[i]);
             string memory exo = bootstrap.ethToExocoreAddress(addrs[i]);
+            uint256 prevDelegation = bootstrap.delegations(
+                addrs[i], exo, address(myToken)
+            );
+            uint256 prevDelegationByOperator = bootstrap.delegationsByOperator(
+                exo, address(myToken)
+            );
+            uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(
+                addrs[i], address(myToken)
+            );
             bootstrap.delegateTo(
                 exo, address(myToken), amounts[i]
             );
+            uint256 postDelegation = bootstrap.delegations(
+                addrs[i], exo, address(myToken)
+            );
+            uint256 postDelegationByOperator = bootstrap.delegationsByOperator(
+                exo, address(myToken)
+            );
+            uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(
+                addrs[i], address(myToken)
+            );
+            assertTrue(postDelegation == prevDelegation + amounts[i]);
+            assertTrue(postDelegationByOperator == prevDelegationByOperator + amounts[i]);
+            assertTrue(postWithdrawableAmount == prevWithdrawableAmount - amounts[i]);
             vm.stopPrank();
         }
         // finally, delegate from stakers to the operators
@@ -553,37 +612,41 @@ contract BootstrapTest is Test {
             [2, 0, 6]
         ];
         for (uint256 i = 0; i < 3; i++) {
-            vm.startPrank(addrs[i + 3]);
+            address delegator = addrs[i + 3];
+            vm.startPrank(delegator);
             for(uint256 j = 0; j < 3; j++) {
-                if (delegations[i][j] != 0) {
+                uint256 amount = delegations[i][j] * 10 ** 18;
+                if (amount != 0) {
                     string memory exo = bootstrap.ethToExocoreAddress(addrs[j]);
-                    bootstrap.delegateTo(
-                        exo, address(myToken),
-                        uint256(delegations[i][j]) * 10 ** 18
+                    uint256 prevDelegation = bootstrap.delegations(
+                        delegator, exo, address(myToken)
                     );
+                    uint256 prevDelegationByOperator = bootstrap.delegationsByOperator(
+                        exo, address(myToken)
+                    );
+                    uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(
+                        delegator, address(myToken)
+                    );
+                    bootstrap.delegateTo(
+                        exo, address(myToken), uint256(amount)
+                    );
+                    uint256 postDelegation = bootstrap.delegations(
+                        delegator, exo, address(myToken)
+                    );
+                    uint256 postDelegationByOperator = bootstrap.delegationsByOperator(
+                        exo, address(myToken)
+                    );
+                    uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(
+                        delegator, address(myToken)
+                    );
+                    assertTrue(postDelegation == prevDelegation + amount);
+                    assertTrue(
+                        postDelegationByOperator == prevDelegationByOperator + amount
+                    );
+                    assertTrue(postWithdrawableAmount == prevWithdrawableAmount - amount);
                 }
             }
             vm.stopPrank();
-        }
-        // nwo validate the delegations, first for operators
-        for (uint256 i = 0; i < 3; i++) {
-            string memory exo = bootstrap.ethToExocoreAddress(addrs[i]);
-            uint256 amount = bootstrap.delegations(
-                addrs[i], exo, address(myToken)
-            );
-            assertTrue(amount == amounts[i]);
-        }
-        // then for delegators
-        for (uint256 i = 0; i < 3; i++) {
-            address delegator = addrs[i + 3];
-            for (uint256 j = 0; j < 3; j++) {
-                address operator = addrs[j];
-                string memory exo = bootstrap.ethToExocoreAddress(operator);
-                uint256 amount = bootstrap.delegations(
-                    delegator, exo, address(myToken)
-                );
-                assertTrue(amount == uint256(delegations[i][j]) * 10 ** 18);
-            }
         }
     }
 
@@ -601,6 +664,18 @@ contract BootstrapTest is Test {
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: token is not whitelisted");
+        bootstrap.delegateTo(
+            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]
+        );
+    }
+
+    function test09_DelegateTo_VaultNotExist() public {
+        test03_RegisterOperator();
+        vm.startPrank(deployer);
+        bootstrap.addWhitelistToken(address(0xa));
+        vm.stopPrank();
+        vm.startPrank(addrs[0]);
+        vm.expectRevert(abi.encodeWithSignature("VaultNotExist()"));
         bootstrap.delegateTo(
             "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]
         );
@@ -637,53 +712,78 @@ contract BootstrapTest is Test {
 
     function test10_UndelegateFrom() public {
         test09_DelegateTo();
-        // now, undelegate for operators
+        // first, self undelegate
         for (uint256 i = 0; i < 3; i++) {
             vm.startPrank(addrs[i]);
             string memory exo = bootstrap.ethToExocoreAddress(addrs[i]);
+            uint256 prevDelegation = bootstrap.delegations(
+                addrs[i], exo, address(myToken)
+            );
+            uint256 prevDelegationByOperator = bootstrap.delegationsByOperator(
+                exo, address(myToken)
+            );
+            uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(
+                addrs[i], address(myToken)
+            );
             bootstrap.undelegateFrom(
                 exo, address(myToken), amounts[i]
             );
-            vm.stopPrank();
-        }
-        // finally, validate the undelegations
-        for (uint256 i = 0; i < 3; i++) {
-            string memory exo = bootstrap.ethToExocoreAddress(addrs[i]);
-            uint256 amount = bootstrap.delegations(
+            uint256 postDelegation = bootstrap.delegations(
                 addrs[i], exo, address(myToken)
             );
-            assertTrue(amount == 0);
+            uint256 postDelegationByOperator = bootstrap.delegationsByOperator(
+                exo, address(myToken)
+            );
+            uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(
+                addrs[i], address(myToken)
+            );
+            assertTrue(postDelegation == prevDelegation - amounts[i]);
+            assertTrue(postDelegationByOperator == prevDelegationByOperator - amounts[i]);
+            assertTrue(postWithdrawableAmount == prevWithdrawableAmount + amounts[i]);
+            vm.stopPrank();
         }
-        // next, for stakers
+        // finally, undelegate from stakers to the operators
         uint8[3][3] memory delegations = [
             [8, 9, 0],
             [0, 7, 8],
             [2, 0, 6]
         ];
         for (uint256 i = 0; i < 3; i++) {
-            vm.startPrank(addrs[i + 3]);
+            address delegator = addrs[i + 3];
+            vm.startPrank(delegator);
             for(uint256 j = 0; j < 3; j++) {
-                if (delegations[i][j] != 0) {
+                uint256 amount = delegations[i][j] * 10 ** 18;
+                if (amount != 0) {
                     string memory exo = bootstrap.ethToExocoreAddress(addrs[j]);
-                    bootstrap.undelegateFrom(
-                        exo, address(myToken),
-                        uint256(delegations[i][j]) * 10 ** 18
+                    uint256 prevDelegation = bootstrap.delegations(
+                        delegator, exo, address(myToken)
                     );
+                    uint256 prevDelegationByOperator = bootstrap.delegationsByOperator(
+                        exo, address(myToken)
+                    );
+                    uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(
+                        delegator, address(myToken)
+                    );
+                    bootstrap.undelegateFrom(
+                        exo, address(myToken), uint256(amount)
+                    );
+                    uint256 postDelegation = bootstrap.delegations(
+                        delegator, exo, address(myToken)
+                    );
+                    uint256 postDelegationByOperator = bootstrap.delegationsByOperator(
+                        exo, address(myToken)
+                    );
+                    uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(
+                        delegator, address(myToken)
+                    );
+                    assertTrue(postDelegation == prevDelegation - amount);
+                    assertTrue(
+                        postDelegationByOperator == prevDelegationByOperator - amount
+                    );
+                    assertTrue(postWithdrawableAmount == prevWithdrawableAmount + amount);
                 }
             }
             vm.stopPrank();
-        }
-        // finally, validate the undelegations
-        for (uint256 i = 0; i < 3; i++) {
-            address delegator = addrs[i + 3];
-            for (uint256 j = 0; j < 3; j++) {
-                address operator = addrs[j];
-                string memory exo = bootstrap.ethToExocoreAddress(operator);
-                uint256 amount = bootstrap.delegations(
-                    delegator, exo, address(myToken)
-                );
-                assertTrue(amount == 0);
-            }
         }
     }
 
@@ -700,6 +800,18 @@ contract BootstrapTest is Test {
         test03_RegisterOperator();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: token is not whitelisted");
+        bootstrap.undelegateFrom(
+            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]
+        );
+    }
+
+    function test10_UndelegateFrom_VaultNotExist() public {
+        test03_RegisterOperator();
+        vm.startPrank(deployer);
+        bootstrap.addWhitelistToken(address(0xa));
+        vm.stopPrank();
+        vm.startPrank(addrs[0]);
+        vm.expectRevert(abi.encodeWithSignature("VaultNotExist()"));
         bootstrap.undelegateFrom(
             "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]
         );
@@ -739,12 +851,28 @@ contract BootstrapTest is Test {
         // now, withdraw
         for (uint256 i = 0; i < 6; i++) {
             vm.startPrank(addrs[i]);
-            uint256 before = myToken.balanceOf(addrs[i]);
-            uint256 deposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
+            uint256 prevDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
+            uint256 prevWithdrawable = bootstrap.withdrawableAmounts(
+                addrs[i], address(myToken)
+            );
+            uint256 prevTokenDeposit = bootstrap.depositsByToken(address(myToken));
+            uint256 prevVaultWithdrawable = Vault(
+                address(bootstrap.tokenVaults(address(myToken)))
+            ).withdrawableBalances(addrs[i]);
             bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[i]);
-            bootstrap.claim(address(myToken), amounts[i], addrs[i]);
-            uint256 afterB = myToken.balanceOf(addrs[i]);
-            assertTrue(afterB == before + deposit);
+            uint256 postDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
+            uint256 postWithdrawable = bootstrap.withdrawableAmounts(
+                addrs[i], address(myToken)
+            );
+            uint256 postTokenDeposit = bootstrap.depositsByToken(address(myToken));
+            uint256 postVaultWithdrawable = Vault(
+                address(bootstrap.tokenVaults(address(myToken)))
+            ).withdrawableBalances(addrs[i]);
+            assertTrue(postDeposit == prevDeposit - amounts[i]);
+            assertTrue(postWithdrawable == prevWithdrawable - amounts[i]);
+            assertTrue(postTokenDeposit == prevTokenDeposit - amounts[i]);
+            assertTrue(postVaultWithdrawable == prevVaultWithdrawable + amounts[i]);
+            // check the vault too
             vm.stopPrank();
         }
     }
@@ -786,8 +914,17 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
+    function test11_WithdrawPrincipleFromExocore_VaultNotExist() public {
+        vm.startPrank(deployer);
+        bootstrap.addWhitelistToken(address(0xa));
+        vm.stopPrank();
+        vm.startPrank(addrs[0]);
+        vm.expectRevert(abi.encodeWithSignature("VaultNotExist()"));
+        bootstrap.withdrawPrincipleFromExocore(address(0xa), 5);
+    }
+
     function test12_MarkBootstrapped() public {
-        vm.warp(spawnTime);
+        vm.warp(spawnTime + 1);
         vm.startPrank(address(0x20));
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(1)),
@@ -830,13 +967,12 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    // function test12_MarkBootstrapped_WrongAddress() public {
-    //     vm.warp(block.timestamp + 1 hours);
-    //     vm.startPrank(address(0x21));
-    //     vm.expectRevert("Only the bootstrap address can call this function");
-    //     bootstrap.markBootstrapped();
-    //     vm.stopPrank();
-    // }
+    function test12_MarkBootstrapped_DirectCall() public {
+        vm.warp(spawnTime + 2);
+        vm.expectRevert("ClientChainLzReceiver: could only be called from this contract itself with low level call");
+        bootstrap.markBootstrapped();
+        vm.stopPrank();
+    }
 
     function test13_OperationAllowed() public {
         vm.warp(spawnTime - offsetTime);
@@ -896,5 +1032,320 @@ contract BootstrapTest is Test {
             address(undeployedExocoreGateway),
             clientChainId, bytes32(bytes20(address(bootstrap)))
         );
+    }
+
+    function test15_Initialize_OwnerZero() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
+        vm.expectRevert("Bootstrap: owner should not be empty");
+        Bootstrap(
+            payable(address(
+                new TransparentUpgradeableProxy(
+                    address(bootstrapLogic), address(proxyAdmin),
+                    abi.encodeCall(bootstrap.initialize,
+                        (address(0x0), spawnTime, offsetTime, exocoreChainId,
+                        payable(exocoreValidatorSet), whitelistTokens,
+                        address(proxyAdmin))
+                    )
+                )
+            ))
+        );
+    }
+
+    function test15_Initialize_SpawnTimeNotFuture() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
+        vm.warp(20);
+        vm.expectRevert("Bootstrap: spawn time should be in the future");
+        Bootstrap(
+            payable(address(
+                new TransparentUpgradeableProxy(
+                    address(bootstrapLogic), address(proxyAdmin),
+                    abi.encodeCall(bootstrap.initialize,
+                        (deployer, block.timestamp - 10, offsetTime, exocoreChainId,
+                        payable(exocoreValidatorSet), whitelistTokens,
+                        address(proxyAdmin))
+                    )
+                )
+            ))
+        );
+    }
+
+    function test15_Initialize_OffsetTimeZero() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
+        vm.expectRevert("Bootstrap: offset time should be greater than 0");
+        Bootstrap(
+            payable(address(
+                new TransparentUpgradeableProxy(
+                    address(bootstrapLogic), address(proxyAdmin),
+                    abi.encodeCall(bootstrap.initialize,
+                        (deployer, spawnTime, 0, exocoreChainId,
+                        payable(exocoreValidatorSet), whitelistTokens,
+                        address(proxyAdmin))
+                    )
+                )
+            ))
+        );
+    }
+
+    function test15_Initialize_SpawnTimeLTOffsetTime() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
+        vm.expectRevert("Bootstrap: spawn time should be greater than offset time");
+        vm.warp(20);
+        Bootstrap(
+            payable(address(
+                new TransparentUpgradeableProxy(
+                    address(bootstrapLogic), address(proxyAdmin),
+                    abi.encodeCall(bootstrap.initialize,
+                        (deployer, 21, 22, exocoreChainId,
+                        payable(exocoreValidatorSet), whitelistTokens,
+                        address(proxyAdmin))
+                    )
+                )
+            ))
+        );
+    }
+
+    function test15_Initialize_LockTimeNotFuture() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
+        vm.expectRevert("Bootstrap: lock time should be in the future");
+        vm.warp(20);
+        Bootstrap(
+            payable(address(
+                new TransparentUpgradeableProxy(
+                    address(bootstrapLogic), address(proxyAdmin),
+                    abi.encodeCall(bootstrap.initialize,
+                        (deployer, 21, 9, exocoreChainId,
+                        payable(exocoreValidatorSet), whitelistTokens,
+                        address(proxyAdmin))
+                    )
+                )
+            ))
+        );
+    }
+
+    function test15_Initialize_ExocoreChainIdZero() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
+        vm.expectRevert("Bootstrap: exocore chain id should not be empty");
+        Bootstrap(
+            payable(address(
+                new TransparentUpgradeableProxy(
+                    address(bootstrapLogic), address(proxyAdmin),
+                    abi.encodeCall(bootstrap.initialize,
+                        (deployer, spawnTime, offsetTime, 0,
+                        payable(exocoreValidatorSet), whitelistTokens,
+                        address(proxyAdmin))
+                    )
+                )
+            ))
+        );
+    }
+
+    function test15_Initialize_ExocoreValSetZero() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
+        vm.expectRevert("Bootstrap: exocore validator set address should not be empty");
+        Bootstrap(
+            payable(address(
+                new TransparentUpgradeableProxy(
+                    address(bootstrapLogic), address(proxyAdmin),
+                    abi.encodeCall(bootstrap.initialize,
+                        (deployer, spawnTime, offsetTime, exocoreChainId,
+                        payable(address(0)), whitelistTokens,
+                        address(proxyAdmin))
+                    )
+                )
+            ))
+        );
+    }
+
+    function test15_Initialize_CustomProxyAdminZero() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
+        vm.expectRevert("Bootstrap: custom proxy admin should not be empty");
+        Bootstrap(
+            payable(address(
+                new TransparentUpgradeableProxy(
+                    address(bootstrapLogic), address(proxyAdmin),
+                    abi.encodeCall(bootstrap.initialize,
+                        (deployer, spawnTime, offsetTime, exocoreChainId,
+                        payable(exocoreValidatorSet), whitelistTokens,
+                        address(0x0))
+                    )
+                )
+            ))
+        );
+    }
+
+    function test16_SetSpawnTime() public {
+        vm.startPrank(deployer);
+        bootstrap.setSpawnTime(block.timestamp + 35 minutes);
+        assertTrue(bootstrap.exocoreSpawnTime() == block.timestamp + 35 minutes);
+    }
+
+    function test16_SetSpawnTime_NotInFuture() public {
+        vm.startPrank(deployer);
+        vm.warp(10);
+        vm.expectRevert("Bootstrap: spawn time should be in the future");
+        bootstrap.setSpawnTime(9);
+    }
+
+    function test16_SetSpawnTime_LessThanOffsetTime() public {
+        vm.startPrank(deployer);
+        vm.expectRevert("Bootstrap: spawn time should be greater than offset time");
+        bootstrap.setSpawnTime(offsetTime - 1);
+    }
+
+    function test16_SetSpawnTime_LockTimeNotInFuture() public {
+        vm.startPrank(deployer);
+        vm.warp(offsetTime - 1);
+        console.log(block.timestamp, offsetTime, spawnTime);
+        vm.expectRevert("Bootstrap: lock time should be in the future");
+        // the initial block.timestamp is 1, so subtract 2 here - 1 for
+        // the test and 1 for the warp offset above.
+        bootstrap.setSpawnTime(spawnTime - 2);
+    }
+
+    function test17_SetOffsetTime() public {
+        vm.startPrank(deployer);
+        bootstrap.setOffsetTime(offsetTime + 1);
+        assertTrue(bootstrap.offsetTime() == offsetTime + 1);
+    }
+
+    function test17_SetOffsetTime_GTESpawnTime() public {
+        vm.startPrank(deployer);
+        vm.expectRevert("Bootstrap: spawn time should be greater than offset time");
+        bootstrap.setOffsetTime(spawnTime);
+    }
+
+    function test17_SetOffsetTime_LockTimeNotInFuture() public {
+        vm.warp(offsetTime - 1);
+        vm.startPrank(deployer);
+        vm.expectRevert("Bootstrap: lock time should be in the future");
+        bootstrap.setOffsetTime(offsetTime + 2);
+    }
+
+    function test18_RemoveWhitelistToken() public {
+        vm.startPrank(deployer);
+        bootstrap.removeWhitelistToken(address(myToken));
+        assertFalse(bootstrap.whitelistTokens(address(myToken)));
+        assertTrue(bootstrap.getWhitelistedTokensCount() == 0);
+    }
+
+    function test18_RemoveWhitelistToken_DoesNotExist() public {
+        address fakeToken = address(0xa);
+        vm.startPrank(deployer);
+        vm.expectRevert("Bootstrap: token should be already whitelisted");
+        bootstrap.removeWhitelistToken(fakeToken);
+    }
+
+    function test19_AddTokenVaults() public {
+        MyToken myTokenClone = test01_AddWhitelistToken();
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Vault vaultLogic = new Vault();
+        Vault vault = Vault(address(new TransparentUpgradeableProxy(
+            address(vaultLogic), address(proxyAdmin), ""
+        )));
+        vault.initialize(address(myTokenClone), address(bootstrap));
+        address[] memory localVaults = new address[](1);
+        localVaults[0] = address(vault);
+        vm.startPrank(deployer);
+        bootstrap.addTokenVaults(localVaults);
+        assertTrue(address(bootstrap.tokenVaults(address(myTokenClone))) == address(vault));
+    }
+
+    function test19_AddTokenVaults_UnauthorizedToken() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
+        Vault vaultLogic = new Vault();
+        Vault vault = Vault(address(new TransparentUpgradeableProxy(
+            address(vaultLogic), address(proxyAdmin), ""
+        )));
+        vault.initialize(address(myTokenClone), address(bootstrap));
+        address[] memory localVaults = new address[](1);
+        localVaults[0] = address(vault);
+        vm.expectRevert(abi.encodeWithSignature("UnauthorizedToken()"));
+        bootstrap.addTokenVaults(localVaults);
+    }
+
+    function test19_AddTokenVaults_VaultAlreadyAdded() public {
+        vm.startPrank(deployer);
+        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        Vault vaultLogic = new Vault();
+        Vault vault = Vault(address(new TransparentUpgradeableProxy(
+            address(vaultLogic), address(proxyAdmin), ""
+        )));
+        vault.initialize(address(myToken), address(bootstrap));
+        address[] memory localVaults = new address[](1);
+        localVaults[0] = address(vault);
+        vm.expectRevert(abi.encodeWithSignature("VaultAlreadyAdded()"));
+        bootstrap.addTokenVaults(localVaults);
+    }
+
+    function test20_WithdrawRewardFromExocore() public {
+        vm.expectRevert(abi.encodeWithSignature("NotYetSupported()"));
+        bootstrap.withdrawRewardFromExocore(address(0x0), 1);
+    }
+
+    function test21_UpdateUsersBalances() public {
+        vm.expectRevert(abi.encodeWithSignature("NotYetSupported()"));
+        IController.UserBalanceUpdateInfo[] memory x =
+            new IController.UserBalanceUpdateInfo[](1);
+        bootstrap.updateUsersBalances(x);
+    }
+
+    function test22_Claim() public {
+        test11_WithdrawPrincipleFromExocore();
+        for(uint256 i = 0; i < 6; i++) {
+            vm.startPrank(addrs[i]);
+            uint256 prevBalance = myToken.balanceOf(addrs[i]);
+            bootstrap.claim(address(myToken), amounts[i], addrs[i]);
+            uint256 postBalance = myToken.balanceOf(addrs[i]);
+            assertTrue(postBalance == prevBalance + amounts[i]);
+            vm.stopPrank();
+        }
+    }
+
+    function test22_Claim_TokenNotWhitelisted() public {
+        vm.startPrank(addrs[0]);
+        vm.expectRevert("Bootstrap: token is not whitelisted");
+        bootstrap.claim(address(0xa), amounts[0], addrs[0]);
+    }
+
+    function test22_Claim_ZeroAmount() public {
+        vm.startPrank(addrs[0]);
+        vm.expectRevert("Bootstrap: amount should be greater than zero");
+        bootstrap.claim(address(myToken), 0, addrs[0]);
+    }
+
+    function test22_Claim_Excess() public {
+        test11_WithdrawPrincipleFromExocore();
+        vm.startPrank(addrs[0]);
+        vm.expectRevert(
+            "Vault: withdrawal amount is larger than depositor's withdrawable balance"
+        );
+        bootstrap.claim(address(myToken), amounts[0] + 5, addrs[0]);
+    }
+
+    function test22_Claim_VaultNotExist() public {
+        vm.startPrank(deployer);
+        bootstrap.addWhitelistToken(address(0xa));
+        vm.stopPrank();
+        vm.startPrank(addrs[0]);
+        vm.expectRevert(abi.encodeWithSignature("VaultNotExist()"));
+        bootstrap.claim(address(0xa), 5, addrs[0]);
     }
 }
