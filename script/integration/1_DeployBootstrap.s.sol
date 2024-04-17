@@ -241,12 +241,12 @@ contract DeployContracts is Script {
         // i will take 1/3 and 2/3 of the deposit amounts for each token for each staker
         // respectively
         // find a random number for those amounts for each operators
-        // op1 = random1, op2 = random1, op3 = 1/3 - random1 - random2
+        // op1 = random1, op2 = random2, op3 = 1/3 - random1 - random2
         for (uint256 i = 0; i < whitelistTokens.length; i++) {
             for (uint256 j = 0; j < stakers.length; j++) {
                 uint256 delegator = stakers[j];
                 address delegatorAddress = vm.addr(delegator);
-                uint256 deposit = bootstrap.withdrawableAmounts(
+                uint256 deposit = bootstrap.totalDepositAmounts(
                     delegatorAddress, whitelistTokens[i]
                 );
                 uint256 stakerDelegationToDo =  deposit * (i+1) / 3;
