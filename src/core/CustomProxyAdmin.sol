@@ -7,7 +7,7 @@ import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
 contract CustomProxyAdmin is ProxyAdmin {
     // bootstrapper is the address of the Bootstrap storage (not the implementation).
     // in other words, it is that of the TransparentUpgradeableProxy.
-    address bootstrapper;
+    address public bootstrapper;
 
     constructor() ProxyAdmin() {}
 

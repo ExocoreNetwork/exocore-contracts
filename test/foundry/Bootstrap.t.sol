@@ -19,6 +19,7 @@ import {IController} from "../../src/interfaces/IController.sol";
 
 contract BootstrapTest is Test {
     MyToken myToken;
+    CustomProxyAdmin proxyAdmin;
     Bootstrap bootstrap;
     address[] addrs = new address[](6);
     uint256[] amounts = [
@@ -54,7 +55,7 @@ contract BootstrapTest is Test {
         myToken = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
         whitelistTokens.push(address(myToken));
         // then the ProxyAdmin
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        proxyAdmin = new CustomProxyAdmin();
         // then the logic
         clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(
             clientChainId, exocoreValidatorSet
@@ -935,6 +936,12 @@ contract BootstrapTest is Test {
         );
         vm.stopPrank();
         assertTrue(bootstrap.bootstrapped());
+        // ensure that it cannot be upgraded ever again.
+        assertTrue(bootstrap.customProxyAdmin() == address(0));
+        assertTrue(proxyAdmin.bootstrapper() == address(0));
+        assertTrue(bootstrap.owner() == exocoreValidatorSet);
+        // getDepositorsCount is no longer a function so can't check the count.
+        // assertTrue(bootstrap.getDepositorsCount() == 0);
     }
 
     function test12_MarkBootstrapped_NotTime() public {
@@ -1036,7 +1043,6 @@ contract BootstrapTest is Test {
 
     function test15_Initialize_OwnerZero() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
         vm.expectRevert("Bootstrap: owner should not be empty");
         Bootstrap(
@@ -1055,7 +1061,6 @@ contract BootstrapTest is Test {
 
     function test15_Initialize_SpawnTimeNotFuture() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
         vm.warp(20);
         vm.expectRevert("Bootstrap: spawn time should be in the future");
@@ -1075,7 +1080,6 @@ contract BootstrapTest is Test {
 
     function test15_Initialize_OffsetTimeZero() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
         vm.expectRevert("Bootstrap: offset time should be greater than 0");
         Bootstrap(
@@ -1094,7 +1098,6 @@ contract BootstrapTest is Test {
 
     function test15_Initialize_SpawnTimeLTOffsetTime() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
         vm.expectRevert("Bootstrap: spawn time should be greater than offset time");
         vm.warp(20);
@@ -1114,7 +1117,6 @@ contract BootstrapTest is Test {
 
     function test15_Initialize_LockTimeNotFuture() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
         vm.expectRevert("Bootstrap: lock time should be in the future");
         vm.warp(20);
@@ -1134,7 +1136,6 @@ contract BootstrapTest is Test {
 
     function test15_Initialize_ExocoreChainIdZero() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
         vm.expectRevert("Bootstrap: exocore chain id should not be empty");
         Bootstrap(
@@ -1153,7 +1154,6 @@ contract BootstrapTest is Test {
 
     function test15_Initialize_ExocoreValSetZero() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
         vm.expectRevert("Bootstrap: exocore validator set address should not be empty");
         Bootstrap(
@@ -1172,7 +1172,6 @@ contract BootstrapTest is Test {
 
     function test15_Initialize_CustomProxyAdminZero() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
         vm.expectRevert("Bootstrap: custom proxy admin should not be empty");
         Bootstrap(
@@ -1253,7 +1252,6 @@ contract BootstrapTest is Test {
 
     function test19_AddTokenVaults() public {
         MyToken myTokenClone = test01_AddWhitelistToken();
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Vault vaultLogic = new Vault();
         Vault vault = Vault(address(new TransparentUpgradeableProxy(
             address(vaultLogic), address(proxyAdmin), ""
@@ -1268,7 +1266,6 @@ contract BootstrapTest is Test {
 
     function test19_AddTokenVaults_UnauthorizedToken() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
         Vault vaultLogic = new Vault();
         Vault vault = Vault(address(new TransparentUpgradeableProxy(
@@ -1283,7 +1280,6 @@ contract BootstrapTest is Test {
 
     function test19_AddTokenVaults_VaultAlreadyAdded() public {
         vm.startPrank(deployer);
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
         Vault vaultLogic = new Vault();
         Vault vault = Vault(address(new TransparentUpgradeableProxy(
             address(vaultLogic), address(proxyAdmin), ""
