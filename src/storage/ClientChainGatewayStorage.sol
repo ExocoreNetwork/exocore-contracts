@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 import {IVault} from "../interfaces/IVault.sol";
+import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
 
 contract ClientChainGatewayStorage is GatewayStorage {
@@ -17,6 +18,10 @@ contract ClientChainGatewayStorage is GatewayStorage {
 
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
+
+    // native restaking state variables
+    mapping(address => IExoCapsule) public ownerToCapsule;
+    address constant ETH_STAKING_DEPOSIT_CONTRACT_ADDRESS = 0x00000000219ab540356cBB839Cbe05303d7705Fa;
 
     event WhitelistTokenAdded(address _token);
     event WhitelistTokenRemoved(address _token);
@@ -35,6 +40,9 @@ contract ClientChainGatewayStorage is GatewayStorage {
     event UndelegateResult(
         bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
     );
+
+    // native restaking events
+    event CapsuleCreated(address owner, address capsule);
 
     error UnauthorizedSigner();
     error UnauthorizedToken();
