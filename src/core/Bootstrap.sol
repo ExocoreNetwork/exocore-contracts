@@ -49,9 +49,20 @@ contract Bootstrap is
         require(owner != address(0), "Bootstrap: owner should not be empty");
         require(_spawnTime > block.timestamp, "Bootstrap: spawn time should be in the future");
         require(_offsetTime > 0, "Bootstrap: offset time should be greater than 0");
+        require(
+            _spawnTime > _offsetTime,
+            "Bootstrap: spawn time should be greater than offset time"
+        );
+        uint256 lockTime = _spawnTime - _offsetTime;
+        require(
+            lockTime > block.timestamp,
+            "Bootstrap: lock time should be in the future"
+        );
         require(_exocoreChainId != 0, "Bootstrap: exocore chain id should not be empty");
         require(_exocoreValidatorSetAddress != address(0),
             "Bootstrap: exocore validator set address should not be empty");
+        require(_customProxyAdmin != address(0),
+            "Bootstrap: custom proxy admin should not be empty");
 
         exocoreSpawnTime = _spawnTime;
         offsetTime = _offsetTime;
@@ -111,11 +122,25 @@ contract Bootstrap is
      * chain. This function can only be called by the contract owner and must
      * be called before the currently set lock time has started.
      *
-     * @param spawnTime The new spawn time in seconds.
+     * @param _spawnTime The new spawn time in seconds.
      */
-    function setSpawnTime(uint256 spawnTime) external onlyOwner beforeLocked {
-        exocoreSpawnTime = spawnTime;
-        emit SpawnTimeUpdated(spawnTime);
+    function setSpawnTime(uint256 _spawnTime) external onlyOwner beforeLocked {
+        require(
+            _spawnTime > block.timestamp,
+            "Bootstrap: spawn time should be in the future"
+        );
+        require(
+            _spawnTime > offsetTime,
+            "Bootstrap: spawn time should be greater than offset time"
+        );
+        uint256 lockTime = _spawnTime - offsetTime;
+        require(
+            lockTime > block.timestamp,
+            "Bootstrap: lock time should be in the future"
+        );
+        // technically the spawn time can be moved backwards in time as well.
+        exocoreSpawnTime = _spawnTime;
+        emit SpawnTimeUpdated(_spawnTime);
     }
 
     /**
@@ -127,6 +152,15 @@ contract Bootstrap is
      * @param _offsetTime The new offset time in seconds.
      */
     function setOffsetTime(uint256 _offsetTime) external onlyOwner beforeLocked {
+        require(
+            exocoreSpawnTime > _offsetTime,
+            "Bootstrap: spawn time should be greater than offset time"
+        );
+        uint256 lockTime = exocoreSpawnTime - _offsetTime;
+        require(
+            lockTime > block.timestamp,
+            "Bootstrap: lock time should be in the future"
+        );
         offsetTime = _offsetTime;
         emit OffsetTimeUpdated(_offsetTime);
     }
@@ -376,8 +410,8 @@ contract Bootstrap is
         }
         vault.deposit(msg.sender, amount);
 
-        uint256 previous = totalDepositAmounts[msg.sender][token];
-        if (previous == 0) {
+        if (!isDepositor[msg.sender]) {
+            isDepositor[msg.sender] = true;
             depositors.push(msg.sender);
         }
 

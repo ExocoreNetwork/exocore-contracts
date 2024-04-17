@@ -135,6 +135,13 @@ contract BootstrapStorage is GatewayStorage {
     address[] public depositors;
 
     /**
+     * @dev A mapping of depositor addresses to a boolean indicating whether the address has
+     * deposited into the contract.
+     * @notice Use this mapping to check if a specific address has deposited into the contract.
+     */
+    mapping(address => bool) public isDepositor;
+
+    /**
      * @dev Stores the Layer Zero chain ID of the Exocore chain.
      * @notice Used to identify the specific Exocore chain this contract interacts with for
      * cross-chain functionalities.
