@@ -10,7 +10,7 @@ import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-contract ExoCapsule is 
+contract ExoCapsule is
     Initializable,
     ExoCapsuleStorage,
     IExoCapsule
@@ -201,11 +201,11 @@ contract ExoCapsule is
         }
     }
 
-    function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint64 atTimestamp) internal view returns (bool) {
+    function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint64 atTimestamp) internal pure returns (bool) {
         uint64 atEpoch = _timestampToEpoch(atTimestamp);
         uint64 activationEpoch = validatorContainer.getActivationEpoch();
         uint64 exitEpoch = validatorContainer.getExitEpoch();
-        
+
         return (atEpoch >= activationEpoch && atEpoch < exitEpoch);
     }
 

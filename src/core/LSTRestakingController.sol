@@ -7,20 +7,13 @@ import {BaseRestakingController} from "./BaseRestakingController.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
-abstract contract LSTRestakingController is 
-    PausableUpgradeable, 
-    ILSTRestakingController, 
-    BaseRestakingController
-{
-    function deposit(address token, uint256 amount) external payable whenNotPaused {
-        require(whitelistTokens[token], "Controller: token is not whitelisted");
-        require(amount > 0, "Controller: amount should be greater than zero");
-
-        IVault vault = tokenVaults[token];
-        require(address(vault) != address(0), "Controller: no vault added for this token");
-
+abstract contract LSTRestakingController is
+    PausableUpgradeable,
+    ILSTRestakingController,
+    BaseRestakingController {
+    function deposit(address token, uint256 amount) external payable isTokenWhitelisted(token) isValidAmount(amount) whenNotPaused {
+        IVault vault = _getVault(token);
         vault.deposit(msg.sender, amount);
-
         registeredRequests[outboundNonce + 1] = abi.encode(token, msg.sender, amount);
         registeredRequestActions[outboundNonce + 1] = Action.REQUEST_DEPOSIT;
 
@@ -28,15 +21,8 @@ abstract contract LSTRestakingController is
         _sendMsgToExocore(Action.REQUEST_DEPOSIT, actionArgs);
     }
 
-    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external payable whenNotPaused {
-        require(whitelistTokens[token], "Controller: token is not whitelisted");
-        require(principleAmount > 0, "Controller: amount should be greater than zero");
-
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-
+    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external payable isTokenWhitelisted(token) isValidAmount(principleAmount) whenNotPaused {
+        _getVault(token);
         registeredRequests[outboundNonce + 1] = abi.encode(token, msg.sender, principleAmount);
         registeredRequestActions[outboundNonce + 1] = Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE;
 
@@ -45,15 +31,8 @@ abstract contract LSTRestakingController is
         _sendMsgToExocore(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs);
     }
 
-    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable whenNotPaused {
-        require(whitelistTokens[token], "Controller: token is not whitelisted");
-        require(rewardAmount > 0, "Controller: amount should be greater than zero");
-
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-
+    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable isTokenWhitelisted(token) isValidAmount(rewardAmount) whenNotPaused {
+        _getVault(token);
         registeredRequests[outboundNonce + 1] = abi.encode(token, msg.sender, rewardAmount);
         registeredRequestActions[outboundNonce + 1] = Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE;
 
