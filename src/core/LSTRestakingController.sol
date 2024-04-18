@@ -12,13 +12,13 @@ import {OAppSenderUpgradeable, MessagingFee, MessagingReceipt} from "../lzApp/OA
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import {CommonRestakingController} from "./CommonRestakingController.sol";
+import {BaseRestakingController} from "./BaseRestakingController.sol";
 
 abstract contract LSTRestakingController is 
     PausableUpgradeable, 
     OAppSenderUpgradeable,
     ILSTRestakingController, 
-    CommonRestakingController
+    BaseRestakingController
 {
     using SafeERC20 for IERC20;
     using OptionsBuilder for bytes;

@@ -14,14 +14,13 @@ import {OAppSenderUpgradeable, MessagingFee, MessagingReceipt} from "../lzApp/OA
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import {CommonRestakingController} from "./CommonRestakingController.sol";
-
+import {BaseRestakingController} from "./BaseRestakingController.sol";
 
 abstract contract NativeRestakingController is 
     PausableUpgradeable, 
     OAppSenderUpgradeable, 
     INativeRestakingController,
-    CommonRestakingController
+    BaseRestakingController
 {
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
