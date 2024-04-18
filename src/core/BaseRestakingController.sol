@@ -10,20 +10,49 @@ import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/Pau
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
 
-abstract contract BaseRestakingController is 
-    PausableUpgradeable, 
-    OAppSenderUpgradeable, 
-    IBaseRestakingController, 
-    ClientChainGatewayStorage 
+abstract contract BaseRestakingController is
+    PausableUpgradeable,
+    OAppSenderUpgradeable,
+    IBaseRestakingController,
+    ClientChainGatewayStorage
 {
     using OptionsBuilder for bytes;
 
     receive() external payable {}
 
-    function claim(address token, uint256 amount, address recipient) external whenNotPaused {
+    modifier isTokenWhitelisted(address token) {
         require(whitelistTokens[token], "Controller: token is not whitelisted");
-        require(amount > 0, "Controller: amount should be greater than zero");
+        _;
+    }
 
+    modifier isValidAmount(uint256 amount) {
+        require(amount > 0, "Controller: amount should be greater than zero");
+        _;
+    }
+
+    modifier vaultExists(address token) {
+        require(address(tokenVaults[token]) != address(0), "Controller: no vault added for this token");
+        _;
+    }
+
+    modifier isValidBech32Address(string memory operator) {
+        require(bytes(operator).length == 44, "Controller: invalid bech32 address");
+        _;
+    }
+
+    function _getVault(address token) internal view returns (IVault) {
+        IVault vault = tokenVaults[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+        return vault;
+    }
+
+    function claim(address token, uint256 amount, address recipient)
+    external
+    isTokenWhitelisted(token)
+    isValidAmount(amount)
+    whenNotPaused {
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = ownerToCapsule[msg.sender];
             if (address(capsule) == address(0)) {
@@ -34,27 +63,20 @@ abstract contract BaseRestakingController is
 
             emit ClaimSucceeded(token, recipient, amount);
         } else {
-            IVault vault = tokenVaults[token];
-            if (address(vault) == address(0)) {
-                revert VaultNotExist();
-            }
-
+            IVault vault = _getVault(token);
             vault.withdraw(msg.sender, recipient, amount);
-            
+
             emit ClaimSucceeded(token, recipient, amount);
         }
     }
 
-    function delegateTo(string calldata operator, address token, uint256 amount) external payable whenNotPaused {
-        require(whitelistTokens[token], "Controller: token is not whitelisted");
-        require(amount > 0, "Controller: amount should be greater than zero");
-        require(bytes(operator).length == 42, "Controller: invalid bech32 address");
-
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-
+    function delegateTo(string calldata operator, address token, uint256 amount)
+    external payable
+    isTokenWhitelisted(token)
+    isValidAmount(amount)
+    isValidBech32Address(operator)
+    whenNotPaused {
+        _getVault(token);
         registeredRequests[outboundNonce + 1] = abi.encode(token, operator, msg.sender, amount);
         registeredRequestActions[outboundNonce + 1] = Action.REQUEST_DELEGATE_TO;
 
@@ -63,16 +85,13 @@ abstract contract BaseRestakingController is
         _sendMsgToExocore(Action.REQUEST_DELEGATE_TO, actionArgs);
     }
 
-    function undelegateFrom(string calldata operator, address token, uint256 amount) external payable whenNotPaused {
-        require(whitelistTokens[token], "Controller: token is not whitelisted");
-        require(amount > 0, "Controller: amount should be greater than zero");
-        require(bytes(operator).length == 42, "Controller: invalid bech32 address");
-
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-
+    function undelegateFrom(string calldata operator, address token, uint256 amount)
+    external payable
+    isTokenWhitelisted(token)
+    isValidAmount(amount)
+    isValidBech32Address(operator)
+    whenNotPaused {
+        _getVault(token);
         registeredRequests[outboundNonce + 1] = abi.encode(token, operator, msg.sender, amount);
         registeredRequestActions[outboundNonce + 1] = Action.REQUEST_UNDELEGATE_FROM;
 
