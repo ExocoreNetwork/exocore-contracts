@@ -82,7 +82,7 @@ contract ClientChainGateway is
         delete clientChainInitializationData;
         // no risk keeping these but they are cheap to clear.
         delete exocoreSpawnTime;
-        delete offsetTime;
+        delete offsetDuration;
         // TODO: are these loops even worth it? the maximum refund is 50% of the gas cost.
         // if not, we can remove them.
         // the lines above this set of comments are at least cheaper to clear,
@@ -116,6 +116,8 @@ contract ClientChainGateway is
             address token = whitelistTokensArray[j];
             delete depositsByToken[token];
         }
+        // these should also be cleared - even if the loops are not used
+        // cheap to clear and potentially large in size.
         delete depositors;
         delete whitelistTokensArray;
         delete registeredOperators;

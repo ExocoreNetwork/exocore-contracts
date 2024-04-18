@@ -40,7 +40,7 @@ contract Bootstrap is
     function initialize(
         address owner,
         uint256 _spawnTime,
-        uint256 _offsetTime,
+        uint256 _offsetDuration,
         uint32 _exocoreChainId,
         address payable _exocoreValidatorSetAddress,
         address[] calldata _whitelistTokens,
@@ -48,12 +48,12 @@ contract Bootstrap is
     ) external initializer {
         require(owner != address(0), "Bootstrap: owner should not be empty");
         require(_spawnTime > block.timestamp, "Bootstrap: spawn time should be in the future");
-        require(_offsetTime > 0, "Bootstrap: offset time should be greater than 0");
+        require(_offsetDuration > 0, "Bootstrap: offset duration should be greater than 0");
         require(
-            _spawnTime > _offsetTime,
-            "Bootstrap: spawn time should be greater than offset time"
+            _spawnTime > _offsetDuration,
+            "Bootstrap: spawn time should be greater than offset duration"
         );
-        uint256 lockTime = _spawnTime - _offsetTime;
+        uint256 lockTime = _spawnTime - _offsetDuration;
         require(
             lockTime > block.timestamp,
             "Bootstrap: lock time should be in the future"
@@ -65,7 +65,7 @@ contract Bootstrap is
             "Bootstrap: custom proxy admin should not be empty");
 
         exocoreSpawnTime = _spawnTime;
-        offsetTime = _offsetTime;
+        offsetDuration = _offsetDuration;
         exocoreChainId = _exocoreChainId;
         exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
         for (uint256 i = 0; i < _whitelistTokens.length; i++) {
@@ -101,7 +101,7 @@ contract Bootstrap is
      */
     modifier beforeLocked {
         require(
-            block.timestamp < exocoreSpawnTime - offsetTime,
+            block.timestamp < exocoreSpawnTime - offsetDuration,
             "Bootstrap: operation not allowed after lock time"
         );
         _;
@@ -130,10 +130,10 @@ contract Bootstrap is
             "Bootstrap: spawn time should be in the future"
         );
         require(
-            _spawnTime > offsetTime,
-            "Bootstrap: spawn time should be greater than offset time"
+            _spawnTime > offsetDuration,
+            "Bootstrap: spawn time should be greater than offset duration"
         );
-        uint256 lockTime = _spawnTime - offsetTime;
+        uint256 lockTime = _spawnTime - offsetDuration;
         require(
             lockTime > block.timestamp,
             "Bootstrap: lock time should be in the future"
@@ -144,25 +144,25 @@ contract Bootstrap is
     }
 
     /**
-     * @dev Allows the contract owner to modify the offset time that determines
+     * @dev Allows the contract owner to modify the offset duration that determines
      * the lock period before the Exocore spawn time. This function can only be
      * called by the contract owner and must be called before the currently set
      * lock time has started.
      *
-     * @param _offsetTime The new offset time in seconds.
+     * @param _offsetDuration The new offset duration in seconds.
      */
-    function setOffsetTime(uint256 _offsetTime) external onlyOwner beforeLocked {
+    function setOffsetDuration(uint256 _offsetDuration) external onlyOwner beforeLocked {
         require(
-            exocoreSpawnTime > _offsetTime,
-            "Bootstrap: spawn time should be greater than offset time"
+            exocoreSpawnTime > _offsetDuration,
+            "Bootstrap: spawn time should be greater than offset duration"
         );
-        uint256 lockTime = exocoreSpawnTime - _offsetTime;
+        uint256 lockTime = exocoreSpawnTime - _offsetDuration;
         require(
             lockTime > block.timestamp,
             "Bootstrap: lock time should be in the future"
         );
-        offsetTime = _offsetTime;
-        emit OffsetTimeUpdated(_offsetTime);
+        offsetDuration = _offsetDuration;
+        emit OffsetDurationUpdated(_offsetDuration);
     }
 
     // implementation of ITokenWhitelister
@@ -171,7 +171,7 @@ contract Bootstrap is
     ) external beforeLocked onlyOwner whenNotPaused {
         // modifiers: onlyOwner and whenNotPaused copied from client chain gateway.
         // i added beforeLocked to ensure that new tokens may not be added after
-        // the offset time before the spawn time begins.
+        // the offset duration before the spawn time begins.
         // anyway it would be pointless to add such tokens since other operations
         // cannot be performed.
         require(

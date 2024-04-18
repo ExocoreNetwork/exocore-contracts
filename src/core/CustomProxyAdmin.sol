@@ -21,7 +21,9 @@ contract CustomProxyAdmin is Initializable, ProxyAdmin {
         address implementation,
         bytes memory data
     ) public virtual {
-        require(msg.sender == bootstrapper, "CustomProxyAdmin: sender must be bootstrapper");
+        require(
+            msg.sender == bootstrapper, "CustomProxyAdmin: sender must be bootstrapper"
+        );
         require(
             msg.sender == proxy,
             "CustomProxyAdmin: sender must be the proxy itself"

@@ -31,7 +31,7 @@ contract BootstrapStorage is GatewayStorage {
      * state leading up to the critical event. This period can be customized at the time of
      * contract deployment according to operational needs and security considerations.
      */
-    uint256 public offsetTime;
+    uint256 public offsetDuration;
 
     /**
      * @dev Stores a mapping of whitelisted token addresses to their status.
@@ -184,20 +184,20 @@ contract BootstrapStorage is GatewayStorage {
     event SpawnTimeUpdated(uint256 newSpawnTime);
 
     /**
-     * @notice Emitted when the offset time before the Exocore spawn time, during which
+     * @notice Emitted when the offset duration before the Exocore spawn time, during which
      * operations are restricted, is updated.
      *
-     * @dev This event is triggered whenever the contract owner updates the offset time that
+     * @dev This event is triggered whenever the contract owner updates the offset duration that
      * defines the operational lock period leading up to the Exocore chain's launch. The
-     * offset time determines how long before the spawn time the contract will restrict certain
-     * operations to ensure stability and integrity. This event logs the new offset time for
-     * transparency and traceability.
+     * offset duration determines how long before the spawn time the contract will restrict
+     * certain operations to ensure stability and integrity. This event logs the new offset
+     * duration for transparency and traceability.
      *
-     * @param newOffsetTime The new offset time (in seconds) that has been set. This value
+     * @param newOffsetDuration The new offset duration (in seconds) that has been set. This value
      * represents the duration before the Exocore spawn time during which certain contract
      * operations are locked.
      */
-    event OffsetTimeUpdated(uint256 newOffsetTime);
+    event OffsetDurationUpdated(uint256 newOffsetDuration);
 
     /**
      * @dev Emitted when a new token is added to the whitelist.

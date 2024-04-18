@@ -32,7 +32,7 @@ contract BootstrapTest is Test {
     ];
     address deployer = address(0xdeadbeef);
     uint256 spawnTime;
-    uint256 offsetTime;
+    uint256 offsetDuration;
     uint16 exocoreChainId = 1;
     uint16 clientChainId = 2;
     address[] whitelistTokens;
@@ -63,13 +63,13 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
         // then the params + proxy
         spawnTime = block.timestamp + 1 hours;
-        offsetTime = 30 minutes;
+        offsetDuration = 30 minutes;
         bootstrap = Bootstrap(
             payable(address(
                 new TransparentUpgradeableProxy(
                     address(bootstrapLogic), address(proxyAdmin),
                     abi.encodeCall(bootstrap.initialize,
-                        (deployer, spawnTime, offsetTime, exocoreChainId,
+                        (deployer, spawnTime, offsetDuration, exocoreChainId,
                         payable(exocoreValidatorSet), whitelistTokens,
                         address(proxyAdmin))
                     )
@@ -982,7 +982,7 @@ contract BootstrapTest is Test {
     }
 
     function test13_OperationAllowed() public {
-        vm.warp(spawnTime - offsetTime);
+        vm.warp(spawnTime - offsetDuration);
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: operation not allowed after lock time");
         bootstrap.deposit(address(myToken), amounts[0]);
@@ -1050,7 +1050,7 @@ contract BootstrapTest is Test {
                 new TransparentUpgradeableProxy(
                     address(bootstrapLogic), address(proxyAdmin),
                     abi.encodeCall(bootstrap.initialize,
-                        (address(0x0), spawnTime, offsetTime, exocoreChainId,
+                        (address(0x0), spawnTime, offsetDuration, exocoreChainId,
                         payable(exocoreValidatorSet), whitelistTokens,
                         address(proxyAdmin))
                     )
@@ -1069,7 +1069,7 @@ contract BootstrapTest is Test {
                 new TransparentUpgradeableProxy(
                     address(bootstrapLogic), address(proxyAdmin),
                     abi.encodeCall(bootstrap.initialize,
-                        (deployer, block.timestamp - 10, offsetTime, exocoreChainId,
+                        (deployer, block.timestamp - 10, offsetDuration, exocoreChainId,
                         payable(exocoreValidatorSet), whitelistTokens,
                         address(proxyAdmin))
                     )
@@ -1078,10 +1078,10 @@ contract BootstrapTest is Test {
         );
     }
 
-    function test15_Initialize_OffsetTimeZero() public {
+    function test15_Initialize_OffsetDurationZero() public {
         vm.startPrank(deployer);
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
-        vm.expectRevert("Bootstrap: offset time should be greater than 0");
+        vm.expectRevert("Bootstrap: offset duration should be greater than 0");
         Bootstrap(
             payable(address(
                 new TransparentUpgradeableProxy(
@@ -1096,10 +1096,10 @@ contract BootstrapTest is Test {
         );
     }
 
-    function test15_Initialize_SpawnTimeLTOffsetTime() public {
+    function test15_Initialize_SpawnTimeLTOffsetDuration() public {
         vm.startPrank(deployer);
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
-        vm.expectRevert("Bootstrap: spawn time should be greater than offset time");
+        vm.expectRevert("Bootstrap: spawn time should be greater than offset duration");
         vm.warp(20);
         Bootstrap(
             payable(address(
@@ -1143,7 +1143,7 @@ contract BootstrapTest is Test {
                 new TransparentUpgradeableProxy(
                     address(bootstrapLogic), address(proxyAdmin),
                     abi.encodeCall(bootstrap.initialize,
-                        (deployer, spawnTime, offsetTime, 0,
+                        (deployer, spawnTime, offsetDuration, 0,
                         payable(exocoreValidatorSet), whitelistTokens,
                         address(proxyAdmin))
                     )
@@ -1161,7 +1161,7 @@ contract BootstrapTest is Test {
                 new TransparentUpgradeableProxy(
                     address(bootstrapLogic), address(proxyAdmin),
                     abi.encodeCall(bootstrap.initialize,
-                        (deployer, spawnTime, offsetTime, exocoreChainId,
+                        (deployer, spawnTime, offsetDuration, exocoreChainId,
                         payable(address(0)), whitelistTokens,
                         address(proxyAdmin))
                     )
@@ -1179,7 +1179,7 @@ contract BootstrapTest is Test {
                 new TransparentUpgradeableProxy(
                     address(bootstrapLogic), address(proxyAdmin),
                     abi.encodeCall(bootstrap.initialize,
-                        (deployer, spawnTime, offsetTime, exocoreChainId,
+                        (deployer, spawnTime, offsetDuration, exocoreChainId,
                         payable(exocoreValidatorSet), whitelistTokens,
                         address(0x0))
                     )
@@ -1201,39 +1201,39 @@ contract BootstrapTest is Test {
         bootstrap.setSpawnTime(9);
     }
 
-    function test16_SetSpawnTime_LessThanOffsetTime() public {
+    function test16_SetSpawnTime_LessThanOffsetDuration() public {
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: spawn time should be greater than offset time");
-        bootstrap.setSpawnTime(offsetTime - 1);
+        vm.expectRevert("Bootstrap: spawn time should be greater than offset duration");
+        bootstrap.setSpawnTime(offsetDuration - 1);
     }
 
     function test16_SetSpawnTime_LockTimeNotInFuture() public {
         vm.startPrank(deployer);
-        vm.warp(offsetTime - 1);
-        console.log(block.timestamp, offsetTime, spawnTime);
+        vm.warp(offsetDuration - 1);
+        console.log(block.timestamp, offsetDuration, spawnTime);
         vm.expectRevert("Bootstrap: lock time should be in the future");
         // the initial block.timestamp is 1, so subtract 2 here - 1 for
         // the test and 1 for the warp offset above.
         bootstrap.setSpawnTime(spawnTime - 2);
     }
 
-    function test17_SetOffsetTime() public {
+    function test17_SetOffsetDuration() public {
         vm.startPrank(deployer);
-        bootstrap.setOffsetTime(offsetTime + 1);
-        assertTrue(bootstrap.offsetTime() == offsetTime + 1);
+        bootstrap.setOffsetDuration(offsetDuration + 1);
+        assertTrue(bootstrap.offsetDuration() == offsetDuration + 1);
     }
 
-    function test17_SetOffsetTime_GTESpawnTime() public {
+    function test17_SetOffsetDuration_GTESpawnTime() public {
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: spawn time should be greater than offset time");
-        bootstrap.setOffsetTime(spawnTime);
+        vm.expectRevert("Bootstrap: spawn time should be greater than offset duration");
+        bootstrap.setOffsetDuration(spawnTime);
     }
 
-    function test17_SetOffsetTime_LockTimeNotInFuture() public {
-        vm.warp(offsetTime - 1);
+    function test17_SetOffsetDuration_LockTimeNotInFuture() public {
+        vm.warp(offsetDuration - 1);
         vm.startPrank(deployer);
         vm.expectRevert("Bootstrap: lock time should be in the future");
-        bootstrap.setOffsetTime(offsetTime + 2);
+        bootstrap.setOffsetDuration(offsetDuration + 2);
     }
 
     function test18_RemoveWhitelistToken() public {
