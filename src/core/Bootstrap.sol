@@ -621,16 +621,31 @@ contract Bootstrap is
         );
     }
 
+    /**
+     * @dev Gets the count of registered operators.
+     * @return The number of registered operators.
+     * @notice This function returns the total number of registered operators in the contract.
+     */
     function getOperatorsCount(
     ) external view returns (uint256) {
         return registeredOperators.length;
     }
 
+    /**
+     * @dev Gets the count of depositors.
+     * @return The number of depositors.
+     * @notice This function returns the total number of depositors in the contract.
+     */
     function getDepositorsCount(
     ) external view returns (uint256) {
         return depositors.length;
     }
 
+    /**
+     * @dev Gets the count of whitelisted tokens.
+     * @return The number of whitelisted tokens.
+     * @notice This function returns the total number of whitelisted tokens in the contract.
+     */
     function getWhitelistedTokensCount(
     ) external view returns (uint256) {
         return whitelistTokensArray.length;
