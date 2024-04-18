@@ -48,7 +48,7 @@ abstract contract BaseRestakingController is
     function delegateTo(string calldata operator, address token, uint256 amount) external payable whenNotPaused {
         require(whitelistTokens[token], "Controller: token is not whitelisted");
         require(amount > 0, "Controller: amount should be greater than zero");
-        require(bytes(operator).length == 44, "Controller: invalid bech32 address");
+        require(bytes(operator).length == 42, "Controller: invalid bech32 address");
 
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
