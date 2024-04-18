@@ -91,4 +91,10 @@ interface IOperatorRegistry {
         string operatorExocoreAddress,
         bytes32 newConsensusPublicKey
     );
+
+    /**
+     * @dev Emitted when an operator's commission rate is updated.
+     * @param newRate The new commission rate for the operator.
+     */
+    event OperatorCommissionUpdated(uint256 newRate);
 }

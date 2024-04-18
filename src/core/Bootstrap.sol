@@ -20,9 +20,9 @@ import {TSSReceiver} from "./TSSReceiver.sol";
 
 // ClientChainGateway differences:
 // replace IClientChainGateway with ITokenWhitelister (excludes only quote function).
-// and add a new interface for operator registration.
-// note that bootstrap storage by itself is not used, but rather we are using
-// ClientChainGatewayStorage indirectly through the layer zero receiver and the TSS receiver.
+// add a new interface for operator registration.
+// replace ClientGatewayLzReceiver with BootstrapLzReceiver, which handles only incoming calls
+// and not responses.
 contract Bootstrap is
     Initializable,
     PausableUpgradeable,
@@ -395,6 +395,7 @@ contract Bootstrap is
         );
         operators[operatorAddress].commission.rate = newRate;
         commissionEdited[operatorAddress] = true;
+        emit OperatorCommissionUpdated(newRate);
     }
 
     // implementation of IController
@@ -424,6 +425,8 @@ contract Bootstrap is
 
         // afterReceiveDepositResponse stores the TotalDepositAmount in the principle.
         vault.updatePrincipleBalance(msg.sender, totalDepositAmounts[msg.sender][token]);
+
+        emit DepositResult(true, token, msg.sender, amount);
     }
 
     // implementation of IController
@@ -458,6 +461,8 @@ contract Bootstrap is
         // afterReceiveWithdrawPrincipleResponse
         vault.updatePrincipleBalance(msg.sender, totalDepositAmounts[msg.sender][token]);
         vault.updateWithdrawableBalance(msg.sender, amount, 0);
+
+        emit WithdrawPrincipleResult(true, token, msg.sender, amount);
     }
 
     // implementation of IController
@@ -518,6 +523,8 @@ contract Bootstrap is
         delegations[msg.sender][operator][token] += amount;
         delegationsByOperator[operator][token] += amount;
         withdrawableAmounts[msg.sender][token] -= amount;
+
+        emit DelegateResult(true, msg.sender, operator, token, amount);
     }
 
     // implementation of IController
@@ -548,6 +555,8 @@ contract Bootstrap is
         delegations[msg.sender][operator][token] -= amount;
         delegationsByOperator[operator][token] -= amount;
         withdrawableAmounts[msg.sender][token] += amount;
+
+        emit UndelegateResult(true, msg.sender, operator, token, amount);
     }
 
     /**
@@ -587,6 +596,7 @@ contract Bootstrap is
             ITransparentUpgradeableProxy(address(this)),
             clientChainGatewayLogic, clientChainInitializationData
         );
+        emit Bootstrapped();
     }
 
     /**
@@ -605,6 +615,10 @@ contract Bootstrap is
     ) public onlyOwner {
         clientChainGatewayLogic = _clientChainGatewayLogic;
         clientChainInitializationData = _clientChainInitializationData;
+        emit ClientChainGatewayLogicUpdated(
+            _clientChainGatewayLogic,
+            _clientChainInitializationData
+        );
     }
 
     function getOperatorsCount(
