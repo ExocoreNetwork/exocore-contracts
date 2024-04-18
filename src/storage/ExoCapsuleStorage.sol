@@ -1,7 +1,7 @@
 pragma solidity ^0.8.19;
 
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
-import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 
 contract ExoCapsuleStorage {
     enum VALIDATOR_STATUS {
@@ -12,7 +12,7 @@ contract ExoCapsuleStorage {
 
     struct Validator {
         // index of the validator in the beacon chain
-        uint64 validatorIndex;
+        uint256 validatorIndex;
         // amount of beacon chain ETH restaked on EigenLayer in gwei
         uint64 restakedBalanceGwei;
         //timestamp of the validator's most recent balance update
@@ -23,13 +23,14 @@ contract ExoCapsuleStorage {
 
     address public constant BEACON_ROOTS_ADDRESS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
     uint64 public constant BEACON_CHAIN_GENESIS_TIME = 1606824023;
+    uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
 
-    address public capsuelOwner;
+    address public capsuleOwner;
     IETHPOSDeposit public ethPOS;
-    IClientChainGateway public gateway;
+    INativeRestakingController public gateway;
 
     mapping(bytes32 pubkey => Validator validator) _capsuleValidators;
-    mapping(uint64 index => bytes32 pubkey) _capsuleValidatorsByIndex;
+    mapping(uint256 index => bytes32 pubkey) _capsuleValidatorsByIndex;
 
     uint256[40] private __gap;
 }

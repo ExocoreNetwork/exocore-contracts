@@ -11,7 +11,7 @@ library WithdrawalContainer {
     uint256 internal constant VALID_LENGTH = 4;
     uint256 internal constant MERKLE_TREE_HEIGHT = 2;
     
-    function verifyBasic(bytes32[] calldata withdrawalContainer) internal pure returns (bool) {
+    function verifyWithdrawalContainerBasic(bytes32[] calldata withdrawalContainer) internal pure returns (bool) {
         return withdrawalContainer.length == VALID_LENGTH;
     }
 
@@ -31,7 +31,7 @@ library WithdrawalContainer {
         return uint64(bytes8(withdrawalContainer[3]));
     }
 
-    function merklelize(bytes32[] calldata withdrawalContainer) internal pure returns (bytes32) {
+    function merklelizeWithdrawalContainer(bytes32[] calldata withdrawalContainer) internal pure returns (bytes32) {
         bytes32[] memory leaves = withdrawalContainer;
         for (uint i; i < MERKLE_TREE_HEIGHT; i++) {
             bytes32[] memory roots = new bytes32[](leaves.length / 2);

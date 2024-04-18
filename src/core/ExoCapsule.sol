@@ -3,24 +3,21 @@ pragma solidity ^0.8.19;
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/security/PausableUpgradeable.sol";
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
-import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+
 contract ExoCapsule is 
     Initializable,
-    PausableUpgradeable,
     ExoCapsuleStorage,
     IExoCapsule
 {
-    using BeaconChainProofs for bytes;
+    using BeaconChainProofs for bytes32;
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
-
-    IETHPOSDeposit public immutable ethPOS;
 
     error InvalidValidatorContainer(bytes32 pubkey);
     error InvalidWithdrawalContainer(uint64 validatorIndex);
@@ -39,7 +36,7 @@ contract ExoCapsule is
 
     constructor(address _ethPOS, address _gateway) {
         ethPOS = IETHPOSDeposit(_ethPOS);
-        gateway = IClientChainGateway(_gateway);
+        gateway = INativeRestakingController(_gateway);
 
         _disableInitializers();
     }
@@ -47,21 +44,9 @@ contract ExoCapsule is
     function initialize(address _capsuleOwner) external initializer {
         require(_capsuleOwner != address(0), "invalid empty exocore validator set address");
         capsuleOwner = _capsuleOwner;
-
-        __Pausable_init();
     }
 
-    function pause() external {
-        require(msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
-        _pause();
-    }
-
-    function unpause() external {
-        require(msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this");
-        _unpause();
-    }
-
-    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable {
+    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable onlyGateway {
         require(msg.value == 32 ether, "stake value must be exactly 32 ether");
         ethPOS.deposit{value: 32 ether}(pubkey, _capsuleWithdrawalCredentials(), signature, depositDataRoot);
         emit StakedWithThisCapsule();
@@ -83,7 +68,7 @@ contract ExoCapsule is
             revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
         }
 
-        if (!validatorContainer.verifyBasic()) {
+        if (!validatorContainer.verifyValidatorContainerBasic()) {
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
@@ -91,7 +76,7 @@ contract ExoCapsule is
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
-        if (withdrawalCredentials != _capsuleWithdrawalCredentials()) {
+        if (withdrawalCredentials != bytes32(_capsuleWithdrawalCredentials())) {
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
@@ -102,7 +87,7 @@ contract ExoCapsule is
         validator.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
         validator.restakedBalanceGwei = validatorContainer.getEffectiveBalance();
 
-        _capsuleValidatorsByIndex[proof.ValidatorContainerRootIndex] = validatorPubkey;
+        _capsuleValidatorsByIndex[proof.validatorContainerRootIndex] = validatorPubkey;
     }
 
     function verifyPartialWithdrawalProof(
@@ -112,10 +97,8 @@ contract ExoCapsule is
         WithdrawalContainerProof calldata withdrawalProof
     ) external onlyGateway {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
-        bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
 
-        Validator storage validator = _capsuleValidators[validatorPubkey];
         bool partialWithdrawal = _timestampToEpoch(validatorProof.beaconBlockTimestamp) < withdrawableEpoch;
 
         if (!partialWithdrawal) {
@@ -126,7 +109,7 @@ contract ExoCapsule is
             revert UnmatchedValidatorAndWithdrawal(validatorPubkey);
         }
 
-        if (!validatorContainer.verifyBasic()) {
+        if (!validatorContainer.verifyValidatorContainerBasic()) {
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
@@ -141,7 +124,6 @@ contract ExoCapsule is
         WithdrawalContainerProof calldata withdrawalProof
     ) external onlyGateway {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
-        bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
 
         Validator storage validator = _capsuleValidators[validatorPubkey];
@@ -155,7 +137,7 @@ contract ExoCapsule is
             revert UnmatchedValidatorAndWithdrawal(validatorPubkey);
         }
 
-        if (!validatorContainer.verifyBasic()) {
+        if (!validatorContainer.verifyValidatorContainerBasic()) {
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
@@ -165,7 +147,7 @@ contract ExoCapsule is
         validator.status = VALIDATOR_STATUS.WITHDRAWN;
     }
 
-    function withdraw(uint256 amount, address recipient) external {
+    function withdraw(uint256 amount, address recipient) external onlyGateway {
 
     }
 
@@ -179,8 +161,8 @@ contract ExoCapsule is
         return abi.encodePacked(bytes1(uint8(1)), bytes11(0), address(this));
     }
 
-    function getBeaconBlockRoot(uint64 timestamp) public view returns (bytes32) {
-        (bool success, bytes memory rootBytes) = BEACON_ROOTS_ADDRESS.call{value: bytes32(bytes8(timestamp))}
+    function getBeaconBlockRoot(uint64 timestamp) public returns (bytes32) {
+        (bool success, bytes memory rootBytes) = BEACON_ROOTS_ADDRESS.call(abi.encodePacked(timestamp));
         if (!success) {
             revert GetBeaconBlockRootFailure(timestamp);
         }
@@ -191,7 +173,7 @@ contract ExoCapsule is
 
     function _verifyValidatorContainer(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof) internal {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
-        bytes32 validatorContainerRoot = validatorContainer.merklelize();
+        bytes32 validatorContainerRoot = validatorContainer.merklelizeValidatorContainer();
         bool valid = validatorContainerRoot.isValidValidatorContainerRoot(
             proof.validatorContainerRootProof,
             proof.validatorContainerRootIndex,
@@ -206,7 +188,7 @@ contract ExoCapsule is
 
     function _verifyWithdrawalContainer(bytes32[] calldata withdrawalContainer, WithdrawalContainerProof calldata proof) internal {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
-        bytes32 withdrawalContainerRoot = withdrawalContainer.merklelize();
+        bytes32 withdrawalContainerRoot = withdrawalContainer.merklelizeWithdrawalContainer();
         bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(
             proof.withdrawalContainerRootProof,
             proof.withdrawalContainerRootIndex,
@@ -238,7 +220,7 @@ contract ExoCapsule is
     }
 
     function _hasFullyWithdrawn(bytes32[] calldata validatorContainer) internal view returns (bool) {
-        if (validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp)) {
+        if (validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(uint64(block.timestamp))) {
             if (validatorContainer.getEffectiveBalance() == 0) {
                 return true;
             }
@@ -252,7 +234,7 @@ contract ExoCapsule is
      * seconds since genesis, and dividing by seconds per epoch.
      * reference: https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md
      */
-    function _timestampToEpoch(uint64 timestamp) internal view returns (uint64) {
+    function _timestampToEpoch(uint64 timestamp) internal pure returns (uint64) {
         require(timestamp >= BEACON_CHAIN_GENESIS_TIME, "timestamp should be greater than beacon chain genesis timestamp");
         return (timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH;
     }

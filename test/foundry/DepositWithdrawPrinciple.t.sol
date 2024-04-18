@@ -4,8 +4,9 @@ import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
 import "../../src/core/ExocoreGateway.sol";
 import "../../src/storage/GatewayStorage.sol";
-import "../../src/interfaces/IController.sol";
 import "../../src/interfaces/ITSSReceiver.sol";
+import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
+
 import "forge-std/console.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
@@ -287,17 +288,17 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
     ) internal {
         vm.chainId(clientChainId);
         vm.startPrank(relayer.addr);
-        IController.TokenBalanceUpdateInfo[] memory tokenBalances = new IController.TokenBalanceUpdateInfo[](1);
-        tokenBalances[0] = IController.TokenBalanceUpdateInfo({
+        ILSTRestakingController.TokenBalanceUpdateInfo[] memory tokenBalances = new ILSTRestakingController.TokenBalanceUpdateInfo[](1);
+        tokenBalances[0] = ILSTRestakingController.TokenBalanceUpdateInfo({
             token: address(restakeToken),
             lastlyUpdatedPrincipleBalance: depositAmount - withdrawAmount,
             lastlyUpdatedRewardBalance: 0,
             unlockPrincipleAmount: withdrawAmount,
             unlockRewardAmount: 0
         });
-        IController.UserBalanceUpdateInfo[] memory userBalances = new IController.UserBalanceUpdateInfo[](1);
+        ILSTRestakingController.UserBalanceUpdateInfo[] memory userBalances = new ILSTRestakingController.UserBalanceUpdateInfo[](1);
         userBalances[0] =
-            IController.UserBalanceUpdateInfo({user: depositor.addr, updatedAt: 1, tokenBalances: tokenBalances});
+            ILSTRestakingController.UserBalanceUpdateInfo({user: depositor.addr, updatedAt: 1, tokenBalances: tokenBalances});
         (ITSSReceiver.InterchainMsg memory _msg, bytes memory signature) = prepareEVSMsgAndSignature(userBalances);
 
         vm.expectEmit(false, false, false, true, address(clientGateway));
@@ -310,7 +311,7 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         assertEq(vault.totalUnlockPrincipleAmount(depositor.addr), withdrawAmount);
     }
 
-    function prepareEVSMsgAndSignature(IController.UserBalanceUpdateInfo[] memory userBalances)
+    function prepareEVSMsgAndSignature(ILSTRestakingController.UserBalanceUpdateInfo[] memory userBalances)
         internal
         view
         returns (ITSSReceiver.InterchainMsg memory _msg, bytes memory signature)

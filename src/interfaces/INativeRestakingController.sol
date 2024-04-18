@@ -1,8 +1,9 @@
 pragma solidity ^0.8.19;
 
 import {IExoCapsule} from "./IExoCapsule.sol";
+import {IBaseRestakingController} from "./IBaseRestakingController.sol";
 
-interface INativeRestakingController {
+interface INativeRestakingController is IBaseRestakingController {
     /// *** function signatures for staker operations ***
 
     /**
@@ -16,7 +17,7 @@ interface INativeRestakingController {
      * to the ExoCapsule owned by staker. The effective balance of `validatorContainer` would be credited as deposited value by Exocore network.
      * @ param 
      */
-    function depositBeaconChainValidator(bytes32[] calldata validatorContainer, IExoCapsule.WithdrawalContainerProof calldata proof) external;
+    function depositBeaconChainValidator(bytes32[] calldata validatorContainer, IExoCapsule.ValidatorContainerProof calldata proof) external;
 
     /**
      * @notice When a beacon chain partial withdrawal to an ExoCapsule contract happens(the withdrawal time is less than validator's withdrawable_epoch), 
@@ -57,9 +58,4 @@ interface INativeRestakingController {
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
     ) external;
-
-    /**
-     * @notice Owner of ExoCapsule call this function to claim unlocked ETH from owned ExoCapsule contract.
-     */
-    function claim(uint256 amount, address recipient) external;
 }

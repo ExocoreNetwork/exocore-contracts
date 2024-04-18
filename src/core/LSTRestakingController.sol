@@ -1,28 +1,17 @@
 pragma solidity ^0.8.19;
 
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {IVault} from "../interfaces/IVault.sol";
-import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {OAppSenderUpgradeable, MessagingFee, MessagingReceipt} from "../lzApp/OAppSenderUpgradeable.sol";
-import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
+
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract LSTRestakingController is 
     PausableUpgradeable, 
-    OAppSenderUpgradeable,
     ILSTRestakingController, 
     BaseRestakingController
 {
-    using SafeERC20 for IERC20;
-    using OptionsBuilder for bytes;
-
     function deposit(address token, uint256 amount) external payable whenNotPaused {
         require(whitelistTokens[token], "Controller: token is not whitelisted");
         require(amount > 0, "Controller: amount should be greater than zero");
@@ -70,18 +59,6 @@ abstract contract LSTRestakingController is
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), rewardAmount);
         _sendMsgToExocore(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, actionArgs);
-    }
-
-    function claim(address token, uint256 amount, address recipient) external whenNotPaused {
-        require(whitelistTokens[token], "Controller: token is not whitelisted");
-        require(amount > 0, "Controller: amount should be greater than zero");
-
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-
-        vault.withdraw(msg.sender, recipient, amount);
     }
 
     function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) public whenNotPaused {

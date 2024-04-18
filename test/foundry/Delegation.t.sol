@@ -4,7 +4,6 @@ import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
 import "../../src/core/ExocoreGateway.sol";
 import "../../src/storage/GatewayStorage.sol";
-import "../../src/interfaces/IController.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
