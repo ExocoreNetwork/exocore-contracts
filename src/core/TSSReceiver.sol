@@ -2,18 +2,11 @@ pragma solidity ^0.8.19;
 
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
-import {IController} from "../interfaces/IController.sol";
-import {IVault} from "../interfaces/IVault.sol";
-import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {OAppUpgradeable} from "../lzApp/OAppUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage, ITSSReceiver {
-    using SafeERC20 for IERC20;
     using ECDSA for bytes32;
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {

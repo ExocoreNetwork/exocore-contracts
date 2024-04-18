@@ -14,7 +14,7 @@ import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeab
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {Origin} from "../../src/lzApp/OAppReceiverUpgradeable.sol";
 import {GatewayStorage} from "../../src/storage/GatewayStorage.sol";
-import {ClientChainGatewayStorage} from "../../src/storage/ClientChainGatewayStorage.sol";
+import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
 import {IController} from "../../src/interfaces/IController.sol";
 
 contract BootstrapTest is Test {
@@ -961,7 +961,7 @@ contract BootstrapTest is Test {
         test12_MarkBootstrapped();
         vm.startPrank(address(0x20));
         vm.expectEmit(address(bootstrap));
-        emit ClientChainGatewayStorage.UnsupportedRequestEvent(
+        emit BootstrapStorage.UnsupportedRequestEvent(
             GatewayStorage.Action.MARK_BOOTSTRAP
         );
         clientChainLzEndpoint.lzReceive(
@@ -976,7 +976,7 @@ contract BootstrapTest is Test {
 
     function test12_MarkBootstrapped_DirectCall() public {
         vm.warp(spawnTime + 2);
-        vm.expectRevert("ClientChainLzReceiver: could only be called from this contract itself with low level call");
+        vm.expectRevert("ClientGatewayLzReceiver: could only be called from this contract itself with low level call");
         bootstrap.markBootstrapped();
         vm.stopPrank();
     }

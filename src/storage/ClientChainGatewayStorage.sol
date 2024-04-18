@@ -9,7 +9,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     mapping(Action => bytes4) public registeredResponseHooks;
 
     uint64 outboundNonce;
-    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) inboundNonce;
 
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
@@ -28,11 +27,8 @@ contract ClientChainGatewayStorage is BootstrapStorage {
         bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
     );
 
-    event UnsupportedRequestEvent(Action act);
-
     error UnauthorizedSigner();
     error UnsupportedResponse(Action act);
-    error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
     error ActionFailed(Action act, uint64 nonce);
     error UnexpectedResponse(uint64 nonce);
 

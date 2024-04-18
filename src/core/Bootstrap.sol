@@ -15,7 +15,7 @@ import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
-import {ClientChainLzReceiver} from "./ClientChainLzReceiver.sol";
+import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 import {TSSReceiver} from "./TSSReceiver.sol";
 
 // ClientChainGateway differences:
@@ -30,7 +30,7 @@ contract Bootstrap is
     ITokenWhitelister,
     IController,
     IOperatorRegistry,
-    ClientChainLzReceiver,
+    BootstrapLzReceiver,
     TSSReceiver
 {
     constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {

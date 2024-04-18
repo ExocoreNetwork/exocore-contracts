@@ -199,6 +199,10 @@ contract BootstrapStorage is GatewayStorage {
      */
     event OffsetDurationUpdated(uint256 newOffsetDuration);
 
+    event UnsupportedRequestEvent(Action act);
+    error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
+    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) inboundNonce;
+
     /**
      * @dev Indicates an operation failed because the specified vault does not exist.
      */

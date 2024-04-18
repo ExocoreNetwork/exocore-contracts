@@ -14,7 +14,7 @@ import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {Controller} from "./Controller.sol";
-import {ClientChainLzReceiver} from "./ClientChainLzReceiver.sol";
+import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
 import {TSSReceiver} from "./TSSReceiver.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
@@ -26,7 +26,7 @@ contract ClientChainGateway is
     OwnableUpgradeable,
     IClientChainGateway,
     Controller,
-    ClientChainLzReceiver,
+    ClientGatewayLzReceiver,
     TSSReceiver
 {
     using SafeERC20 for IERC20;
