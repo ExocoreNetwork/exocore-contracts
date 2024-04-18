@@ -41,17 +41,13 @@ abstract contract LSTRestakingController is
     }
 
     function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) public whenNotPaused {
-        require(msg.sender == address(this), "Controller: caller must be client chain gateway itself");
+        require(msg.sender == address(this), "LSTRestakingController: caller must be client chain gateway itself");
         for (uint256 i = 0; i < info.length; i++) {
             UserBalanceUpdateInfo memory userBalanceUpdate = info[i];
             for (uint256 j = 0; j < userBalanceUpdate.tokenBalances.length; j++) {
                 TokenBalanceUpdateInfo memory tokenBalanceUpdate = userBalanceUpdate.tokenBalances[j];
                 require(whitelistTokens[tokenBalanceUpdate.token], "Controller: token is not whitelisted");
-
-                IVault vault = tokenVaults[tokenBalanceUpdate.token];
-                if (address(vault) == address(0)) {
-                    revert VaultNotExist();
-                }
+                IVault vault = _getVault(tokenVaults[tokenBalanceUpdate.token]);
 
                 if (tokenBalanceUpdate.lastlyUpdatedPrincipleBalance > 0) {
                     vault.updatePrincipleBalance(
