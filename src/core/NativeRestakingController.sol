@@ -26,7 +26,7 @@ abstract contract NativeRestakingController is
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
 
-    function createExoCapsule() external {
+    function createExoCapsule() external whenNotPaused {
         require(address(ownerToCapsule[msg.sender]) == address(0), "NativeRestakingController: message sender has already created the capsule");
 
         IExoCapsule capsule = new ExoCapsule(ETH_STAKING_DEPOSIT_CONTRACT_ADDRESS, address(this));
@@ -37,7 +37,10 @@ abstract contract NativeRestakingController is
         emit CapsuleCreated(msg.sender, address(capsule));
     }
 
-    function depositBeaconChainValidator(bytes32[] calldata validatorContainer, IExoCapsule.ValidatorContainerProof calldata proof) external {
+    function depositBeaconChainValidator(
+        bytes32[] calldata validatorContainer, 
+        IExoCapsule.ValidatorContainerProof calldata proof
+    ) external whenNotPaused {
         IExoCapsule capsule = ownerToCapsule[msg.sender];
         if (address(capsule) == address(0)) {
             revert CapsuleNotExistForOwner(msg.sender);
