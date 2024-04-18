@@ -67,7 +67,7 @@ contract ExoCapsule is
         emit StakedWithThisCapsule();
     }
 
-    function deposit(
+    function verifyDepositProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
     ) external onlyGateway {
@@ -105,7 +105,7 @@ contract ExoCapsule is
         _capsuleValidatorsByIndex[proof.ValidatorContainerRootIndex] = validatorPubkey;
     }
 
-    function partiallyWithdraw(
+    function verifyPartialWithdrawalProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
@@ -134,7 +134,7 @@ contract ExoCapsule is
         _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
     }
 
-    function fullyWithdraw(
+    function verifyFullWithdrawalProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
@@ -163,6 +163,10 @@ contract ExoCapsule is
         _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
 
         validator.status = VALIDATOR_STATUS.WITHDRAWN;
+    }
+
+    function withdraw(uint256 amount, address recipient) external {
+
     }
 
     function _capsuleWithdrawalCredentials() internal view returns (bytes memory) {
