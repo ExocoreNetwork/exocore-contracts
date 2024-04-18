@@ -1,20 +1,12 @@
 pragma solidity ^0.8.19;
 
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
 import {IVault} from "../interfaces/IVault.sol";
-import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
-import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
 
 abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
-    using SafeERC20 for IERC20;
-
     modifier onlyCalledFromThis() {
         require(msg.sender == address(this), "ClientChainLzReceiver: could only be called from this contract itself with low level call");
         _;

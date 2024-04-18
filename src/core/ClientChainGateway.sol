@@ -1,23 +1,20 @@
 pragma solidity ^0.8.19;
 
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
 import {IVault} from "../interfaces/IVault.sol";
-import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppSenderUpgradeable, MessagingFee} from "../lzApp/OAppSenderUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
-import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {LSTRestakingController} from "./LSTRestakingController.sol";
 import {NativeRestakingController} from "./NativeRestakingController.sol";
 import {ClientChainLzReceiver} from "./ClientChainLzReceiver.sol";
-import {TSSReceiver} from "./TSSReceiver.sol";
-import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+import {TSSReceiver} from "./TSSReceiver.sol";
+
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 
 contract ClientChainGateway is
@@ -27,11 +24,9 @@ contract ClientChainGateway is
     IClientChainGateway,
     LSTRestakingController,
     NativeRestakingController,
-    ClientChainLzReceiver,
-    TSSReceiver
+    TSSReceiver,
+    ClientChainLzReceiver
 {
-    using SafeERC20 for IERC20;
-    using ECDSA for bytes32;
     using OptionsBuilder for bytes;
 
     constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {

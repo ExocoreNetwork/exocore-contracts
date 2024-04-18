@@ -16,7 +16,7 @@ library ValidatorContainer {
     uint256 internal constant VALID_LENGTH = 8;
     uint256 internal constant MERKLE_TREE_HEIGHT = 3;
     
-    function verifyBasic(bytes32[] calldata validatorContainer) internal pure returns (bool) {
+    function verifyValidatorContainerBasic(bytes32[] calldata validatorContainer) internal pure returns (bool) {
         return validatorContainer.length == VALID_LENGTH;
     }
 
@@ -48,7 +48,7 @@ library ValidatorContainer {
         return uint64(bytes8(validatorContainer[7]));
     }
 
-    function merklelize(bytes32[] calldata validatorContainer) internal pure returns (bytes32) {
+    function merklelizeValidatorContainer(bytes32[] calldata validatorContainer) internal pure returns (bytes32) {
         bytes32[] memory leaves = validatorContainer;
         for (uint i; i < MERKLE_TREE_HEIGHT; i++) {
             bytes32[] memory roots = new bytes32[](leaves.length / 2);
