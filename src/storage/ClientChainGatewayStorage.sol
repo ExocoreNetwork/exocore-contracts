@@ -16,7 +16,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     event MessageProcessed(uint32 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
     event MessageFailed(uint32 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason);
-    event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
     event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
     event WithdrawPrincipleResult(
         bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
@@ -32,12 +31,10 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     event UnsupportedRequestEvent(Action act);
 
     error UnauthorizedSigner();
-    error UnsupportedRequest(Action act);
     error UnsupportedResponse(Action act);
     error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
     error ActionFailed(Action act, uint64 nonce);
     error UnexpectedResponse(uint64 nonce);
-    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
 
     uint256[40] private __gap;
 }

@@ -200,63 +200,9 @@ contract BootstrapStorage is GatewayStorage {
     event OffsetDurationUpdated(uint256 newOffsetDuration);
 
     /**
-     * @dev Emitted when a new token is added to the whitelist.
-     * @param _token The address of the token that has been added to the whitelist.
-     */
-    event WhitelistTokenAdded(address _token);
-
-    /**
-     * @dev Emitted when a token is removed from the whitelist.
-     * @param _token The address of the token that has been removed from the whitelist.
-     */
-    event WhitelistTokenRemoved(address _token);
-
-    /**
-     * @dev Emitted when a new vault is added to the mapping of token vaults.
-     * @param _vault The address of the vault that has been added.
-     */
-    event VaultAdded(address _vault);
-
-    /**
-     * @dev Emitted when a new operator is registered in the contract.
-     * @param ethAddress The Ethereum address of the operator.
-     * @param operatorExocoreAddress The Exocore address of the operator.
-     * @param name The human-readable name of the operator.
-     * @param commission The commission details for the operator.
-     * @param consensusPublicKey The public key used for consensus operations.
-     */
-    event OperatorRegistered(
-        address ethAddress,
-        string operatorExocoreAddress,
-        string name,
-        IOperatorRegistry.Commission commission,
-        bytes32 consensusPublicKey
-    );
-
-    /**
-     * @dev Emitted when an operator's consensus key is updated.
-     * @param operatorExocoreAddress The Exocore address of the operator.
-     * @param newConsensusPublicKey The new consensus key for the operator.
-     */
-    event OperatorKeyReplaced(
-        string operatorExocoreAddress,
-        bytes32 newConsensusPublicKey
-    );
-
-    /**
      * @dev Indicates an operation failed because the specified vault does not exist.
      */
     error VaultNotExist();
-
-    /**
-     * @dev Indicates an operation failed because the specified vault already exists.
-     */
-    error VaultAlreadyAdded();
-
-    /**
-     * @dev Indicates an operation was attempted with a token that is not authorized.
-     */
-    error UnauthorizedToken();
 
     /**
      * @dev Indicates that an operation which is not yet supported is requested.
@@ -264,14 +210,7 @@ contract BootstrapStorage is GatewayStorage {
     error NotYetSupported();
 
     /**
-     * @dev This error is used to indicate that a received transaction originates from an
-     * unexpected Layer Zero source chain.
-     * @param unexpectedSrcEndpointId The source chain ID that was not expected or recognized.
-     */
-    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
-
-    /**
-     * @dev Struct to hold detailed information about a token, including its name, symbol,
+     * @dev Struct to return detailed information about a token, including its name, symbol,
      * address, decimals, total supply, and additional metadata for cross-chain operations
      * and contextual data.
      *

@@ -24,13 +24,8 @@ contract ExocoreGatewayStorage is GatewayStorage {
     mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) inboundNonce;
     mapping(uint16 id => bool) chainToBootstrapped;
 
-    event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
-
-    error UnsupportedRequest(Action act);
     error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
-    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
-    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
 
     uint256[40] private __gap;
 }

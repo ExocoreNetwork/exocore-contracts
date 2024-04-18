@@ -65,4 +65,30 @@ interface IOperatorRegistry {
     function updateRate(
         uint256 newRate
     ) external;
+
+    /**
+     * @dev Emitted when a new operator is registered in the contract.
+     * @param ethAddress The Ethereum address of the operator.
+     * @param operatorExocoreAddress The Exocore address of the operator.
+     * @param name The human-readable name of the operator.
+     * @param commission The commission details for the operator.
+     * @param consensusPublicKey The public key used for consensus operations.
+     */
+    event OperatorRegistered(
+        address ethAddress,
+        string operatorExocoreAddress,
+        string name,
+        IOperatorRegistry.Commission commission,
+        bytes32 consensusPublicKey
+    );
+
+    /**
+     * @dev Emitted when an operator's consensus key is updated.
+     * @param operatorExocoreAddress The Exocore address of the operator.
+     * @param newConsensusPublicKey The new consensus key for the operator.
+     */
+    event OperatorKeyReplaced(
+        string operatorExocoreAddress,
+        bytes32 newConsensusPublicKey
+    );
 }
