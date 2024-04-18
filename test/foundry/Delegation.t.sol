@@ -40,7 +40,7 @@ contract DelegateTest is ExocoreDeployer {
 
     function test_Delegation() public {
         Player memory delegator = players[0];
-        string memory operatorAddress = "evmos1v4s6vtjpmxwu9rlhqms5urzrc3tc2ae2gnuqhc";
+        string memory operatorAddress = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
 
         deal(delegator.addr, 1e22);
         deal(address(clientGateway), 1e22);

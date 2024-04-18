@@ -88,6 +88,10 @@ contract ExocoreGateway is
     }
 
     function requestDeposit(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+        if (payload.length != DEPOSIT_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_DEPOSIT, DEPOSIT_REQUEST_LENGTH, payload.length);
+        }
+
         bytes calldata token = payload[:32];
         bytes calldata depositor = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
@@ -115,6 +119,10 @@ contract ExocoreGateway is
         public
         onlyCalledFromThis
     {
+        if (payload.length != WITHDRAW_PRINCIPLE_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, WITHDRAW_PRINCIPLE_REQUEST_LENGTH, payload.length);
+        }
+
         bytes calldata token = payload[:32];
         bytes calldata withdrawer = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
@@ -142,6 +150,10 @@ contract ExocoreGateway is
         public
         onlyCalledFromThis
     {
+        if (payload.length != CLAIM_REWARD_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, CLAIM_REWARD_REQUEST_LENGTH, payload.length);
+        }
+
         bytes calldata token = payload[:32];
         bytes calldata withdrawer = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
@@ -164,10 +176,14 @@ contract ExocoreGateway is
     }
 
     function requestDelegateTo(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+        if (payload.length != DELEGATE_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_DELEGATE_TO, DELEGATE_REQUEST_LENGTH, payload.length);
+        }
+
         bytes calldata token = payload[:32];
         bytes calldata delegator = payload[32:64];
-        bytes calldata operator = payload[64:108];
-        uint256 amount = uint256(bytes32(payload[108:140]));
+        bytes calldata operator = payload[64:106];
+        uint256 amount = uint256(bytes32(payload[106:138]));
 
         (bool success,) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
@@ -187,10 +203,14 @@ contract ExocoreGateway is
         public
         onlyCalledFromThis
     {
+        if (payload.length != UNDELEGATE_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_UNDELEGATE_FROM, UNDELEGATE_REQUEST_LENGTH, payload.length);
+        }
+
         bytes memory token = payload[1:32];
         bytes memory delegator = payload[32:64];
-        bytes memory operator = payload[64:108];
-        uint256 amount = uint256(bytes32(payload[108:140]));
+        bytes memory operator = payload[64:106];
+        uint256 amount = uint256(bytes32(payload[106:138]));
 
         (bool success,) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
