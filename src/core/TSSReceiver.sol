@@ -1,19 +1,12 @@
 pragma solidity ^0.8.19;
 
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
-import {IController} from "../interfaces/IController.sol";
-import {IVault} from "../interfaces/IVault.sol";
-import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {OAppUpgradeable} from "../lzApp/OAppUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
-abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage, ITSSReceiver {
-    using SafeERC20 for IERC20;
+abstract contract TSSReceiver is PausableUpgradeable, BootstrapStorage, ITSSReceiver {
     using ECDSA for bytes32;
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {
@@ -27,18 +20,24 @@ abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage,
         );
         bool isValid = verifyInterchainMsg(_msg, signature);
         if (!isValid) {
-            revert UnauthorizedSigner();
+            revert ITSSReceiver.UnauthorizedSigner();
         }
 
         Action act = Action(uint8(_msg.payload[0]));
-        require(act == Action.UPDATE_USERS_BALANCES, "TSSReceiver: action in message payload is not UPDATE_USERS_BALANCES");
-        bytes memory args = _msg.payload[1:];
+        bytes4 selector_ = whiteListFunctionSelectors[act];
+        if (selector_ == bytes4(0)) {
+            revert UnsupportedRequest(act);
+        }
         (bool success, bytes memory reason) =
-            address(this).call(abi.encodePacked(whiteListFunctionSelectors[act], args));
+            address(this).call(abi.encodePacked(selector_, _msg.payload[1:]));
         if (!success) {
-            emit MessageFailed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload, reason);
+            emit ITSSReceiver.MessageFailed(
+                _msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload, reason
+            );
         } else {
-            emit MessageProcessed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload);
+            emit ITSSReceiver.MessageProcessed(
+                _msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload
+            );
         }
     }
 
