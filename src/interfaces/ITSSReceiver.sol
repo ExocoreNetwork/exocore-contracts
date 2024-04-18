@@ -20,12 +20,4 @@ interface ITSSReceiver {
     }
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes memory signature) external;
-
-    error UnauthorizedSigner();
-    event MessageProcessed(
-        uint32 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload
-    );
-    event MessageFailed(
-        uint32 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason
-    );
 }

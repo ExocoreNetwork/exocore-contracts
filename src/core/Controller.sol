@@ -13,8 +13,7 @@ import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
-abstract contract Controller is
-PausableUpgradeable, OAppSenderUpgradeable, ClientChainGatewayStorage, IController {
+abstract contract Controller is PausableUpgradeable, OAppSenderUpgradeable, ClientChainGatewayStorage, IController {
     using SafeERC20 for IERC20;
     using OptionsBuilder for bytes;
 
