@@ -14,7 +14,7 @@ import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/Pau
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 
-abstract contract LSTRestakingController is PausableUpgradeable, OAppSenderUpgradeable, ClientChainGatewayStorage {
+abstract contract BaseRestakingController is PausableUpgradeable, OAppSenderUpgradeable, ClientChainGatewayStorage {
     using SafeERC20 for IERC20;
     using OptionsBuilder for bytes;
 
