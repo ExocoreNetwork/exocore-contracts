@@ -398,17 +398,30 @@ contract Bootstrap is
         emit OperatorCommissionUpdated(newRate);
     }
 
-    // implementation of IController
-    function deposit(
+    /**
+     * @notice Validates the inputs and returns the vault for the given token.
+     * @param token The adddress of the token.
+     * @param amount The amount of the token.
+     * @dev This function checks if the token is whitelisted, the amount is greater than zero
+     * and that a vault for the token exists.
+     */
+    function _validateAndGetVault(
         address token, uint256 amount
-    ) override external payable beforeLocked whenNotPaused {
+    ) internal returns (IVault) {
         require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
         require(amount > 0, "Bootstrap: amount should be greater than zero");
-
         IVault vault = tokenVaults[token];
         if (address(vault) == address(0)) {
             revert VaultNotExist();
         }
+        return vault;
+    }
+
+    // implementation of IController
+    function deposit(
+        address token, uint256 amount
+    ) override external payable beforeLocked whenNotPaused {
+        IVault vault = _validateAndGetVault(token, amount);
         vault.deposit(msg.sender, amount);
 
         if (!isDepositor[msg.sender]) {
@@ -434,13 +447,7 @@ contract Bootstrap is
     function withdrawPrincipleFromExocore(
         address token, uint256 amount
     ) override external payable beforeLocked whenNotPaused {
-        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
-        require(amount > 0, "Bootstrap: amount should be greater than zero");
-
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
+        IVault vault = _validateAndGetVault(token, amount);
 
         uint256 deposited = totalDepositAmounts[msg.sender][token];
         require(
@@ -477,14 +484,7 @@ contract Bootstrap is
     function claim(
         address token, uint256 amount, address recipient
     ) override external beforeLocked whenNotPaused {
-        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
-        require(amount > 0, "Bootstrap: amount should be greater than zero");
-
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-
+        IVault vault = _validateAndGetVault(token, amount);
         vault.withdraw(msg.sender, recipient, amount);
     }
 
@@ -500,13 +500,7 @@ contract Bootstrap is
     function delegateTo(
         string calldata operator, address token, uint256 amount
     ) override external payable beforeLocked whenNotPaused {
-        // client chain checks
-        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
-        require(amount > 0, "Bootstrap: amount should be greater than zero");
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
+        IVault vault = _validateAndGetVault(token, amount);
         // check that operator is registered
         require(
             bytes(operators[operator].name).length != 0,
@@ -531,13 +525,7 @@ contract Bootstrap is
     function undelegateFrom(
         string calldata operator, address token, uint256 amount
     ) override external payable beforeLocked whenNotPaused {
-        // client chain checks
-        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
-        require(amount > 0, "Bootstrap: amount should be greater than zero");
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
+        IVault vault = _validateAndGetVault(token, amount);
         // check that operator is registered
         require(
             bytes(operators[operator].name).length != 0,
