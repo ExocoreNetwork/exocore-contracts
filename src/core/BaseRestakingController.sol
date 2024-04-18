@@ -21,22 +21,22 @@ abstract contract BaseRestakingController is
     receive() external payable {}
 
     modifier isTokenWhitelisted(address token) {
-        require(whitelistTokens[token], "Controller: token is not whitelisted");
+        require(whitelistTokens[token], "BaseRestakingController: token is not whitelisted");
         _;
     }
 
     modifier isValidAmount(uint256 amount) {
-        require(amount > 0, "Controller: amount should be greater than zero");
+        require(amount > 0, "BaseRestakingController: amount should be greater than zero");
         _;
     }
 
     modifier vaultExists(address token) {
-        require(address(tokenVaults[token]) != address(0), "Controller: no vault added for this token");
+        require(address(tokenVaults[token]) != address(0), "BaseRestakingController: no vault added for this token");
         _;
     }
 
     modifier isValidBech32Address(string memory operator) {
-        require(bytes(operator).length == 44, "Controller: invalid bech32 address");
+        require(bytes(operator).length == 44, "BaseRestakingController: invalid bech32 address");
         _;
     }
 
