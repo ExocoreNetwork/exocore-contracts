@@ -173,6 +173,8 @@ contract BootstrapStorage is GatewayStorage {
 
     mapping(address => uint256) public depositsByToken;
 
+    uint256 lastMessageNonce;
+
     /**
      * @notice Emitted when the spawn time of the Exocore chain is updated.
      *

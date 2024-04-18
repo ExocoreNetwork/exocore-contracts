@@ -976,7 +976,9 @@ contract BootstrapTest is Test {
 
     function test12_MarkBootstrapped_DirectCall() public {
         vm.warp(spawnTime + 2);
-        vm.expectRevert("ClientGatewayLzReceiver: could only be called from this contract itself with low level call");
+        vm.expectRevert(
+            "BootstrapLzReceiver: could only be called from this contract itself with low level call"
+        );
         bootstrap.markBootstrapped();
         vm.stopPrank();
     }

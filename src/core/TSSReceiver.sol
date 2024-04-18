@@ -1,12 +1,12 @@
 pragma solidity ^0.8.19;
 
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
-abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage, ITSSReceiver {
+abstract contract TSSReceiver is PausableUpgradeable, BootstrapStorage, ITSSReceiver {
     using ECDSA for bytes32;
 
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {
@@ -20,7 +20,7 @@ abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage,
         );
         bool isValid = verifyInterchainMsg(_msg, signature);
         if (!isValid) {
-            revert UnauthorizedSigner();
+            revert ITSSReceiver.UnauthorizedSigner();
         }
 
         Action act = Action(uint8(_msg.payload[0]));
@@ -31,9 +31,13 @@ abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage,
         (bool success, bytes memory reason) =
             address(this).call(abi.encodePacked(selector_, _msg.payload[1:]));
         if (!success) {
-            emit MessageFailed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload, reason);
+            emit ITSSReceiver.MessageFailed(
+                _msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload, reason
+            );
         } else {
-            emit MessageProcessed(_msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload);
+            emit ITSSReceiver.MessageProcessed(
+                _msg.srcChainID, _msg.srcAddress, _msg.nonce, _msg.payload
+            );
         }
     }
 
