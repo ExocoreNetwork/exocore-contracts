@@ -33,6 +33,13 @@ contract ClientChainGatewayStorage is BootstrapStorage {
         bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
     );
     event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
+    event DelegateResult(
+        bool indexed success, address indexed delegator, string delegatee, address token, uint256 amount
+    );
+    event UndelegateResult(
+        bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
+    );
+    event ClaimSucceeded(address token, address recipient, uint256 amount);
 
     // native restaking events
     event CapsuleCreated(address owner, address capsule);

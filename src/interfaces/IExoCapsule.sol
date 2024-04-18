@@ -22,22 +22,24 @@ interface IExoCapsule {
 
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable;
 
-    function deposit(
+    function verifyDepositProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
     ) external;
 
-    function partiallyWithdraw(
+    function verifyPartialWithdrawalProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         WithdrawalContainerProof calldata withdrawalProof
     ) external;
 
-    function fullyWithdraw(
+    function verifyFullWithdrawalProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         WithdrawalContainerProof calldata withdrawalProof
     ) external;
+
+    function withdraw(uint256 amount, address recipient) external;
 }

@@ -14,8 +14,15 @@ import {OAppSenderUpgradeable, MessagingFee, MessagingReceipt} from "../lzApp/OA
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
+import {CommonRestakingController} from "./CommonRestakingController.sol";
 
-abstract contract NativeRestakingController is PausableUpgradeable, OAppSenderUpgradeable, ClientChainGatewayStorage, INativeRestakingController {
+
+abstract contract NativeRestakingController is 
+    PausableUpgradeable, 
+    OAppSenderUpgradeable, 
+    INativeRestakingController,
+    CommonRestakingController
+{
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
 
@@ -36,7 +43,7 @@ abstract contract NativeRestakingController is PausableUpgradeable, OAppSenderUp
             revert CapsuleNotExistForOwner(msg.sender);
         }
 
-        capsule.deposit(validatorContainer, proof);
+        capsule.verifyPartialWithdrawalProof(validatorContainer, proof);
 
         uint256 depositValue = uint256(validatorContainer.getEffectiveBalance()) * GWEI_TO_WEI;
         registeredRequests[outboundNonce + 1] = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue);
@@ -49,18 +56,5 @@ abstract contract NativeRestakingController is PausableUpgradeable, OAppSenderUp
         );
         
         _sendMsgToExocore(Action.REQUEST_DEPOSIT, actionArgs);
-    }
-
-    function _sendMsgToExocore(Action act, bytes memory actionArgs) internal {
-        outboundNonce++;
-        bytes memory payload = abi.encodePacked(act, actionArgs);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
-            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
-        ).addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(exocoreChainId, payload, options, false);
-
-        MessagingReceipt memory receipt =
-            _lzSend(exocoreChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false);
-        emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 }
