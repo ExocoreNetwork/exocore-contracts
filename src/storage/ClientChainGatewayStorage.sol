@@ -50,9 +50,28 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     error UnsupportedRequest(Action act);
     error UnsupportedResponse(Action act);
     error UnexpectedResponse(uint64 nonce);
+    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
+    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
+    error DepositShouldNotFailOnExocore(address token, address depositor);
 
     // native restaking errors
     error CapsuleNotExist();
 
     uint256[40] private __gap;
+
+    function _getVault(address token) internal view returns (IVault) {
+        IVault vault = tokenVaults[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+        return vault;
+    }
+
+    function _getCapsule(address owner) internal view returns (IExoCapsule) {
+        IExoCapsule capsule = ownerToCapsule[owner];
+        if (address(capsule) == address(0)) {
+            revert CapsuleNotExist();
+        }
+        return capsule;
+    }
 }

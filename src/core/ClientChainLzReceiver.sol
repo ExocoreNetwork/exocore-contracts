@@ -2,6 +2,7 @@ pragma solidity ^0.8.19;
 
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 import {IVault} from "../interfaces/IVault.sol";
+import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
@@ -80,12 +81,16 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:]));
-        if (success) {
-            IVault vault = tokenVaults[token];
-            if (address(vault) == address(0)) {
-                revert VaultNotExist();
-            }
 
+        if (!success) {
+            revert DepositShouldNotFailOnExocore(token, depositor);
+        }
+
+        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+            IExoCapsule capsule = _getCapsule(depositor);
+            capsule.updatePrincipleBalance(lastlyUpdatedPrincipleBalance);
+        } else {
+            IVault vault = _getVault(token);
             vault.updatePrincipleBalance(depositor, lastlyUpdatedPrincipleBalance);
         }
 
@@ -102,10 +107,7 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:33]));
         if (success) {
-            IVault vault = tokenVaults[token];
-            if (address(vault) == address(0)) {
-                revert VaultNotExist();
-            }
+            IVault vault = _getVault(token);
 
             vault.updatePrincipleBalance(withdrawer, lastlyUpdatedPrincipleBalance);
             vault.updateWithdrawableBalance(withdrawer, unlockPrincipleAmount, 0);
@@ -124,10 +126,7 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedRewardBalance = uint256(bytes32(responsePayload[1:33]));
         if (success) {
-            IVault vault = tokenVaults[token];
-            if (address(vault) == address(0)) {
-                revert VaultNotExist();
-            }
+            IVault vault = _getVault(token);
 
             vault.updateRewardBalance(withdrawer, lastlyUpdatedRewardBalance);
             vault.updateWithdrawableBalance(withdrawer, 0, unlockRewardAmount);

@@ -40,14 +40,6 @@ abstract contract BaseRestakingController is
         _;
     }
 
-    function _getVault(address token) internal view returns (IVault) {
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-        return vault;
-    }
-
     function claim(address token, uint256 amount, address recipient)
     external
     isTokenWhitelisted(token)

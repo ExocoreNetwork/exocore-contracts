@@ -17,4 +17,5 @@ contract VaultStorage {
     event PrincipleBalanceUpdated(address, uint256);
     event RewardBalanceUpdated(address, uint256);
     event WithdrawableBalanceUpdated(address, uint256, uint256);
+    event WithdrawalSuccess(address, address, uint256);
 }

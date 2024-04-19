@@ -41,6 +41,8 @@ contract Vault is Initializable, VaultStorage, IVault {
 
         withdrawableBalances[withdrawer] -= amount;
         underlyingToken.safeTransfer(recipient, amount);
+
+        emit WithdrawalSuccess(withdrawer, recipient, amount);
     }
 
     function deposit(address depositor, uint256 amount) external payable onlyGateway {
