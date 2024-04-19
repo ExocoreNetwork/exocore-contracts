@@ -39,5 +39,9 @@ interface IExoCapsule {
 
     function withdraw(uint256 amount, address recipient) external;
 
+    function updatePrincipleBalance(uint256 lastlyUpdatedPrincipleBalance) external;
+
+    function updateWithdrawableBalance(uint256 unlockPrincipleAmount) external;
+
     function capsuleWithdrawalCredentials() external view returns (bytes memory);
 }

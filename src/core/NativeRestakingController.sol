@@ -30,8 +30,8 @@ abstract contract NativeRestakingController is
     function createExoCapsule() public whenNotPaused returns (address) {
         require(address(ownerToCapsule[msg.sender]) == address(0), "NativeRestakingController: message sender has already created the capsule");
     
-        ExoCapsule capsule = new ExoCapsule(address(this));
-        capsule.initialize(msg.sender);
+        ExoCapsule capsule = new ExoCapsule();
+        capsule.initialize(address(this), msg.sender);
         ownerToCapsule[msg.sender] = capsule;
 
         emit CapsuleCreated(msg.sender, address(capsule));

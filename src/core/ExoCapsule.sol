@@ -19,6 +19,10 @@ contract ExoCapsule is
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
 
+    event PrincipleBalanceUpdated(address, uint256);
+    event WithdrawableBalanceUpdated(address, uint256);
+    event WithdrawalSuccess(address, address, uint256);
+
     error InvalidValidatorContainer(bytes32 pubkey);
     error InvalidWithdrawalContainer(uint64 validatorIndex);
     error DoubleDepositedValidator(bytes32 pubkey);
@@ -34,14 +38,15 @@ contract ExoCapsule is
         _;
     }
 
-    constructor(address _gateway) {
-        gateway = INativeRestakingController(_gateway);
-
+    constructor() {
         _disableInitializers();
     }
 
-    function initialize(address _capsuleOwner) external initializer {
+    function initialize(address _gateway, address _capsuleOwner) external initializer {
         require(_capsuleOwner != address(0), "ExoCapsule: capsule owner address can not be empty");
+        require(_gateway != address(0), "ExoCapsule: gateway address can not be empty");
+
+        gateway = INativeRestakingController(_gateway);
         capsuleOwner = _capsuleOwner;
     }
 
@@ -141,7 +146,27 @@ contract ExoCapsule is
     }
 
     function withdraw(uint256 amount, address recipient) external onlyGateway {
+        require(
+            amount <= withdrawableBalance,
+            "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
+        );
 
+        withdrawableBalance -= amount;
+        recipient.call{value: amount}("");
+
+        emit WithdrawalSuccess(capsuleOwner, recipient, amount);
+    }
+
+    function updatePrincipleBalance(uint256 lastlyUpdatedPrincipleBalance) external onlyGateway {
+        principleBalance = lastlyUpdatedPrincipleBalance;
+
+        emit PrincipleBalanceUpdated(capsuleOwner, lastlyUpdatedPrincipleBalance);
+    }
+
+    function updateWithdrawableBalance(uint256 unlockPrincipleAmount) external onlyGateway {
+        withdrawableBalance += unlockPrincipleAmount;
+
+        emit WithdrawableBalanceUpdated(capsuleOwner, unlockPrincipleAmount);
     }
 
     function capsuleWithdrawalCredentials() public view returns (bytes memory) {

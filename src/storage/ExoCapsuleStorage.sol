@@ -28,6 +28,9 @@ contract ExoCapsuleStorage {
     address public capsuleOwner;
     INativeRestakingController public gateway;
 
+    uint256 public principleBalance;
+    uint256 public withdrawableBalance; 
+
     mapping(bytes32 pubkey => Validator validator) _capsuleValidators;
     mapping(uint256 index => bytes32 pubkey) _capsuleValidatorsByIndex;
 
