@@ -26,7 +26,6 @@ contract ExoCapsuleStorage {
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
 
     address public capsuleOwner;
-    IETHPOSDeposit public ethPOS;
     INativeRestakingController public gateway;
 
     mapping(bytes32 pubkey => Validator validator) _capsuleValidators;

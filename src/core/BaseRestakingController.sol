@@ -56,7 +56,7 @@ abstract contract BaseRestakingController is
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = ownerToCapsule[msg.sender];
             if (address(capsule) == address(0)) {
-                revert CapsuleNotExistForOwner(msg.sender);
+                revert CapsuleNotExist();
             }
 
             capsule.withdraw(amount, recipient);

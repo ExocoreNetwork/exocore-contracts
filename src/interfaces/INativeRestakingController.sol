@@ -7,9 +7,20 @@ interface INativeRestakingController is IBaseRestakingController {
     /// *** function signatures for staker operations ***
 
     /**
-     * @notice Ethereum native restaker should call this function to create owned ExoCapsule before staking to beacon chain.
+     * @notice Stakers call this function to deposit to beacon chain validator, and point withdrawal_credentials of 
+     * beacon chain validator to staker's ExoCapsule contract address. An ExoCapsule contract owned by staker would
+     * be created if it does not exist.
+     * @param pubkey the BLS pubkey of beacon chain validator
+     * @param signature the BLS signature 
+     * @param depositDataRoot The SHA-256 hash of the SSZ-encoded DepositData object.
+     * Used as a protection against malformed input.
      */
-    function createExoCapsule() external;
+    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable;
+
+    /**
+     * @notice Ethereum native restaker could call this function to create owned ExoCapsule before staking to beacon chain.
+     */
+    function createExoCapsule() external returns (address capsule);
 
     /**
      * @notice This is called to deposit ETH that is staked on Ethereum beacon chain to Exocore network to be restaked in future
