@@ -47,7 +47,7 @@ abstract contract LSTRestakingController is
             for (uint256 j = 0; j < userBalanceUpdate.tokenBalances.length; j++) {
                 TokenBalanceUpdateInfo memory tokenBalanceUpdate = userBalanceUpdate.tokenBalances[j];
                 require(whitelistTokens[tokenBalanceUpdate.token], "Controller: token is not whitelisted");
-                IVault vault = _getVault(tokenVaults[tokenBalanceUpdate.token]);
+                IVault vault = _getVault(tokenBalanceUpdate.token);
 
                 if (tokenBalanceUpdate.lastlyUpdatedPrincipleBalance > 0) {
                     vault.updatePrincipleBalance(
