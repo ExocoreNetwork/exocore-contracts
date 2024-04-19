@@ -36,7 +36,7 @@ abstract contract BaseRestakingController is
     }
 
     modifier isValidBech32Address(string memory operator) {
-        require(bytes(operator).length == 44, "BaseRestakingController: invalid bech32 address");
+        require(bytes(operator).length == 42, "BaseRestakingController: invalid bech32 address");
         _;
     }
 
