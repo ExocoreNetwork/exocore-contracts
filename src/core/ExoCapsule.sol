@@ -30,26 +30,19 @@ contract ExoCapsule is
     error NotPartialWithdrawal(bytes32 pubkey);
 
     modifier onlyGateway() {
-        require(msg.sender == address(gateway), "only client chain gateway could call this function");
+        require(msg.sender == address(gateway), "ExoCapsule: only client chain gateway could call this function");
         _;
     }
 
-    constructor(address _ethPOS, address _gateway) {
-        ethPOS = IETHPOSDeposit(_ethPOS);
+    constructor(address _gateway) {
         gateway = INativeRestakingController(_gateway);
 
         _disableInitializers();
     }
 
     function initialize(address _capsuleOwner) external initializer {
-        require(_capsuleOwner != address(0), "invalid empty exocore validator set address");
+        require(_capsuleOwner != address(0), "ExoCapsule: capsule owner address can not be empty");
         capsuleOwner = _capsuleOwner;
-    }
-
-    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable onlyGateway {
-        require(msg.value == 32 ether, "stake value must be exactly 32 ether");
-        ethPOS.deposit{value: 32 ether}(pubkey, _capsuleWithdrawalCredentials(), signature, depositDataRoot);
-        emit StakedWithThisCapsule();
     }
 
     function verifyDepositProof(
@@ -76,7 +69,7 @@ contract ExoCapsule is
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
-        if (withdrawalCredentials != bytes32(_capsuleWithdrawalCredentials())) {
+        if (withdrawalCredentials != bytes32(capsuleWithdrawalCredentials())) {
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
@@ -151,7 +144,7 @@ contract ExoCapsule is
 
     }
 
-    function _capsuleWithdrawalCredentials() internal view returns (bytes memory) {
+    function capsuleWithdrawalCredentials() public view returns (bytes memory) {
         /**
          * The withdrawal_credentials field must be such that:
          * withdrawal_credentials[:1] == ETH1_ADDRESS_WITHDRAWAL_PREFIX

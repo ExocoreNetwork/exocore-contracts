@@ -18,10 +18,6 @@ interface IExoCapsule {
         uint256 withdrawalContainerRootIndex;
     }
 
-    event StakedWithThisCapsule();
-
-    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable;
-
     function verifyDepositProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
@@ -42,4 +38,6 @@ interface IExoCapsule {
     ) external;
 
     function withdraw(uint256 amount, address recipient) external;
+
+    function capsuleWithdrawalCredentials() external view returns (bytes memory);
 }

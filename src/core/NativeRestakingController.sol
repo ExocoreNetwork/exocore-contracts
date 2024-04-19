@@ -15,15 +15,28 @@ abstract contract NativeRestakingController is
 {
     using ValidatorContainer for bytes32[];
 
-    function createExoCapsule() external whenNotPaused {
-        require(address(ownerToCapsule[msg.sender]) == address(0), "NativeRestakingController: message sender has already created the capsule");
+    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable whenNotPaused {
+        require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
 
-        ExoCapsule capsule = new ExoCapsule(ETH_STAKING_DEPOSIT_CONTRACT_ADDRESS, address(this));
+        IExoCapsule capsule = ownerToCapsule[msg.sender];
+        if (address(capsule) == address(0)) {
+            capsule = IExoCapsule(createExoCapsule());
+        }
+
+        ETH_POS.deposit{value: 32 ether}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
+        emit StakedWithCapsule(msg.sender, address(capsule));
+    }
+
+    function createExoCapsule() public whenNotPaused returns (address) {
+        require(address(ownerToCapsule[msg.sender]) == address(0), "NativeRestakingController: message sender has already created the capsule");
+    
+        ExoCapsule capsule = new ExoCapsule(address(this));
         capsule.initialize(msg.sender);
         ownerToCapsule[msg.sender] = capsule;
-        isExoCapsule[capsule] = true;
 
         emit CapsuleCreated(msg.sender, address(capsule));
+
+        return address(capsule);
     }
 
     function depositBeaconChainValidator(
@@ -32,7 +45,7 @@ abstract contract NativeRestakingController is
     ) external whenNotPaused {
         IExoCapsule capsule = ownerToCapsule[msg.sender];
         if (address(capsule) == address(0)) {
-            revert CapsuleNotExistForOwner(msg.sender);
+            revert CapsuleNotExist();
         }
 
         capsule.verifyDepositProof(validatorContainer, proof);

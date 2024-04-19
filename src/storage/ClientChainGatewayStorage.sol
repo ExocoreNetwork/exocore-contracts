@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 import {BootstrapStorage} from "./BootstrapStorage.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
 
 contract ClientChainGatewayStorage is BootstrapStorage {
@@ -17,8 +18,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     // native restaking state variables
     mapping(address => IExoCapsule) public ownerToCapsule;
-    mapping(IExoCapsule => bool) public isExoCapsule;
-    address constant ETH_STAKING_DEPOSIT_CONTRACT_ADDRESS = 0x00000000219ab540356cBB839Cbe05303d7705Fa;
+    IETHPOSDeposit constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     uint256 constant GWEI_TO_WEI = 1e9;
 
@@ -43,6 +43,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     // native restaking events
     event CapsuleCreated(address owner, address capsule);
+    event StakedWithCapsule(address staker, address capsule);
 
     error UnauthorizedSigner();
     error UnauthorizedToken();
@@ -51,7 +52,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     error UnexpectedResponse(uint64 nonce);
 
     // native restaking errors
-    error CapsuleNotExistForOwner(address owner);
+    error CapsuleNotExist();
 
     uint256[40] private __gap;
 }
