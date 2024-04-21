@@ -1,0 +1,137 @@
+### all functions
+
+@startuml
+actor User
+participant NativeStakingController
+participant ETHPOS
+participant ClientChainLzReceiver
+participant ExoCapsule
+participant ClientChainL0Endpoint
+participant ExocoreL0Endpoint
+participant ExocoreGateway
+participant DepositPrecompile
+participant DepositNativeModule
+
+User -> NativeStakingController: 1.1:stake(pubkey, signature, depositDataRoot)
+activate NativeStakingController
+NativeStakingController -> ETHPOS: 1.2:deposit()
+activate ETHPOS
+ETHPOS -> NativeStakingController: 1.3:DepositSuccess
+deactivate ETHPOS
+deactivate NativeStakingController
+
+User -> NativeStakingController: 2.1:depositBeaconChainValidator(validatorContainer, proof)
+activate NativeStakingController
+NativeStakingController -> ExoCapsule: 2.2:verifyDepositProof(validatorContainer, proof)
+activate ExoCapsule
+ExoCapsule -> NativeStakingController: 2.3:return (isValidValidatorContainer)
+deactivate ExoCapsule
+NativeStakingController -> ClientChainL0Endpoint: 2.4:send(request)
+activate ClientChainL0Endpoint
+ClientChainL0Endpoint -> NativeStakingController: 2.5:emit (requestSent)
+deactivate ClientChainL0Endpoint
+deactivate NativeStakingController
+ClientChainL0Endpoint -> ExocoreL0Endpoint: 3.1:lzReceive(request)
+activate ExocoreL0Endpoint
+ExocoreL0Endpoint -> ExocoreGateway: 3.2:lzReceive(request)
+activate ExocoreGateway
+ExocoreGateway -> ExocoreGateway: 3.3requestDepositTo(payload)
+ExocoreGateway -> DepositPrecompile: 3.4:depositTo(payload)
+activate DepositPrecompile
+DepositPrecompile -> DepositNativeModule: 3.5:depositTo(payload)
+activate DepositNativeModule
+DepositNativeModule -> DepositPrecompile: 3.6:return (result, balance)
+deactivate DepositNativeModule
+DepositPrecompile -> ExocoreGateway: 3.7:return (result, balance)
+deactivate DepositPrecompile
+ExocoreGateway -> ExocoreL0Endpoint: 3.8:send(response)
+ExocoreL0Endpoint -> ExocoreGateway: 3.9:emit (requestSent)
+deactivate ExocoreGateway
+deactivate ExocoreL0Endpoint
+ExocoreL0Endpoint -> ClientChainL0Endpoint: 4.1:lzReceive(response)
+activate ClientChainL0Endpoint
+ClientChainL0Endpoint -> ClientChainLzReceiver: 4.2:lzReceive(response)
+activate ClientChainLzReceiver
+ClientChainLzReceiver -> ClientChainLzReceiver: 4.3:afterReceiveDepositResponse(payload)
+ClientChainLzReceiver -> ExoCapsule: 4.4:updatePrincipleBalance(lastlyUpdatedPrincipleBalance)
+activate ExoCapsule
+ExoCapsule -> ClientChainLzReceiver: 4.5:emit (DepositResult)
+deactivate ExoCapsule
+ClientChainLzReceiver -> ClientChainL0Endpoint: finish lzReceive
+deactivate ClientChainLzReceiver
+deactivate ClientChainL0Endpoint
+
+@enduml
+
+
+@startuml
+title NativeRestakingController: stake() function
+
+start
+if (msg.value != 32 ether) then (no)
+    :Revert;
+    stop
+endif
+
+:Get the capsule associated with the message sender;
+if (capsule == address(0)) then (yes)
+    :Create a new ExoCapsule;
+    :Initialize the capsule with the contract address and message sender;
+    :Assign the new capsule to ownerToCapsule[msg.sender];
+    :Emit CapsuleCreated event;
+endif
+
+:Deposit 32 ETH to the ETH_POS contract;
+:Emit StakedWithCapsule event;
+
+stop
+
+@enduml
+
+@startuml
+title NativeRestakingController: depositBeaconChainValidator() function
+
+start
+
+:Check if the caller is the gateway;
+if (msg.sender != gateway) then (no)
+    :Revert;
+    stop
+endif
+
+:Get the validator pubkey and withdrawal credentials from the validatorContainer;
+:Get the Validator struct for the pubkey from _capsuleValidators mapping;
+
+if (validator.status != UNREGISTERED) then (yes)
+    :Revert;
+    stop
+endif
+
+if (_isStaleProof(validator, proof.beaconBlockTimestamp)) then (yes)
+    :Revert;
+    stop
+endif
+
+if (!validatorContainer.verifyValidatorContainerBasic()) then (no)
+    :Revert;
+    stop
+endif
+
+if (!_isActivatedAtEpoch(validatorContainer, proof.beaconBlockTimestamp)) then (no)
+    :Revert ;
+    stop
+endif
+
+if (withdrawalCredentials != capsuleWithdrawalCredentials()) then (yes)
+    :Revert;
+    stop
+endif
+
+:Verify the validator container using _verifyValidatorContainer();
+
+:Update the validator struct with the new status, index, and balance;
+:Store the validator pubkey in _capsuleValidatorsByIndex mapping;
+
+stop
+
+@enduml
