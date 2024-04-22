@@ -65,72 +65,62 @@ deactivate ClientChainL0Endpoint
 
 
 @startuml
-title NativeRestakingController: stake() function
-
-start
-if (msg.value != 32 ether) then (no)
-    :Revert;
-    stop
-endif
-
-:Get the capsule associated with the message sender;
-if (capsule == address(0)) then (yes)
-    :Create a new ExoCapsule;
-    :Initialize the capsule with the contract address and message sender;
-    :Assign the new capsule to ownerToCapsule[msg.sender];
-    :Emit CapsuleCreated event;
-endif
-
-:Deposit 32 ETH to the ETH_POS contract;
-:Emit StakedWithCapsule event;
-
-stop
-
-@enduml
-
-@startuml
 title NativeRestakingController: depositBeaconChainValidator() function
 
 start
 
-:Check if the caller is the gateway;
-if (msg.sender != gateway) then (no)
-    :Revert;
+:Get the capsule associated with the message sender;
+if (capsule == address(0)) then (yes)
+    :Revert with CapsuleNotExist error;
     stop
 endif
 
-:Get the validator pubkey and withdrawal credentials from the validatorContainer;
-:Get the Validator struct for the pubkey from _capsuleValidators mapping;
+:Call capsule.verifyDepositProof(validatorContainer, proof);
+fork
+    :Check if caller is gateway;
+    if (msg.sender != gateway) then (no)
+        :Revert with "ExoCapsule: only client chain gateway could call this function";
+        stop
+    endif
 
-if (validator.status != UNREGISTERED) then (yes)
-    :Revert;
-    stop
-endif
+    :Get validator pubkey and withdrawal credentials from validatorContainer;
+    :Get Validator struct for pubkey from _capsuleValidators;
 
-if (_isStaleProof(validator, proof.beaconBlockTimestamp)) then (yes)
-    :Revert;
-    stop
-endif
+    if (validator.status != UNREGISTERED) then (yes)
+        :Revert with DoubleDepositedValidator error;
+        stop
+    endif
 
-if (!validatorContainer.verifyValidatorContainerBasic()) then (no)
-    :Revert;
-    stop
-endif
+    if (_isStaleProof(validator, proof.beaconBlockTimestamp)) then (yes)
+        :Revert with StaleValidatorContainer error;
+        stop
+    endif
 
-if (!_isActivatedAtEpoch(validatorContainer, proof.beaconBlockTimestamp)) then (no)
-    :Revert ;
-    stop
-endif
+    if (!validatorContainer.verifyValidatorContainerBasic()) then (no)
+        :Revert with InvalidValidatorContainer error;
+        stop
+    endif
 
-if (withdrawalCredentials != capsuleWithdrawalCredentials()) then (yes)
-    :Revert;
-    stop
-endif
+    if (!_isActivatedAtEpoch(validatorContainer, proof.beaconBlockTimestamp)) then (no)
+        :Revert with InvalidValidatorContainer error;
+        stop
+    endif
 
-:Verify the validator container using _verifyValidatorContainer();
+    if (withdrawalCredentials != capsuleWithdrawalCredentials()) then (yes)
+        :Revert with InvalidValidatorContainer error;
+        stop
+    endif
 
-:Update the validator struct with the new status, index, and balance;
-:Store the validator pubkey in _capsuleValidatorsByIndex mapping;
+    :Verify validator container using _verifyValidatorContainer();
+    :Update Validator struct with new status, index, and balance;
+    :Store validator pubkey in _capsuleValidatorsByIndex;
+fork again
+
+:Calculate the depositValue using validatorContainer.getEffectiveBalance();
+:Store the request details in registeredRequests and registeredRequestActions;
+
+:Encode the request action arguments;
+:Send the request action to ExoCore using _sendMsgToExocore();
 
 stop
 
