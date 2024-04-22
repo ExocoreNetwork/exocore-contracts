@@ -36,7 +36,7 @@ library WithdrawalContainer {
         for (uint i; i < MERKLE_TREE_HEIGHT; i++) {
             bytes32[] memory roots = new bytes32[](leaves.length / 2);
             for (uint j; j < leaves.length / 2; j++) {
-                roots[i] = sha256(abi.encodePacked(leaves[2 * i], leaves[2 * i + 1]));
+                roots[j] = sha256(abi.encodePacked(leaves[2 * j], leaves[2 * j + 1]));
             }
             leaves = roots;
         }
