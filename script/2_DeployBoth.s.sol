@@ -9,34 +9,38 @@ import {Vault} from "../src/core/Vault.sol";
 import "../src/core/ExocoreGateway.sol";
 import "../test/mocks/ExocoreGatewayMock.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import {BaseScript} from "./BaseScript.sol";
 
 contract DeployScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory deployedContracts = vm.readFile("script/prerequisitContracts.json");
+        string memory prerequisities = vm.readFile("script/prerequisitContracts.json");
 
-        clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".clientChain.lzEndpoint"));
+        clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisities, ".clientChain.lzEndpoint"));
         require(address(clientChainLzEndpoint) != address(0), "client chain l0 endpoint should not be empty");
 
-        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(deployedContracts, ".clientChain.erc20Token"));
+        beaconOracle = IBeaconChainOracle(stdJson.readAddress(prerequisities, ".clientChain.beaconOracle"));
+        require(address(beaconOracle) != address(0), "client chain beacon oracle should not be empty");
+
+        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisities, ".clientChain.erc20Token"));
         require(address(restakeToken) != address(0), "restake token address should not be empty");
 
-        exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
+        exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisities, ".exocore.lzEndpoint"));
         require(address(exocoreLzEndpoint) != address(0), "exocore l0 endpoint should not be empty");
 
         if (useExocorePrecompileMock) {
-            depositMock = stdJson.readAddress(deployedContracts, ".exocore.depositPrecompileMock");
+            depositMock = stdJson.readAddress(prerequisities, ".exocore.depositPrecompileMock");
             require(depositMock != address(0), "depositMock should not be empty");
 
-            withdrawMock = stdJson.readAddress(deployedContracts, ".exocore.withdrawPrecompileMock");
+            withdrawMock = stdJson.readAddress(prerequisities, ".exocore.withdrawPrecompileMock");
             require(withdrawMock != address(0), "withdrawMock should not be empty");
 
-            delegationMock = stdJson.readAddress(deployedContracts, ".exocore.delegationPrecompileMock");
+            delegationMock = stdJson.readAddress(prerequisities, ".exocore.delegationPrecompileMock");
             require(delegationMock != address(0), "delegationMock should not be empty");
 
-            claimRewardMock = stdJson.readAddress(deployedContracts, ".exocore.claimRewardPrecompileMock");
+            claimRewardMock = stdJson.readAddress(prerequisities, ".exocore.claimRewardPrecompileMock");
             require(claimRewardMock != address(0), "claimRewardMock should not be empty");
         }
 
@@ -68,6 +72,7 @@ contract DeployScript is BaseScript {
                             clientGatewayLogic.initialize.selector,
                             exocoreChainId,
                             payable(exocoreValidatorSet.addr),
+                            address(beaconOracle),
                             whitelistTokens
                         )
                     )
@@ -134,6 +139,7 @@ contract DeployScript is BaseScript {
         string memory clientChainContracts = "clientChainContracts";
         string memory exocoreContracts = "exocoreContracts";
         vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
+        vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
         vm.serializeAddress(clientChainContracts, "clientChainGateway", address(clientGateway));
         vm.serializeAddress(clientChainContracts, "resVault", address(vault));
         vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));

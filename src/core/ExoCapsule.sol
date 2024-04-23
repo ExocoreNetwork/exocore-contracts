@@ -9,6 +9,7 @@ import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 
 contract ExoCapsule is
     Initializable,
@@ -26,12 +27,13 @@ contract ExoCapsule is
     error InvalidValidatorContainer(bytes32 pubkey);
     error InvalidWithdrawalContainer(uint64 validatorIndex);
     error DoubleDepositedValidator(bytes32 pubkey);
-    error GetBeaconBlockRootFailure(uint64 timestamp);
-    error StaleValidatorContainer(bytes32 pubkey, uint64 timestamp);
+    error StaleValidatorContainer(bytes32 pubkey, uint256 timestamp);
     error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
     error FullyWithdrawnValidatorContainer(bytes32 pubkey);
     error UnmatchedValidatorAndWithdrawal(bytes32 pubkey);
     error NotPartialWithdrawal(bytes32 pubkey);
+    error BeaconChainOracleNotUpdatedAtTime(address oracle, uint256 timestamp);
+    error WithdrawalFailure(address withdrawer, address recipient, uint256 amount);
 
     modifier onlyGateway() {
         require(msg.sender == address(gateway), "ExoCapsule: only client chain gateway could call this function");
@@ -42,12 +44,14 @@ contract ExoCapsule is
         _disableInitializers();
     }
 
-    function initialize(address _gateway, address _capsuleOwner) external initializer {
+    function initialize(address _gateway, address _capsuleOwner, address _beaconOracle) external initializer {
         require(_capsuleOwner != address(0), "ExoCapsule: capsule owner address can not be empty");
         require(_gateway != address(0), "ExoCapsule: gateway address can not be empty");
+        require(_beaconOracle != address(0), "ExoCapsule: beacon chain oracle address should not be empty");
 
-        gateway = INativeRestakingController(_gateway);
         capsuleOwner = _capsuleOwner;
+        gateway = INativeRestakingController(_gateway);
+        beaconOracle = IBeaconChainOracle(_beaconOracle);
     }
 
     function verifyDepositProof(
@@ -152,7 +156,10 @@ contract ExoCapsule is
         );
 
         withdrawableBalance -= amount;
-        recipient.call{value: amount}("");
+        (bool sent, ) = recipient.call{value: amount}("");
+        if (!sent) {
+            revert WithdrawalFailure(capsuleOwner, recipient, amount);
+        }
 
         emit WithdrawalSuccess(capsuleOwner, recipient, amount);
     }
@@ -179,14 +186,13 @@ contract ExoCapsule is
         return abi.encodePacked(bytes1(uint8(1)), bytes11(0), address(this));
     }
 
-    function getBeaconBlockRoot(uint64 timestamp) public returns (bytes32) {
-        (bool success, bytes memory rootBytes) = BEACON_ROOTS_ADDRESS.call(abi.encodePacked(timestamp));
-        if (!success) {
-            revert GetBeaconBlockRootFailure(timestamp);
+    function getBeaconBlockRoot(uint256 timestamp) public returns (bytes32) {
+        bytes32 root = beaconOracle.timestampToBlockRoot(timestamp);
+        if (root == bytes32(0)) {
+            revert BeaconChainOracleNotUpdatedAtTime(address(beaconOracle), timestamp);
         }
 
-        bytes32 beaconBlockRoot = abi.decode(rootBytes, (bytes32));
-        return beaconBlockRoot;
+        return root;
     }
 
     function _verifyValidatorContainer(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof) internal {
@@ -219,7 +225,7 @@ contract ExoCapsule is
         }
     }
 
-    function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint64 atTimestamp) internal pure returns (bool) {
+    function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint256 atTimestamp) internal pure returns (bool) {
         uint64 atEpoch = _timestampToEpoch(atTimestamp);
         uint64 activationEpoch = validatorContainer.getActivationEpoch();
         uint64 exitEpoch = validatorContainer.getExitEpoch();
@@ -227,7 +233,7 @@ contract ExoCapsule is
         return (atEpoch >= activationEpoch && atEpoch < exitEpoch);
     }
 
-    function _isStaleProof(Validator storage validator, uint64 proofTimestamp) internal view returns (bool) {
+    function _isStaleProof(Validator storage validator, uint256 proofTimestamp) internal view returns (bool) {
         if (proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS >= block.timestamp) {
             if (proofTimestamp > validator.mostRecentBalanceUpdateTimestamp) {
                 return false;
@@ -238,7 +244,7 @@ contract ExoCapsule is
     }
 
     function _hasFullyWithdrawn(bytes32[] calldata validatorContainer) internal view returns (bool) {
-        if (validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(uint64(block.timestamp))) {
+        if (validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp)) {
             if (validatorContainer.getEffectiveBalance() == 0) {
                 return true;
             }
@@ -252,8 +258,8 @@ contract ExoCapsule is
      * seconds since genesis, and dividing by seconds per epoch.
      * reference: https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md
      */
-    function _timestampToEpoch(uint64 timestamp) internal pure returns (uint64) {
+    function _timestampToEpoch(uint256 timestamp) internal pure returns (uint64) {
         require(timestamp >= BEACON_CHAIN_GENESIS_TIME, "timestamp should be greater than beacon chain genesis timestamp");
-        return (timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH;
+        return uint64((timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH);
     }
 }

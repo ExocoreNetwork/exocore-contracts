@@ -14,6 +14,7 @@ import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../../src/interfaces/ITSSReceiver.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 contract ClientChainGatewayTest is Test {
     Player[] players;
@@ -28,10 +29,11 @@ contract ClientChainGatewayTest is Test {
     ExocoreGateway exocoreGateway;
     EndpointV2Mock clientChainLzEndpoint;
     EndpointV2Mock exocoreLzEndpoint;
+    IBeaconChainOracle beaconOracle;
 
     string operatorAddress = "exo1v4s6vtjpmxwu9rlhqms5urzrc3tc2ae2gnuqhc";
-    uint16 exocoreChainId = 1;
-    uint16 clientChainId = 2;
+    uint16 exocoreChainId = 2;
+    uint16 clientChainId = 1;
 
     struct Player {
         uint256 privateKey;
@@ -51,6 +53,7 @@ contract ClientChainGatewayTest is Test {
         exocoreValidatorSet = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
         deployer = Player({privateKey: uint256(0xb), addr: vm.addr(uint256(0xb))});
 
+        vm.chainId(clientChainId);
         _deploy();
 
         vm.prank(exocoreValidatorSet.addr);
@@ -60,6 +63,8 @@ contract ClientChainGatewayTest is Test {
     function _deploy() internal {
         vm.startPrank(deployer.addr);
 
+        beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
+        
         restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
         whitelistTokens.push(address(restakeToken));
 
@@ -73,10 +78,34 @@ contract ClientChainGatewayTest is Test {
         Vault vaultLogic = new Vault();
         vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(proxyAdmin), "")));
 
-        clientGateway.initialize(exocoreChainId, payable(exocoreValidatorSet.addr), whitelistTokens);
+        clientGateway.initialize(
+            exocoreChainId, 
+            payable(exocoreValidatorSet.addr),
+            address(beaconOracle),
+            whitelistTokens
+        );
         vault.initialize(address(restakeToken), address(clientGateway));
         vaults.push(address(vault));
         vm.stopPrank();
+    }
+
+    function _deployBeaconOracle() internal returns (address) {
+        uint256 GENESIS_BLOCK_TIMESTAMP;
+
+        if (block.chainid == 1) {
+            GENESIS_BLOCK_TIMESTAMP = 1606824023;
+        } else if (block.chainid == 5) {
+            GENESIS_BLOCK_TIMESTAMP = 1616508000;
+        } else if (block.chainid == 11155111) {
+            GENESIS_BLOCK_TIMESTAMP = 1655733600;
+        } else if (block.chainid == 17000) {
+            GENESIS_BLOCK_TIMESTAMP = 1695902400;
+        } else {
+            revert("Unsupported chainId.");
+        }
+
+        EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
+        return address(oracle);
     }
 
     function test_PauseClientChainGateway() public {

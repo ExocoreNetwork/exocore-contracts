@@ -36,12 +36,15 @@ contract ClientChainGateway is
     function initialize(
         uint32 _exocoreChainId,
         address payable _exocoreValidatorSetAddress,
+        address _beaconOracleAddress,
         address[] calldata _whitelistTokens
     ) external initializer {
-        require(_exocoreValidatorSetAddress != address(0), "ClientChainGateway: exocore validator set address should not be empty");
         require(_exocoreChainId != 0, "ClientChainGateway: exocore chain id should not be empty");
+        require(_exocoreValidatorSetAddress != address(0), "ClientChainGateway: exocore validator set address should not be empty");
+        require(_beaconOracleAddress != address(0), "ClientChainGateway: beacon chain oracle address should not be empty");
 
         exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
+        beaconOracleAddress = _beaconOracleAddress;
         exocoreChainId = _exocoreChainId;
 
         for (uint256 i = 0; i < _whitelistTokens.length; i++) {

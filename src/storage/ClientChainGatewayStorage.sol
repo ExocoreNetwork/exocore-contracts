@@ -21,10 +21,11 @@ contract ClientChainGatewayStorage is GatewayStorage {
     uint128 constant DESTINATION_MSG_VALUE = 0;
 
     // native restaking state variables
-    mapping(address => IExoCapsule) public ownerToCapsule;
     IETHPOSDeposit constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     uint256 constant GWEI_TO_WEI = 1e9;
+    address beaconOracleAddress;
+    mapping(address => IExoCapsule) public ownerToCapsule;
 
     event WhitelistTokenAdded(address _token);
     event WhitelistTokenRemoved(address _token);

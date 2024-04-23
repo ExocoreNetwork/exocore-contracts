@@ -31,7 +31,7 @@ abstract contract NativeRestakingController is
         require(address(ownerToCapsule[msg.sender]) == address(0), "NativeRestakingController: message sender has already created the capsule");
     
         ExoCapsule capsule = new ExoCapsule();
-        capsule.initialize(address(this), msg.sender);
+        capsule.initialize(address(this), msg.sender, beaconOracleAddress);
         ownerToCapsule[msg.sender] = capsule;
 
         emit CapsuleCreated(msg.sender, address(capsule));
