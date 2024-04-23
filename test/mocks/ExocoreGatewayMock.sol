@@ -2,12 +2,13 @@ pragma solidity ^0.8.19;
 
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OAppUpgradeable, Origin, MessagingFee, MessagingReceipt} from "src/lzApp/OAppUpgradeable.sol";
+import {OAppUpgradeable, Origin, MessagingFee, MessagingReceipt, OAppReceiverUpgradeable} from "src/lzApp/OAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IExocoreGateway} from "src/interfaces/IExocoreGateway.sol";
+import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
 
 contract ExocoreGatewayMock is
     Initializable,
@@ -267,6 +268,16 @@ contract ExocoreGatewayMock is
             OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE);
         MessagingFee memory fee = _quote(srcChainid, _message, options, false);
         return fee.nativeFee;
+    }
+
+    function nextNonce(uint32 srcEid, bytes32 sender)
+        public
+        view
+        virtual
+        override(ILayerZeroReceiver, OAppReceiverUpgradeable)
+        returns (uint64)
+    {
+        return inboundNonce[srcEid][sender] + 1;
     }
 
     function getInboundNonce(uint32 srcEid, bytes32 sender) public view returns (uint64) {
