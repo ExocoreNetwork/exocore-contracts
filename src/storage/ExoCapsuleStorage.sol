@@ -3,6 +3,8 @@ pragma solidity ^0.8.19;
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 
+import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
+
 contract ExoCapsuleStorage {
     enum VALIDATOR_STATUS {
         UNREGISTERED, // the validator has not been registered in this ExoCapsule
@@ -16,7 +18,7 @@ contract ExoCapsuleStorage {
         // amount of beacon chain ETH restaked on EigenLayer in gwei
         uint64 restakedBalanceGwei;
         //timestamp of the validator's most recent balance update
-        uint64 mostRecentBalanceUpdateTimestamp;
+        uint256 mostRecentBalanceUpdateTimestamp;
         // status of the validator
         VALIDATOR_STATUS status;
     }
@@ -27,6 +29,7 @@ contract ExoCapsuleStorage {
 
     address public capsuleOwner;
     INativeRestakingController public gateway;
+    IBeaconChainOracle public beaconOracle;
 
     uint256 public principleBalance;
     uint256 public withdrawableBalance; 

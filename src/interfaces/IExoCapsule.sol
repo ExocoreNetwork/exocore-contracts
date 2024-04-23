@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 interface IExoCapsule {
     /// @notice This struct contains the infos needed for validator container validity verification
     struct ValidatorContainerProof {
-        uint64 beaconBlockTimestamp;
+        uint256 beaconBlockTimestamp;
         bytes32 stateRoot;
         bytes32[] stateRootProof;
         bytes32[] validatorContainerRootProof;
@@ -11,7 +11,7 @@ interface IExoCapsule {
     }
 
     struct WithdrawalContainerProof {
-        uint64 beaconBlockTimestamp;
+        uint256 beaconBlockTimestamp;
         bytes32 executionPayloadRoot;
         bytes32[] executionPayloadRootProof;
         bytes32[] withdrawalContainerRootProof;

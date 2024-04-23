@@ -16,6 +16,7 @@ import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 contract ExocoreDeployer is Test {
     using AddressCast for address;
@@ -31,9 +32,10 @@ contract ExocoreDeployer is Test {
     ExocoreGateway exocoreGateway;
     ILayerZeroEndpointV2 clientChainLzEndpoint;
     ILayerZeroEndpointV2 exocoreLzEndpoint;
+    IBeaconChainOracle beaconOracle;
 
-    uint32 exocoreChainId = 1;
-    uint32 clientChainId = 2;
+    uint32 exocoreChainId = 2;
+    uint32 clientChainId = 1;
 
     struct Player {
         uint256 privateKey;
@@ -46,6 +48,7 @@ contract ExocoreDeployer is Test {
         players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
         exocoreValidatorSet = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
 
+        vm.chainId(clientChainId);
         _deploy();
     }
 
@@ -54,6 +57,7 @@ contract ExocoreDeployer is Test {
         restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
         clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
         exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
+        beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
 
         // deploy and initialize client chain contracts
         ProxyAdmin proxyAdmin = new ProxyAdmin();
@@ -70,6 +74,7 @@ contract ExocoreDeployer is Test {
                             clientGatewayLogic.initialize.selector,
                             exocoreChainId,
                             payable(exocoreValidatorSet.addr),
+                            address(beaconOracle),
                             whitelistTokens
                         )
                     )
@@ -136,5 +141,24 @@ contract ExocoreDeployer is Test {
 
         bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
         vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+    }
+
+    function _deployBeaconOracle() internal returns (address) {
+        uint256 GENESIS_BLOCK_TIMESTAMP;
+
+        if (block.chainid == 1) {
+            GENESIS_BLOCK_TIMESTAMP = 1606824023;
+        } else if (block.chainid == 5) {
+            GENESIS_BLOCK_TIMESTAMP = 1616508000;
+        } else if (block.chainid == 11155111) {
+            GENESIS_BLOCK_TIMESTAMP = 1655733600;
+        } else if (block.chainid == 17000) {
+            GENESIS_BLOCK_TIMESTAMP = 1695902400;
+        } else {
+            revert("Unsupported chainId.");
+        }
+
+        EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
+        return address(oracle);
     }
 }
