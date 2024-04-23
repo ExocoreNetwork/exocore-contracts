@@ -17,18 +17,18 @@ const tokenMetaInfos = [
 const exocoreBech32Prefix = 'exo';
 
 require('dotenv').config();
-let { bech32 } = require('bech32');
+let { decode } = require('bech32');
 const fs = require('fs').promises;
 const { Web3 } = require('web3');
 const Decimal = require('decimal.js');
 
 const isValidBech32 = (address) => {
   try {
-    const { prefix, words } = bech32.decode(address);
+    const { prefix, words } = decode(address);
     if (!prefix || !words.length) {
       return false;
     }
-    return prefix !== exocoreBech32Prefix;
+    return prefix === exocoreBech32Prefix;
   } catch (error) {
     // If there's any error in decoding, return false
     return false;
