@@ -136,13 +136,13 @@ library BeaconChainProofs {
     function isValidValidatorContainerRoot(
         bytes32 validatorContainerRoot,
         bytes32[] calldata validatorContainerRootProof,
-        uint256 validatorContainerRootIndex,
+        uint256 validatorIndex,
         bytes32 beaconBlockRoot,
         bytes32 stateRoot,
         bytes32[] calldata stateRootProof
     ) internal view returns (bool valid) {
         bool validStateRoot = isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
-        bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorContainerRootIndex);
+        bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex);
         if (validStateRoot && validVCRootAgainstStateRoot) {
             valid = true;
         }
@@ -170,25 +170,27 @@ library BeaconChainProofs {
         bytes32 validatorContainerRoot,
         bytes32 stateRoot,
         bytes32[] calldata validatorContainerRootProof,
-        uint256 validatorContainerRootIndex
+        uint256 validatorIndex
     ) internal view returns (bool) {
         require(
             validatorContainerRootProof.length == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT,
             "validator container root proof should have 46 nodes"
         );
 
+        uint256 leafIndex = (VALIDATOR_TREE_ROOT_INDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
+
         return Merkle.verifyInclusionSha256({
             proof: validatorContainerRootProof,
             root: stateRoot,
             leaf: validatorContainerRoot,
-            index: validatorContainerRootIndex
+            index: leafIndex
         });
     }
 
     function isValidWithdrawalContainerRoot(
         bytes32 withdrawalContainerRoot,
         bytes32[] calldata withdrawalContainerRootProof,
-        uint256 withdrawalContainerRootIndex,
+        uint256 withdrawalIndex,
         bytes32 beaconBlockRoot,
         bytes32 executionPayloadRoot,
         bytes32[] calldata executionPayloadRootProof
@@ -198,7 +200,7 @@ library BeaconChainProofs {
             withdrawalContainerRoot, 
             executionPayloadRoot, 
             withdrawalContainerRootProof, 
-            withdrawalContainerRootIndex
+            withdrawalIndex
         );
         if (validExecutionPayloadRoot && validWCRootAgainstExecutionPayloadRoot) {
             valid = true;
@@ -215,14 +217,14 @@ library BeaconChainProofs {
             "state root proof should have 3 nodes"
         );
 
-        uint256 executionPayloadIndex = (BODY_ROOT_INDEX << (BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT)) |
+        uint256 leafIndex = (BODY_ROOT_INDEX << (BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT)) |
                 EXECUTION_PAYLOAD_INDEX;
 
         return Merkle.verifyInclusionSha256({
             proof: executionPayloadRootProof,
             root: beaconBlockRoot,
             leaf: executionPayloadRoot,
-            index: executionPayloadIndex
+            index: leafIndex
         });
     }
 
@@ -230,21 +232,21 @@ library BeaconChainProofs {
         bytes32 withdrawalContainerRoot,
         bytes32 executionPayloadRoot,
         bytes32[] calldata withdrawalContainerRootProof,
-        uint256 withdrawalContainerRootIndex
+        uint256 withdrawalIndex
     ) internal view returns (bool) {
         require(
             withdrawalContainerRootProof.length == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT,
             "validator container root proof should have 46 nodes"
         );
 
-        uint256 withdrawalIndex = (WITHDRAWALS_INDEX << (WITHDRAWALS_TREE_HEIGHT + 1)) |
-                uint256(withdrawalContainerRootIndex);
+        uint256 leafIndex = (WITHDRAWALS_INDEX << (WITHDRAWALS_TREE_HEIGHT + 1)) |
+                uint256(withdrawalIndex);
 
         return Merkle.verifyInclusionSha256({
             proof: withdrawalContainerRootProof,
             root: executionPayloadRoot,
             leaf: withdrawalContainerRoot,
-            index: withdrawalIndex
+            index: leafIndex
         });
     }
 }
