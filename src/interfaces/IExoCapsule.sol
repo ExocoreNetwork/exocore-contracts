@@ -7,7 +7,7 @@ interface IExoCapsule {
         bytes32 stateRoot;
         bytes32[] stateRootProof;
         bytes32[] validatorContainerRootProof;
-        uint256 validatorContainerRootIndex;
+        uint256 validatorIndex;
     }
 
     struct WithdrawalContainerProof {
@@ -15,7 +15,7 @@ interface IExoCapsule {
         bytes32 executionPayloadRoot;
         bytes32[] executionPayloadRootProof;
         bytes32[] withdrawalContainerRootProof;
-        uint256 withdrawalContainerRootIndex;
+        uint256 withdrawalIndex;
     }
 
     function verifyDepositProof(

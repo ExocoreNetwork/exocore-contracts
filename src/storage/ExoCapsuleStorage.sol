@@ -24,7 +24,7 @@ contract ExoCapsuleStorage {
     }
 
     address public constant BEACON_ROOTS_ADDRESS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
-    uint64 public constant BEACON_CHAIN_GENESIS_TIME = 1606824023;
+    uint256 public constant BEACON_CHAIN_GENESIS_TIME = 1606824023;
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
 
     address public capsuleOwner;

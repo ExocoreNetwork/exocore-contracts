@@ -114,12 +114,13 @@ library Merkle {
             "Merkle.processInclusionProofSha256: proof length should be a non-zero multiple of 32"
         );
         bytes32[1] memory computedHash = [leaf];
-        for (uint256 i = 32; i <= proof.length; i += 32) {
+        for (uint256 i = 0; i < proof.length; i++) {
+            bytes32[1] memory node = [proof[i]];
             if (index % 2 == 0) {
                 // if ith bit of index is 0, then computedHash is a left sibling
                 assembly {
                     mstore(0x00, mload(computedHash))
-                    mstore(0x20, mload(add(proof, i)))
+                    mstore(0x20, mload(node))
                     if iszero(staticcall(sub(gas(), 2000), 2, 0x00, 0x40, computedHash, 0x20)) {
                         revert(0, 0)
                     }
@@ -128,7 +129,7 @@ library Merkle {
             } else {
                 // if ith bit of index is 1, then computedHash is a right sibling
                 assembly {
-                    mstore(0x00, mload(add(proof, i)))
+                    mstore(0x00, mload(node))
                     mstore(0x20, mload(computedHash))
                     if iszero(staticcall(sub(gas(), 2000), 2, 0x00, 0x40, computedHash, 0x20)) {
                         revert(0, 0)
