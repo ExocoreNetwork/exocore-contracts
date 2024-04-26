@@ -8,8 +8,8 @@ import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
-abstract contract NativeRestakingController is 
-    PausableUpgradeable, 
+abstract contract NativeRestakingController is
+    PausableUpgradeable,
     INativeRestakingController,
     BaseRestakingController
 {
@@ -29,7 +29,6 @@ abstract contract NativeRestakingController is
 
     function createExoCapsule() public whenNotPaused returns (address) {
         require(address(ownerToCapsule[msg.sender]) == address(0), "NativeRestakingController: message sender has already created the capsule");
-    
         ExoCapsule capsule = new ExoCapsule(address(this), msg.sender, beaconOracleAddress);
         ownerToCapsule[msg.sender] = capsule;
 
@@ -39,14 +38,10 @@ abstract contract NativeRestakingController is
     }
 
     function depositBeaconChainValidator(
-        bytes32[] calldata validatorContainer, 
+        bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata proof
     ) external whenNotPaused {
-        IExoCapsule capsule = ownerToCapsule[msg.sender];
-        if (address(capsule) == address(0)) {
-            revert CapsuleNotExist();
-        }
-
+        IExoCapsule capsule = _getCapsule(msg.sender);
         capsule.verifyDepositProof(validatorContainer, proof);
 
         uint256 depositValue = uint256(validatorContainer.getEffectiveBalance()) * GWEI_TO_WEI;
@@ -54,11 +49,11 @@ abstract contract NativeRestakingController is
         registeredRequestActions[outboundNonce + 1] = Action.REQUEST_DEPOSIT;
 
         bytes memory actionArgs = abi.encodePacked(
-            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), 
-            bytes32(bytes20(msg.sender)), 
+            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
+            bytes32(bytes20(msg.sender)),
             depositValue
         );
-        
+
         _sendMsgToExocore(Action.REQUEST_DEPOSIT, actionArgs);
     }
 
