@@ -1,5 +1,7 @@
 pragma solidity ^0.8.19;
 
+import "../libraries/Endian.sol";
+
 /**
  * class Withdrawal(Container):
     index: WithdrawalIndex
@@ -8,6 +10,8 @@ pragma solidity ^0.8.19;
     amount: Gwei
  */
 library WithdrawalContainer {
+    using Endian for bytes32;
+
     uint256 internal constant VALID_LENGTH = 4;
     uint256 internal constant MERKLE_TREE_HEIGHT = 2;
     
@@ -16,11 +20,11 @@ library WithdrawalContainer {
     }
 
     function getWithdrawalIndex(bytes32[] calldata withdrawalContainer) internal pure returns (uint64) {
-        return uint64(bytes8(withdrawalContainer[0]));
+        return withdrawalContainer[0].fromLittleEndianUint64();
     }
 
     function getValidatorIndex(bytes32[] calldata withdrawalContainer) internal pure returns (uint64) {
-        return uint64(bytes8(withdrawalContainer[1]));
+        return withdrawalContainer[1].fromLittleEndianUint64();
     }
 
     function getExecutionAddress(bytes32[] calldata withdrawalContainer) internal pure returns (address) {
@@ -28,7 +32,7 @@ library WithdrawalContainer {
     }
 
     function getAmount(bytes32[] calldata withdrawalContainer) internal pure returns (uint64) {
-        return uint64(bytes8(withdrawalContainer[3]));
+        return withdrawalContainer[3].fromLittleEndianUint64();
     }
 
     function merklelizeWithdrawalContainer(bytes32[] calldata withdrawalContainer) internal pure returns (bytes32) {

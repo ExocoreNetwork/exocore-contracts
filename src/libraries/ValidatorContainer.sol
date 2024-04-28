@@ -1,5 +1,7 @@
 pragma solidity ^0.8.19;
 
+import "../libraries/Endian.sol";
+
 /**
  * class Validator(Container):
     pubkey: BLSPubkey
@@ -13,6 +15,8 @@ pragma solidity ^0.8.19;
     withdrawable_epoch: Epoch  # When validator can withdraw funds
  */
 library ValidatorContainer {
+    using Endian for bytes32;
+
     uint256 internal constant VALID_LENGTH = 8;
     uint256 internal constant MERKLE_TREE_HEIGHT = 3;
     
@@ -29,7 +33,7 @@ library ValidatorContainer {
     }
 
     function getEffectiveBalance(bytes32[] calldata validatorContainer) internal pure returns (uint64) {
-        return uint64(bytes8(validatorContainer[2]));
+        return validatorContainer[2].fromLittleEndianUint64();
     }
 
     function getSlashed(bytes32[] calldata validatorContainer) internal pure returns (bool) {
@@ -37,15 +41,15 @@ library ValidatorContainer {
     }
 
     function getActivationEpoch(bytes32[] calldata validatorContainer) internal pure returns (uint64) {
-        return uint64(bytes8(validatorContainer[5]));
+        return validatorContainer[5].fromLittleEndianUint64();
     }
 
     function getExitEpoch(bytes32[] calldata validatorContainer) internal pure returns (uint64) {
-        return uint64(bytes8(validatorContainer[6]));
+        return validatorContainer[6].fromLittleEndianUint64();
     }
 
     function getWithdrawableEpoch(bytes32[] calldata validatorContainer) internal pure returns (uint64) {
-        return uint64(bytes8(validatorContainer[7]));
+        return validatorContainer[7].fromLittleEndianUint64();
     }
 
     function merklelizeValidatorContainer(bytes32[] calldata validatorContainer) internal pure returns (bytes32) {
