@@ -73,9 +73,9 @@ contract ExoCapsule is
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
-        // if (!_isActivatedAtEpoch(validatorContainer, proof.beaconBlockTimestamp)) {
-        //     revert InactiveValidatorContainer(validatorPubkey);
-        // }
+        if (!_isActivatedAtEpoch(validatorContainer, proof.beaconBlockTimestamp)) {
+            revert InactiveValidatorContainer(validatorPubkey);
+        }
 
         if (withdrawalCredentials != bytes32(capsuleWithdrawalCredentials())) {
             revert WithdrawalCredentialsNotMatch();
