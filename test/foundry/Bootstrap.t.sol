@@ -569,7 +569,29 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    // can add test08 next.
+    function test08_ExocoreAddressIsValid() public {
+        assertTrue(
+            bootstrap.exocoreAddressIsValid(
+                "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac"
+            )
+        );
+    }
+
+    function test08_ExocoreAddressIsValid_Length() public {
+        assertFalse(
+            bootstrap.exocoreAddressIsValid(
+                "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7acaa"
+            )
+        );
+    }
+
+    function test08_ExocoreAddressIsValid_Prefix() public {
+        assertFalse(
+            bootstrap.exocoreAddressIsValid(
+                "asd"
+            )
+        );
+    }
 
     function test09_DelegateTo() public {
         // first, register the operators
