@@ -245,6 +245,20 @@ async function updateGenesisFile() {
               client_chain_earning_addr: operatorAddress,
             }
           ]
+        },
+        commission: {
+          commission_rates: {
+            rate: new Decimal(
+              operatorInfo.commission.rate.toString()
+            ).div('1e18').toString(),
+            max_rate: new Decimal(
+              operatorInfo.commission.maxRate.toString()
+            ).div('1e18').toString(),
+            max_change_rate: new Decimal(
+              operatorInfo.commission.maxChangeRate.toString()
+            ).div('1e18').toString(),
+          },
+          update_time: spawnDate,
         }
       }
       operators.push(operatorCleaned);
