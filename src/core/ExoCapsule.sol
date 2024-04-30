@@ -58,6 +58,8 @@ contract ExoCapsule is
         nonBeaconChainETHBalance += msg.value;
     }
 
+    function withdrawNonBeaconChainETHBalance() external onlyGateway {}
+
     function verifyDepositProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
