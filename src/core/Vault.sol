@@ -20,17 +20,20 @@ contract Vault is Initializable, VaultStorage, IVault {
         _disableInitializers();
     }
 
+    function initialize(address underlyingToken_, address gateway_) external initializer {
+        require(underlyingToken_ != address(0), "Vault: underlying token can not be empty");
+        require(gateway_!= address(0), "VaultStorage: the gateway address should not be empty");
+
+        underlyingToken = IERC20(underlyingToken_);
+        gateway = ILSTRestakingController(gateway_);
+    }
+
     function getUnderlyingToken() public view returns (address) {
         return address(underlyingToken);
     }
 
     function getWithdrawableBalance(address withdrawer) external view returns (uint256 balance) {
         return withdrawableBalances[withdrawer];
-    }
-
-    function initialize(address _underlyingToken, address _gateway) external initializer {
-        underlyingToken = IERC20(_underlyingToken);
-        gateway = ILSTRestakingController(_gateway);
     }
 
     function withdraw(address withdrawer, address recipient, uint256 amount) external onlyGateway {

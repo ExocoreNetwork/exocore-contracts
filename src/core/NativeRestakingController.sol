@@ -7,6 +7,7 @@ import {BaseRestakingController} from "./BaseRestakingController.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 abstract contract NativeRestakingController is
     PausableUpgradeable,
@@ -14,6 +15,9 @@ abstract contract NativeRestakingController is
     BaseRestakingController
 {
     using ValidatorContainer for bytes32[];
+
+    event CapsuleCreated(address owner, address capsule);
+    event StakedWithCapsule(address staker, address capsule);
 
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable whenNotPaused {
         require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
@@ -29,7 +33,15 @@ abstract contract NativeRestakingController is
 
     function createExoCapsule() public whenNotPaused returns (address) {
         require(address(ownerToCapsule[msg.sender]) == address(0), "NativeRestakingController: message sender has already created the capsule");
-        ExoCapsule capsule = new ExoCapsule(address(this), msg.sender, beaconOracleAddress);
+        ExoCapsule capsule = ExoCapsule(
+            Create2.deploy(
+                0,
+                bytes32(uint256(uint160(msg.sender))),
+                // set the beacon address for beacon proxy
+                abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(exoCapsuleBeacon), ""))
+            )
+        );
+        capsule.initialize(address(this), msg.sender, beaconOracleAddress);
         ownerToCapsule[msg.sender] = capsule;
 
         emit CapsuleCreated(msg.sender, address(capsule));
@@ -45,8 +57,8 @@ abstract contract NativeRestakingController is
         capsule.verifyDepositProof(validatorContainer, proof);
 
         uint256 depositValue = uint256(validatorContainer.getEffectiveBalance()) * GWEI_TO_WEI;
-        registeredRequests[outboundNonce + 1] = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue);
-        registeredRequestActions[outboundNonce + 1] = Action.REQUEST_DEPOSIT;
+        _registeredRequests[outboundNonce + 1] = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue);
+        _registeredRequestActions[outboundNonce + 1] = Action.REQUEST_DEPOSIT;
 
         bytes memory actionArgs = abi.encodePacked(
             bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),

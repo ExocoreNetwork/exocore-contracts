@@ -32,23 +32,23 @@ contract ExocoreGateway is
         _;
     }
 
-    constructor(address _endpoint) OAppUpgradeable(_endpoint) {
+    constructor(address endpoint_) OAppUpgradeable(endpoint_) {
         _disableInitializers();
     }
 
     receive() external payable {}
 
-    function initialize(address payable _exocoreValidatorSetAddress) external initializer {
-        require(_exocoreValidatorSetAddress != address(0), "ExocoreGateway: invalid empty exocore validator set address");
+    function initialize(address payable exocoreValidatorSetAddress_) external initializer {
+        require(exocoreValidatorSetAddress_ != address(0), "ExocoreGateway: invalid empty exocore validator set address");
 
-        exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
+        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
-        whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
-        whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
-        whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
-        whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
+        _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
             this.requestWithdrawPrinciple.selector;
-        whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
 
         __Ownable_init_unchained(exocoreValidatorSetAddress);
         __OAppCore_init_unchained(exocoreValidatorSetAddress);
@@ -92,7 +92,7 @@ contract ExocoreGateway is
         _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));
-        bytes4 selector_ = whiteListFunctionSelectors[act];
+        bytes4 selector_ = _whiteListFunctionSelectors[act];
         if (selector_ == bytes4(0)) {
             revert UnsupportedRequest(act);
         }

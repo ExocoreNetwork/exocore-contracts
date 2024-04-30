@@ -68,7 +68,7 @@ contract SetUp is Test {
 
         capsuleOwner = address(0x125);
 
-        ExoCapsule phantomCapsule = new ExoCapsule(address(this), capsuleOwner, address(beaconOracle));
+        ExoCapsule phantomCapsule = new ExoCapsule();
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(phantomCapsule).code);
@@ -107,6 +107,8 @@ contract SetUp is Test {
 
 contract VerifyDepositProof is SetUp {
     using BeaconChainProofs for bytes32;
+    using stdStorage for StdStorage;
+    
     function test_verifyDepositProof() public {
         uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
@@ -220,7 +222,17 @@ contract VerifyDepositProof is SetUp {
         );
 
         // validator container withdrawal credentials are pointed to another capsule
-        ExoCapsule anotherCapsule = new ExoCapsule(address(this), capsuleOwner, address(beaconOracle));
+        ExoCapsule anotherCapsule = new ExoCapsule();
+
+        bytes32 gatewaySlot = bytes32(stdstore.target(address(anotherCapsule)).sig("gateway()").find());
+        vm.store(address(anotherCapsule), gatewaySlot, bytes32(uint256(uint160(address(this)))));
+
+        bytes32 ownerSlot = bytes32(stdstore.target(address(anotherCapsule)).sig("capsuleOwner()").find());
+        vm.store(address(anotherCapsule), ownerSlot, bytes32(uint256(uint160(capsuleOwner))));
+
+        bytes32 beaconOraclerSlot = bytes32(stdstore.target(address(anotherCapsule)).sig("beaconOracle()").find());
+        vm.store(address(anotherCapsule), beaconOraclerSlot, bytes32(uint256(uint160(address(beaconOracle)))));
+
         vm.expectRevert(abi.encodeWithSelector(ExoCapsule.WithdrawalCredentialsNotMatch.selector));
         anotherCapsule.verifyDepositProof(validatorContainer, validatorProof);
     }

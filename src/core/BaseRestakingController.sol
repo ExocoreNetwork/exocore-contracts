@@ -18,6 +18,9 @@ abstract contract BaseRestakingController is
 {
     using OptionsBuilder for bytes;
 
+    event ClaimSucceeded(address token, address recipient, uint256 amount);
+    event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
+
     receive() external payable {}
 
     modifier isTokenWhitelisted(address token) {
@@ -65,8 +68,8 @@ abstract contract BaseRestakingController is
     isValidBech32Address(operator)
     whenNotPaused {
         _getVault(token);
-        registeredRequests[outboundNonce + 1] = abi.encode(token, operator, msg.sender, amount);
-        registeredRequestActions[outboundNonce + 1] = Action.REQUEST_DELEGATE_TO;
+        _registeredRequests[outboundNonce + 1] = abi.encode(token, operator, msg.sender, amount);
+        _registeredRequestActions[outboundNonce + 1] = Action.REQUEST_DELEGATE_TO;
 
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
@@ -80,8 +83,8 @@ abstract contract BaseRestakingController is
     isValidBech32Address(operator)
     whenNotPaused {
         _getVault(token);
-        registeredRequests[outboundNonce + 1] = abi.encode(token, operator, msg.sender, amount);
-        registeredRequestActions[outboundNonce + 1] = Action.REQUEST_UNDELEGATE_FROM;
+        _registeredRequests[outboundNonce + 1] = abi.encode(token, operator, msg.sender, amount);
+        _registeredRequestActions[outboundNonce + 1] = Action.REQUEST_UNDELEGATE_FROM;
 
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);

@@ -9,6 +9,11 @@ import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/Pau
 abstract contract TSSReceiver is PausableUpgradeable, ClientChainGatewayStorage, ITSSReceiver {
     using ECDSA for bytes32;
 
+    event MessageProcessed(uint32 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
+    event MessageFailed(uint32 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload, bytes _reason);
+
+    error UnauthorizedSigner();
+
     function receiveInterchainMsg(InterchainMsg calldata _msg, bytes calldata signature) external whenNotPaused {
         require(_msg.nonce == ++lastMessageNonce, "TSSReceiver: message nonce is not expected");
         require(_msg.srcChainID == exocoreChainId, "TSSReceiver: source chain id is incorrect");

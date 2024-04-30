@@ -10,12 +10,15 @@ import {NativeRestakingController} from "./NativeRestakingController.sol";
 import {ClientChainLzReceiver} from "./ClientChainLzReceiver.sol";
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
 import {TSSReceiver} from "./TSSReceiver.sol";
+import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+import {Vault} from "./Vault.sol";
 
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract ClientChainGateway is
     Initializable,
@@ -29,40 +32,59 @@ contract ClientChainGateway is
 {
     using OptionsBuilder for bytes;
 
-    constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {
+    event WhitelistTokenAdded(address _token);
+    event WhitelistTokenRemoved(address _token);
+    event VaultCreated(address _underlyingToken, address _vault);
+
+    /**
+     * @notice This constructor initializes only immutable state variables
+     * @param endpoint_ is the layerzero endpoint address deployed on this chain
+     * @param exocoreChainId_ is the id of layerzero endpoint on Exocore chain
+     * @param beaconOracleAddress_ is the Ethereum beacon chain oracle that is used for fetching beacon block root
+     * @param exoCapsuleBeacon_ is the UpgradeableBeacon contract address for ExoCapsule beacon proxy
+     * @param vaultBeacon_ is the UpgradeableBeacon contract address for Vault beacon proxy
+     */
+    constructor(
+        address endpoint_, 
+        uint32 exocoreChainId_, 
+        address beaconOracleAddress_,
+        address vaultBeacon_,
+        address exoCapsuleBeacon_
+    ) 
+        OAppCoreUpgradeable(endpoint_)
+        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_) 
+    {
         _disableInitializers();
     }
 
     // initialization happens from another contract so it must be external.
     // reinitializer(2) is used so that the ownable and oappcore functions can be called again.
     function initialize(
-        uint32 _exocoreChainId,
-        address payable _exocoreValidatorSetAddress,
-        address _beaconOracleAddress,
-        address[] calldata _whitelistTokens
+        address payable exocoreValidatorSetAddress_,
+        address[] calldata whitelistTokens_
     ) external reinitializer(2) {
         clearBootstrapData();
         
-        require(_exocoreChainId != 0, "ClientChainGateway: exocore chain id should not be empty");
-        require(_exocoreValidatorSetAddress != address(0), "ClientChainGateway: exocore validator set address should not be empty");
-        require(_beaconOracleAddress != address(0), "ClientChainGateway: beacon chain oracle address should not be empty");
+        require(exocoreValidatorSetAddress_ != address(0), "ClientChainGateway: exocore validator set address should not be empty");
 
-        exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
-        beaconOracleAddress = _beaconOracleAddress;
-        exocoreChainId = _exocoreChainId;
+        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
-        for (uint256 i = 0; i < _whitelistTokens.length; i++) {
-            whitelistTokens[_whitelistTokens[i]] = true;
+        for (uint256 i = 0; i < whitelistTokens_.length; i++) {
+            address underlyingToken = whitelistTokens_[i];
+            whitelistTokens[underlyingToken] = true;
+            emit WhitelistTokenAdded(underlyingToken);
+
+            _deployVault(underlyingToken);
         }
 
-        whiteListFunctionSelectors[Action.UPDATE_USERS_BALANCES] = this.updateUsersBalances.selector;
+        _whiteListFunctionSelectors[Action.UPDATE_USERS_BALANCES] = this.updateUsersBalances.selector;
 
-        registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
-        registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
+        _registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
             this.afterReceiveWithdrawPrincipleResponse.selector;
-        registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
-        registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
-        registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
+        _registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
             this.afterReceiveWithdrawRewardResponse.selector;
 
         bootstrapped = true;
@@ -138,10 +160,14 @@ contract ClientChainGateway is
     }
 
     function addWhitelistToken(address _token) external onlyOwner whenNotPaused {
-        require(!whitelistTokens[_token], "ClientChainGateway: token should be not whitelisted before");
+        require(!whitelistTokens[_token], "ClientChainGateway: token should not be whitelisted before");
         whitelistTokens[_token] = true;
-
         emit WhitelistTokenAdded(_token);
+
+        // deploy the corresponding vault if not deployed before
+        if (address(tokenVaults[_token]) == address(0)) {
+            _deployVault(_token);
+        }
     }
 
     function removeWhitelistToken(address _token) external onlyOwner whenNotPaused {
@@ -151,6 +177,7 @@ contract ClientChainGateway is
         emit WhitelistTokenRemoved(_token);
     }
 
+<<<<<<< HEAD
     function addTokenVaults(address[] calldata vaults) external onlyOwner whenNotPaused {
         for (uint256 i = 0; i < vaults.length; i++) {
             address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
@@ -166,6 +193,8 @@ contract ClientChainGateway is
         }
     }
 
+=======
+>>>>>>> ee404c5 (adapt to use beacon proxies and create2 for vaults and capsules creation)
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
@@ -189,6 +218,7 @@ contract ClientChainGateway is
         return (SENDER_VERSION, RECEIVER_VERSION);
     }
 
+<<<<<<< HEAD
     function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)
         public
         onlyCalledFromThis
@@ -275,5 +305,20 @@ contract ClientChainGateway is
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 
         emit UndelegateResult(success, undelegator, operator, token, amount);
+=======
+    function _deployVault(address underlyingToken) internal returns (IVault) {
+        Vault vault = Vault(
+            Create2.deploy(
+                0,
+                bytes32(uint256(uint160(underlyingToken))),
+                // set the beacon address for beacon proxy
+                abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(vaultBeacon), ""))
+            )
+        );
+        vault.initialize(underlyingToken, address(this));
+        emit VaultCreated(underlyingToken, address(vault));
+
+        tokenVaults[underlyingToken] = vault;
+>>>>>>> ee404c5 (adapt to use beacon proxies and create2 for vaults and capsules creation)
     }
 }

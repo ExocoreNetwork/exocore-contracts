@@ -22,18 +22,20 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
     event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
     event MessageProcessed(uint32 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
     event NewPacket(uint32, address, bytes32, uint64, bytes);
+    event CapsuleCreated(address owner, address capsule);
+    event StakedWithCapsule(address staker, address capsule);
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
 
-    function test_DepositWithdrawByLayerZero() public {
+    function test_LSTDepositWithdrawByLayerZero() public {
         Player memory depositor = players[0];
         vm.startPrank(exocoreValidatorSet.addr);
         restakeToken.transfer(depositor.addr, 1000000);
         vm.stopPrank();
 
-        // Commented for testing 0 relay fee
+        // transfer some gas fee to depositor
         deal(depositor.addr, 1e22);
-        deal(address(clientGateway), 1e22);
+        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when sending back response
         deal(address(exocoreGateway), 1e22);
 
         uint256 depositAmount = 10000;
@@ -188,6 +190,23 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
             bytes("")
         );
     }
+
+    // function test_NativeDepositWithdraw() public {
+    //     Player memory depositor = players[0];
+
+    //     // transfer some gas fee to depositor
+    //     deal(depositor.addr, 1e22);
+    //     // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when sending back response
+    //     deal(address(exocoreGateway), 1e22);
+
+    //     // firstly depositor should stake to beacon chain by depositing 32 ETH to ETHPOS contract
+    //     vm.expectEmit(true, true, true, true, address(clientGateway));
+    //     emit CapsuleCreated(depositor.addr, address(0x1));
+    //     emit StakedWithCapsule(depositor.addr, address(0x1));
+
+    //     vm.startPrank(depositor.addr);
+    //     clientGateway.stake()
+    // }
 
     function test_TSSReceiver() public {
         Player memory depositor = players[0];

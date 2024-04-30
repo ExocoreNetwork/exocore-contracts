@@ -3,20 +3,26 @@ pragma solidity ^0.8.19;
 import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "../../src/core/ClientChainGateway.sol";
-import {Vault} from "../../src/core/Vault.sol";
-import "../../src/core/ExocoreGateway.sol";
-import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
-import "forge-std/console.sol";
-import "forge-std/Test.sol";
-import "../../src/interfaces/precompiles/IDelegation.sol";
-import "../../src/interfaces/precompiles/IDeposit.sol";
-import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../../src/interfaces/precompiles/IClaimReward.sol";
+import "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import "forge-std/console.sol";
+import "forge-std/Test.sol";
+
+import "../../src/core/ClientChainGateway.sol";
+import {Vault} from "../../src/core/Vault.sol";
+import "../../src/core/ExoCapsule.sol";
+import "../../src/core/ExocoreGateway.sol";
+import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
+import "../../src/interfaces/precompiles/IDelegation.sol";
+import "../../src/interfaces/precompiles/IDeposit.sol";
+import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
+import "../../src/interfaces/precompiles/IClaimReward.sol";
+import "test/mocks/ETHPOSDepositMock.sol";
+import "src/core/ExoCapsule.sol";
 
 contract ExocoreDeployer is Test {
     using AddressCast for address;
@@ -33,6 +39,16 @@ contract ExocoreDeployer is Test {
     ILayerZeroEndpointV2 clientChainLzEndpoint;
     ILayerZeroEndpointV2 exocoreLzEndpoint;
     IBeaconChainOracle beaconOracle;
+    IVault vaultImplementation;
+    IExoCapsule capsuleImplementation;
+    IBeacon vaultBeacon;
+    IBeacon capsuleBeacon;
+
+    IETHPOSDeposit constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
+
+    bytes32[] validatorContainer;
+    bytes32 beaconBlockRoot;
+    IExoCapsule.ValidatorContainerProof validatorProof;
 
     uint32 exocoreChainId = 2;
     uint32 clientChainId = 1;
@@ -48,22 +64,73 @@ contract ExocoreDeployer is Test {
         players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
         exocoreValidatorSet = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
 
+        // load beacon chain validator container and proof from json file
+        _loadValidatorContainer();
+        _loadValidatorProof();
+        _loadBeaconBlockRoot;
+
         vm.chainId(clientChainId);
         _deploy();
     }
 
+    function _loadValidatorContainer() internal {
+        string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
+
+        validatorContainer = stdJson.readBytes32Array(validatorInfo, ".ValidatorFields");
+        require(validatorContainer.length > 0, "validator container should not be empty");
+    }
+
+    function _loadValidatorProof() internal {
+        string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
+
+        validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
+        require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
+        validatorProof.stateRootProof = stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+        require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
+        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+        require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
+        validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
+        require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
+    }
+
+    function _loadBeaconBlockRoot() internal {
+        string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
+
+        beaconBlockRoot = stdJson.readBytes32(validatorInfo, ".latestBlockHeaderRoot");
+        require(beaconBlockRoot != bytes32(0), "beacon block root should not be empty");
+    }
+
     function _deploy() internal {
         // prepare outside contracts like ERC20 token contract and layerzero endpoint contract
-        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
+        restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e34, exocoreValidatorSet.addr);
         clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
         exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
         beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
 
-        // deploy and initialize client chain contracts
-        ProxyAdmin proxyAdmin = new ProxyAdmin();
+        // deploy vault implementation contract and capsule implementation contract
+        // that has logics called by proxy
+        vaultImplementation = new Vault();
+        capsuleImplementation = new ExoCapsule();
 
+        // deploy the vault beacon and capsule beacon that store the implementation contract address
+        vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+
+        // attach ETHPOSDepositMock contract code to constant address
+        ETHPOSDepositMock ethPOSDepositMock = new ETHPOSDepositMock();
+        vm.etch(address(ETH_POS), address(ethPOSDepositMock).code);
+
+        // deploy and initialize client chain contracts
         whitelistTokens.push(address(restakeToken));
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint));
+        
+        ProxyAdmin proxyAdmin = new ProxyAdmin();
+        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
+            address(clientChainLzEndpoint),
+            exocoreChainId,
+            address(beaconOracle),
+            address(vaultBeacon),
+            address(capsuleBeacon)
+        );
         clientGateway = ClientChainGateway(
             payable(
                 address(
@@ -72,9 +139,7 @@ contract ExocoreDeployer is Test {
                         address(proxyAdmin),
                         abi.encodeWithSelector(
                             clientGatewayLogic.initialize.selector,
-                            exocoreChainId,
                             payable(exocoreValidatorSet.addr),
-                            address(beaconOracle),
                             whitelistTokens
                         )
                     )
@@ -82,18 +147,8 @@ contract ExocoreDeployer is Test {
             )
         );
 
-        Vault vaultLogic = new Vault();
-        vault = Vault(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(vaultLogic),
-                    address(proxyAdmin),
-                    abi.encodeWithSelector(
-                        vaultLogic.initialize.selector, address(restakeToken), address(clientGateway)
-                    )
-                )
-            )
-        );
+        // find vault according to uderlying token address
+        vault = Vault(address(clientGateway.tokenVaults(address(restakeToken))));
 
         // deploy Exocore network contracts
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
@@ -121,9 +176,7 @@ contract ExocoreDeployer is Test {
 
         // Exocore validator set should be the owner of gateway contracts and only owner could call these functions.
         vm.startPrank(exocoreValidatorSet.addr);
-        // add token vaults to gateway
-        vaults.push(address(vault));
-        clientGateway.addTokenVaults(vaults);
+
         // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive messages
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());

@@ -1,13 +1,16 @@
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../src/core/ClientChainGateway.sol";
 import {Vault} from "../src/core/Vault.sol";
 import "../src/core/ExocoreGateway.sol";
 import "../test/mocks/ExocoreGatewayMock.sol";
+import "../src/core/ExoCapsule.sol";
+
+import "forge-std/Script.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import {BaseScript} from "./BaseScript.sol";
@@ -56,12 +59,30 @@ contract DeployScript is BaseScript {
     }
 
     function run() public {
-        // deploy gateway and vault on client chain via rpc
+        // deploy clientchaingateway on client chain via rpc
         vm.selectFork(clientChain);
         vm.startBroadcast(deployer.privateKey);
-        ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
+        
+        /// deploy vault implementation contract and capsule implementation contract
+        /// that has logics called by proxy
+        vaultImplementation = new Vault();
+        capsuleImplementation = new ExoCapsule();
+
+        /// deploy the vault beacon and capsule beacon that store the implementation contract address
+        vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+
+        /// deploy client chain gateway
         whitelistTokens.push(address(restakeToken));
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint));
+
+        ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
+        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
+            address(clientChainLzEndpoint),
+            exocoreChainId,
+            address(beaconOracle),
+            address(vaultBeacon),
+            address(capsuleBeacon)
+        );
         clientGateway = ClientChainGateway(
             payable(
                 address(
@@ -70,27 +91,14 @@ contract DeployScript is BaseScript {
                         address(clientChainProxyAdmin),
                         abi.encodeWithSelector(
                             clientGatewayLogic.initialize.selector,
-                            exocoreChainId,
                             payable(exocoreValidatorSet.addr),
-                            address(beaconOracle),
                             whitelistTokens
                         )
                     )
                 )
             )
         );
-        Vault vaultLogic = new Vault();
-        vault = Vault(
-            address(
-                new TransparentUpgradeableProxy(
-                    address(vaultLogic),
-                    address(clientChainProxyAdmin),
-                    abi.encodeWithSelector(
-                        vaultLogic.initialize.selector, address(restakeToken), address(clientGateway)
-                    )
-                )
-            )
-        );
+
         vm.stopBroadcast();
 
         // deploy on Exocore via rpc
@@ -143,6 +151,8 @@ contract DeployScript is BaseScript {
         vm.serializeAddress(clientChainContracts, "clientChainGateway", address(clientGateway));
         vm.serializeAddress(clientChainContracts, "resVault", address(vault));
         vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
+        vm.serializeAddress(clientChainContracts, "vaultBeacon", address(vaultBeacon));
+        vm.serializeAddress(clientChainContracts, "capsuleBeacon", address(capsuleBeacon));
         string memory clientChainContractsOutput =
             vm.serializeAddress(clientChainContracts, "proxyAdmin", address(clientChainProxyAdmin));
 

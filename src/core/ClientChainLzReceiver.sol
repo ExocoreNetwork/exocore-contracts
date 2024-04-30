@@ -8,6 +8,26 @@ import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
+    event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
+    event WithdrawPrincipleResult(
+        bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
+    );
+    event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
+    event DelegateResult(
+        bool indexed success, address indexed delegator, string delegatee, address token, uint256 amount
+    );
+    event UndelegateResult(
+        bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
+    );
+
+    error UnsupportedRequest(Action act);
+    error UnsupportedResponse(Action act);
+    error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
+    error UnexpectedResponse(uint64 nonce);
+    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
+    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
+    error DepositShouldNotFailOnExocore(address token, address depositor);
+
     modifier onlyCalledFromThis() {
         require(msg.sender == address(this), "ClientChainLzReceiver: could only be called from this contract itself with low level call");
         _;
@@ -24,13 +44,13 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
         if (act == Action.RESPOND) {
             uint64 requestId = uint64(bytes8(payload[1:9]));
 
-            Action requestAct = registeredRequestActions[requestId];
-            bytes4 hookSelector = registeredResponseHooks[requestAct];
+            Action requestAct = _registeredRequestActions[requestId];
+            bytes4 hookSelector = _registeredResponseHooks[requestAct];
             if (hookSelector == bytes4(0)) {
                 revert UnsupportedResponse(act);
             }
 
-            bytes memory requestPayload = registeredRequests[requestId];
+            bytes memory requestPayload = _registeredRequests[requestId];
             if (requestPayload.length == 0) {
                 revert UnexpectedResponse(requestId);
             }
@@ -41,9 +61,9 @@ abstract contract ClientChainLzReceiver is PausableUpgradeable, OAppReceiverUpgr
                 revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
 
-            delete registeredRequests[requestId];
+            delete _registeredRequests[requestId];
         } else {
-            bytes4 selector_ = whiteListFunctionSelectors[act];
+            bytes4 selector_ = _whiteListFunctionSelectors[act];
             if (selector_ == bytes4(0)) {
                 revert UnsupportedRequest(act);
             }

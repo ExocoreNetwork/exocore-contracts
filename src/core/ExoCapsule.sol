@@ -9,8 +9,10 @@ import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 contract ExoCapsule is
+    Initializable,
     ExoCapsuleStorage,
     IExoCapsule
 {
@@ -43,14 +45,18 @@ contract ExoCapsule is
         _;
     }
 
-    constructor(address _gateway, address _capsuleOwner, address _beaconOracle) {
-        require(_capsuleOwner != address(0), "ExoCapsule: capsule owner address can not be empty");
-        require(_gateway != address(0), "ExoCapsule: gateway address can not be empty");
-        require(_beaconOracle != address(0), "ExoCapsule: beacon chain oracle address should not be empty");
+    constructor() {
+        _disableInitializers();
+    }
 
-        capsuleOwner = _capsuleOwner;
-        gateway = INativeRestakingController(_gateway);
-        beaconOracle = IBeaconChainOracle(_beaconOracle);
+    function initialize(address gateway_, address capsuleOwner_, address beaconOracle_) external initializer {
+        require(gateway_ != address(0), "ExoCapsuleStorage: gateway address can not be empty");
+        require(capsuleOwner_ != address(0), "ExoCapsule: capsule owner address can not be empty");
+        require(beaconOracle_ != address(0), "ExoCapsuleStorage: beacon chain oracle address should not be empty");
+
+        gateway = INativeRestakingController(gateway_);
+        beaconOracle = IBeaconChainOracle(beaconOracle_);
+        capsuleOwner = capsuleOwner_;
     }
 
     function verifyDepositProof(

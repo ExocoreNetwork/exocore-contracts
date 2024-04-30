@@ -3,18 +3,24 @@ pragma solidity ^0.8.19;
 import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "forge-std/console.sol";
 import "forge-std/Test.sol";
 
 import "../../src/core/ClientChainGateway.sol";
 import {Vault} from "../../src/core/Vault.sol";
+import "../../src/core/ExoCapsule.sol";
 import "../../src/core/ExocoreGateway.sol";
 import {EndpointV2Mock} from "../mocks/EndpointV2Mock.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../../src/interfaces/ITSSReceiver.sol";
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import "../../src/interfaces/IVault.sol";
+import "../../src/interfaces/IExoCapsule.sol";
+
 
 contract ClientChainGatewayTest is Test {
     Player[] players;
@@ -25,11 +31,14 @@ contract ClientChainGatewayTest is Test {
     ERC20PresetFixedSupply restakeToken;
 
     ClientChainGateway clientGateway;
-    Vault vault;
     ExocoreGateway exocoreGateway;
     EndpointV2Mock clientChainLzEndpoint;
     EndpointV2Mock exocoreLzEndpoint;
     IBeaconChainOracle beaconOracle;
+    IVault vaultImplementation;
+    IExoCapsule capsuleImplementation;
+    IBeacon vaultBeacon;
+    IBeacon capsuleBeacon;
 
     string operatorAddress = "exo1v4s6vtjpmxwu9rlhqms5urzrc3tc2ae2gnuqhc";
     uint16 exocoreChainId = 2;
@@ -55,37 +64,40 @@ contract ClientChainGatewayTest is Test {
 
         vm.chainId(clientChainId);
         _deploy();
-
-        vm.prank(exocoreValidatorSet.addr);
-        clientGateway.addTokenVaults(vaults);
     }
 
     function _deploy() internal {
         vm.startPrank(deployer.addr);
 
         beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
+
+        vaultImplementation = new Vault();
+        capsuleImplementation = new ExoCapsule();
+
+        vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
         
         restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
         whitelistTokens.push(address(restakeToken));
 
         clientChainLzEndpoint = new EndpointV2Mock(clientChainId);
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint));
+        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
+            address(clientChainLzEndpoint),
+            exocoreChainId,
+            address(beaconOracle),
+            address(vaultBeacon),
+            address(capsuleBeacon)
+        );
         clientGateway = ClientChainGateway(
             payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))
         );
 
-        Vault vaultLogic = new Vault();
-        vault = Vault(address(new TransparentUpgradeableProxy(address(vaultLogic), address(proxyAdmin), "")));
-
         clientGateway.initialize(
-            exocoreChainId, 
             payable(exocoreValidatorSet.addr),
-            address(beaconOracle),
             whitelistTokens
         );
-        vault.initialize(address(restakeToken), address(clientGateway));
-        vaults.push(address(vault));
+
         vm.stopPrank();
     }
 
@@ -139,9 +151,6 @@ contract ClientChainGatewayTest is Test {
     function test_RevertWhen_CallDisabledFunctionsWhenPaused() public {
         vm.startPrank(exocoreValidatorSet.addr);
         clientGateway.pause();
-
-        vm.expectRevert(EnforcedPause.selector);
-        clientGateway.addTokenVaults(vaults);
 
         vm.expectRevert(EnforcedPause.selector);
         clientGateway.claim(address(restakeToken), uint256(1), deployer.addr);

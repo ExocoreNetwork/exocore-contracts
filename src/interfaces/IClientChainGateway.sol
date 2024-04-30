@@ -9,6 +9,5 @@ import {ITSSReceiver} from "./ITSSReceiver.sol";
 interface IClientChainGateway is IOAppReceiver, IOAppCore, ILSTRestakingController, INativeRestakingController, ITSSReceiver {
     function addWhitelistToken(address _token) external;
     function removeWhitelistToken(address _token) external;
-    function addTokenVaults(address[] calldata vaults) external;
     function quote(bytes memory _message) external view returns (uint256 nativeFee);
 }

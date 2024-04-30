@@ -12,7 +12,7 @@ contract GatewayStorage {
         MARK_BOOTSTRAP
     }
 
-    mapping(Action => bytes4) public whiteListFunctionSelectors;
+    mapping(Action => bytes4) _whiteListFunctionSelectors;
     address payable public exocoreValidatorSetAddress;
 
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
