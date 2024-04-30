@@ -53,6 +53,11 @@ contract ExoCapsule is
         beaconOracle = IBeaconChainOracle(_beaconOracle);
     }
 
+    receive() external payable {
+        // To-do: Any ETH sent to this address could be also marked as ETH?
+        nonBeaconChainETHBalance += msg.value;
+    }
+
     function verifyDepositProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
@@ -146,6 +151,17 @@ contract ExoCapsule is
         _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
 
         validator.status = VALIDATOR_STATUS.WITHDRAWN;
+    }
+
+    function withdrawNonBeaconChainETHBalance(
+        address recipient,
+        uint256 amountToWithdraw
+    ) external onlyGateway {
+        require(
+            amountToWithdraw <= nonBeaconChainETHBalance,
+            "Not enough fund"
+        );
+        nonBeaconChainETHBalance -= amountToWithdraw;
     }
 
     function withdraw(uint256 amount, address recipient) external onlyGateway {

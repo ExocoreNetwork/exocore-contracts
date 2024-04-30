@@ -32,7 +32,8 @@ contract ExoCapsuleStorage {
     IBeaconChainOracle public beaconOracle;
 
     uint256 public principleBalance;
-    uint256 public withdrawableBalance; 
+    uint256 public withdrawableBalance;
+    uint256 public nonBeaconChainETHBalance; // Reward payments or any ETH sent to ExoCapsule
 
     mapping(bytes32 pubkey => Validator validator) _capsuleValidators;
     mapping(uint256 index => bytes32 pubkey) _capsuleValidatorsByIndex;
