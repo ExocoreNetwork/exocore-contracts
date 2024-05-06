@@ -52,7 +52,7 @@ abstract contract NativeRestakingController is
     function depositBeaconChainValidator(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata proof
-    ) external whenNotPaused {
+    ) external payable whenNotPaused {
         IExoCapsule capsule = _getCapsule(msg.sender);
         capsule.verifyDepositProof(validatorContainer, proof);
 
@@ -74,7 +74,7 @@ abstract contract NativeRestakingController is
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external whenNotPaused {
+    ) external payable whenNotPaused {
 
     }
 
@@ -83,7 +83,7 @@ abstract contract NativeRestakingController is
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external whenNotPaused {
+    ) external payable whenNotPaused {
 
     }
 }

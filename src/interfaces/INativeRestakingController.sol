@@ -28,7 +28,7 @@ interface INativeRestakingController is IBaseRestakingController {
      * to the ExoCapsule owned by staker. The effective balance of `validatorContainer` would be credited as deposited value by Exocore network.
      * @ param 
      */
-    function depositBeaconChainValidator(bytes32[] calldata validatorContainer, IExoCapsule.ValidatorContainerProof calldata proof) external;
+    function depositBeaconChainValidator(bytes32[] calldata validatorContainer, IExoCapsule.ValidatorContainerProof calldata proof) payable external;
 
     /**
      * @notice When a beacon chain partial withdrawal to an ExoCapsule contract happens(the withdrawal time is less than validator's withdrawable_epoch), 
@@ -47,7 +47,7 @@ interface INativeRestakingController is IBaseRestakingController {
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external;
+    ) payable external;
 
     /**
      * @notice When a beacon chain full withdrawal to this capsule contract happens(the withdrawal time is euqal to or greater than 
@@ -68,5 +68,5 @@ interface INativeRestakingController is IBaseRestakingController {
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external;
+    ) payable external;
 }

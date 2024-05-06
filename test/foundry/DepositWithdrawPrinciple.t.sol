@@ -5,14 +5,17 @@ import "forge-std/Test.sol";
 import "../../src/core/ExocoreGateway.sol";
 import "../../src/storage/GatewayStorage.sol";
 import "../../src/interfaces/ITSSReceiver.sol";
+import "../../src/core/ExoCapsule.sol";
 import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
 
 import "forge-std/console.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
 
 contract DepositWithdrawPrincipleTest is ExocoreDeployer {
     using AddressCast for address;
+    using stdStorage for StdStorage;
 
     event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
     event WithdrawPrincipleResult(
@@ -191,22 +194,152 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         );
     }
 
-    // function test_NativeDepositWithdraw() public {
-    //     Player memory depositor = players[0];
+    function test_NativeDepositWithdraw() public {
+        Player memory depositor = players[0];
+        Player memory relayer = players[1];
 
-    //     // transfer some gas fee to depositor
-    //     deal(depositor.addr, 1e22);
-    //     // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when sending back response
-    //     deal(address(exocoreGateway), 1e22);
+        // transfer some ETH to depositor for staking and paying for gas fee
+        deal(depositor.addr, 1e22);
+        // transfer some gas fee to relayer for paying for onboarding cross-chain message packet
+        deal(relayer.addr, 1e22);
+        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when sending back response
+        deal(address(exocoreGateway), 1e22);
 
-    //     // firstly depositor should stake to beacon chain by depositing 32 ETH to ETHPOS contract
-    //     vm.expectEmit(true, true, true, true, address(clientGateway));
-    //     emit CapsuleCreated(depositor.addr, address(0x1));
-    //     emit StakedWithCapsule(depositor.addr, address(0x1));
+        // before native stake and deposit, we simulate proper block environment states to make proof valid
 
-    //     vm.startPrank(depositor.addr);
-    //     clientGateway.stake()
-    // }
+        /// we set the timestamp of proof to be exactly the timestamp that the validator container get activated on beacon chain
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        mockProofTimestamp = activationTimestamp;
+        validatorProof.beaconBlockTimestamp = mockProofTimestamp;
+
+        /// we set current block timestamp to be exactly one slot after the proof generation timestamp
+        mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
+        vm.warp(mockCurrentBlockTimestamp);
+
+        /// we mock the call beaconOracle.timestampToBlockRoot to return the expected block root in proof file
+        vm.mockCall(
+            address(beaconOracle),
+            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector),
+            abi.encode(beaconBlockRoot)
+        );
+
+        // 1. firstly depositor should stake to beacon chain by depositing 32 ETH to ETHPOS contract
+        ExoCapsule expectedCapsule = ExoCapsule(Create2.computeAddress(
+            bytes32(uint256(uint160(depositor.addr))),
+            keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(capsuleBeacon), ""))),
+            address(clientGateway)
+        ));
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit CapsuleCreated(depositor.addr, address(expectedCapsule));
+        emit StakedWithCapsule(depositor.addr, address(expectedCapsule));
+
+        vm.startPrank(depositor.addr);
+        clientGateway.stake{value: 32 ether}(abi.encodePacked(_getPubkey(validatorContainer)), bytes(""), bytes32(0));
+        vm.stopPrank();
+
+        // do some hack to replace expectedCapsule address with capsule address loaded from proof file
+        // because capsule address is expected to be compatible with validator container withdrawal credentails
+        address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
+        vm.etch(capsuleAddress, address(expectedCapsule).code);
+        capsule = ExoCapsule(capsuleAddress);
+        stdstore.target(capsuleAddress).sig("_beacon()").checked_write(address(capsuleBeacon));
+        assertEq(stdstore.target(capsuleAddress).sig("_beacon()").read_address(), address(capsuleBeacon));
+
+        /// replace expectedCapsule with capsule
+        bytes32 capsuleSlotInGateway = bytes32(
+            stdstore
+            .target(address(clientGatewayLogic))
+            .sig("ownerToCapsule(address)")
+            .with_key(depositor.addr)
+            .find()
+        );
+        vm.store(address(clientGateway), capsuleSlotInGateway, bytes32(uint256(uint160(address(capsule)))));
+        assertEq(address(clientGateway.ownerToCapsule(depositor.addr)), address(capsule));
+
+        /// initialize replaced capsule
+        capsule.initialize(address(clientGateway), depositor.addr, address(beaconOracle));
+
+        // 2. next depositor call clientGateway.depositBeaconChainValidator to deposit into Exocore from client chain through layerzero
+
+        /// client chain layerzero endpoint should emit the message packet including deposit payload.
+        uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
+        bytes memory depositRequestPayload = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_DEPOSIT,
+            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
+            bytes32(bytes20(depositor.addr)),
+            depositAmount
+        );
+        uint256 depositRequestNativeFee = clientGateway.quote(depositRequestPayload);
+        bytes32 depositRequestId = generateUID(1, true);
+
+        vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
+        emit NewPacket(
+            exocoreChainId,
+            address(clientGateway),
+            address(exocoreGateway).toBytes32(),
+            uint64(1),
+            depositRequestPayload
+        );
+
+        /// client chain gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit MessageSent(GatewayStorage.Action.REQUEST_DEPOSIT, depositRequestId, uint64(1), depositRequestNativeFee);
+
+        /// call depositBeaconChainValidator to see if these events are emitted as expected
+        vm.startPrank(depositor.addr);
+        clientGateway.depositBeaconChainValidator{value: depositRequestNativeFee}(validatorContainer, validatorProof);
+        vm.stopPrank();
+
+        // 3. thirdly layerzero relayers should watch the request message packet and relay the message to destination endpoint
+
+        /// exocore gateway should return response message to exocore network layerzero endpoint
+        uint256 lastlyUpdatedPrincipleBalance = depositAmount;
+        bytes memory depositResponsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true, lastlyUpdatedPrincipleBalance);
+        uint256 depositResponseNativeFee = exocoreGateway.quote(clientChainId, depositResponsePayload);
+        bytes32 depositResponseId = generateUID(1, false);
+
+        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
+        emit NewPacket(
+            clientChainId,
+            address(exocoreGateway),
+            address(clientGateway).toBytes32(),
+            uint64(1),
+            depositResponsePayload
+        );
+
+        /// exocore gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit MessageSent(GatewayStorage.Action.RESPOND, depositResponseId, uint64(1), depositResponseNativeFee);
+
+        /// relayer catches the request message packet by listening to client chain event and feed it to Exocore network
+        vm.startPrank(relayer.addr);
+        exocoreLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
+            address(exocoreGateway),
+            depositRequestId,
+            depositRequestPayload,
+            bytes("")
+        );
+        vm.stopPrank();
+
+        // At last layerzero relayers should watch the response message packet and relay the message back to source chain endpoint
+
+        /// client chain gateway should execute the response hook and emit depositResult event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit DepositResult(true, VIRTUAL_STAKED_ETH_ADDRESS, depositor.addr, depositAmount);
+
+        /// relayer catches the response message packet by listening to Exocore event and feed it to client chain
+        vm.startPrank(relayer.addr);
+        clientChainLzEndpoint.lzReceive(
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), uint64(1)),
+            address(clientGateway),
+            depositResponseId,
+            depositResponsePayload,
+            bytes("")
+        );
+        vm.stopPrank();
+    }
 
     function test_TSSReceiver() public {
         Player memory depositor = players[0];

@@ -74,14 +74,11 @@ contract SetUp is Test {
         vm.etch(capsuleAddress, address(phantomCapsule).code);
         capsule = ExoCapsule(capsuleAddress);
 
-        bytes32 gatewaySlot = bytes32(stdstore.target(capsuleAddress).sig("gateway()").find());
-        vm.store(capsuleAddress, gatewaySlot, bytes32(uint256(uint160(address(this)))));
+        stdstore.target(capsuleAddress).sig("gateway()").checked_write(bytes32(uint256(uint160(address(this)))));
 
-        bytes32 ownerSlot = bytes32(stdstore.target(capsuleAddress).sig("capsuleOwner()").find());
-        vm.store(capsuleAddress, ownerSlot, bytes32(uint256(uint160(capsuleOwner))));
+        stdstore.target(capsuleAddress).sig("capsuleOwner()").checked_write(bytes32(uint256(uint160(capsuleOwner))));
 
-        bytes32 beaconOraclerSlot = bytes32(stdstore.target(capsuleAddress).sig("beaconOracle()").find());
-        vm.store(capsuleAddress, beaconOraclerSlot, bytes32(uint256(uint160(address(beaconOracle)))));
+        stdstore.target(capsuleAddress).sig("beaconOracle()").checked_write(bytes32(uint256(uint160(address(beaconOracle)))));
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
@@ -108,7 +105,7 @@ contract SetUp is Test {
 contract VerifyDepositProof is SetUp {
     using BeaconChainProofs for bytes32;
     using stdStorage for StdStorage;
-    
+
     function test_verifyDepositProof() public {
         uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
