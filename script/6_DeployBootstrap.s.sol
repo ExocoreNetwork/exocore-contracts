@@ -24,6 +24,7 @@ contract DeployBootstrapOnly is BaseScript {
         restakeToken = ERC20PresetFixedSupply(
             stdJson.readAddress(deployedContracts, ".clientChain.erc20Token")
         );
+        clientChain = vm.createSelectFork(clientChainRPCURL);
 
         // can't reuse the vault.
     }
@@ -84,5 +85,21 @@ contract DeployBootstrapOnly is BaseScript {
         console.log("Client chain gateway logic: ", address(clientGatewayLogic));
 
         vm.stopBroadcast();
+
+        string memory clientChainContracts = "clientChainContracts";
+        vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
+        vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
+        vm.serializeAddress(clientChainContracts, "proxyAdmin", address(proxyAdmin));
+        vm.serializeAddress(clientChainContracts, "bootstrapLogic", address(bootstrapLogic));
+        vm.serializeAddress(clientChainContracts, "bootstrap", address(bootstrap));
+        vm.serializeAddress(clientChainContracts, "resVault", address(vault));
+        string memory clientChainContractsOutput =
+            vm.serializeAddress(clientChainContracts, "clientGatewayLogic", address(clientGatewayLogic));
+
+        string memory deployedContracts = "deployedContracts";
+        string memory finalJson =
+            vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+
+        vm.writeJson(finalJson, "script/deployedContracts.json");
     }
 }
