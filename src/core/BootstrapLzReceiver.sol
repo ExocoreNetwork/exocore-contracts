@@ -28,9 +28,8 @@ abstract contract BootstrapLzReceiver is
         _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
         Action act = Action(uint8(payload[0]));
         require(act != Action.RESPOND, "BootstrapLzReceiver: invalid action");
-        bytes4 selector_ = whiteListFunctionSelectors[act];
+        bytes4 selector_ = _whiteListFunctionSelectors[act];
         if (selector_ == bytes4(0)) {
-            emit UnsupportedRequestEvent(act);
             revert UnsupportedRequest(act);
         }
         (bool success, bytes memory reason) =

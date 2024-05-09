@@ -167,7 +167,7 @@ contract ExocoreDeployer is Test {
         );
 
         // find vault according to uderlying token address
-        vault = Vault(address(clientGateway.tokenVaults(address(restakeToken))));
+        vault = Vault(address(clientGateway.tokenToVault(address(restakeToken))));
 
         // deploy Exocore network contracts
         exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));

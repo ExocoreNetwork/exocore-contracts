@@ -16,9 +16,6 @@ abstract contract NativeRestakingController is
 {
     using ValidatorContainer for bytes32[];
 
-    event CapsuleCreated(address owner, address capsule);
-    event StakedWithCapsule(address staker, address capsule);
-
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable whenNotPaused {
         require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
 

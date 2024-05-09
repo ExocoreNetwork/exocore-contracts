@@ -32,8 +32,6 @@ contract ExocoreGatewayStorage is GatewayStorage {
 
     error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
-    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
-    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
     error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
 
     uint256[40] private __gap;

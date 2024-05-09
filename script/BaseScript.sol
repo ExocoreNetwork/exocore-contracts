@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IVault.sol";
 import "../src/interfaces/IExocoreGateway.sol";
-import "../src/interfaces/IVault.sol";
 import "../src/interfaces/IExoCapsule.sol";
 
 import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";

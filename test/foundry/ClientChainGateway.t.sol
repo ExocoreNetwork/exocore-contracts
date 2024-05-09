@@ -17,7 +17,6 @@ import {EndpointV2Mock} from "../mocks/EndpointV2Mock.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../../src/interfaces/ITSSReceiver.sol";
 import "../../src/interfaces/IVault.sol";
 import "../../src/interfaces/IExoCapsule.sol";
 
@@ -166,9 +165,5 @@ contract ClientChainGatewayTest is Test {
 
         vm.expectRevert(EnforcedPause.selector);
         clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
-
-        vm.expectRevert(EnforcedPause.selector);
-        ITSSReceiver.InterchainMsg memory msg_;
-        clientGateway.receiveInterchainMsg(msg_, bytes(""));
     }
 }

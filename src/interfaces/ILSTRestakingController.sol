@@ -44,18 +44,4 @@ interface ILSTRestakingController is IBaseRestakingController {
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external payable;
 
     function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
-
-    /// *** function signatures for commands of Exocore validator set forwarded by Gateway ***
-
-    /**
-     * @notice This should only be called by Exocore validator set through Gateway to update user's involved
-     * lastly updated token balance.
-     * @dev Only Exocore validato set could indirectly call this function through Gateway contract.
-     * @dev This function could be called in two scenaries:
-     * 1) Exocore validator set periodically calls this to update user principle and reward balance.
-     * 2) Exocore validator set sends reponse for the request of withdrawPrincipleFromExocore and unlock part of
-     * the vault assets and update user's withdrawable balance correspondingly.
-     * @param info - The info needed for updating users balance.
-     */
-    function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) external;
 }

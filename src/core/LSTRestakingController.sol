@@ -10,7 +10,8 @@ import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/Pau
 abstract contract LSTRestakingController is
     PausableUpgradeable,
     ILSTRestakingController,
-    BaseRestakingController {
+    BaseRestakingController 
+{
     function deposit(address token, uint256 amount) external payable isTokenWhitelisted(token) isValidAmount(amount) whenNotPaused {
         IVault vault = _getVault(token);
         vault.deposit(msg.sender, amount);
@@ -38,35 +39,5 @@ abstract contract LSTRestakingController is
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), rewardAmount);
         _sendMsgToExocore(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, actionArgs);
-    }
-
-    function updateUsersBalances(UserBalanceUpdateInfo[] calldata info) public whenNotPaused {
-        require(msg.sender == address(this), "LSTRestakingController: caller must be client chain gateway itself");
-        for (uint256 i = 0; i < info.length; i++) {
-            UserBalanceUpdateInfo memory userBalanceUpdate = info[i];
-            for (uint256 j = 0; j < userBalanceUpdate.tokenBalances.length; j++) {
-                TokenBalanceUpdateInfo memory tokenBalanceUpdate = userBalanceUpdate.tokenBalances[j];
-                require(whitelistTokens[tokenBalanceUpdate.token], "Controller: token is not whitelisted");
-                IVault vault = _getVault(tokenBalanceUpdate.token);
-
-                if (tokenBalanceUpdate.lastlyUpdatedPrincipleBalance > 0) {
-                    vault.updatePrincipleBalance(
-                        userBalanceUpdate.user, tokenBalanceUpdate.lastlyUpdatedPrincipleBalance
-                    );
-                }
-
-                if (tokenBalanceUpdate.lastlyUpdatedRewardBalance > 0) {
-                    vault.updateRewardBalance(userBalanceUpdate.user, tokenBalanceUpdate.lastlyUpdatedRewardBalance);
-                }
-
-                if (tokenBalanceUpdate.unlockPrincipleAmount > 0 || tokenBalanceUpdate.unlockRewardAmount > 0) {
-                    vault.updateWithdrawableBalance(
-                        userBalanceUpdate.user,
-                        tokenBalanceUpdate.unlockPrincipleAmount,
-                        tokenBalanceUpdate.unlockRewardAmount
-                    );
-                }
-            }
-        }
     }
 }
