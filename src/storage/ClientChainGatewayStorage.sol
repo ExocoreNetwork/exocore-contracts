@@ -69,14 +69,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
         exoCapsuleBeacon = IBeacon(exoCapsuleBeacon_);
     }
 
-    function _getVault(address token) internal view returns (IVault) {
-        IVault vault = tokenToVault[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-        return vault;
-    }
-
     function _getCapsule(address owner) internal view returns (IExoCapsule) {
         IExoCapsule capsule = ownerToCapsule[owner];
         if (address(capsule) == address(0)) {

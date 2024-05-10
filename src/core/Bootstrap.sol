@@ -425,11 +425,8 @@ contract Bootstrap is
     ) view internal returns (IVault) {
         require(isWhitelistedToken[token], "Bootstrap: token is not whitelisted");
         require(amount > 0, "Bootstrap: amount should be greater than zero");
-        IVault vault = tokenToVault[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-        return vault;
+        
+        return _getVault(token);
     }
 
     // implementation of IController

@@ -36,7 +36,7 @@ abstract contract BaseRestakingController is
     }
 
     modifier isValidBech32Address(string calldata exocoreAddress) {
-        require(exocoreAddressIsValid(exocoreAddress), "BaseRestakingController: invalid bech32 encoded Exocore address");
+        require(isValidExocoreAddress(exocoreAddress), "BaseRestakingController: invalid bech32 encoded Exocore address");
         _;
     }
 
@@ -101,7 +101,7 @@ abstract contract BaseRestakingController is
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    function exocoreAddressIsValid(
+    function isValidExocoreAddress(
         string calldata operatorExocoreAddress
     ) public pure returns (bool) {
         bytes memory stringBytes = bytes(operatorExocoreAddress);

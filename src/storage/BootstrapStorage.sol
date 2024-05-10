@@ -398,4 +398,12 @@ contract BootstrapStorage is GatewayStorage {
         exocoreChainId = exocoreChainId_;
         vaultBeacon = IBeacon(vaultBeacon_);
     }
+
+    function _getVault(address token) internal view returns (IVault) {
+        IVault vault = tokenToVault[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+        return vault;
+    }
 }
