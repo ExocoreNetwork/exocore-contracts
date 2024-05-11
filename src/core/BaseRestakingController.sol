@@ -20,26 +20,6 @@ abstract contract BaseRestakingController is
 
     receive() external payable {}
 
-    modifier isTokenWhitelisted(address token) {
-        require(isWhitelistedToken[token], "BaseRestakingController: token is not whitelisted");
-        _;
-    }
-
-    modifier isValidAmount(uint256 amount) {
-        require(amount > 0, "BaseRestakingController: amount should be greater than zero");
-        _;
-    }
-
-    modifier vaultExists(address token) {
-        require(address(tokenToVault[token]) != address(0), "BaseRestakingController: no vault added for this token");
-        _;
-    }
-
-    modifier isValidBech32Address(string calldata exocoreAddress) {
-        require(isValidExocoreAddress(exocoreAddress), "BaseRestakingController: invalid bech32 encoded Exocore address");
-        _;
-    }
-
     function claim(address token, uint256 amount, address recipient)
     external
     isTokenWhitelisted(token)
@@ -99,21 +79,5 @@ abstract contract BaseRestakingController is
         MessagingReceipt memory receipt =
             _lzSend(exocoreChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false);
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
-    }
-
-    function isValidExocoreAddress(
-        string calldata operatorExocoreAddress
-    ) public pure returns (bool) {
-        bytes memory stringBytes = bytes(operatorExocoreAddress);
-        if (stringBytes.length != 42) {
-            return false;
-        }
-        for (uint i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
-            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

@@ -168,8 +168,7 @@ contract ClientChainGateway is
         }
     }
 
-    function removeWhitelistToken(address _token) external onlyOwner whenNotPaused {
-        require(isWhitelistedToken[_token], "ClientChainGateway: token should be already whitelisted");
+    function removeWhitelistToken(address _token) external isTokenWhitelisted(_token) onlyOwner whenNotPaused {
         isWhitelistedToken[_token] = false;
         for(uint i = 0; i < whitelistTokens.length; i++) {
             if (whitelistTokens[i] == _token) {
