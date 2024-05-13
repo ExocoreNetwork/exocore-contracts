@@ -23,7 +23,7 @@ contract DelegateTest is ExocoreDeployer {
         bool indexed success, address indexed delegator, string delegatee, address token, uint256 amount
     );
     event DelegateRequestProcessed(
-        uint16 clientChainLzId,
+        uint32 clientChainLzId,
         uint64 lzNonce,
         bytes assetsAddress,
         bytes stakerAddress,
@@ -31,7 +31,7 @@ contract DelegateTest is ExocoreDeployer {
         uint256 opAmount
     );
     event UndelegateRequestProcessed(
-        uint16 clientChainLzId,
+        uint32 clientChainLzId,
         uint64 lzNonce,
         bytes assetsAddress,
         bytes stakerAddress,

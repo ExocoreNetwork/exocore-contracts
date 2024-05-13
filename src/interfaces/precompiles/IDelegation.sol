@@ -22,7 +22,7 @@ interface IDelegation {
     /// @param OperatorAddr  The operator address that wants to be delegated to
     /// @param OpAmount The delegation amount
     function delegateToThroughClientChain(
-        uint16 ClientChainLzId,
+        uint32 ClientChainLzId,
         uint64 LzNonce,
         bytes memory AssetsAddress,
         bytes memory StakerAddress,
@@ -40,7 +40,7 @@ interface IDelegation {
     /// @param OperatorAddr  The operator address that wants to unDelegate from
     /// @param OpAmount The Undelegation amount
     function undelegateFromThroughClientChain(
-        uint16 ClientChainLzId,
+        uint32 ClientChainLzId,
         uint64 LzNonce,
         bytes memory AssetsAddress,
         bytes memory StakerAddress,

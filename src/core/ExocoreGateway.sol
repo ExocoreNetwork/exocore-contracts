@@ -89,9 +89,6 @@ contract ExocoreGateway is
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
-        // TODO: current exocore precompiles take srcChainId as uint16, so this check should be removed after exocore network fixes it
-        require(_origin.srcEid <= type(uint16).max, "ExocoreGateway: source chain endpoint id should not exceed uint16.max");
-
         _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));
@@ -115,7 +112,7 @@ contract ExocoreGateway is
         (bool success, bytes memory responseOrReason) = DEPOSIT_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
                 DEPOSIT_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 token,
                 depositor,
                 amount
@@ -142,7 +139,7 @@ contract ExocoreGateway is
         (bool success, bytes memory responseOrReason) = WITHDRAW_PRINCIPLE_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
                 WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 token,
                 withdrawer,
                 amount
@@ -169,7 +166,7 @@ contract ExocoreGateway is
         (bool success, bytes memory responseOrReason) = CLAIM_REWARD_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
                 CLAIM_REWARD_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 token,
                 withdrawer,
                 amount
@@ -192,7 +189,7 @@ contract ExocoreGateway is
         (bool success,) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
                 DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 lzNonce,
                 token,
                 delegator,
@@ -215,7 +212,7 @@ contract ExocoreGateway is
         (bool success,) = DELEGATION_PRECOMPILE_ADDRESS.call(
             abi.encodeWithSelector(
                 UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 lzNonce,
                 token,
                 delegator,

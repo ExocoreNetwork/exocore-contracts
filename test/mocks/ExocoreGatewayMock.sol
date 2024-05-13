@@ -37,14 +37,14 @@ contract ExocoreGatewayMock is
     address immutable WITHDRAW_PRINCIPLE_PRECOMPILE_MOCK_ADDRESS;
     address immutable CLAIM_REWARD_PRECOMPILE_MOCK_ADDRESS;
 
-    bytes4 constant DEPOSIT_FUNCTION_SELECTOR = bytes4(keccak256("depositTo(uint16,bytes,bytes,uint256)"));
+    bytes4 constant DEPOSIT_FUNCTION_SELECTOR = bytes4(keccak256("depositTo(uint32,bytes,bytes,uint256)"));
     bytes4 constant DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR =
-        bytes4(keccak256("delegateToThroughClientChain(uint16,uint64,bytes,bytes,bytes,uint256)"));
+        bytes4(keccak256("delegateToThroughClientChain(uint32,uint64,bytes,bytes,bytes,uint256)"));
     bytes4 constant UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR =
-        bytes4(keccak256("undelegateFromThroughClientChain(uint16,uint64,bytes,bytes,bytes,uint256)"));
+        bytes4(keccak256("undelegateFromThroughClientChain(uint32,uint64,bytes,bytes,bytes,uint256)"));
     bytes4 constant WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR =
-        bytes4(keccak256("withdrawPrinciple(uint16,bytes,bytes,uint256)"));
-    bytes4 constant CLAIM_REWARD_FUNCTION_SELECTOR = bytes4(keccak256("claimReward(uint16,bytes,bytes,uint256)"));
+        bytes4(keccak256("withdrawPrinciple(uint32,bytes,bytes,uint256)"));
+    bytes4 constant CLAIM_REWARD_FUNCTION_SELECTOR = bytes4(keccak256("claimReward(uint32,bytes,bytes,uint256)"));
 
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
@@ -141,7 +141,7 @@ contract ExocoreGatewayMock is
         (bool success, bytes memory responseOrReason) = DEPOSIT_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 DEPOSIT_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
                 token,
                 depositor,
                 amount
@@ -168,7 +168,7 @@ contract ExocoreGatewayMock is
         (bool success, bytes memory responseOrReason) = WITHDRAW_PRINCIPLE_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
                 token,
                 withdrawer,
                 amount
@@ -195,7 +195,7 @@ contract ExocoreGatewayMock is
         (bool success, bytes memory responseOrReason) = CLAIM_REWARD_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 CLAIM_REWARD_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
                 token,
                 withdrawer,
                 amount
@@ -218,7 +218,7 @@ contract ExocoreGatewayMock is
         (bool success,) = DELEGATION_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
                 lzNonce,
                 token,
                 delegator,
@@ -241,7 +241,7 @@ contract ExocoreGatewayMock is
         (bool success,) = DELEGATION_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
-                uint16(srcChainId), // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
                 lzNonce,
                 token,
                 delegator,
