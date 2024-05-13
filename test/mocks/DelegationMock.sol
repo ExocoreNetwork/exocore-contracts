@@ -3,10 +3,10 @@ pragma solidity ^0.8.19;
 import {IDelegation} from "../../src/interfaces/precompiles/IDelegation.sol";
 
 contract DelegationMock is IDelegation {
-    mapping(bytes => mapping(bytes => mapping(uint16 => mapping(bytes => uint256)))) delegateTo;
+    mapping(bytes => mapping(bytes => mapping(uint32 => mapping(bytes => uint256)))) delegateTo;
 
     event DelegateRequestProcessed(
-        uint16 clientChainLzId,
+        uint32 clientChainLzId,
         uint64 lzNonce,
         bytes assetsAddress,
         bytes stakerAddress,
@@ -14,7 +14,7 @@ contract DelegationMock is IDelegation {
         uint256 opAmount
     );
     event UndelegateRequestProcessed(
-        uint16 clientChainLzId,
+        uint32 clientChainLzId,
         uint64 lzNonce,
         bytes assetsAddress,
         bytes stakerAddress,
@@ -23,7 +23,7 @@ contract DelegationMock is IDelegation {
     );
 
     function delegateToThroughClientChain(
-        uint16 clientChainLzId,
+        uint32 clientChainLzId,
         uint64 lzNonce,
         bytes memory assetsAddress,
         bytes memory stakerAddress,
@@ -40,7 +40,7 @@ contract DelegationMock is IDelegation {
     }
 
     function undelegateFromThroughClientChain(
-        uint16 clientChainLzId,
+        uint32 clientChainLzId,
         uint64 lzNonce,
         bytes memory assetsAddress,
         bytes memory stakerAddress,

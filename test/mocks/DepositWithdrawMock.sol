@@ -4,9 +4,9 @@ import {IDeposit} from "../../src/interfaces/precompiles/IDeposit.sol";
 import {IWithdraw} from "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 
 contract DepositWithdrawMock is IDeposit, IWithdraw {
-    mapping(uint16 => mapping(bytes => mapping(bytes => uint256))) principleBalances;
+    mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) principleBalances;
 
-    function depositTo(uint16 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
+    function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
         external
         returns (bool success, uint256 latestAssetState)
     {
@@ -18,7 +18,7 @@ contract DepositWithdrawMock is IDeposit, IWithdraw {
     }
 
     function withdrawPrinciple(
-        uint16 clientChainLzId,
+        uint32 clientChainLzId,
         bytes memory assetsAddress,
         bytes memory withdrawer,
         uint256 opAmount

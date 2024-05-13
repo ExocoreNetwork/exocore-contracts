@@ -223,7 +223,6 @@ contract BootstrapTest is Test {
         // now transfer it to address[0]
         vm.startPrank(cloneDeployer);
         myTokenClone.transfer(addrs[0], amounts[0]);
-        vm.stopPrank();
 
         // now try to deposit
         myToken.approve(address(bootstrap), amounts[0]);
@@ -997,6 +996,7 @@ contract BootstrapTest is Test {
     }
 
     function test12_MarkBootstrapped_DirectCall() public {
+        vm.startPrank(address(0x20));
         vm.warp(spawnTime + 2);
         vm.expectRevert(
             "BootstrapLzReceiver: could only be called from this contract itself with low level call"

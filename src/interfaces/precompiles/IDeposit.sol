@@ -19,7 +19,7 @@ interface IDeposit {
     /// @param AssetsAddress The client chain asset Address
     /// @param StakerAddress The staker address
     /// @param OpAmount The deposit amount
-    function depositTo(uint16 ClientChainLzId, bytes memory AssetsAddress, bytes memory StakerAddress, uint256 OpAmount)
+    function depositTo(uint32 ClientChainLzId, bytes memory AssetsAddress, bytes memory StakerAddress, uint256 OpAmount)
         external
         returns (bool success, uint256 latestAssetState);
 }
