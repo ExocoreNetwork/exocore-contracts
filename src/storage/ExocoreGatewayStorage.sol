@@ -9,14 +9,14 @@ contract ExocoreGatewayStorage is GatewayStorage {
     address constant WITHDRAW_PRINCIPLE_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000808;
     address constant CLAIM_REWARD_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000806;
 
-    bytes4 constant DEPOSIT_FUNCTION_SELECTOR = bytes4(keccak256("depositTo(uint16,bytes,bytes,uint256)"));
+    bytes4 constant DEPOSIT_FUNCTION_SELECTOR = bytes4(keccak256("depositTo(uint32,bytes,bytes,uint256)"));
     bytes4 constant DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR =
-        bytes4(keccak256("delegateToThroughClientChain(uint16,uint64,bytes,bytes,bytes,uint256)"));
+        bytes4(keccak256("delegateToThroughClientChain(uint32,uint64,bytes,bytes,bytes,uint256)"));
     bytes4 constant UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR =
-        bytes4(keccak256("undelegateFromThroughClientChain(uint16,uint64,bytes,bytes,bytes,uint256)"));
+        bytes4(keccak256("undelegateFromThroughClientChain(uint32,uint64,bytes,bytes,bytes,uint256)"));
     bytes4 constant WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR =
-        bytes4(keccak256("withdrawPrinciple(uint16,bytes,bytes,uint256)"));
-    bytes4 constant CLAIM_REWARD_FUNCTION_SELECTOR = bytes4(keccak256("claimReward(uint16,bytes,bytes,uint256)"));
+        bytes4(keccak256("withdrawPrinciple(uint32,bytes,bytes,uint256)"));
+    bytes4 constant CLAIM_REWARD_FUNCTION_SELECTOR = bytes4(keccak256("claimReward(uint32,bytes,bytes,uint256)"));
 
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
