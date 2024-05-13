@@ -217,5 +217,6 @@ contract ClientChainGateway is
         emit VaultCreated(underlyingToken, address(vault));
 
         tokenToVault[underlyingToken] = vault;
+        return vault;
     }
 }

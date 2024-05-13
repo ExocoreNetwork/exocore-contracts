@@ -102,7 +102,7 @@ contract ExoCapsule is
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         WithdrawalContainerProof calldata withdrawalProof
-    ) external onlyGateway {
+    ) external view onlyGateway {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
 

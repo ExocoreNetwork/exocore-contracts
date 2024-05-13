@@ -54,16 +54,9 @@ abstract contract NativeRestakingController is
         capsule.verifyDepositProof(validatorContainer, proof);
 
         uint256 depositValue = uint256(validatorContainer.getEffectiveBalance()) * GWEI_TO_WEI;
-        _registeredRequests[outboundNonce + 1] = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue);
-        _registeredRequestActions[outboundNonce + 1] = Action.REQUEST_DEPOSIT;
+        _processRequest(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue, Action.REQUEST_DEPOSIT, "");
 
-        bytes memory actionArgs = abi.encodePacked(
-            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
-            bytes32(bytes20(msg.sender)),
-            depositValue
-        );
 
-        _sendMsgToExocore(Action.REQUEST_DEPOSIT, actionArgs);
     }
 
     function processBeaconChainPartialWithdrawal(

@@ -44,13 +44,8 @@ abstract contract BaseRestakingController is
     isValidAmount(amount)
     isValidBech32Address(operator)
     whenNotPaused {
-        _getVault(token);
-        _registeredRequests[outboundNonce + 1] = abi.encode(token, operator, msg.sender, amount);
-        _registeredRequestActions[outboundNonce + 1] = Action.REQUEST_DELEGATE_TO;
+        _processRequest(token, msg.sender, amount, Action.REQUEST_DELEGATE_TO, operator);
 
-        bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
-        _sendMsgToExocore(Action.REQUEST_DELEGATE_TO, actionArgs);
     }
 
     function undelegateFrom(string calldata operator, address token, uint256 amount)
@@ -59,25 +54,56 @@ abstract contract BaseRestakingController is
     isValidAmount(amount)
     isValidBech32Address(operator)
     whenNotPaused {
-        _getVault(token);
-        _registeredRequests[outboundNonce + 1] = abi.encode(token, operator, msg.sender, amount);
-        _registeredRequestActions[outboundNonce + 1] = Action.REQUEST_UNDELEGATE_FROM;
+        _processRequest(token, msg.sender, amount, Action.REQUEST_UNDELEGATE_FROM, operator);
 
-        bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
-        _sendMsgToExocore(Action.REQUEST_UNDELEGATE_FROM, actionArgs);
     }
 
-    function _sendMsgToExocore(Action act, bytes memory actionArgs) internal {
+    function _processRequest(
+        address token,
+        address sender,
+        uint256 amount,
+        Action action,
+        string memory operator // Optional parameter, you can pass an empty string if you don't need it.
+    ) internal {
+        if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
+            IVault vault = _getVault(token);
+            // Logic specific to the REQUEST_DEPOSIT action
+            if (action == Action.REQUEST_DEPOSIT  && bytes(operator).length == 0) {
+                vault.deposit(sender, amount);
+            }
+        }
         outboundNonce++;
-        bytes memory payload = abi.encodePacked(act, actionArgs);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
-            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
-        ).addExecutorOrderedExecutionOption();
+        // Determine how to code _registeredRequests based on whether or not an operator is provided
+        if (bytes(operator).length > 0) {
+            _registeredRequests[outboundNonce] = abi.encode(token, operator, sender, amount);
+        } else {
+            _registeredRequests[outboundNonce] = abi.encode(token, sender, amount);
+        }
+        _registeredRequestActions[outboundNonce] = action;
+        // Consider whether operator is empty when building actionArgs
+        bytes memory actionArgs;
+        if (bytes(operator).length > 0) {
+            actionArgs = abi.encodePacked(
+                bytes32(bytes20(token)),
+                bytes32(bytes20(sender)),
+                bytes(operator),
+                amount
+            );
+        } else {
+            actionArgs = abi.encodePacked(
+                bytes32(bytes20(token)),
+                bytes32(bytes20(sender)),
+                amount
+            );
+        }
+        _sendMsgToExocore(action, actionArgs);
+    }
+    function _sendMsgToExocore(Action action, bytes memory actionArgs) internal {
+        bytes memory payload = abi.encodePacked(action, actionArgs);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(exocoreChainId, payload, options, false);
 
-        MessagingReceipt memory receipt =
-            _lzSend(exocoreChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false);
-        emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
+        MessagingReceipt memory receipt = _lzSend(exocoreChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false);
+        emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 }
