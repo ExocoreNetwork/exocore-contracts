@@ -38,7 +38,7 @@ contract SetUp is Test {
     uint64 internal constant SLOTS_PER_EPOCH = 32;
     /// @notice The number of seconds in a slot in the beacon chain
     uint64 internal constant SECONDS_PER_SLOT = 12;
-    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot 
+    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot
     uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
 
@@ -53,9 +53,15 @@ contract SetUp is Test {
 
         validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
         require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
-        validatorProof.stateRootProof = stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+        validatorProof.stateRootProof = stdJson.readBytes32Array(
+            validatorInfo,
+            ".StateRootAgainstLatestBlockHeaderProof"
+        );
         require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
-        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(
+            validatorInfo,
+            ".WithdrawalCredentialProof"
+        );
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
@@ -72,13 +78,15 @@ contract SetUp is Test {
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(phantomCapsule).code);
-        capsule = ExoCapsule(capsuleAddress);
+        capsule = ExoCapsule(payable(capsuleAddress));
 
         stdstore.target(capsuleAddress).sig("gateway()").checked_write(bytes32(uint256(uint160(address(this)))));
 
         stdstore.target(capsuleAddress).sig("capsuleOwner()").checked_write(bytes32(uint256(uint160(capsuleOwner))));
 
-        stdstore.target(capsuleAddress).sig("beaconOracle()").checked_write(bytes32(uint256(uint160(address(beaconOracle)))));
+        stdstore.target(capsuleAddress).sig("beaconOracle()").checked_write(
+            bytes32(uint256(uint160(address(beaconOracle))))
+        );
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
@@ -107,7 +115,9 @@ contract VerifyDepositProof is SetUp {
     using stdStorage for StdStorage;
 
     function test_verifyDepositProof() public {
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
+            _getActivationEpoch(validatorContainer) *
+            SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);
@@ -123,7 +133,9 @@ contract VerifyDepositProof is SetUp {
     }
 
     function test_verifyDepositProof_revert_validatorAlreadyDeposited() public {
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
+            _getActivationEpoch(validatorContainer) *
+            SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);
@@ -138,12 +150,16 @@ contract VerifyDepositProof is SetUp {
         capsule.verifyDepositProof(validatorContainer, validatorProof);
 
         // deposit again should revert
-        vm.expectRevert(abi.encodeWithSelector(ExoCapsule.DoubleDepositedValidator.selector, _getPubkey(validatorContainer)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ExoCapsule.DoubleDepositedValidator.selector, _getPubkey(validatorContainer))
+        );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
     }
 
     function test_verifyDepositProof_revert_staleProof() public {
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
+            _getActivationEpoch(validatorContainer) *
+            SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp + 1 hours;
         mockCurrentBlockTimestamp = mockProofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS + 1 seconds;
         vm.warp(mockCurrentBlockTimestamp);
@@ -156,12 +172,20 @@ contract VerifyDepositProof is SetUp {
         );
 
         // deposit should revert because of proof is stale
-        vm.expectRevert(abi.encodeWithSelector(ExoCapsule.StaleValidatorContainer.selector, _getPubkey(validatorContainer), mockProofTimestamp));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExoCapsule.StaleValidatorContainer.selector,
+                _getPubkey(validatorContainer),
+                mockProofTimestamp
+            )
+        );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
     }
 
     function test_verifyDepositProof_revert_malformedValidatorContainer() public {
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
+            _getActivationEpoch(validatorContainer) *
+            SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);
@@ -177,18 +201,24 @@ contract VerifyDepositProof is SetUp {
 
         // construct malformed validator container that has extra fields
         validatorContainer.push(bytes32(uint256(123)));
-        vm.expectRevert(abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
+        );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
 
         vm.revertTo(snapshot);
         // construct malformed validator container that misses fields
         validatorContainer.pop();
-        vm.expectRevert(abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
+        );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
     }
 
     function test_verifyDepositProof_revert_inactiveValidatorContainer() public {
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
+            _getActivationEpoch(validatorContainer) *
+            SECONDS_PER_EPOCH;
 
         vm.mockCall(
             address(beaconOracle),
@@ -201,12 +231,16 @@ contract VerifyDepositProof is SetUp {
         mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);
         validatorProof.beaconBlockTimestamp = mockProofTimestamp;
-        vm.expectRevert(abi.encodeWithSelector(ExoCapsule.InactiveValidatorContainer.selector, _getPubkey(validatorContainer)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ExoCapsule.InactiveValidatorContainer.selector, _getPubkey(validatorContainer))
+        );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
     }
 
     function test_verifyDepositProof_revert_mismatchWithdrawalCredentials() public {
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
+            _getActivationEpoch(validatorContainer) *
+            SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);
@@ -235,7 +269,9 @@ contract VerifyDepositProof is SetUp {
     }
 
     function test_verifyDepositProof_revert_proofNotMatchWithBeaconRoot() public {
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
+            _getActivationEpoch(validatorContainer) *
+            SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);
@@ -249,7 +285,9 @@ contract VerifyDepositProof is SetUp {
         );
 
         // verify proof against mismatch beacon block root
-        vm.expectRevert(abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer)));
+        vm.expectRevert(
+            abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
+        );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
     }
 }

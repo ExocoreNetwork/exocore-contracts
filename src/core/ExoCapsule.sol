@@ -11,11 +11,7 @@ import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-contract ExoCapsule is
-    Initializable,
-    ExoCapsuleStorage,
-    IExoCapsule
-{
+contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     using BeaconChainProofs for bytes32;
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
@@ -23,6 +19,10 @@ contract ExoCapsule is
     event PrincipleBalanceUpdated(address, uint256);
     event WithdrawableBalanceUpdated(address, uint256);
     event WithdrawalSuccess(address, address, uint256);
+    /// @notice Emitted when ETH is received via the `receive` fallback
+    event NonBeaconChainETHReceived(uint256 amountReceived);
+    /// @notice Emitted when ETH that was previously received via the `receive` fallback is withdrawn
+    event NonBeaconChainETHWithdrawn(address indexed recipient, uint256 amountWithdrawn);
 
     error InvalidValidatorContainer(bytes32 pubkey);
     error InvalidWithdrawalContainer(uint64 validatorIndex);
@@ -38,6 +38,9 @@ contract ExoCapsule is
     error InactiveValidatorContainer(bytes32 pubkey);
     error InvalidGateway(address, address);
 
+    /// @notice This variable tracks any ETH deposited into this contract via the `receive` fallback function
+    uint256 public nonBeaconChainETHBalance;
+
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) {
             revert InvalidGateway(address(gateway), msg.sender);
@@ -47,6 +50,11 @@ contract ExoCapsule is
 
     constructor() {
         _disableInitializers();
+    }
+
+    receive() external payable {
+        nonBeaconChainETHBalance += msg.value;
+        emit NonBeaconChainETHReceived(msg.value);
     }
 
     function initialize(address gateway_, address capsuleOwner_, address beaconOracle_) external initializer {
@@ -169,6 +177,16 @@ contract ExoCapsule is
         emit WithdrawalSuccess(capsuleOwner, recipient, amount);
     }
 
+    /// @notice Called by the capsule owner to withdraw the nonBeaconChainETHBalance
+    function withdrawNonBeaconChainETHBalance(address recipient, uint256 amountToWithdraw) external onlyGateway {
+        require(
+            amountToWithdraw <= nonBeaconChainETHBalance,
+            "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
+        );
+        nonBeaconChainETHBalance -= amountToWithdraw;
+        emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
+    }
+
     function updatePrincipleBalance(uint256 lastlyUpdatedPrincipleBalance) external onlyGateway {
         principleBalance = lastlyUpdatedPrincipleBalance;
 
@@ -200,7 +218,10 @@ contract ExoCapsule is
         return root;
     }
 
-    function _verifyValidatorContainer(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof) internal view {
+    function _verifyValidatorContainer(
+        bytes32[] calldata validatorContainer,
+        ValidatorContainerProof calldata proof
+    ) internal view {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
         bytes32 validatorContainerRoot = validatorContainer.merklelizeValidatorContainer();
         bool valid = validatorContainerRoot.isValidValidatorContainerRoot(
@@ -215,7 +236,10 @@ contract ExoCapsule is
         }
     }
 
-    function _verifyWithdrawalContainer(bytes32[] calldata withdrawalContainer, WithdrawalContainerProof calldata proof) internal view {
+    function _verifyWithdrawalContainer(
+        bytes32[] calldata withdrawalContainer,
+        WithdrawalContainerProof calldata proof
+    ) internal view {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
         bytes32 withdrawalContainerRoot = withdrawalContainer.merklelizeWithdrawalContainer();
         bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(
@@ -230,7 +254,10 @@ contract ExoCapsule is
         }
     }
 
-    function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint256 atTimestamp) internal pure returns (bool) {
+    function _isActivatedAtEpoch(
+        bytes32[] calldata validatorContainer,
+        uint256 atTimestamp
+    ) internal pure returns (bool) {
         uint64 atEpoch = _timestampToEpoch(atTimestamp);
         uint64 activationEpoch = validatorContainer.getActivationEpoch();
         uint64 exitEpoch = validatorContainer.getExitEpoch();
@@ -264,7 +291,10 @@ contract ExoCapsule is
      * reference: https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md
      */
     function _timestampToEpoch(uint256 timestamp) internal pure returns (uint64) {
-        require(timestamp >= BEACON_CHAIN_GENESIS_TIME, "timestamp should be greater than beacon chain genesis timestamp");
+        require(
+            timestamp >= BEACON_CHAIN_GENESIS_TIME,
+            "timestamp should be greater than beacon chain genesis timestamp"
+        );
         return uint64((timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH);
     }
 }
