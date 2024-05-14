@@ -64,17 +64,28 @@ abstract contract NativeRestakingController is
         _processRequest(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue, Action.REQUEST_DEPOSIT, "");
     }
 
-    function processBeaconChainPartialWithdrawal(
+    function processBeaconChainWithdrawal(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused {}
-
-    function processBeaconChainFullWithdrawal(
-        bytes32[] calldata validatorContainer,
-        IExoCapsule.ValidatorContainerProof calldata validatorProof,
-        bytes32[] calldata withdrawalContainer,
-        IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused {}
+    ) external payable whenNotPaused {
+        IExoCapsule capsule = _getCapsule(msg.sender);
+        bool partialWithdrawal = capsule.verifyWithdrawalProof(
+            validatorContainer,
+            validatorProof,
+            withdrawalContainer,
+            withdrawalProof
+        );
+        if (!partialWithdrawal) {
+            // request full withdraw
+            _processRequest(
+                VIRTUAL_STAKED_ETH_ADDRESS,
+                msg.sender,
+                32 ether,
+                Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
+                ""
+            );
+        }
+    }
 }

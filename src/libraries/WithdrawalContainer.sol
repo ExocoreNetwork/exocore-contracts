@@ -14,7 +14,7 @@ library WithdrawalContainer {
 
     uint256 internal constant VALID_LENGTH = 4;
     uint256 internal constant MERKLE_TREE_HEIGHT = 2;
-    
+
     function verifyWithdrawalContainerBasic(bytes32[] calldata withdrawalContainer) internal pure returns (bool) {
         return withdrawalContainer.length == VALID_LENGTH;
     }
@@ -31,6 +31,9 @@ library WithdrawalContainer {
         return address(bytes20(withdrawalContainer[2]));
     }
 
+    /**
+     * @dev Retrieves a withdrawal's withdrawal amount (in gwei)
+     */
     function getAmount(bytes32[] calldata withdrawalContainer) internal pure returns (uint64) {
         return withdrawalContainer[3].fromLittleEndianUint64();
     }

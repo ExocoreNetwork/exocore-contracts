@@ -22,19 +22,12 @@ interface IExoCapsule {
 
     function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof) external;
 
-    function verifyPartialWithdrawalProof(
+    function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         WithdrawalContainerProof calldata withdrawalProof
-    ) external;
-
-    function verifyFullWithdrawalProof(
-        bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata validatorProof,
-        bytes32[] calldata withdrawalContainer,
-        WithdrawalContainerProof calldata withdrawalProof
-    ) external;
+    ) external returns (bool partialWithdrawal);
 
     function withdraw(uint256 amount, address recipient) external;
 

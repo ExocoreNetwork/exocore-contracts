@@ -22,7 +22,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     // immutable state variables
     address public immutable beaconOracleAddress;
     IBeacon public immutable exoCapsuleBeacon;
-    
+
     // constant state variables
     bytes constant EXO_ADDRESS_PREFIX = bytes("exo1");
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
@@ -30,7 +30,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     uint256 constant GWEI_TO_WEI = 1e9;
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     IETHPOSDeposit constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
-    
+
     uint256[40] private __gap;
 
     /* -------------------------------------------------------------------------- */
@@ -72,26 +72,33 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     }
 
     modifier isValidBech32Address(string calldata exocoreAddress) {
-        require(_isValidExocoreAddress(exocoreAddress), "BaseRestakingController: invalid bech32 encoded Exocore address");
+        require(
+            _isValidExocoreAddress(exocoreAddress),
+            "BaseRestakingController: invalid bech32 encoded Exocore address"
+        );
         _;
     }
 
     constructor(
-        uint32 exocoreChainId_, 
-        address beaconOracleAddress_, 
+        uint32 exocoreChainId_,
+        address beaconOracleAddress_,
         address vaultBeacon_,
         address exoCapsuleBeacon_
     ) BootstrapStorage(exocoreChainId_, vaultBeacon_) {
-        require(beaconOracleAddress_ != address(0), "ClientChainGatewayStorage: beacon chain oracle address should not be empty");
-        require(exoCapsuleBeacon_ != address(0), "ClientChainGatewayStorage: the exoCapsuleBeacon address for beacon proxy should not be empty");
+        require(
+            beaconOracleAddress_ != address(0),
+            "ClientChainGatewayStorage: beacon chain oracle address should not be empty"
+        );
+        require(
+            exoCapsuleBeacon_ != address(0),
+            "ClientChainGatewayStorage: the exoCapsuleBeacon address for beacon proxy should not be empty"
+        );
 
         beaconOracleAddress = beaconOracleAddress_;
         exoCapsuleBeacon = IBeacon(exoCapsuleBeacon_);
     }
 
-    function _isValidExocoreAddress(
-        string calldata operatorExocoreAddress
-    ) public pure returns (bool) {
+    function _isValidExocoreAddress(string calldata operatorExocoreAddress) public pure returns (bool) {
         bytes memory stringBytes = bytes(operatorExocoreAddress);
         if (stringBytes.length != 42) {
             return false;

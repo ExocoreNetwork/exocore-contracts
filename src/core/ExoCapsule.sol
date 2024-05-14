@@ -19,6 +19,20 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     event PrincipleBalanceUpdated(address, uint256);
     event WithdrawableBalanceUpdated(address, uint256);
     event WithdrawalSuccess(address, address, uint256);
+    /// @notice Emitted when a partial withdrawal claim is successfully redeemed
+    event PartialWithdrawalRedeemed(
+        bytes32 pubkey,
+        uint256 withdrawalTimestamp,
+        address indexed recipient,
+        uint64 partialWithdrawalAmountGwei
+    );
+    /// @notice Emitted when an ETH validator is prove to have fully withdrawn from the beacon chain
+    event FullWithdrawalRedeemed(
+        bytes32 pubkey,
+        uint256 withdrawalTimestamp,
+        address indexed recipient,
+        uint64 withdrawalAmountGwei
+    );
     /// @notice Emitted when ETH is received via the `receive` fallback
     event NonBeaconChainETHReceived(uint256 amountReceived);
     /// @notice Emitted when ETH that was previously received via the `receive` fallback is withdrawn
@@ -29,6 +43,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     error DoubleDepositedValidator(bytes32 pubkey);
     error StaleValidatorContainer(bytes32 pubkey, uint256 timestamp);
     error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
+    error WithdrawalAlreadyProven(bytes32 pubkey, uint256 timestamp);
     error FullyWithdrawnValidatorContainer(bytes32 pubkey);
     error UnmatchedValidatorAndWithdrawal(bytes32 pubkey);
     error NotPartialWithdrawal(bytes32 pubkey);
@@ -102,48 +117,16 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         _capsuleValidatorsByIndex[proof.validatorIndex] = validatorPubkey;
     }
 
-    function verifyPartialWithdrawalProof(
+    function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         WithdrawalContainerProof calldata withdrawalProof
-    ) external view onlyGateway {
+    ) external onlyGateway returns (bool partialWithdrawal) {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
-
-        bool partialWithdrawal = _timestampToEpoch(validatorProof.beaconBlockTimestamp) < withdrawableEpoch;
-
-        if (!partialWithdrawal) {
-            revert NotPartialWithdrawal(validatorPubkey);
-        }
-
-        if (validatorProof.beaconBlockTimestamp != withdrawalProof.beaconBlockTimestamp) {
-            revert UnmatchedValidatorAndWithdrawal(validatorPubkey);
-        }
-
-        if (!validatorContainer.verifyValidatorContainerBasic()) {
-            revert InvalidValidatorContainer(validatorPubkey);
-        }
-
-        _verifyValidatorContainer(validatorContainer, validatorProof);
-        _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
-    }
-
-    function verifyFullWithdrawalProof(
-        bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata validatorProof,
-        bytes32[] calldata withdrawalContainer,
-        WithdrawalContainerProof calldata withdrawalProof
-    ) external onlyGateway {
-        bytes32 validatorPubkey = validatorContainer.getPubkey();
-        uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
-
         Validator storage validator = _capsuleValidators[validatorPubkey];
-        bool fullyWithdrawal = _timestampToEpoch(validatorProof.beaconBlockTimestamp) > withdrawableEpoch;
-
-        if (!fullyWithdrawal) {
-            revert NotPartialWithdrawal(validatorPubkey);
-        }
+        partialWithdrawal = _timestampToEpoch(validatorProof.beaconBlockTimestamp) < withdrawableEpoch;
 
         if (validatorProof.beaconBlockTimestamp != withdrawalProof.beaconBlockTimestamp) {
             revert UnmatchedValidatorAndWithdrawal(validatorPubkey);
@@ -153,10 +136,45 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
             revert InvalidValidatorContainer(validatorPubkey);
         }
 
+        if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
+            revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
+        }
+
+        if (provenWithdrawal[validatorPubkey][withdrawalProof.beaconBlockTimestamp]) {
+            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalProof.beaconBlockTimestamp);
+        }
+
+        provenWithdrawal[validatorPubkey][withdrawalProof.beaconBlockTimestamp] = true;
+
         _verifyValidatorContainer(validatorContainer, validatorProof);
         _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
 
-        validator.status = VALIDATOR_STATUS.WITHDRAWN;
+        uint64 withdrawalAmountGwei = withdrawalContainer.getAmount();
+
+        if (partialWithdrawal) {
+            // Immediately send ETH without sending request to Exocore side
+            emit PartialWithdrawalRedeemed(
+                validatorPubkey,
+                withdrawalProof.beaconBlockTimestamp,
+                capsuleOwner,
+                withdrawalAmountGwei
+            );
+            _sendETH(capsuleOwner, withdrawalAmountGwei * GWEI_TO_WEI);
+        } else {
+            // Full withdrawal
+            validator.status = VALIDATOR_STATUS.WITHDRAWN;
+            validator.restakedBalanceGwei = 0;
+            // If over MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32 * 1e9, then send remaining amount immediately
+            emit FullWithdrawalRedeemed(
+                validatorPubkey,
+                withdrawalProof.beaconBlockTimestamp,
+                capsuleOwner,
+                withdrawalAmountGwei
+            );
+            if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
+                _sendETH(capsuleOwner, (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI);
+            }
+        }
     }
 
     function withdraw(uint256 amount, address recipient) external onlyGateway {
@@ -166,10 +184,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         );
 
         withdrawableBalance -= amount;
-        (bool sent, ) = recipient.call{value: amount}("");
-        if (!sent) {
-            revert WithdrawalFailure(capsuleOwner, recipient, amount);
-        }
+        _sendETH(recipient, amount);
 
         emit WithdrawalSuccess(capsuleOwner, recipient, amount);
     }
@@ -213,6 +228,13 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         }
 
         return root;
+    }
+
+    function _sendETH(address recipient, uint256 amountWei) internal {
+        (bool sent, ) = recipient.call{value: amountWei}("");
+        if (!sent) {
+            revert WithdrawalFailure(capsuleOwner, recipient, amountWei);
+        }
     }
 
     function _verifyValidatorContainer(
