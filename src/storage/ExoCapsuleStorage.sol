@@ -29,7 +29,10 @@ contract ExoCapsuleStorage {
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
 
     uint256 public principleBalance;
+    /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon Chain but not from Exocore)
     uint256 public withdrawableBalance;
+    /// @notice This variable tracks any ETH deposited into this contract via the `receive` fallback function
+    uint256 public nonBeaconChainETHBalance;
     address public capsuleOwner;
     INativeRestakingController public gateway;
     IBeaconChainOracle public beaconOracle;

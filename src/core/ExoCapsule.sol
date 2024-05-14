@@ -38,9 +38,6 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     error InactiveValidatorContainer(bytes32 pubkey);
     error InvalidGateway(address, address);
 
-    /// @notice This variable tracks any ETH deposited into this contract via the `receive` fallback function
-    uint256 public nonBeaconChainETHBalance;
-
     modifier onlyGateway() {
         if (msg.sender != address(gateway)) {
             revert InvalidGateway(address(gateway), msg.sender);
