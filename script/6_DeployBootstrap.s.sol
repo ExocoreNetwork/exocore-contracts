@@ -100,6 +100,6 @@ contract DeployBootstrapOnly is BaseScript {
         string memory finalJson =
             vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
 
-        vm.writeJson(finalJson, "script/deployedContracts.json");
+        vm.writeJson(finalJson, "script/deployedBootstrapOnly.json");
     }
 }
