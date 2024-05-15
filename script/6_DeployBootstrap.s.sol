@@ -75,7 +75,7 @@ contract DeployBootstrapOnly is BaseScript {
         bytes memory initialization = abi.encodeWithSelector(
             clientGatewayLogic.initialize.selector,
             exocoreChainId,
-            payable(address(msg.sender)),
+            payable(exocoreValidatorSet.addr),
             whitelistTokens
         );
         bootstrap.setClientChainGatewayLogic(
