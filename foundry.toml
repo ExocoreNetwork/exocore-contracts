@@ -9,6 +9,7 @@ evm_version = "paris"
 
 [rpc_endpoints]
 ethereum_local_rpc = "${ETHEREUM_LOCAL_RPC}"
+ethereum_sepolia_rpc = "${ETHEREUM_SEPOLIA_RPC}"
 exocore_local_rpc = "${EXOCORE_LOCAL_RPC}"
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
