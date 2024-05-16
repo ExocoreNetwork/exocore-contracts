@@ -72,6 +72,7 @@ contract DeployBootstrapOnly is BaseScript {
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint)
         );
+        // TODO: update the initialization logic once native restaking is merged.
         bytes memory initialization = abi.encodeWithSelector(
             clientGatewayLogic.initialize.selector,
             exocoreChainId,
