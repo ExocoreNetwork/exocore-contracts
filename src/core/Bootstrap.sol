@@ -90,6 +90,16 @@ contract Bootstrap is
     }
 
     /**
+     * @notice Checks if the contract is locked, meaning it has passed the offset duration
+     * before the Exocore spawn time.
+     * @dev Returns true if the contract is locked, false otherwise.
+     * @return bool Returns `true` if the contract is locked, `false` otherwise.
+     */
+    function isLocked() public view returns (bool) {
+        return block.timestamp >= exocoreSpawnTime - offsetDuration;
+    }
+
+    /**
      * @dev Modifier to restrict operations based on the contract's defined timeline.
      * It checks if the current block timestamp is less than 24 hours before the
      * Exocore spawn time, effectively locking operations as the spawn time approaches
@@ -103,7 +113,7 @@ contract Bootstrap is
      */
     modifier beforeLocked {
         require(
-            block.timestamp < exocoreSpawnTime - offsetDuration,
+            !isLocked(),
             "Bootstrap: operation not allowed after lock time"
         );
         _;
