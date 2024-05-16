@@ -7,6 +7,10 @@ gas_limit = "18446744073709551615"
 memory_limit = 18446744073709
 evm_version = "paris"
 
+[profile.solc]
+optimizer = true
+optimizer_runs = 200
+
 [rpc_endpoints]
 ethereum_local_rpc = "${ETHEREUM_LOCAL_RPC}"
 exocore_local_rpc = "${EXOCORE_LOCAL_RPC}"
