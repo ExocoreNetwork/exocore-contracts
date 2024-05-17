@@ -80,8 +80,9 @@ contract ClientChainGatewayStorage is BootstrapStorage {
         uint32 exocoreChainId_, 
         address beaconOracleAddress_, 
         address vaultBeacon_,
-        address exoCapsuleBeacon_
-    ) BootstrapStorage(exocoreChainId_, vaultBeacon_) {
+        address exoCapsuleBeacon_,
+        address beaconProxyBytecode_
+    ) BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_) {
         require(beaconOracleAddress_ != address(0), "ClientChainGatewayStorage: beacon chain oracle address should not be empty");
         require(exoCapsuleBeacon_ != address(0), "ClientChainGatewayStorage: the exoCapsuleBeacon address for beacon proxy should not be empty");
 

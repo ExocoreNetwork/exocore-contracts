@@ -19,7 +19,7 @@ import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../../src/interfaces/IVault.sol";
 import "../../src/interfaces/IExoCapsule.sol";
-
+import "src/core/BeaconProxyBytecode.sol";
 
 contract ClientChainGatewayTest is Test {
     Player[] players;
@@ -38,6 +38,7 @@ contract ClientChainGatewayTest is Test {
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon capsuleBeacon;
+    BeaconProxyBytecode beaconProxyBytecode;
 
     string operatorAddress = "exo1v4s6vtjpmxwu9rlhqms5urzrc3tc2ae2gnuqhc";
     uint16 exocoreChainId = 2;
@@ -75,6 +76,9 @@ contract ClientChainGatewayTest is Test {
 
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+
+        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
+        beaconProxyBytecode = new BeaconProxyBytecode();
         
         restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
         whitelistTokens.push(address(restakeToken));
@@ -86,7 +90,8 @@ contract ClientChainGatewayTest is Test {
             exocoreChainId,
             address(beaconOracle),
             address(vaultBeacon),
-            address(capsuleBeacon)
+            address(capsuleBeacon),
+            address(beaconProxyBytecode)
         );
         clientGateway = ClientChainGateway(
             payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))

@@ -24,6 +24,7 @@ import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "test/mocks/ETHPOSDepositMock.sol";
 import "src/libraries/Endian.sol";
 import "src/core/ExoCapsule.sol";
+import "src/core/BeaconProxyBytecode.sol";
 
 contract ExocoreDeployer is Test {
     using AddressCast for address;
@@ -48,6 +49,7 @@ contract ExocoreDeployer is Test {
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon capsuleBeacon;
+    BeaconProxyBytecode beaconProxyBytecode;
 
     uint256 constant BEACON_CHAIN_GENESIS_TIME = 1606824023;
     /// @notice The number of slots each epoch in the beacon chain
@@ -135,6 +137,9 @@ contract ExocoreDeployer is Test {
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
 
+        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
+        beaconProxyBytecode = new BeaconProxyBytecode();
+
         // attach ETHPOSDepositMock contract code to constant address
         ETHPOSDepositMock ethPOSDepositMock = new ETHPOSDepositMock();
         vm.etch(address(ETH_POS), address(ethPOSDepositMock).code);
@@ -148,7 +153,8 @@ contract ExocoreDeployer is Test {
             exocoreChainId,
             address(beaconOracle),
             address(vaultBeacon),
-            address(capsuleBeacon)
+            address(capsuleBeacon),
+            address(beaconProxyBytecode)
         );
         clientGateway = ClientChainGateway(
             payable(

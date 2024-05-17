@@ -43,10 +43,11 @@ contract ClientChainGateway is
         uint32 exocoreChainId_, 
         address beaconOracleAddress_,
         address vaultBeacon_,
-        address exoCapsuleBeacon_
+        address exoCapsuleBeacon_,
+        address beaconProxyBytecode_
     ) 
         OAppCoreUpgradeable(endpoint_)
-        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_) 
+        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_, beaconProxyBytecode_) 
     {
         _disableInitializers();
     }
@@ -210,7 +211,7 @@ contract ClientChainGateway is
                 0,
                 bytes32(uint256(uint160(underlyingToken))),
                 // set the beacon address for beacon proxy
-                abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(vaultBeacon), ""))
+                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
             )
         );
         vault.initialize(underlyingToken, address(this));
