@@ -22,65 +22,6 @@ library Merkle {
      * hash matches the root of the tree. The tree is built assuming `leaf` is
      * the 0 indexed `index`'th leaf from the bottom left of the tree.
      *
-     * Note this is for a Merkle tree using the keccak/sha3 hash function
-     */
-    function verifyInclusionKeccak(
-        bytes memory proof,
-        bytes32 root,
-        bytes32 leaf,
-        uint256 index
-    ) internal pure returns (bool) {
-        return processInclusionProofKeccak(proof, leaf, index) == root;
-    }
-
-    /**
-     * @dev Returns the rebuilt hash obtained by traversing a Merkle tree up
-     * from `leaf` using `proof`. A `proof` is valid if and only if the rebuilt
-     * hash matches the root of the tree. The tree is built assuming `leaf` is
-     * the 0 indexed `index`'th leaf from the bottom left of the tree.
-     *
-     * _Available since v4.4._
-     *
-     * Note this is for a Merkle tree using the keccak/sha3 hash function
-     */
-    function processInclusionProofKeccak(
-        bytes memory proof,
-        bytes32 leaf,
-        uint256 index
-    ) internal pure returns (bytes32) {
-        require(
-            proof.length != 0 && proof.length % 32 == 0,
-            "Merkle.processInclusionProofKeccak: proof length should be a non-zero multiple of 32"
-        );
-        bytes32 computedHash = leaf;
-        for (uint256 i = 32; i <= proof.length; i += 32) {
-            if (index % 2 == 0) {
-                // if ith bit of index is 0, then computedHash is a left sibling
-                assembly {
-                    mstore(0x00, computedHash)
-                    mstore(0x20, mload(add(proof, i)))
-                    computedHash := keccak256(0x00, 0x40)
-                    index := div(index, 2)
-                }
-            } else {
-                // if ith bit of index is 1, then computedHash is a right sibling
-                assembly {
-                    mstore(0x00, mload(add(proof, i)))
-                    mstore(0x20, computedHash)
-                    computedHash := keccak256(0x00, 0x40)
-                    index := div(index, 2)
-                }
-            }
-        }
-        return computedHash;
-    }
-
-    /**
-     * @dev Returns the rebuilt hash obtained by traversing a Merkle tree up
-     * from `leaf` using `proof`. A `proof` is valid if and only if the rebuilt
-     * hash matches the root of the tree. The tree is built assuming `leaf` is
-     * the 0 indexed `index`'th leaf from the bottom left of the tree.
-     *
      * Note this is for a Merkle tree using the sha256 hash function
      */
     function verifyInclusionSha256(
