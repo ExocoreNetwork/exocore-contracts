@@ -243,7 +243,7 @@ contract ExoCapsule is
     }
 
     function _hasFullyWithdrawn(bytes32[] calldata validatorContainer) internal view returns (bool) {
-        return validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp) && validatorContainer.getEffectiveBalance() == 0
+        return validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp) && validatorContainer.getEffectiveBalance() == 0;
     }
 
     /**

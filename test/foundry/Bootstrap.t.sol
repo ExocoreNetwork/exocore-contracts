@@ -271,7 +271,7 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test02_Deposit_VaultNotExist() public {
+    function test02_Deposit_Success() public {
         address cloneDeployer = address(0xdebd);
         // Deploy a new token
         vm.startPrank(cloneDeployer);
@@ -287,10 +287,12 @@ contract BootstrapTest is Test {
         // now add it to the whitelist
         vm.startPrank(deployer);
         bootstrap.addWhitelistToken(cloneAddress);
+        vm.stopPrank();
 
         // now try to deposit
-        myToken.approve(address(bootstrap), amounts[0]);
-        vm.expectRevert(abi.encodeWithSignature("VaultNotExist()"));
+        vm.startPrank(addrs[0]);
+        IVault vault = bootstrap.tokenToVault(cloneAddress);
+        myTokenClone.approve(address(vault), amounts[0]);
         bootstrap.deposit(cloneAddress, amounts[0]);
         vm.stopPrank();
     }
@@ -731,13 +733,13 @@ contract BootstrapTest is Test {
         );
     }
 
-    function test09_DelegateTo_VaultNotExist() public {
+    function test09_DelegateTo_NotEnoughBlance() public {
         test03_RegisterOperator();
         vm.startPrank(deployer);
         bootstrap.addWhitelistToken(address(0xa));
         vm.stopPrank();
         vm.startPrank(addrs[0]);
-        vm.expectRevert(abi.encodeWithSignature("VaultNotExist()"));
+        vm.expectRevert(bytes("Bootstrap: insufficient withdrawable balance"));
         bootstrap.delegateTo(
             "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]
         );
@@ -867,13 +869,13 @@ contract BootstrapTest is Test {
         );
     }
 
-    function test10_UndelegateFrom_VaultNotExist() public {
+    function test10_UndelegateFrom_NotEnoughBalance() public {
         test03_RegisterOperator();
         vm.startPrank(deployer);
         bootstrap.addWhitelistToken(address(0xa));
         vm.stopPrank();
         vm.startPrank(addrs[0]);
-        vm.expectRevert(abi.encodeWithSignature("VaultNotExist()"));
+        vm.expectRevert(bytes("Bootstrap: insufficient delegated balance"));
         bootstrap.undelegateFrom(
             "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]
         );
@@ -974,15 +976,6 @@ contract BootstrapTest is Test {
         vm.expectRevert("Bootstrap: insufficient withdrawable balance");
         bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[0]);
         vm.stopPrank();
-    }
-
-    function test11_WithdrawPrincipleFromExocore_VaultNotExist() public {
-        vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(address(0xa));
-        vm.stopPrank();
-        vm.startPrank(addrs[0]);
-        vm.expectRevert(abi.encodeWithSignature("VaultNotExist()"));
-        bootstrap.withdrawPrincipleFromExocore(address(0xa), 5);
     }
 
     function test12_MarkBootstrapped() public {
@@ -1364,14 +1357,5 @@ contract BootstrapTest is Test {
             "Vault: withdrawal amount is larger than depositor's withdrawable balance"
         );
         bootstrap.claim(address(myToken), amounts[0] + 5, addrs[0]);
-    }
-
-    function test22_Claim_VaultNotExist() public {
-        vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(address(0xa));
-        vm.stopPrank();
-        vm.startPrank(addrs[0]);
-        vm.expectRevert(abi.encodeWithSignature("VaultNotExist()"));
-        bootstrap.claim(address(0xa), 5, addrs[0]);
     }
 }
