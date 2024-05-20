@@ -1,1 +1,0 @@
-[2m2024-04-30T12:14:44.163331Z[0m [31mERROR[0m [2mfoundry_compilers::resolver[0m[2m:[0m failed to resolve versions

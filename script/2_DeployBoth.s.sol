@@ -188,12 +188,16 @@ contract DeployScript is BaseScript {
     function _deployBeaconOracle() internal returns (EigenLayerBeaconOracle) {
         uint256 GENESIS_BLOCK_TIMESTAMP;
 
+        // mainnet
         if (block.chainid == 1) {
             GENESIS_BLOCK_TIMESTAMP = 1606824023;
+        // goerli
         } else if (block.chainid == 5) {
             GENESIS_BLOCK_TIMESTAMP = 1616508000;
+        // sepolia
         } else if (block.chainid == 11155111) {
             GENESIS_BLOCK_TIMESTAMP = 1655733600;
+        // holesky
         } else if (block.chainid == 17000) {
             GENESIS_BLOCK_TIMESTAMP = 1695902400;
         } else {
