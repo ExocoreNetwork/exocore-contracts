@@ -50,9 +50,9 @@ contract ExoCapsule is
     }
 
     function initialize(address gateway_, address capsuleOwner_, address beaconOracle_) external initializer {
-        require(gateway_ != address(0), "ExoCapsuleStorage: gateway address can not be empty");
+        require(gateway_ != address(0), "ExoCapsule: gateway address can not be empty");
         require(capsuleOwner_ != address(0), "ExoCapsule: capsule owner address can not be empty");
-        require(beaconOracle_ != address(0), "ExoCapsuleStorage: beacon chain oracle address should not be empty");
+        require(beaconOracle_ != address(0), "ExoCapsule: beacon chain oracle address should not be empty");
 
         gateway = INativeRestakingController(gateway_);
         beaconOracle = IBeaconChainOracle(beaconOracle_);
@@ -67,16 +67,16 @@ contract ExoCapsule is
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         Validator storage validator = _capsuleValidators[validatorPubkey];
 
+        if (!validatorContainer.verifyValidatorContainerBasic()) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
         if (validator.status != VALIDATOR_STATUS.UNREGISTERED) {
             revert DoubleDepositedValidator(validatorPubkey);
         }
 
         if (_isStaleProof(validator, proof.beaconBlockTimestamp)) {
             revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
-        }
-
-        if (!validatorContainer.verifyValidatorContainerBasic()) {
-            revert InvalidValidatorContainer(validatorPubkey);
         }
 
         if (!_isActivatedAtEpoch(validatorContainer, proof.beaconBlockTimestamp)) {
@@ -108,16 +108,16 @@ contract ExoCapsule is
 
         bool partialWithdrawal = _timestampToEpoch(validatorProof.beaconBlockTimestamp) < withdrawableEpoch;
 
+        if (!validatorContainer.verifyValidatorContainerBasic()) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
         if (!partialWithdrawal) {
             revert NotPartialWithdrawal(validatorPubkey);
         }
 
         if (validatorProof.beaconBlockTimestamp != withdrawalProof.beaconBlockTimestamp) {
             revert UnmatchedValidatorAndWithdrawal(validatorPubkey);
-        }
-
-        if (!validatorContainer.verifyValidatorContainerBasic()) {
-            revert InvalidValidatorContainer(validatorPubkey);
         }
 
         _verifyValidatorContainer(validatorContainer, validatorProof);
@@ -136,16 +136,16 @@ contract ExoCapsule is
         Validator storage validator = _capsuleValidators[validatorPubkey];
         bool fullyWithdrawal = _timestampToEpoch(validatorProof.beaconBlockTimestamp) > withdrawableEpoch;
 
+        if (!validatorContainer.verifyValidatorContainerBasic()) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+        
         if (!fullyWithdrawal) {
             revert NotPartialWithdrawal(validatorPubkey);
         }
 
         if (validatorProof.beaconBlockTimestamp != withdrawalProof.beaconBlockTimestamp) {
             revert UnmatchedValidatorAndWithdrawal(validatorPubkey);
-        }
-
-        if (!validatorContainer.verifyValidatorContainerBasic()) {
-            revert InvalidValidatorContainer(validatorPubkey);
         }
 
         _verifyValidatorContainer(validatorContainer, validatorProof);
