@@ -58,7 +58,7 @@ contract ClientChainGateway is
         address payable exocoreValidatorSetAddress_,
         address[] calldata appendedWhitelistTokens_
     ) external reinitializer(2) {
-        clearBootstrapData();
+        _clearBootstrapData();
         
         require(exocoreValidatorSetAddress_ != address(0), "ClientChainGateway: exocore validator set address should not be empty");
 
@@ -93,7 +93,7 @@ contract ClientChainGateway is
         __Pausable_init_unchained();
     }
 
-    function clearBootstrapData() internal {
+    function _clearBootstrapData() internal {
         // mandatory to clear!
         delete _whiteListFunctionSelectors[Action.MARK_BOOTSTRAP];
         // the set below is recommended to clear, so that any possibilities of upgrades
