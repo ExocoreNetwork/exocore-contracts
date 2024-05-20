@@ -192,6 +192,11 @@ contract Bootstrap is
         whitelistTokens.push(_token);
         isWhitelistedToken[_token] = true;
 
+        // deploy the corresponding vault if not deployed before
+        if (address(tokenToVault[_token]) == address(0)) {
+            _deployVault(_token);
+        }
+
         emit WhitelistTokenAdded(_token);
     }
 
@@ -204,6 +209,8 @@ contract Bootstrap is
             "Bootstrap: token should be already whitelisted"
         );
         isWhitelistedToken[_token] = false;
+        // the implicit assumption here is that the _token must be included in whitelistTokens
+        // if isWhitelistedToken[_token] is true
         for(uint i = 0; i < whitelistTokens.length; i++) {
             if (whitelistTokens[i] == _token) {
                 whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
