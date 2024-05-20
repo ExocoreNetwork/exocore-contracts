@@ -239,23 +239,11 @@ contract ExoCapsule is
     }
 
     function _isStaleProof(Validator storage validator, uint256 proofTimestamp) internal view returns (bool) {
-        if (proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS >= block.timestamp) {
-            if (proofTimestamp > validator.mostRecentBalanceUpdateTimestamp) {
-                return false;
-            }
-        }
-
-        return true;
+        return proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS < block.timestamp || proofTimestamp <= validator.mostRecentBalanceUpdateTimestamp;
     }
 
     function _hasFullyWithdrawn(bytes32[] calldata validatorContainer) internal view returns (bool) {
-        if (validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp)) {
-            if (validatorContainer.getEffectiveBalance() == 0) {
-                return true;
-            }
-        }
-
-        return false;
+        return validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp) && validatorContainer.getEffectiveBalance() == 0
     }
 
     /**
