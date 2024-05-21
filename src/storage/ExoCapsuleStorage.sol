@@ -30,6 +30,15 @@ contract ExoCapsuleStorage {
     uint256 constant GWEI_TO_WEI = 1e9;
     uint64 constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
 
+    /**
+     * @notice The latest timestamp at which the capsule owner withdrew the balance of the capsule, via calling `withdrawBeforeRestaking`.
+     * @dev This variable is only updated when the `withdrawBeforeRestaking` function is called, which can only occur before `hasRestaked` is set to true for this capsule.
+     * Proofs for this capsule are only valid against Beacon Chain state roots corresponding to timestamps after the stored `mostRecentWithdrawalTimestamp`.
+     */
+    uint64 public mostRecentWithdrawalTimestamp;
+    /// @notice an indicator of whether or not the capsule owner has ever "fully restaked" by successfully calling `verifyCorrectWithdrawalCredentials`.
+    bool public hasRestaked;
+
     uint256 public principleBalance;
     /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon Chain but not from Exocore)
     uint256 public withdrawableBalance;
