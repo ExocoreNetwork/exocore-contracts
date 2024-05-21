@@ -28,6 +28,7 @@ contract ExoCapsule is
     error InvalidWithdrawalContainer(uint64 validatorIndex);
     error DoubleDepositedValidator(bytes32 pubkey);
     error StaleValidatorContainer(bytes32 pubkey, uint256 timestamp);
+    error UnregisteredValidator(bytes32 pubkey);
     error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
     error FullyWithdrawnValidatorContainer(bytes32 pubkey);
     error UnmatchedValidatorAndWithdrawal(bytes32 pubkey);
@@ -198,6 +199,24 @@ contract ExoCapsule is
         }
 
         return root;
+    }
+
+    function getRegisteredValidatorByPubkey(bytes32 pubkey) public view returns(Validator memory) {
+        Validator memory validator = _capsuleValidators[pubkey];
+        if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
+            revert UnregisteredValidator(pubkey);
+        }
+
+        return validator;
+    }
+
+    function getRegisteredValidatorByIndex(uint256 index) public view returns(Validator memory) {
+        Validator memory validator = _capsuleValidators[_capsuleValidatorsByIndex[index]];
+        if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
+            revert UnregisteredValidator(_capsuleValidatorsByIndex[index]);
+        }
+
+        return validator;
     }
 
     function _verifyValidatorContainer(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof) internal view {

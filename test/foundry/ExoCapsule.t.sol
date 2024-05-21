@@ -9,6 +9,7 @@ import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 import "src/interfaces/IExoCapsule.sol";
 import "src/core/ExoCapsule.sol";
+import {ExoCapsuleStorage} from "src/storage/ExoCapsuleStorage.sol";
 import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
 
@@ -71,7 +72,6 @@ contract SetUp is Test {
         ExoCapsule phantomCapsule = new ExoCapsule();
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
-
         vm.etch(capsuleAddress, address(phantomCapsule).code);
         capsule = ExoCapsule(capsuleAddress);
         assertEq(bytes32(capsule.capsuleWithdrawalCredentials()), _getWithdrawalCredentials(validatorContainer));
@@ -93,6 +93,10 @@ contract SetUp is Test {
 
     function _getWithdrawalCredentials(bytes32[] storage vc) internal view returns (bytes32) {
         return vc[1];
+    }
+
+    function _getEffectiveBalance(bytes32[] storage vc) internal view returns (uint64) {
+        return vc[2].fromLittleEndianUint64();
     }
 
     function _getActivationEpoch(bytes32[] storage vc) internal view returns (uint64) {
@@ -122,6 +126,12 @@ contract VerifyDepositProof is SetUp {
         );
 
         capsule.verifyDepositProof(validatorContainer, validatorProof);
+
+        ExoCapsuleStorage.Validator memory validator = capsule.getRegisteredValidatorByPubkey(_getPubkey(validatorContainer));
+        assertEq(uint8(validator.status), uint8(ExoCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
+        assertEq(validator.validatorIndex, validatorProof.validatorIndex);
+        assertEq(validator.mostRecentBalanceUpdateTimestamp, validatorProof.beaconBlockTimestamp);
+        assertEq(validator.restakedBalanceGwei, _getEffectiveBalance(validatorContainer));
     }
 
     function test_verifyDepositProof_revert_validatorAlreadyDeposited() public {
