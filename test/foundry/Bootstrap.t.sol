@@ -612,7 +612,7 @@ contract BootstrapTest is Test {
 
     function test08_ExocoreAddressIsValid() public {
         assertTrue(
-            bootstrap.exocoreAddressIsValid(
+            bootstrap.isValidExocoreAddress(
                 "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac"
             )
         );
@@ -620,7 +620,7 @@ contract BootstrapTest is Test {
 
     function test08_ExocoreAddressIsValid_Length() public {
         assertFalse(
-            bootstrap.exocoreAddressIsValid(
+            bootstrap.isValidExocoreAddress(
                 "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7acaa"
             )
         );
@@ -628,7 +628,7 @@ contract BootstrapTest is Test {
 
     function test08_ExocoreAddressIsValid_Prefix() public {
         assertFalse(
-            bootstrap.exocoreAddressIsValid(
+            bootstrap.isValidExocoreAddress(
                 "asd"
             )
         );

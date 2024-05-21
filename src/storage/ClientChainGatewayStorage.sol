@@ -24,7 +24,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     IBeacon public immutable exoCapsuleBeacon;
     
     // constant state variables
-    bytes constant EXO_ADDRESS_PREFIX = bytes("exo1");
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
     uint256 constant GWEI_TO_WEI = 1e9;
@@ -72,7 +71,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     }
 
     modifier isValidBech32Address(string calldata exocoreAddress) {
-        require(_isValidExocoreAddress(exocoreAddress), "BaseRestakingController: invalid bech32 encoded Exocore address");
+        require(isValidExocoreAddress(exocoreAddress), "BaseRestakingController: invalid bech32 encoded Exocore address");
         _;
     }
 
@@ -88,22 +87,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
         beaconOracleAddress = beaconOracleAddress_;
         exoCapsuleBeacon = IBeacon(exoCapsuleBeacon_);
-    }
-
-    function _isValidExocoreAddress(
-        string calldata operatorExocoreAddress
-    ) public pure returns (bool) {
-        bytes memory stringBytes = bytes(operatorExocoreAddress);
-        if (stringBytes.length != 42) {
-            return false;
-        }
-        for (uint i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
-            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     function _getCapsule(address owner) internal view returns (IExoCapsule) {

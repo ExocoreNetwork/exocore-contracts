@@ -233,7 +233,14 @@ contract BootstrapStorage is GatewayStorage {
      */
     IBeacon public immutable vaultBeacon;
 
+    /**
+     * @notice a stantalone contract that is dedicated for providing the bytecode of beacon proxy contract
+     * @dev we do not store bytecode of beacon proxy contract in this storage because that would cause the code size
+     * of this contract exeeding limit and leading to creation failure
+     */
     BeaconProxyBytecode public immutable beaconProxyBytecode;
+
+    bytes constant EXO_ADDRESS_PREFIX = bytes("exo1");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -402,5 +409,21 @@ contract BootstrapStorage is GatewayStorage {
             revert VaultNotExist();
         }
         return vault;
+    }
+
+    function isValidExocoreAddress(
+        string calldata operatorExocoreAddress
+    ) public pure returns (bool) {
+        bytes memory stringBytes = bytes(operatorExocoreAddress);
+        if (stringBytes.length != 42) {
+            return false;
+        }
+        for (uint i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
+            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
