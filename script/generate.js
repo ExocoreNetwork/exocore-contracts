@@ -3,15 +3,15 @@
 
 // global constants include the chain information
 const clientChainInfo = {
-    'name': 'Ethereum localnet',
-    'meta_info': 'Ethereum-based localnet running on Anvil',
+    'name': 'Sepolia',
+    'meta_info': 'Ethereum-testnet known as Sepolia',
     'finalization_blocks': 10,
-    'layer_zero_chain_id': 101, // TODO
+    'layer_zero_chain_id': 40161,
     'address_length': 20,
   };
 
 const tokenMetaInfos = [
-  'Sample token 1', 'Sample token 2'
+  'Exocore testnet ETH',
 ];
 
 const exocoreBech32Prefix = 'exo';
@@ -37,7 +37,7 @@ const isValidBech32 = (address) => {
 
 
 // Load variables from .env file
-const { NODE_URL, CONTRACT_ADDRESS, GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
+const { SEPOLIA_RPC, BOOTSTRAP_ADDRESS, BASE_GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
 
 async function updateGenesisFile() {
   try {
@@ -46,16 +46,16 @@ async function updateGenesisFile() {
     const contractABI = JSON.parse(await fs.readFile(abiPath, 'utf8')).abi;
 
     // Set up Web3
-    const web3 = new Web3(NODE_URL);
+    const web3 = new Web3(SEPOLIA_RPC);
 
     // Create contract instance
-    const myContract = new web3.eth.Contract(contractABI, CONTRACT_ADDRESS);
+    const myContract = new web3.eth.Contract(contractABI, BOOTSTRAP_ADDRESS);
 
     // Read exchange rates
     const exchangeRates = EXCHANGE_RATES.split(',').map(Decimal);
 
     // Read the genesis file
-    const genesisData = await fs.readFile(GENESIS_FILE_PATH);
+    const genesisData = await fs.readFile(BASE_GENESIS_FILE_PATH);
     const genesisJSON = JSON.parse(genesisData);
 
     const chainId = genesisJSON.chain_id;
@@ -407,7 +407,7 @@ async function updateGenesisFile() {
     });
     genesisJSON.app_state.delegation.delegations = baseLevel;
 
-    await fs.writeFile(GENESIS_FILE_PATH, JSON.stringify(genesisJSON, null, 2));
+    await fs.writeFile(BASE_GENESIS_FILE_PATH, JSON.stringify(genesisJSON, null, 2));
     console.log('Genesis file updated successfully.');
   } catch (error) {
     console.error('Error updating genesis file:', error.message);

@@ -220,9 +220,7 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         // before native stake and deposit, we simulate proper block environment states to make proof valid
 
         /// we set the timestamp of proof to be exactly the timestamp that the validator container get activated on beacon chain
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
-            _getActivationEpoch(validatorContainer) *
-            SECONDS_PER_EPOCH;
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         validatorProof.beaconBlockTimestamp = mockProofTimestamp;
 
@@ -263,7 +261,11 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
 
         /// replace expectedCapsule with capsule
         bytes32 capsuleSlotInGateway = bytes32(
-            stdstore.target(address(clientGatewayLogic)).sig("ownerToCapsule(address)").with_key(depositor.addr).find()
+            stdstore
+            .target(address(clientGatewayLogic))
+            .sig("ownerToCapsule(address)")
+            .with_key(depositor.addr)
+            .find()
         );
         vm.store(address(clientGateway), capsuleSlotInGateway, bytes32(uint256(uint160(address(capsule)))));
         assertEq(address(clientGateway.ownerToCapsule(depositor.addr)), address(capsule));
@@ -306,12 +308,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
 
         /// exocore gateway should return response message to exocore network layerzero endpoint
         uint256 lastlyUpdatedPrincipleBalance = depositAmount;
-        bytes memory depositResponsePayload = abi.encodePacked(
-            GatewayStorage.Action.RESPOND,
-            uint64(1),
-            true,
-            lastlyUpdatedPrincipleBalance
-        );
+        bytes memory depositResponsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true, lastlyUpdatedPrincipleBalance);
         uint256 depositResponseNativeFee = exocoreGateway.quote(clientChainId, depositResponsePayload);
         bytes32 depositResponseId = generateUID(1, false);
 

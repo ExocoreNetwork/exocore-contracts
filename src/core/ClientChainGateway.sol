@@ -205,6 +205,8 @@ contract ClientChainGateway is
         return (SENDER_VERSION, RECEIVER_VERSION);
     }
 
+    // TODO: might be better to share this function between Bootstrap and ClientChainGateay
+    // as they both use this function.
     function _deployVault(address underlyingToken) internal returns (IVault) {
         Vault vault = Vault(
             Create2.deploy(

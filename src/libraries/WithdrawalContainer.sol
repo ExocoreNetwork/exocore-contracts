@@ -14,7 +14,6 @@ library WithdrawalContainer {
 
     uint256 internal constant VALID_LENGTH = 4;
     uint256 internal constant MERKLE_TREE_HEIGHT = 2;
-
     function verifyWithdrawalContainerBasic(bytes32[] calldata withdrawalContainer) internal pure returns (bool) {
         return withdrawalContainer.length == VALID_LENGTH;
     }

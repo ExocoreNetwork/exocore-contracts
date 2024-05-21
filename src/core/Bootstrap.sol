@@ -35,8 +35,6 @@ contract Bootstrap is
     IOperatorRegistry,
     BootstrapLzReceiver
 {
-    bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
-
     constructor(
         address endpoint_,
         uint32 exocoreChainId_, 
@@ -99,6 +97,16 @@ contract Bootstrap is
     }
 
     /**
+     * @notice Checks if the contract is locked, meaning it has passed the offset duration
+     * before the Exocore spawn time.
+     * @dev Returns true if the contract is locked, false otherwise.
+     * @return bool Returns `true` if the contract is locked, `false` otherwise.
+     */
+    function isLocked() public view returns (bool) {
+        return block.timestamp >= exocoreSpawnTime - offsetDuration;
+    }
+
+    /**
      * @dev Modifier to restrict operations based on the contract's defined timeline.
      * It checks if the current block timestamp is less than 24 hours before the
      * Exocore spawn time, effectively locking operations as the spawn time approaches
@@ -112,7 +120,7 @@ contract Bootstrap is
      */
     modifier beforeLocked {
         require(
-            block.timestamp < exocoreSpawnTime - offsetDuration,
+            !isLocked(),
             "Bootstrap: operation not allowed after lock time"
         );
         _;
@@ -222,30 +230,6 @@ contract Bootstrap is
         emit WhitelistTokenRemoved(_token);
     }
 
-    /**
-     * @dev Validates the given Exocore address.
-     * @param operatorExocoreAddress The Exocore address to validate.
-     * @return bool Returns `true` if the address is valid, `false` otherwise.
-     * @notice This function checks the format of the given Exocore address to ensure
-     * it conforms to the expected format. The address must be a bech32-encoded string
-     * with a length of 42 characters and start with the expected prefix.
-     */
-    function exocoreAddressIsValid(
-        string calldata operatorExocoreAddress
-    ) public pure returns (bool) {
-        bytes memory stringBytes = bytes(operatorExocoreAddress);
-        if (stringBytes.length != 42) {
-            return false;
-        }
-        for (uint i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
-            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     // implementation of IOperatorRegistry
     function registerOperator(
         string calldata operatorExocoreAddress,
@@ -255,7 +239,7 @@ contract Bootstrap is
     ) external beforeLocked whenNotPaused {
         // ensure the address format is valid.
         require(
-            exocoreAddressIsValid(operatorExocoreAddress),
+            isValidExocoreAddress(operatorExocoreAddress),
             "Bootstrap: invalid bech32 address"
         );
         // ensure that there is only one operator per ethereum address
@@ -671,7 +655,9 @@ contract Bootstrap is
             depositAmount: depositsByToken[tokenAddress]
         });
     }
-
+   
+    // TODO: might be better to share this function between Bootstrap and ClientChainGateay
+    // as they both use this function.
     function _deployVault(address underlyingToken) internal returns (IVault) {
         Vault vault = Vault(
             Create2.deploy(

@@ -11,7 +11,11 @@ import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
-contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
+contract ExoCapsule is
+    Initializable,
+    ExoCapsuleStorage,
+    IExoCapsule
+{
     using BeaconChainProofs for bytes32;
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
@@ -44,6 +48,8 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     error StaleValidatorContainer(bytes32 pubkey, uint256 timestamp);
     error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
     error WithdrawalAlreadyProven(bytes32 pubkey, uint256 timestamp);
+    error UnregisteredValidator(bytes32 pubkey);
+    error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
     error FullyWithdrawnValidatorContainer(bytes32 pubkey);
     error UnmatchedValidatorAndWithdrawal(bytes32 pubkey);
     error NotPartialWithdrawal(bytes32 pubkey);
@@ -241,6 +247,26 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
     ) internal view {
+
+    function getRegisteredValidatorByPubkey(bytes32 pubkey) public view returns(Validator memory) {
+        Validator memory validator = _capsuleValidators[pubkey];
+        if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
+            revert UnregisteredValidator(pubkey);
+        }
+
+        return validator;
+    }
+
+    function getRegisteredValidatorByIndex(uint256 index) public view returns(Validator memory) {
+        Validator memory validator = _capsuleValidators[_capsuleValidatorsByIndex[index]];
+        if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
+            revert UnregisteredValidator(_capsuleValidatorsByIndex[index]);
+        }
+
+        return validator;
+    }
+
+    function _verifyValidatorContainer(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof) internal view {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
         bytes32 validatorContainerRoot = validatorContainer.merklelizeValidatorContainer();
         bool valid = validatorContainerRoot.isValidValidatorContainerRoot(
@@ -273,10 +299,8 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         }
     }
 
-    function _isActivatedAtEpoch(
-        bytes32[] calldata validatorContainer,
-        uint256 atTimestamp
-    ) internal pure returns (bool) {
+
+    function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint256 atTimestamp) internal pure returns (bool) {
         uint64 atEpoch = _timestampToEpoch(atTimestamp);
         uint64 activationEpoch = validatorContainer.getActivationEpoch();
         uint64 exitEpoch = validatorContainer.getExitEpoch();
@@ -298,10 +322,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
      * reference: https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md
      */
     function _timestampToEpoch(uint256 timestamp) internal pure returns (uint64) {
-        require(
-            timestamp >= BEACON_CHAIN_GENESIS_TIME,
-            "timestamp should be greater than beacon chain genesis timestamp"
-        );
+        require(timestamp >= BEACON_CHAIN_GENESIS_TIME, "timestamp should be greater than beacon chain genesis timestamp");
         return uint64((timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH);
     }
 }
