@@ -4,8 +4,6 @@ import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
 import "../../src/core/ExocoreGateway.sol";
 import "../../src/storage/GatewayStorage.sol";
-import "../../src/interfaces/IController.sol";
-import "../../src/interfaces/ITSSReceiver.sol";
 import "forge-std/console.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";

@@ -4,7 +4,7 @@ import {IDeposit} from "../../src/interfaces/precompiles/IDeposit.sol";
 import {IWithdraw} from "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 
 contract DepositWithdrawMock is IDeposit, IWithdraw {
-    mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) principleBalances;
+    mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principleBalances;
 
     function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
         external
@@ -29,5 +29,13 @@ contract DepositWithdrawMock is IDeposit, IWithdraw {
         principleBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
 
         return (success, principleBalances[clientChainLzId][assetsAddress][withdrawer]);
+    }
+
+    function getPrincipleBalance(uint32 clientChainLzId, address token, address staker) public view returns (uint256) {
+        return principleBalances[clientChainLzId][_addressToBytes(token)][_addressToBytes(staker)];
+    }
+
+    function _addressToBytes(address addr) internal pure returns (bytes memory) {
+        return abi.encodePacked(bytes32(bytes20(addr)));
     }
 }

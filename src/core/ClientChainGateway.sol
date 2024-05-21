@@ -1,68 +1,89 @@
 pragma solidity ^0.8.19;
 
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {ITSSReceiver} from "../interfaces/ITSSReceiver.sol";
-import {IController} from "../interfaces/IController.sol";
 import {IVault} from "../interfaces/IVault.sol";
-import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppSenderUpgradeable, MessagingFee} from "../lzApp/OAppSenderUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
-import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {Controller} from "./Controller.sol";
+import {LSTRestakingController} from "./LSTRestakingController.sol";
+import {NativeRestakingController} from "./NativeRestakingController.sol";
 import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
-import {TSSReceiver} from "./TSSReceiver.sol";
-import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+import {Vault} from "./Vault.sol";
+
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract ClientChainGateway is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
     IClientChainGateway,
-    Controller,
-    ClientGatewayLzReceiver,
-    TSSReceiver
+    LSTRestakingController,
+    NativeRestakingController,
+    ClientGatewayLzReceiver
 {
-    using SafeERC20 for IERC20;
-    using ECDSA for bytes32;
     using OptionsBuilder for bytes;
 
-    constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {
+    /**
+     * @notice This constructor initializes only immutable state variables
+     * @param endpoint_ is the layerzero endpoint address deployed on this chain
+     * @param exocoreChainId_ is the id of layerzero endpoint on Exocore chain
+     * @param beaconOracleAddress_ is the Ethereum beacon chain oracle that is used for fetching beacon block root
+     * @param exoCapsuleBeacon_ is the UpgradeableBeacon contract address for ExoCapsule beacon proxy
+     * @param vaultBeacon_ is the UpgradeableBeacon contract address for Vault beacon proxy
+     */
+    constructor(
+        address endpoint_, 
+        uint32 exocoreChainId_, 
+        address beaconOracleAddress_,
+        address vaultBeacon_,
+        address exoCapsuleBeacon_,
+        address beaconProxyBytecode_
+    ) 
+        OAppCoreUpgradeable(endpoint_)
+        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_, beaconProxyBytecode_) 
+    {
         _disableInitializers();
     }
 
     // initialization happens from another contract so it must be external.
     // reinitializer(2) is used so that the ownable and oappcore functions can be called again.
     function initialize(
-        uint32 _exocoreChainId,
-        address payable _exocoreValidatorSetAddress,
-        address[] calldata _whitelistTokens
+        address payable exocoreValidatorSetAddress_,
+        address[] calldata appendedWhitelistTokens_
     ) external reinitializer(2) {
-        clearBootstrapData();
-        require(_exocoreValidatorSetAddress != address(0), "ClientChainGateway: exocore validator set address should not be empty");
-        require(_exocoreChainId != 0, "ClientChainGateway: exocore chain id should not be empty");
+        _clearBootstrapData();
+        
+        require(exocoreValidatorSetAddress_ != address(0), "ClientChainGateway: exocore validator set address should not be empty");
 
-        exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
-        exocoreChainId = _exocoreChainId;
+        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
-        for (uint256 i = 0; i < _whitelistTokens.length; i++) {
-            whitelistTokens[_whitelistTokens[i]] = true;
+        for (uint256 i = 0; i < appendedWhitelistTokens_.length; i++) {
+            address underlyingToken = appendedWhitelistTokens_[i];
+            require(!isWhitelistedToken[underlyingToken], "ClientChainGateway: token should not be whitelisted before");
+
+            whitelistTokens.push(underlyingToken);
+            isWhitelistedToken[underlyingToken] = true;
+            emit WhitelistTokenAdded(underlyingToken);
+
+            // deploy the corresponding vault if not deployed before
+            if (address(tokenToVault[underlyingToken]) == address(0)) {
+                _deployVault(underlyingToken);
+            }
         }
 
-        whiteListFunctionSelectors[Action.UPDATE_USERS_BALANCES] = this.updateUsersBalances.selector;
-
-        registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
-        registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
+        _registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
             this.afterReceiveWithdrawPrincipleResponse.selector;
-        registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
-        registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
-        registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
+        _registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
             this.afterReceiveWithdrawRewardResponse.selector;
 
         bootstrapped = true;
@@ -72,9 +93,9 @@ contract ClientChainGateway is
         __Pausable_init_unchained();
     }
 
-    function clearBootstrapData() internal {
+    function _clearBootstrapData() internal {
         // mandatory to clear!
-        delete whiteListFunctionSelectors[Action.MARK_BOOTSTRAP];
+        delete _whiteListFunctionSelectors[Action.MARK_BOOTSTRAP];
         // the set below is recommended to clear, so that any possibilities of upgrades
         // can then be removed.
         delete customProxyAdmin;
@@ -89,8 +110,8 @@ contract ClientChainGateway is
         // and have no utility after initialization.
         for(uint i = 0; i < depositors.length; i++) {
             address depositor = depositors[i];
-            for(uint j = 0; j < whitelistTokensArray.length; j++) {
-                address token = whitelistTokensArray[j];
+            for(uint j = 0; j < whitelistTokens.length; j++) {
+                address token = whitelistTokens[j];
                 delete totalDepositAmounts[depositor][token];
                 delete withdrawableAmounts[depositor][token];
                 for(uint k = 0; k < registeredOperators.length; k++) {
@@ -107,19 +128,18 @@ contract ClientChainGateway is
             delete operators[exo];
             delete commissionEdited[exo];
             delete ethToExocoreAddress[eth];
-            for(uint j = 0; j < whitelistTokensArray.length; j++) {
-                address token = whitelistTokensArray[j];
+            for(uint j = 0; j < whitelistTokens.length; j++) {
+                address token = whitelistTokens[j];
                 delete delegationsByOperator[exo][token];
             }
         }
-        for(uint j = 0; j < whitelistTokensArray.length; j++) {
-            address token = whitelistTokensArray[j];
+        for(uint j = 0; j < whitelistTokens.length; j++) {
+            address token = whitelistTokens[j];
             delete depositsByToken[token];
         }
         // these should also be cleared - even if the loops are not used
         // cheap to clear and potentially large in size.
         delete depositors;
-        delete whitelistTokensArray;
         delete registeredOperators;
     }
 
@@ -137,33 +157,29 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    function addWhitelistToken(address _token) external onlyOwner whenNotPaused {
-        require(!whitelistTokens[_token], "ClientChainGateway: token should be not whitelisted before");
-        whitelistTokens[_token] = true;
-
+    function addWhitelistToken(address _token) public onlyOwner whenNotPaused {
+        require(!isWhitelistedToken[_token], "ClientChainGateway: token should not be whitelisted before");
+        whitelistTokens.push(_token);
+        isWhitelistedToken[_token] = true;
         emit WhitelistTokenAdded(_token);
+
+        // deploy the corresponding vault if not deployed before
+        if (address(tokenToVault[_token]) == address(0)) {
+            _deployVault(_token);
+        }
     }
 
-    function removeWhitelistToken(address _token) external onlyOwner whenNotPaused {
-        require(whitelistTokens[_token], "ClientChainGateway: token should be already whitelisted");
-        whitelistTokens[_token] = false;
+    function removeWhitelistToken(address _token) external isTokenWhitelisted(_token) onlyOwner whenNotPaused {
+        isWhitelistedToken[_token] = false;
+        for(uint i = 0; i < whitelistTokens.length; i++) {
+            if (whitelistTokens[i] == _token) {
+                whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
+                whitelistTokens.pop();
+                break;
+            }
+        }
 
         emit WhitelistTokenRemoved(_token);
-    }
-
-    function addTokenVaults(address[] calldata vaults) external onlyOwner whenNotPaused {
-        for (uint256 i = 0; i < vaults.length; i++) {
-            address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
-            if (!whitelistTokens[underlyingToken]) {
-                revert UnauthorizedToken();
-            }
-            if (address(tokenVaults[underlyingToken]) != address(0)) {
-                revert VaultAlreadyAdded();
-            }
-            tokenVaults[underlyingToken] = IVault(vaults[i]);
-
-            emit VaultAdded(vaults[i]);
-        }
     }
 
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {
@@ -189,91 +205,21 @@ contract ClientChainGateway is
         return (SENDER_VERSION, RECEIVER_VERSION);
     }
 
-    function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
-        (address token, address depositor, uint256 amount) = abi.decode(requestPayload, (address, address, uint256));
+    // TODO: might be better to share this function between Bootstrap and ClientChainGateay
+    // as they both use this function.
+    function _deployVault(address underlyingToken) internal returns (IVault) {
+        Vault vault = Vault(
+            Create2.deploy(
+                0,
+                bytes32(uint256(uint160(underlyingToken))),
+                // set the beacon address for beacon proxy
+                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
+            )
+        );
+        vault.initialize(underlyingToken, address(this));
+        emit VaultCreated(underlyingToken, address(vault));
 
-        bool success = (uint8(bytes1(responsePayload[0])) == 1);
-        uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:]));
-        if (success) {
-            IVault vault = tokenVaults[token];
-            if (address(vault) == address(0)) {
-                revert VaultNotExist();
-            }
-
-            vault.updatePrincipleBalance(depositor, lastlyUpdatedPrincipleBalance);
-        }
-
-        emit DepositResult(success, token, depositor, amount);
-    }
-
-    function afterReceiveWithdrawPrincipleResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
-        (address token, address withdrawer, uint256 unlockPrincipleAmount) =
-            abi.decode(requestPayload, (address, address, uint256));
-
-        bool success = (uint8(bytes1(responsePayload[0])) == 1);
-        uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:33]));
-        if (success) {
-            IVault vault = tokenVaults[token];
-            if (address(vault) == address(0)) {
-                revert VaultNotExist();
-            }
-
-            vault.updatePrincipleBalance(withdrawer, lastlyUpdatedPrincipleBalance);
-            vault.updateWithdrawableBalance(withdrawer, unlockPrincipleAmount, 0);
-        }
-
-        emit WithdrawPrincipleResult(success, token, withdrawer, unlockPrincipleAmount);
-    }
-
-    function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
-        (address token, address withdrawer, uint256 unlockRewardAmount) =
-            abi.decode(requestPayload, (address, address, uint256));
-
-        bool success = (uint8(bytes1(responsePayload[0])) == 1);
-        uint256 lastlyUpdatedRewardBalance = uint256(bytes32(responsePayload[1:33]));
-        if (success) {
-            IVault vault = tokenVaults[token];
-            if (address(vault) == address(0)) {
-                revert VaultNotExist();
-            }
-
-            vault.updateRewardBalance(withdrawer, lastlyUpdatedRewardBalance);
-            vault.updateWithdrawableBalance(withdrawer, 0, unlockRewardAmount);
-        }
-
-        emit WithdrawRewardResult(success, token, withdrawer, unlockRewardAmount);
-    }
-
-    function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
-        (address token, string memory operator, address delegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
-
-        bool success = (uint8(bytes1(responsePayload[0])) == 1);
-
-        emit DelegateResult(success, delegator, operator, token, amount);
-    }
-
-    function afterReceiveUndelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
-        (address token, string memory operator, address undelegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
-
-        bool success = (uint8(bytes1(responsePayload[0])) == 1);
-
-        emit UndelegateResult(success, undelegator, operator, token, amount);
+        tokenToVault[underlyingToken] = vault;
+        return vault;
     }
 }

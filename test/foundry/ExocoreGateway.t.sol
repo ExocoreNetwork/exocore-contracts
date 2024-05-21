@@ -12,7 +12,6 @@ import "forge-std/Test.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../../src/interfaces/ITSSReceiver.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 
 contract ExocoreGatewayTest is Test {

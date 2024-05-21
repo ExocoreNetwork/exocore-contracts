@@ -2,10 +2,11 @@ pragma solidity ^0.8.19;
 
 import {VaultStorage} from "../storage/VaultStorage.sol";
 import {IVault} from "../interfaces/IVault.sol";
+import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
+
 import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {IController} from "../interfaces/IController.sol";
 
 contract Vault is Initializable, VaultStorage, IVault {
     using SafeERC20 for IERC20;
@@ -19,17 +20,20 @@ contract Vault is Initializable, VaultStorage, IVault {
         _disableInitializers();
     }
 
+    function initialize(address underlyingToken_, address gateway_) external initializer {
+        require(underlyingToken_ != address(0), "Vault: underlying token can not be empty");
+        require(gateway_!= address(0), "VaultStorage: the gateway address should not be empty");
+
+        underlyingToken = IERC20(underlyingToken_);
+        gateway = ILSTRestakingController(gateway_);
+    }
+
     function getUnderlyingToken() public view returns (address) {
         return address(underlyingToken);
     }
 
     function getWithdrawableBalance(address withdrawer) external view returns (uint256 balance) {
         return withdrawableBalances[withdrawer];
-    }
-
-    function initialize(address _underlyingToken, address _gateway) external initializer {
-        underlyingToken = IERC20(_underlyingToken);
-        gateway = IController(_gateway);
     }
 
     function withdraw(address withdrawer, address recipient, uint256 amount) external onlyGateway {
@@ -40,6 +44,8 @@ contract Vault is Initializable, VaultStorage, IVault {
 
         withdrawableBalances[withdrawer] -= amount;
         underlyingToken.safeTransfer(recipient, amount);
+
+        emit WithdrawalSuccess(withdrawer, recipient, amount);
     }
 
     function deposit(address depositor, uint256 amount) external payable onlyGateway {

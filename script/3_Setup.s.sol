@@ -66,9 +66,7 @@ contract SetupScript is BaseScript {
                 address(exocoreGateway), address(exocoreLzEndpoint)
             );
         }
-        // add token vaults to gateway
-        vaults.push(address(vault));
-        clientGateway.addTokenVaults(vaults);
+
         // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive messages
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         vm.stopBroadcast();

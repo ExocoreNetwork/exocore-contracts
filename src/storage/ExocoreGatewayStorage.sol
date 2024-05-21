@@ -18,6 +18,17 @@ contract ExocoreGatewayStorage is GatewayStorage {
         bytes4(keccak256("withdrawPrinciple(uint32,bytes,bytes,uint256)"));
     bytes4 constant CLAIM_REWARD_FUNCTION_SELECTOR = bytes4(keccak256("claimReward(uint32,bytes,bytes,uint256)"));
 
+    // bytes32 token + bytes32 depositor + uint256 amount
+    uint256 constant DEPOSIT_REQUEST_LENGTH = 96;
+    // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
+    uint256 constant DELEGATE_REQUEST_LENGTH = 138;
+    // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
+    uint256 constant UNDELEGATE_REQUEST_LENGTH = 138;
+    // bytes32 token + bytes32 withdrawer + uint256 amount
+    uint256 constant WITHDRAW_PRINCIPLE_REQUEST_LENGTH = 96;
+    // bytes32 token + bytes32 withdrawer + uint256 amount
+    uint256 constant CLAIM_REWARD_REQUEST_LENGTH = 96;
+
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
 
@@ -26,6 +37,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
 
     error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
+    error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
 
     uint256[40] private __gap;
 }

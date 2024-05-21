@@ -7,6 +7,7 @@ import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "test/mocks/ClaimRewardMock.sol";
 import "test/mocks/DelegationMock.sol";
 import "test/mocks/DepositWithdrawMock.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "./BaseScript.sol";
 
 contract PrerequisitiesScript is BaseScript {
@@ -59,6 +60,7 @@ contract PrerequisitiesScript is BaseScript {
         string memory clientChainContracts = "clientChainContracts";
         string memory exocoreContracts = "exocoreContracts";
         vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
+        vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
         string memory clientChainContractsOutput =
             vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
 
@@ -75,6 +77,6 @@ contract PrerequisitiesScript is BaseScript {
         vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
         string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);
 
-        vm.writeJson(finalJson, "script/prerequisitContracts.json");
+        vm.writeJson(finalJson, "script/prerequisiteContracts.json");
     }
 }

@@ -5,6 +5,8 @@ import "forge-std/console.sol";
 import "forge-std/Script.sol";
 
 import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 import {EndpointV2Mock} from "../../test/mocks/EndpointV2Mock.sol";
 
@@ -13,6 +15,8 @@ import {Bootstrap} from "../../src/core/Bootstrap.sol";
 import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
 import {MyToken} from "../../test/foundry/MyToken.sol";
 import {Vault} from "../../src/core/Vault.sol";
+import {IVault} from "../../src/interfaces/IVault.sol";
+import "../../src/core/BeaconProxyBytecode.sol";
 
 // Technically this is used for testing but it is marked as a script
 // because it is a script that is used to deploy the contracts on Anvil
@@ -43,6 +47,10 @@ contract DeployContracts is Script {
     address[] whitelistTokens;
     Vault[] vaults;
     CustomProxyAdmin proxyAdmin;
+
+    IVault vaultImplementation;
+    IBeacon vaultBeacon;
+    BeaconProxyBytecode beaconProxyBytecode;
 
     function setUp() private {
         // these are default values for Anvil's usual mnemonic.
@@ -95,29 +103,26 @@ contract DeployContracts is Script {
         }
     }
 
-    function deployVaults() private {
-        vm.startBroadcast(contractDeployer);
-        Vault vaultLogic = new Vault();
-        for(uint256 i = 0; i < whitelistTokens.length; i++) {
-            Vault vault = Vault(address(new TransparentUpgradeableProxy(
-                address(vaultLogic), address(proxyAdmin), ""
-            )));
-            vault.initialize(whitelistTokens[i], address(bootstrap));
-            vaults.push(vault);
-        }
-        address[] memory vaultAddresses = new address[](vaults.length);
-        for(uint256 i = 0; i < whitelistTokens.length; i++) {
-            vaultAddresses[i] = address(vaults[i]);
-        }
-        bootstrap.addTokenVaults(vaultAddresses);
-        vm.stopBroadcast();
-    }
-
     function deployContract() private {
         vm.startBroadcast(contractDeployer);
+
+        /// deploy vault implementationcontract that has logics called by proxy
+        vaultImplementation = new Vault();
+
+        /// deploy the vault beacon that store the implementation contract address
+        vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+
+        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
+        beaconProxyBytecode = new BeaconProxyBytecode();
+
         proxyAdmin = new CustomProxyAdmin();
         EndpointV2Mock clientChainLzEndpoint = new EndpointV2Mock(clientChainId);
-        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint));
+        Bootstrap bootstrapLogic = new Bootstrap(
+            address(clientChainLzEndpoint),
+            exocoreChainId,
+            address(vaultBeacon),
+            address(beaconProxyBytecode)
+        );
         bootstrap = Bootstrap(
             payable(address(
                 new TransparentUpgradeableProxy(
@@ -127,7 +132,6 @@ contract DeployContracts is Script {
                             vm.addr(contractDeployer),
                             block.timestamp + 3 minutes,
                             1 seconds,
-                            exocoreChainId,
                             payable(exocoreValidatorSet),
                             whitelistTokens,
                             address(proxyAdmin)
@@ -278,8 +282,6 @@ contract DeployContracts is Script {
         console.log("Tokens deployed");
         deployContract();
         console.log("Contract deployed");
-        deployVaults();
-        console.log("Vaults deployed");
         approveAndDeposit();
         console.log("Approved and deposited");
         registerOperators();

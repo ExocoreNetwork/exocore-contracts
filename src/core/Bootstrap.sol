@@ -6,17 +6,20 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 
-import {IController} from "../interfaces/IController.sol";
+import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
-import {TSSReceiver} from "./TSSReceiver.sol";
+import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
+import {Vault} from "./Vault.sol";
+import {BeaconProxyBytecode} from "./BeaconProxyBytecode.sol";
 
 // ClientChainGateway differences:
 // replace IClientChainGateway with ITokenWhitelister (excludes only quote function).
@@ -28,57 +31,61 @@ contract Bootstrap is
     PausableUpgradeable,
     OwnableUpgradeable,
     ITokenWhitelister,
-    IController,
+    ILSTRestakingController,
     IOperatorRegistry,
-    BootstrapLzReceiver,
-    TSSReceiver
+    BootstrapLzReceiver
 {
-    bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
-
-    constructor(address _endpoint) OAppCoreUpgradeable(_endpoint) {
+    constructor(
+        address endpoint_,
+        uint32 exocoreChainId_, 
+        address vaultBeacon_,
+        address beaconProxyBytecode_
+    ) OAppCoreUpgradeable(endpoint_) BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_) {
         _disableInitializers();
     }
 
     function initialize(
         address owner,
-        uint256 _spawnTime,
-        uint256 _offsetDuration,
-        uint32 _exocoreChainId,
-        address payable _exocoreValidatorSetAddress,
-        address[] calldata _whitelistTokens,
-        address _customProxyAdmin
+        uint256 spawnTime_,
+        uint256 offsetDuration_,
+        address payable exocoreValidatorSetAddress_,
+        address[] calldata whitelistTokens_,
+        address customProxyAdmin_
     ) external initializer {
         require(owner != address(0), "Bootstrap: owner should not be empty");
-        require(_spawnTime > block.timestamp, "Bootstrap: spawn time should be in the future");
-        require(_offsetDuration > 0, "Bootstrap: offset duration should be greater than 0");
+        require(spawnTime_ > block.timestamp, "Bootstrap: spawn time should be in the future");
+        require(offsetDuration_ > 0, "Bootstrap: offset duration should be greater than 0");
         require(
-            _spawnTime > _offsetDuration,
+            spawnTime_ > offsetDuration_,
             "Bootstrap: spawn time should be greater than offset duration"
         );
-        uint256 lockTime = _spawnTime - _offsetDuration;
+        uint256 lockTime = spawnTime_ - offsetDuration_;
         require(
             lockTime > block.timestamp,
             "Bootstrap: lock time should be in the future"
         );
-        require(_exocoreChainId != 0, "Bootstrap: exocore chain id should not be empty");
-        require(_exocoreValidatorSetAddress != address(0),
+        require(exocoreValidatorSetAddress_ != address(0),
             "Bootstrap: exocore validator set address should not be empty");
-        require(_customProxyAdmin != address(0),
+        require(customProxyAdmin_ != address(0),
             "Bootstrap: custom proxy admin should not be empty");
 
-        exocoreSpawnTime = _spawnTime;
-        offsetDuration = _offsetDuration;
-        exocoreChainId = _exocoreChainId;
-        exocoreValidatorSetAddress = _exocoreValidatorSetAddress;
-        for (uint256 i = 0; i < _whitelistTokens.length; i++) {
-            whitelistTokens[_whitelistTokens[i]] = true;
-            whitelistTokensArray.push(_whitelistTokens[i]);
+        exocoreSpawnTime = spawnTime_;
+        offsetDuration = offsetDuration_;
+        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
+        
+        for (uint256 i = 0; i < whitelistTokens_.length; i++) {
+            address underlyingToken = whitelistTokens_[i];
+            whitelistTokens.push(underlyingToken);
+            isWhitelistedToken[underlyingToken] = true;
+            emit WhitelistTokenAdded(underlyingToken);
+
+            _deployVault(underlyingToken);
         }
 
-        whiteListFunctionSelectors[Action.MARK_BOOTSTRAP] =
+        _whiteListFunctionSelectors[Action.MARK_BOOTSTRAP] =
             this.markBootstrapped.selector;
 
-        customProxyAdmin = _customProxyAdmin;
+        customProxyAdmin = customProxyAdmin_;
         bootstrapped = false;
 
         // msg.sender is not the proxy admin but the transparent proxy itself, and hence,
@@ -187,11 +194,16 @@ contract Bootstrap is
         // anyway it would be pointless to add such tokens since other operations
         // cannot be performed.
         require(
-            !whitelistTokens[_token],
+            !isWhitelistedToken[_token],
             "Bootstrap: token should be not whitelisted before"
         );
-        whitelistTokens[_token] = true;
-        whitelistTokensArray.push(_token);
+        whitelistTokens.push(_token);
+        isWhitelistedToken[_token] = true;
+
+        // deploy the corresponding vault if not deployed before
+        if (address(tokenToVault[_token]) == address(0)) {
+            _deployVault(_token);
+        }
 
         emit WhitelistTokenAdded(_token);
     }
@@ -201,61 +213,21 @@ contract Bootstrap is
         address _token
     ) external beforeLocked onlyOwner whenNotPaused {
         require(
-            whitelistTokens[_token],
+            isWhitelistedToken[_token],
             "Bootstrap: token should be already whitelisted"
         );
-        whitelistTokens[_token] = false;
-        for(uint i = 0; i < whitelistTokensArray.length; i++) {
-            if (whitelistTokensArray[i] == _token) {
-                whitelistTokensArray[i] = whitelistTokensArray[whitelistTokensArray.length - 1];
-                whitelistTokensArray.pop();
+        isWhitelistedToken[_token] = false;
+        // the implicit assumption here is that the _token must be included in whitelistTokens
+        // if isWhitelistedToken[_token] is true
+        for(uint i = 0; i < whitelistTokens.length; i++) {
+            if (whitelistTokens[i] == _token) {
+                whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
+                whitelistTokens.pop();
                 break;
             }
         }
 
         emit WhitelistTokenRemoved(_token);
-    }
-
-    // implementation of ITokenWhitelister
-    function addTokenVaults(
-        address[] calldata vaults
-    ) external beforeLocked onlyOwner whenNotPaused {
-        for (uint256 i = 0; i < vaults.length; i++) {
-            address underlyingToken = IVault(vaults[i]).getUnderlyingToken();
-            if (!whitelistTokens[underlyingToken]) {
-                revert UnauthorizedToken();
-            }
-            if (address(tokenVaults[underlyingToken]) != address(0)) {
-                revert VaultAlreadyAdded();
-            }
-            tokenVaults[underlyingToken] = IVault(vaults[i]);
-
-            emit VaultAdded(vaults[i]);
-        }
-    }
-
-    /**
-     * @dev Validates the given Exocore address.
-     * @param operatorExocoreAddress The Exocore address to validate.
-     * @return bool Returns `true` if the address is valid, `false` otherwise.
-     * @notice This function checks the format of the given Exocore address to ensure
-     * it conforms to the expected format. The address must be a bech32-encoded string
-     * with a length of 42 characters and start with the expected prefix.
-     */
-    function exocoreAddressIsValid(
-        string calldata operatorExocoreAddress
-    ) public pure returns (bool) {
-        bytes memory stringBytes = bytes(operatorExocoreAddress);
-        if (stringBytes.length != 42) {
-            return false;
-        }
-        for (uint i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
-            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     // implementation of IOperatorRegistry
@@ -267,7 +239,7 @@ contract Bootstrap is
     ) external beforeLocked whenNotPaused {
         // ensure the address format is valid.
         require(
-            exocoreAddressIsValid(operatorExocoreAddress),
+            isValidExocoreAddress(operatorExocoreAddress),
             "Bootstrap: invalid bech32 address"
         );
         // ensure that there is only one operator per ethereum address
@@ -444,13 +416,10 @@ contract Bootstrap is
     function _validateAndGetVault(
         address token, uint256 amount
     ) view internal returns (IVault) {
-        require(whitelistTokens[token], "Bootstrap: token is not whitelisted");
+        require(isWhitelistedToken[token], "Bootstrap: token is not whitelisted");
         require(amount > 0, "Bootstrap: amount should be greater than zero");
-        IVault vault = tokenVaults[token];
-        if (address(vault) == address(0)) {
-            revert VaultNotExist();
-        }
-        return vault;
+        
+        return _getVault(token);
     }
 
     // implementation of IController
@@ -522,14 +491,6 @@ contract Bootstrap is
     ) override external beforeLocked whenNotPaused {
         IVault vault = _validateAndGetVault(token, amount);
         vault.withdraw(msg.sender, recipient, amount);
-    }
-
-    // implementation of IController
-    // this function is not required before the network bootstrap.
-    function updateUsersBalances(
-        UserBalanceUpdateInfo[] calldata
-    ) view override external beforeLocked whenNotPaused {
-        revert NotYetSupported();
     }
 
     // implementation of IController
@@ -672,7 +633,7 @@ contract Bootstrap is
      */
     function getWhitelistedTokensCount(
     ) external view returns (uint256) {
-        return whitelistTokensArray.length;
+        return whitelistTokens.length;
     }
 
     /**
@@ -682,8 +643,8 @@ contract Bootstrap is
      * @return A `TokenInfo` struct containing the token's name, symbol, address, decimals, total supply, and deposit amount.
      */
     function getWhitelistedTokenAtIndex(uint256 index) public view returns (TokenInfo memory) {
-        require(index < whitelistTokensArray.length, "Index out of bounds");
-        address tokenAddress = whitelistTokensArray[index];
+        require(index < whitelistTokens.length, "Index out of bounds");
+        address tokenAddress = whitelistTokens[index];
         ERC20 token = ERC20(tokenAddress);
         return TokenInfo({
             name: token.name(),
@@ -693,5 +654,23 @@ contract Bootstrap is
             totalSupply: token.totalSupply(),
             depositAmount: depositsByToken[tokenAddress]
         });
+    }
+    
+    // TODO: might be better to share this function between Bootstrap and ClientChainGateay
+    // as they both use this function.
+    function _deployVault(address underlyingToken) internal returns (IVault) {
+        Vault vault = Vault(
+            Create2.deploy(
+                0,
+                bytes32(uint256(uint160(underlyingToken))),
+                // set the beacon address for beacon proxy
+                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
+            )
+        );
+        vault.initialize(underlyingToken, address(this));
+        emit VaultCreated(underlyingToken, address(vault));
+
+        tokenToVault[underlyingToken] = vault;
+        return vault;
     }
 }

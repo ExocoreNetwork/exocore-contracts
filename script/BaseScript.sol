@@ -3,8 +3,13 @@ pragma solidity ^0.8.19;
 import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IVault.sol";
 import "../src/interfaces/IExocoreGateway.sol";
+import "../src/interfaces/IExoCapsule.sol";
+import "../src/core/BeaconProxyBytecode.sol";
+
 import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import "forge-std/Script.sol";
 
 contract BaseScript is Script {
@@ -30,7 +35,13 @@ contract BaseScript is Script {
     IExocoreGateway exocoreGateway;
     ILayerZeroEndpointV2 clientChainLzEndpoint;
     ILayerZeroEndpointV2 exocoreLzEndpoint;
+    EigenLayerBeaconOracle beaconOracle;
     ERC20PresetFixedSupply restakeToken;
+    IVault vaultImplementation;
+    IExoCapsule capsuleImplementation;
+    IBeacon vaultBeacon;
+    IBeacon capsuleBeacon;
+    BeaconProxyBytecode beaconProxyBytecode;
 
     address delegationMock;
     address depositMock;

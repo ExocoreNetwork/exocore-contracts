@@ -1,15 +1,20 @@
 pragma solidity ^0.8.19;
 
 import {GatewayStorage} from "./GatewayStorage.sol";
-
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {IVault} from "../interfaces/IVault.sol";
+import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 
 // BootstrapStorage should inherit from GatewayStorage since it exists
 // prior to ClientChainGateway. ClientChainStorage should inherit from
 // BootstrapStorage to ensure overlap of positioning between the
 // members of each contract.
 contract BootstrapStorage is GatewayStorage {
+    /* -------------------------------------------------------------------------- */
+    /*               state variables exclusively owned by Bootstrap               */
+    /* -------------------------------------------------------------------------- */
+
     // time and duration
     /**
      * @notice A timestamp representing the scheduled spawn time of the Exocore chain, which
@@ -34,29 +39,7 @@ contract BootstrapStorage is GatewayStorage {
      */
     uint256 public offsetDuration;
 
-    // whitelisted tokens and their vaults, and total deposits of said tokens
-    /**
-     * @dev An array containing all the token addresses that have been added to the whitelist.
-     * @notice Use this array to iterate through all whitelisted tokens.
-     * This helps in operations like audits, UI display, or when removing tokens
-     * from the whitelist needs an indexed approach.
-     */
-    address[] public whitelistTokensArray;
-
-    /**
-     * @dev Stores a mapping of whitelisted token addresses to their status.
-     * @notice Use this to check if a token is allowed for processing.
-     * Each token address maps to a boolean indicating whether it is whitelisted.
-     */
-    mapping(address token => bool whitelisted) public whitelistTokens;
-
-    /**
-     * @dev Maps token addresses to their corresponding vault contracts.
-     * @notice Access the vault interface for a specific token using this mapping.
-     * Each token address maps to an IVault contract instance handling its operations.
-     */
-    mapping(address token => IVault vault) public tokenVaults;
-
+    // total deposits of said tokens
     /**
      * @dev A mapping of token addresses to the total amount of that token deposited into the
      * contract.
@@ -192,13 +175,40 @@ contract BootstrapStorage is GatewayStorage {
      */
     bytes clientChainInitializationData;
 
+    /* -------------------------------------------------------------------------- */
+    /*         shared state variables for Bootstrap and ClientChainGateway        */
+    /* -------------------------------------------------------------------------- */
+
+    // whitelisted tokens and their vaults, and total deposits of said tokens
+    /**
+     * @dev An array containing all the token addresses that have been added to the whitelist.
+     * @notice Use this array to iterate through all whitelisted tokens.
+     * This helps in operations like audits, UI display, or when removing tokens
+     * from the whitelist needs an indexed approach.
+     */
+    address[] public whitelistTokens;
+
+    /**
+     * @dev Stores a mapping of whitelisted token addresses to their status.
+     * @notice Use this to check if a token is allowed for processing.
+     * Each token address maps to a boolean indicating whether it is whitelisted.
+     */
+    mapping(address token => bool whitelisted) public isWhitelistedToken;
+
+    /**
+     * @dev Maps token addresses to their corresponding vault contracts.
+     * @notice Access the vault interface for a specific token using this mapping.
+     * Each token address maps to an IVault contract instance handling its operations.
+     */
+    mapping(address token => IVault vault) public tokenToVault;
+
     // cross-chain level information
     /**
      * @dev Stores the Layer Zero chain ID of the Exocore chain.
      * @notice Used to identify the specific Exocore chain this contract interacts with for
      * cross-chain functionalities.
      */
-    uint32 public exocoreChainId;
+    uint32 public immutable exocoreChainId;
 
     /**
      * @dev A mapping of source chain id to source sender to the nonce of the last inbound
@@ -215,6 +225,26 @@ contract BootstrapStorage is GatewayStorage {
      * prevent replay attacks.
      */
     uint256 lastMessageNonce;
+
+    // the beacon that stores the Vault implementation contract address for proxy
+    /**
+     * @notice this stores the Vault implementation contract address for proxy, and it is 
+     * shsared among all beacon proxies as an immutable.
+     */
+    IBeacon public immutable vaultBeacon;
+
+    /**
+     * @notice a stantalone contract that is dedicated for providing the bytecode of beacon proxy contract
+     * @dev we do not store bytecode of beacon proxy contract in this storage because that would cause the code size
+     * of this contract exeeding limit and leading to creation failure
+     */
+    BeaconProxyBytecode public immutable beaconProxyBytecode;
+
+    bytes constant EXO_ADDRESS_PREFIX = bytes("exo1");
+
+    /* -------------------------------------------------------------------------- */
+    /*                                   Events                                   */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @notice Emitted when the spawn time of the Exocore chain is updated.
@@ -311,17 +341,9 @@ contract BootstrapStorage is GatewayStorage {
      */
     event ClientChainGatewayLogicUpdated(address newLogic, bytes initializationData);
 
-    /**
-     * @notice Emitted when an unsupported LZ request is received by the contract. A request is
-     * defined as unsupported if there is no whitelisted function selector available for the
-     * Action.
-     *
-     * @dev This event is triggered when the contract receives an LZ request that is not yet
-     * whitelisted in the contract.
-     *
-     * @param act The action that was requested but not yet supported.
-     */
-    event UnsupportedRequestEvent(Action act);
+    /* -------------------------------------------------------------------------- */
+    /*                                   Errors                                   */
+    /* -------------------------------------------------------------------------- */
 
     /**
      * @dev Indicates an operation failed because the specified vault does not exist.
@@ -366,4 +388,42 @@ contract BootstrapStorage is GatewayStorage {
     }
 
     uint256[40] private __gap;
+
+    constructor(
+        uint32 exocoreChainId_, 
+        address vaultBeacon_,
+        address beaconProxyBytecode_
+    ) {
+        require(exocoreChainId_ != 0, "BootstrapStorage: exocore chain id should not be empty");
+        require(vaultBeacon_ != address(0), "BootstrapStorage: the vaultBeacon address for beacon proxy should not be empty");
+        require(beaconProxyBytecode_ != address(0), "BootstrapStorage: the beaconProxyBytecode address should not be empty");
+
+        exocoreChainId = exocoreChainId_;
+        vaultBeacon = IBeacon(vaultBeacon_);
+        beaconProxyBytecode = BeaconProxyBytecode(beaconProxyBytecode_);
+    }
+
+    function _getVault(address token) internal view returns (IVault) {
+        IVault vault = tokenToVault[token];
+        if (address(vault) == address(0)) {
+            revert VaultNotExist();
+        }
+        return vault;
+    }
+
+    function isValidExocoreAddress(
+        string calldata operatorExocoreAddress
+    ) public pure returns (bool) {
+        bytes memory stringBytes = bytes(operatorExocoreAddress);
+        if (stringBytes.length != 42) {
+            return false;
+        }
+        for (uint i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
+            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
