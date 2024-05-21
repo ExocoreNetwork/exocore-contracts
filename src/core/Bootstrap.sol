@@ -229,6 +229,7 @@ contract Bootstrap is
      * @notice This function checks the format of the given Exocore address to ensure
      * it conforms to the expected format. The address must be a bech32-encoded string
      * with a length of 42 characters and start with the expected prefix.
+     * @notice TODO: this function has same logic as ClientChainGateway.
      */
     function exocoreAddressIsValid(
         string calldata operatorExocoreAddress
@@ -671,7 +672,9 @@ contract Bootstrap is
             depositAmount: depositsByToken[tokenAddress]
         });
     }
-
+    
+    // TODO: might be better to share this function between Bootstrap and ClientChainGateay
+    // as they both use this function.
     function _deployVault(address underlyingToken) internal returns (IVault) {
         Vault vault = Vault(
             Create2.deploy(
