@@ -43,10 +43,11 @@ contract ClientChainGateway is
         uint32 exocoreChainId_, 
         address beaconOracleAddress_,
         address vaultBeacon_,
-        address exoCapsuleBeacon_
+        address exoCapsuleBeacon_,
+        address beaconProxyBytecode_
     ) 
         OAppCoreUpgradeable(endpoint_)
-        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_) 
+        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_, beaconProxyBytecode_) 
     {
         _disableInitializers();
     }
@@ -57,7 +58,7 @@ contract ClientChainGateway is
         address payable exocoreValidatorSetAddress_,
         address[] calldata appendedWhitelistTokens_
     ) external reinitializer(2) {
-        clearBootstrapData();
+        _clearBootstrapData();
         
         require(exocoreValidatorSetAddress_ != address(0), "ClientChainGateway: exocore validator set address should not be empty");
 
@@ -92,7 +93,7 @@ contract ClientChainGateway is
         __Pausable_init_unchained();
     }
 
-    function clearBootstrapData() internal {
+    function _clearBootstrapData() internal {
         // mandatory to clear!
         delete _whiteListFunctionSelectors[Action.MARK_BOOTSTRAP];
         // the set below is recommended to clear, so that any possibilities of upgrades
@@ -210,7 +211,7 @@ contract ClientChainGateway is
                 0,
                 bytes32(uint256(uint160(underlyingToken))),
                 // set the beacon address for beacon proxy
-                abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(vaultBeacon), ""))
+                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
             )
         );
         vault.initialize(underlyingToken, address(this));

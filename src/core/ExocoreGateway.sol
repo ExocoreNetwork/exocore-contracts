@@ -224,7 +224,7 @@ contract ExocoreGateway is
             revert InvalidRequestLength(Action.REQUEST_UNDELEGATE_FROM, UNDELEGATE_REQUEST_LENGTH, payload.length);
         }
 
-        bytes memory token = payload[1:32];
+        bytes memory token = payload[:32];
         bytes memory delegator = payload[32:64];
         bytes memory operator = payload[64:106];
         uint256 amount = uint256(bytes32(payload[106:138]));

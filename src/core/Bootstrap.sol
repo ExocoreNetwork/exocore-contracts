@@ -19,6 +19,7 @@ import {IVault} from "../interfaces/IVault.sol";
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {Vault} from "./Vault.sol";
+import {BeaconProxyBytecode} from "./BeaconProxyBytecode.sol";
 
 // ClientChainGateway differences:
 // replace IClientChainGateway with ITokenWhitelister (excludes only quote function).
@@ -39,8 +40,9 @@ contract Bootstrap is
     constructor(
         address endpoint_,
         uint32 exocoreChainId_, 
-        address vaultBeacon_
-    ) OAppCoreUpgradeable(endpoint_) BootstrapStorage(exocoreChainId_, vaultBeacon_) {
+        address vaultBeacon_,
+        address beaconProxyBytecode_
+    ) OAppCoreUpgradeable(endpoint_) BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_) {
         _disableInitializers();
     }
 
@@ -190,6 +192,11 @@ contract Bootstrap is
         whitelistTokens.push(_token);
         isWhitelistedToken[_token] = true;
 
+        // deploy the corresponding vault if not deployed before
+        if (address(tokenToVault[_token]) == address(0)) {
+            _deployVault(_token);
+        }
+
         emit WhitelistTokenAdded(_token);
     }
 
@@ -202,6 +209,8 @@ contract Bootstrap is
             "Bootstrap: token should be already whitelisted"
         );
         isWhitelistedToken[_token] = false;
+        // the implicit assumption here is that the _token must be included in whitelistTokens
+        // if isWhitelistedToken[_token] is true
         for(uint i = 0; i < whitelistTokens.length; i++) {
             if (whitelistTokens[i] == _token) {
                 whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
@@ -669,7 +678,7 @@ contract Bootstrap is
                 0,
                 bytes32(uint256(uint160(underlyingToken))),
                 // set the beacon address for beacon proxy
-                abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(vaultBeacon), ""))
+                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
             )
         );
         vault.initialize(underlyingToken, address(this));

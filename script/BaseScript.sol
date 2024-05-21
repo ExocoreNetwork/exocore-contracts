@@ -4,6 +4,7 @@ import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IVault.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IExoCapsule.sol";
+import "../src/core/BeaconProxyBytecode.sol";
 
 import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
@@ -34,12 +35,13 @@ contract BaseScript is Script {
     IExocoreGateway exocoreGateway;
     ILayerZeroEndpointV2 clientChainLzEndpoint;
     ILayerZeroEndpointV2 exocoreLzEndpoint;
-    IBeaconChainOracle beaconOracle;
+    EigenLayerBeaconOracle beaconOracle;
     ERC20PresetFixedSupply restakeToken;
     IVault vaultImplementation;
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon capsuleBeacon;
+    BeaconProxyBytecode beaconProxyBytecode;
 
     address delegationMock;
     address depositMock;

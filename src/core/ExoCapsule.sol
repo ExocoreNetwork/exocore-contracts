@@ -70,9 +70,9 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     }
 
     function initialize(address gateway_, address capsuleOwner_, address beaconOracle_) external initializer {
-        require(gateway_ != address(0), "ExoCapsuleStorage: gateway address can not be empty");
+        require(gateway_ != address(0), "ExoCapsule: gateway address can not be empty");
         require(capsuleOwner_ != address(0), "ExoCapsule: capsule owner address can not be empty");
-        require(beaconOracle_ != address(0), "ExoCapsuleStorage: beacon chain oracle address should not be empty");
+        require(beaconOracle_ != address(0), "ExoCapsule: beacon chain oracle address should not be empty");
 
         gateway = INativeRestakingController(gateway_);
         beaconOracle = IBeaconChainOracle(beaconOracle_);
@@ -87,16 +87,16 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         Validator storage validator = _capsuleValidators[validatorPubkey];
 
+        if (!validatorContainer.verifyValidatorContainerBasic()) {
+            revert InvalidValidatorContainer(validatorPubkey);
+        }
+
         if (validator.status != VALIDATOR_STATUS.UNREGISTERED) {
             revert DoubleDepositedValidator(validatorPubkey);
         }
 
         if (_isStaleProof(validator, proof.beaconBlockTimestamp)) {
             revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
-        }
-
-        if (!validatorContainer.verifyValidatorContainerBasic()) {
-            revert InvalidValidatorContainer(validatorPubkey);
         }
 
         if (!_isActivatedAtEpoch(validatorContainer, proof.beaconBlockTimestamp)) {
@@ -285,23 +285,11 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     }
 
     function _isStaleProof(Validator storage validator, uint256 proofTimestamp) internal view returns (bool) {
-        if (proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS >= block.timestamp) {
-            if (proofTimestamp > validator.mostRecentBalanceUpdateTimestamp) {
-                return false;
-            }
-        }
-
-        return true;
+        return proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS < block.timestamp || proofTimestamp <= validator.mostRecentBalanceUpdateTimestamp;
     }
 
     function _hasFullyWithdrawn(bytes32[] calldata validatorContainer) internal view returns (bool) {
-        if (validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp)) {
-            if (validatorContainer.getEffectiveBalance() == 0) {
-                return true;
-            }
-        }
-
-        return false;
+        return validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp) && validatorContainer.getEffectiveBalance() == 0;
     }
 
     /**

@@ -56,9 +56,6 @@ contract PrerequisitiesScript is BaseScript {
         // use deployed ERC20 token as restake token
         restakeToken = ERC20PresetFixedSupply(erc20TokenAddress);
 
-        // deploy beacon chain oracle
-        beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
-
         string memory deployedContracts = "deployedContracts";
         string memory clientChainContracts = "clientChainContracts";
         string memory exocoreContracts = "exocoreContracts";
@@ -80,25 +77,6 @@ contract PrerequisitiesScript is BaseScript {
         vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
         string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);
 
-        vm.writeJson(finalJson, "script/prerequisitContracts.json");
-    }
-
-    function _deployBeaconOracle() internal returns (address) {
-        uint256 GENESIS_BLOCK_TIMESTAMP;
-
-        if (block.chainid == 1) {
-            GENESIS_BLOCK_TIMESTAMP = 1606824023;
-        } else if (block.chainid == 5) {
-            GENESIS_BLOCK_TIMESTAMP = 1616508000;
-        } else if (block.chainid == 11155111) {
-            GENESIS_BLOCK_TIMESTAMP = 1655733600;
-        } else if (block.chainid == 17000) {
-            GENESIS_BLOCK_TIMESTAMP = 1695902400;
-        } else {
-            revert("Unsupported chainId.");
-        }
-
-        EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
-        return address(oracle);
+        vm.writeJson(finalJson, "script/prerequisiteContracts.json");
     }
 }

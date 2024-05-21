@@ -5,6 +5,7 @@ import {Vault} from "../src/core/Vault.sol";
 import "../src/core/ExocoreGateway.sol";
 import "../test/mocks/ExocoreGatewayMock.sol";
 import "../src/core/ExoCapsule.sol";
+import "../src/core/BeaconProxyBytecode.sol";
 
 import "forge-std/Script.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
@@ -19,13 +20,10 @@ contract DeployScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory prerequisities = vm.readFile("script/prerequisitContracts.json");
+        string memory prerequisities = vm.readFile("script/prerequisiteContracts.json");
 
         clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisities, ".clientChain.lzEndpoint"));
         require(address(clientChainLzEndpoint) != address(0), "client chain l0 endpoint should not be empty");
-
-        beaconOracle = IBeaconChainOracle(stdJson.readAddress(prerequisities, ".clientChain.beaconOracle"));
-        require(address(beaconOracle) != address(0), "client chain beacon oracle should not be empty");
 
         restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisities, ".clientChain.erc20Token"));
         require(address(restakeToken) != address(0), "restake token address should not be empty");
@@ -62,6 +60,9 @@ contract DeployScript is BaseScript {
         // deploy clientchaingateway on client chain via rpc
         vm.selectFork(clientChain);
         vm.startBroadcast(deployer.privateKey);
+
+        // deploy beacon chain oracle
+        beaconOracle = _deployBeaconOracle();
         
         /// deploy vault implementation contract and capsule implementation contract
         /// that has logics called by proxy
@@ -72,16 +73,20 @@ contract DeployScript is BaseScript {
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
 
-        /// deploy client chain gateway
+        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
+        beaconProxyBytecode = new BeaconProxyBytecode();
+
         whitelistTokens.push(address(restakeToken));
 
+        /// deploy client chain gateway
         ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint),
             exocoreChainId,
             address(beaconOracle),
             address(vaultBeacon),
-            address(capsuleBeacon)
+            address(capsuleBeacon),
+            address(beaconProxyBytecode)
         );
         clientGateway = ClientChainGateway(
             payable(
@@ -99,11 +104,15 @@ contract DeployScript is BaseScript {
             )
         );
 
+        // find vault according to uderlying token address
+        vault = Vault(address(ClientChainGateway(payable(address(clientGateway))).tokenToVault(address(restakeToken))));
+
         vm.stopBroadcast();
 
         // deploy on Exocore via rpc
         vm.selectFork(exocore);
         vm.startBroadcast(deployer.privateKey);
+
         // deploy Exocore network contracts
         ProxyAdmin exocoreProxyAdmin = new ProxyAdmin();
 
@@ -153,6 +162,7 @@ contract DeployScript is BaseScript {
         vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
         vm.serializeAddress(clientChainContracts, "vaultBeacon", address(vaultBeacon));
         vm.serializeAddress(clientChainContracts, "capsuleBeacon", address(capsuleBeacon));
+        vm.serializeAddress(clientChainContracts, "beaconProxyBytecode", address(beaconProxyBytecode));
         string memory clientChainContractsOutput =
             vm.serializeAddress(clientChainContracts, "proxyAdmin", address(clientChainProxyAdmin));
 
@@ -173,5 +183,28 @@ contract DeployScript is BaseScript {
         string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);
 
         vm.writeJson(finalJson, "script/deployedContracts.json");
+    }
+
+    function _deployBeaconOracle() internal returns (EigenLayerBeaconOracle) {
+        uint256 GENESIS_BLOCK_TIMESTAMP;
+
+        // mainnet
+        if (block.chainid == 1) {
+            GENESIS_BLOCK_TIMESTAMP = 1606824023;
+        // goerli
+        } else if (block.chainid == 5) {
+            GENESIS_BLOCK_TIMESTAMP = 1616508000;
+        // sepolia
+        } else if (block.chainid == 11155111) {
+            GENESIS_BLOCK_TIMESTAMP = 1655733600;
+        // holesky
+        } else if (block.chainid == 17000) {
+            GENESIS_BLOCK_TIMESTAMP = 1695902400;
+        } else {
+            revert("Unsupported chainId.");
+        }
+
+        EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
+        return oracle;
     }
 }

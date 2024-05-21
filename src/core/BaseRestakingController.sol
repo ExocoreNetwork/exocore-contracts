@@ -45,7 +45,6 @@ abstract contract BaseRestakingController is
     isValidBech32Address(operator)
     whenNotPaused {
         _processRequest(token, msg.sender, amount, Action.REQUEST_DELEGATE_TO, operator);
-
     }
 
     function undelegateFrom(string calldata operator, address token, uint256 amount)
@@ -55,7 +54,6 @@ abstract contract BaseRestakingController is
     isValidBech32Address(operator)
     whenNotPaused {
         _processRequest(token, msg.sender, amount, Action.REQUEST_UNDELEGATE_FROM, operator);
-
     }
 
     function _processRequest(
@@ -63,39 +61,29 @@ abstract contract BaseRestakingController is
         address sender,
         uint256 amount,
         Action action,
-        string memory operator // Optional parameter, you can pass an empty string if you don't need it.
+        string memory operator // Optional parameter, empty string when not needed.
     ) internal {
         if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
             IVault vault = _getVault(token);
-            // Logic specific to the REQUEST_DEPOSIT action
-            if (action == Action.REQUEST_DEPOSIT  && bytes(operator).length == 0) {
-                vault.deposit(sender, amount);
+            if (action == Action.REQUEST_DEPOSIT) {
+                vault.deposit(sender, amount); // Logic specific to the REQUEST_DEPOSIT action.
             }
         }
         outboundNonce++;
-        // Determine how to code _registeredRequests based on whether or not an operator is provided
-        if (bytes(operator).length > 0) {
-            _registeredRequests[outboundNonce] = abi.encode(token, operator, sender, amount);
-        } else {
-            _registeredRequests[outboundNonce] = abi.encode(token, sender, amount);
-        }
+        bool hasOperator = bytes(operator).length > 0;
+
+        // Use a single abi.encode call via ternary operators to handle both cases.
+        _registeredRequests[outboundNonce] = hasOperator
+            ? abi.encode(token, operator, sender, amount)
+            : abi.encode(token, sender, amount);
+
         _registeredRequestActions[outboundNonce] = action;
-        // Consider whether operator is empty when building actionArgs
-        bytes memory actionArgs;
-        if (bytes(operator).length > 0) {
-            actionArgs = abi.encodePacked(
-                bytes32(bytes20(token)),
-                bytes32(bytes20(sender)),
-                bytes(operator),
-                amount
-            );
-        } else {
-            actionArgs = abi.encodePacked(
-                bytes32(bytes20(token)),
-                bytes32(bytes20(sender)),
-                amount
-            );
-        }
+
+        // Use a single abi.encodePacked call via ternary operators to handle both cases.
+        bytes memory actionArgs = hasOperator
+            ? abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(sender)), bytes(operator), amount)
+            : abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(sender)), amount);
+
         _sendMsgToExocore(action, actionArgs);
     }
     function _sendMsgToExocore(Action action, bytes memory actionArgs) internal {

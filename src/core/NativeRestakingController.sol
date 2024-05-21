@@ -42,7 +42,7 @@ abstract contract NativeRestakingController is
                 0,
                 bytes32(uint256(uint160(msg.sender))),
                 // set the beacon address for beacon proxy
-                abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(exoCapsuleBeacon), ""))
+                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(exoCapsuleBeacon), ""))
             )
         );
         capsule.initialize(address(this), msg.sender, beaconOracleAddress);

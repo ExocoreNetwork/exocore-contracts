@@ -1,0 +1,14 @@
+{
+  "clientChain": {
+    "beaconOracle": "0x0000000000000000000000000000000000000000",
+    "erc20Token": "0x83E6850591425e3C1E263c054f4466838B9Bd9e4",
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
+  },
+  "exocore": {
+    "claimRewardPrecompileMock": "0xF74ebB6772D74C92F39a5ef188166d7E664203fA",
+    "delegationPrecompileMock": "0x8700Cb31b3A29Fd0035F21b26B2F21EfDD9AF8Ab",
+    "depositPrecompileMock": "0x00486175f0E82ef26022C308FfE43753c4045FF3",
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+    "withdrawPrecompileMock": "0x00486175f0E82ef26022C308FfE43753c4045FF3"
+  }
+}

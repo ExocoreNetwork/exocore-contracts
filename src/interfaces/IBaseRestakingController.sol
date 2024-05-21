@@ -12,7 +12,7 @@ interface IBaseRestakingController {
      */
     function delegateTo(string calldata operator, address token, uint256 amount) external payable;
 
-    function undelegateFrom(string calldata, address token, uint256 amount) external payable;
+    function undelegateFrom(string calldata operator, address token, uint256 amount) external payable;
 
     /**
      * @notice Client chain users call to claim their unlocked assets from the vault.

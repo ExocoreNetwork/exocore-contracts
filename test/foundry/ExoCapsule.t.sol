@@ -46,7 +46,7 @@ contract SetUp is Test {
     uint256 mockCurrentBlockTimestamp;
 
     function setUp() public {
-        string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
+        string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_8955769.json");
 
         validatorContainer = stdJson.readBytes32Array(validatorInfo, ".ValidatorFields");
         require(validatorContainer.length > 0, "validator container should not be empty");
@@ -77,8 +77,10 @@ contract SetUp is Test {
         ExoCapsule phantomCapsule = new ExoCapsule();
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
+
         vm.etch(capsuleAddress, address(phantomCapsule).code);
         capsule = ExoCapsule(payable(capsuleAddress));
+        assertEq(bytes32(capsule.capsuleWithdrawalCredentials()), _getWithdrawalCredentials(validatorContainer));
 
         stdstore.target(capsuleAddress).sig("gateway()").checked_write(bytes32(uint256(uint160(address(this)))));
 
@@ -114,10 +116,8 @@ contract VerifyDepositProof is SetUp {
     using BeaconChainProofs for bytes32;
     using stdStorage for StdStorage;
 
-    function test_verifyDepositProof() public {
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
-            _getActivationEpoch(validatorContainer) *
-            SECONDS_PER_EPOCH;
+    function test_verifyDepositProof_success() public {
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);

@@ -9,6 +9,7 @@ import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/Own
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {IExocoreGateway} from "src/interfaces/IExocoreGateway.sol";
 import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
+import {IClientChains} from "src/interfaces/precompiles/IClientChains.sol";
 
 contract ExocoreGatewayMock is
     Initializable,
@@ -26,7 +27,8 @@ contract ExocoreGatewayMock is
         REQUEST_DELEGATE_TO,
         REQUEST_UNDELEGATE_FROM,
         RESPOND,
-        UPDATE_USERS_BALANCES
+        UPDATE_USERS_BALANCES,
+        MARK_BOOTSTRAP
     }
 
     mapping(Action => bytes4) public whiteListFunctionSelectors;
@@ -36,6 +38,7 @@ contract ExocoreGatewayMock is
     address immutable DELEGATION_PRECOMPILE_MOCK_ADDRESS;
     address immutable WITHDRAW_PRINCIPLE_PRECOMPILE_MOCK_ADDRESS;
     address immutable CLAIM_REWARD_PRECOMPILE_MOCK_ADDRESS;
+    address immutable CLIENT_CHAINS_PRECOMPILE_MOCK_ADDRESS;
 
     bytes4 constant DEPOSIT_FUNCTION_SELECTOR = bytes4(keccak256("depositTo(uint32,bytes,bytes,uint256)"));
     bytes4 constant DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR =
@@ -46,10 +49,17 @@ contract ExocoreGatewayMock is
         bytes4(keccak256("withdrawPrinciple(uint32,bytes,bytes,uint256)"));
     bytes4 constant CLAIM_REWARD_FUNCTION_SELECTOR = bytes4(keccak256("claimReward(uint32,bytes,bytes,uint256)"));
 
+    uint256 constant DEPOSIT_REQUEST_LENGTH = 96;
+    uint256 constant DELEGATE_REQUEST_LENGTH = 138;
+    uint256 constant UNDELEGATE_REQUEST_LENGTH = 138;
+    uint256 constant WITHDRAW_PRINCIPLE_REQUEST_LENGTH = 96;
+    uint256 constant CLAIM_REWARD_REQUEST_LENGTH = 96;
+
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
 
     mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) inboundNonce;
+    mapping(uint16 id => bool) chainToBootstrapped;
 
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
@@ -58,6 +68,7 @@ contract ExocoreGatewayMock is
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
     error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
+    error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
 
     uint256[40] private __gap;
 
@@ -77,6 +88,7 @@ contract ExocoreGatewayMock is
         DELEGATION_PRECOMPILE_MOCK_ADDRESS = delegationPrecompileMockAddress;
         WITHDRAW_PRINCIPLE_PRECOMPILE_MOCK_ADDRESS = withdrawPrinciplePrecompileMockAddress;
         CLAIM_REWARD_PRECOMPILE_MOCK_ADDRESS = ClaimRewardPrecompileMockAddress;
+        CLIENT_CHAINS_PRECOMPILE_MOCK_ADDRESS = address(0);
 
         _disableInitializers();
     }
@@ -100,24 +112,40 @@ contract ExocoreGatewayMock is
         __Pausable_init_unchained();
     }
 
+    // TODO: call this function automatically, either within the initializer (which requires
+    // setPeer) or be triggered by Golang after the contract is deployed.
+    // For manual calls, this function should be called immediately after deployment and
+    // then never needs to be called again.
+    function markBootstrapOnAllChains() public {
+        (bool success, uint16[] memory clientChainIds) =
+            IClientChains(CLIENT_CHAINS_PRECOMPILE_MOCK_ADDRESS).getClientChains();
+        require(success, "ExocoreGateway: failed to get client chain ids");
+
+        for (uint256 i = 0; i < clientChainIds.length; i++) {
+            uint16 clientChainId = clientChainIds[i];
+            if (!chainToBootstrapped[clientChainId]) {
+                _sendInterchainMsg(uint32(clientChainId), Action.MARK_BOOTSTRAP, "");
+                // TODO: should this be marked only when receiving a response?
+                chainToBootstrapped[clientChainId] = true;
+            }
+        }
+    }
+
     function pause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this"
+            msg.sender == exocoreValidatorSetAddress, "ExocoreGateway: caller is not Exocore validator set aggregated address"
         );
         _pause();
     }
 
     function unpause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "only Exocore validator set aggregated address could call this"
+            msg.sender == exocoreValidatorSetAddress, "ExocoreGateway: caller is not Exocore validator set aggregated address"
         );
         _unpause();
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
-        // TODO: current exocore precompiles take srcChainId as uint16, so this check should be removed after exocore network fixes it
-        require(_origin.srcEid <= type(uint16).max, "source chain endpoint id should not exceed uint16.max");
-
         _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));
@@ -134,6 +162,10 @@ contract ExocoreGatewayMock is
     }
 
     function requestDeposit(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+        if (payload.length != DEPOSIT_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_DEPOSIT, DEPOSIT_REQUEST_LENGTH, payload.length);
+        }
+
         bytes calldata token = payload[:32];
         bytes calldata depositor = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
@@ -141,7 +173,7 @@ contract ExocoreGatewayMock is
         (bool success, bytes memory responseOrReason) = DEPOSIT_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 DEPOSIT_FUNCTION_SELECTOR,
-                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 token,
                 depositor,
                 amount
@@ -161,6 +193,10 @@ contract ExocoreGatewayMock is
         public
         onlyCalledFromThis
     {
+        if (payload.length != WITHDRAW_PRINCIPLE_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, WITHDRAW_PRINCIPLE_REQUEST_LENGTH, payload.length);
+        }
+
         bytes calldata token = payload[:32];
         bytes calldata withdrawer = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
@@ -168,7 +204,7 @@ contract ExocoreGatewayMock is
         (bool success, bytes memory responseOrReason) = WITHDRAW_PRINCIPLE_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR,
-                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 token,
                 withdrawer,
                 amount
@@ -188,6 +224,10 @@ contract ExocoreGatewayMock is
         public
         onlyCalledFromThis
     {
+        if (payload.length != CLAIM_REWARD_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, CLAIM_REWARD_REQUEST_LENGTH, payload.length);
+        }
+
         bytes calldata token = payload[:32];
         bytes calldata withdrawer = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
@@ -195,7 +235,7 @@ contract ExocoreGatewayMock is
         (bool success, bytes memory responseOrReason) = CLAIM_REWARD_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 CLAIM_REWARD_FUNCTION_SELECTOR,
-                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 token,
                 withdrawer,
                 amount
@@ -210,15 +250,19 @@ contract ExocoreGatewayMock is
     }
 
     function requestDelegateTo(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+        if (payload.length != DELEGATE_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_DELEGATE_TO, DELEGATE_REQUEST_LENGTH, payload.length);
+        }
+
         bytes calldata token = payload[:32];
         bytes calldata delegator = payload[32:64];
-        bytes calldata operator = payload[64:108];
-        uint256 amount = uint256(bytes32(payload[108:140]));
+        bytes calldata operator = payload[64:106];
+        uint256 amount = uint256(bytes32(payload[106:138]));
 
         (bool success,) = DELEGATION_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
-                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 lzNonce,
                 token,
                 delegator,
@@ -233,15 +277,19 @@ contract ExocoreGatewayMock is
         public
         onlyCalledFromThis
     {
-        bytes memory token = payload[1:32];
+        if (payload.length != UNDELEGATE_REQUEST_LENGTH) {
+            revert InvalidRequestLength(Action.REQUEST_UNDELEGATE_FROM, UNDELEGATE_REQUEST_LENGTH, payload.length);
+        }
+
+        bytes memory token = payload[:32];
         bytes memory delegator = payload[32:64];
-        bytes memory operator = payload[64:108];
-        uint256 amount = uint256(bytes32(payload[108:140]));
+        bytes memory operator = payload[64:106];
+        uint256 amount = uint256(bytes32(payload[106:138]));
 
         (bool success,) = DELEGATION_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
-                srcChainId, // TODO: Casting srcChainId from uint32 to uint16 should be fixed after exocore network fix source chain id type
+                srcChainId,
                 lzNonce,
                 token,
                 delegator,
@@ -254,8 +302,9 @@ contract ExocoreGatewayMock is
 
     function _sendInterchainMsg(uint32 srcChainId, Action act, bytes memory actionArgs) internal whenNotPaused {
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
         MessagingReceipt memory receipt =
@@ -264,8 +313,9 @@ contract ExocoreGatewayMock is
     }
 
     function quote(uint32 srcChainid, bytes memory _message) public view returns (uint256 nativeFee) {
-        bytes memory options =
-            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(srcChainid, _message, options, false);
         return fee.nativeFee;
     }
@@ -278,10 +328,6 @@ contract ExocoreGatewayMock is
         returns (uint64)
     {
         return inboundNonce[srcEid][sender] + 1;
-    }
-
-    function getInboundNonce(uint32 srcEid, bytes32 sender) public view returns (uint64) {
-        return inboundNonce[srcEid][sender];
     }
 
     function _consumeInboundNonce(uint32 srcEid, bytes32 sender, uint64 nonce) internal {

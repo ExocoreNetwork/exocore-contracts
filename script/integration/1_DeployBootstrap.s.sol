@@ -16,7 +16,7 @@ import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
 import {MyToken} from "../../test/foundry/MyToken.sol";
 import {Vault} from "../../src/core/Vault.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
-
+import "../../src/core/BeaconProxyBytecode.sol";
 
 // Technically this is used for testing but it is marked as a script
 // because it is a script that is used to deploy the contracts on Anvil
@@ -50,6 +50,7 @@ contract DeployContracts is Script {
 
     IVault vaultImplementation;
     IBeacon vaultBeacon;
+    BeaconProxyBytecode beaconProxyBytecode;
 
     function setUp() private {
         // these are default values for Anvil's usual mnemonic.
@@ -111,12 +112,16 @@ contract DeployContracts is Script {
         /// deploy the vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
 
+        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
+        beaconProxyBytecode = new BeaconProxyBytecode();
+
         proxyAdmin = new CustomProxyAdmin();
         EndpointV2Mock clientChainLzEndpoint = new EndpointV2Mock(clientChainId);
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint),
             exocoreChainId,
-            address(vaultBeacon)
+            address(vaultBeacon),
+            address(beaconProxyBytecode)
         );
         bootstrap = Bootstrap(
             payable(address(
