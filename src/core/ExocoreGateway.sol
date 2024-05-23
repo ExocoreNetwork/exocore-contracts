@@ -39,7 +39,7 @@ OAppUpgradeable
     receive() external payable {}
 
     function initialize(address payable exocoreValidatorSetAddress_) external initializer {
-        require(exocoreValidatorSetAddress_ != address(0), "ExocoreGateway: invalid empty exocore validator set address");
+        require(exocoreValidatorSetAddress_ != address(0), "ExocoreGateway: invalid exocore validator set address");
 
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
@@ -57,6 +57,10 @@ OAppUpgradeable
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
     }
 
+    // TODO: call this function automatically, either within the initializer (which requires
+    // setPeer) or be triggered by Golang after the contract is deployed.
+    // For manual calls, this function should be called immediately after deployment and
+    // then never needs to be called again.
     function markBootstrapOnAllChains() public {
         (bool success, uint16[] memory clientChainIds) = IClientChains(CLIENT_CHAINS_PRECOMPILE_ADDRESS).getClientChains();
         require(success, "ExocoreGateway: failed to get client chain ids");
@@ -65,6 +69,7 @@ OAppUpgradeable
             uint16 clientChainId = clientChainIds[i];
             if (!chainToBootstrapped[clientChainId]) {
                 _sendInterchainMsg(uint32(clientChainId), Action.MARK_BOOTSTRAP, "");
+                // TODO: should this be marked only when receiving a response?
                 chainToBootstrapped[clientChainId] = true;
             }
         }
