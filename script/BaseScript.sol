@@ -85,7 +85,7 @@ contract BaseScript is Script {
         useExocorePrecompileMock = vm.envBool("USE_EXOCORE_PRECOMPILE_MOCK");
         console.log("NOTICE: using exocore precompiles mock", useExocorePrecompileMock);
 
-        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
+        clientChainRPCURL = vm.envString("HOLESKY_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
     }
 
