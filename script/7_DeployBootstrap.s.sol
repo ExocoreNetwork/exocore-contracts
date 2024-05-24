@@ -70,6 +70,9 @@ contract DeployBootstrapOnly is BaseScript {
         console.log("Bootstrap logic: ", address(bootstrapLogic));
         console.log("Bootstrap address: ", address(bootstrap));
 
+        // initialize proxyAdmin with bootstrap address
+        proxyAdmin.initialize(address(bootstrap));
+
         // now, focus on the client chain constructor
         beaconOracle = _deployBeaconOracle();
         capsuleImplementation = new ExoCapsule();
