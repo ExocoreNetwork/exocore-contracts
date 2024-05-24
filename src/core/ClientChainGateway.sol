@@ -16,7 +16,6 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract ClientChainGateway is
@@ -39,15 +38,15 @@ contract ClientChainGateway is
      * @param vaultBeacon_ is the UpgradeableBeacon contract address for Vault beacon proxy
      */
     constructor(
-        address endpoint_, 
-        uint32 exocoreChainId_, 
+        address endpoint_,
+        uint32 exocoreChainId_,
         address beaconOracleAddress_,
         address vaultBeacon_,
         address exoCapsuleBeacon_,
         address beaconProxyBytecode_
-    ) 
+    )
         OAppCoreUpgradeable(endpoint_)
-        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_, beaconProxyBytecode_) 
+        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_, beaconProxyBytecode_)
     {
         _disableInitializers();
     }
@@ -59,7 +58,7 @@ contract ClientChainGateway is
         address[] calldata appendedWhitelistTokens_
     ) external reinitializer(2) {
         _clearBootstrapData();
-        
+
         require(exocoreValidatorSetAddress_ != address(0), "ClientChainGateway: exocore validator set address should not be empty");
 
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
