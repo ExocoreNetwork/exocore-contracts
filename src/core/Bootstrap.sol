@@ -581,7 +581,6 @@ contract Bootstrap is
             ITransparentUpgradeableProxy(address(this)),
             clientChainGatewayLogic, clientChainInitializationData
         );
-        bootstrapped = true;
         emit Bootstrapped();
     }
 
