@@ -35,7 +35,7 @@ contract ExoCapsuleStorage {
      * @dev This variable is only updated when the `withdrawBeforeRestaking` function is called, which can only occur before `hasRestaked` is set to true for this capsule.
      * Proofs for this capsule are only valid against Beacon Chain state roots corresponding to timestamps after the stored `mostRecentWithdrawalTimestamp`.
      */
-    uint64 public mostRecentWithdrawalTimestamp;
+    uint256 public mostRecentWithdrawalTimestamp;
     /// @notice an indicator of whether or not the capsule owner has ever "fully restaked" by successfully calling `verifyCorrectWithdrawalCredentials`.
     bool public hasRestaked;
 

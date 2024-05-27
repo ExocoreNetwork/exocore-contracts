@@ -33,6 +33,8 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         address indexed recipient,
         uint64 withdrawalAmountGwei
     );
+    /// @notice Emitted when capsuleOwner enables restaking
+    event RestakingActivated(address indexed capsuleOwner);
     /// @notice Emitted when ETH is received via the `receive` fallback
     event NonBeaconChainETHReceived(uint256 amountReceived);
     /// @notice Emitted when ETH that was previously received via the `receive` fallback is withdrawn
@@ -42,7 +44,6 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     error InvalidWithdrawalContainer(uint64 validatorIndex);
     error DoubleDepositedValidator(bytes32 pubkey);
     error StaleValidatorContainer(bytes32 pubkey, uint256 timestamp);
-    error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
     error WithdrawalAlreadyProven(bytes32 pubkey, uint256 timestamp);
     error UnregisteredValidator(bytes32 pubkey);
     error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
@@ -59,6 +60,21 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         if (msg.sender != address(gateway)) {
             revert InvalidGateway(address(gateway), msg.sender);
         }
+        _;
+    }
+
+    modifier hasNeverRestaked() {
+        require(!hasRestaked, "Restaking is enabled");
+        _;
+    }
+
+    /// @notice Checks that `timestamp` is greater than or equal to the value stored in `mostRecentWithdrawalTimestamp`
+    /// @notice All partial/full withdrawal timestamps should be greater than `mostRecentWithdrawalTimestamp`
+    modifier proofIsForValidTimestamp(uint256 timestamp) {
+        require(
+            timestamp >= mostRecentWithdrawalTimestamp,
+            "proofIsForValidTimestamp: beacon chain proof must be at or after mostRecentWithdrawalTimestamp"
+        );
         _;
     }
 
@@ -124,7 +140,12 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         WithdrawalContainerProof calldata withdrawalProof
-    ) external onlyGateway returns (bool partialWithdrawal) {
+    )
+        external
+        onlyGateway
+        proofIsForValidTimestamp(withdrawalProof.beaconBlockTimestamp)
+        returns (bool partialWithdrawal, uint256 withdrawalAmount)
+    {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
         Validator storage validator = _capsuleValidators[validatorPubkey];
@@ -174,7 +195,8 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
                 withdrawalAmountGwei
             );
             if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-                _sendETH(capsuleOwner, (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI);
+                withdrawalAmount = (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI;
+                _sendETH(capsuleOwner, withdrawalAmount);
             }
         }
     }
@@ -201,9 +223,21 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
     }
 
-    /// @notice Called by the pod owner to withdraw the balance of the pod when `hasRestaked` is set to false
+    /**
+     * @notice Called by the capsule owner to activate restaking by withdrawing
+     * all existing ETH from the capsule and preventing further withdrawals via
+     * "withdrawBeforeRestaking()"
+     */
+    function activateRestaking() external onlyGateway hasNeverRestaked {
+        hasRestaked = true;
+        _processWithdrawalBeforeRestaking(capsuleOwner);
+
+        emit RestakingActivated(capsuleOwner);
+    }
+
+    /// @notice Called by the capsule owner to withdraw the balance of the capsule when `hasRestaked` is set to false
     function withdrawBeforeRestaking() external onlyGateway hasNeverRestaked {
-        _processWithdrawalBeforeRestaking(podOwner);
+        _processWithdrawalBeforeRestaking(capsuleOwner);
     }
 
     function updatePrincipleBalance(uint256 lastlyUpdatedPrincipleBalance) external onlyGateway {
@@ -253,6 +287,12 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         }
 
         return validator;
+    }
+
+    function _processWithdrawalBeforeRestaking(address _capsuleOwner) internal {
+        mostRecentWithdrawalTimestamp = block.timestamp;
+        nonBeaconChainETHBalance = 0;
+        _sendETH(_capsuleOwner, address(this).balance);
     }
 
     function _sendETH(address recipient, uint256 amountWei) internal {

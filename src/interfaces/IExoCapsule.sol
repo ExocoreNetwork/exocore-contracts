@@ -27,7 +27,7 @@ interface IExoCapsule {
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         WithdrawalContainerProof calldata withdrawalProof
-    ) external returns (bool partialWithdrawal);
+    ) external returns (bool partialWithdrawal, uint256 withdrawalAmount);
 
     function withdraw(uint256 amount, address recipient) external;
 

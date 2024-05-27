@@ -16,7 +16,11 @@ abstract contract NativeRestakingController is
 {
     using ValidatorContainer for bytes32[];
 
-    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable whenNotPaused {
+    function stake(
+        bytes calldata pubkey,
+        bytes calldata signature,
+        bytes32 depositDataRoot
+    ) external payable whenNotPaused {
         require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
 
         IExoCapsule capsule = ownerToCapsule[msg.sender];
@@ -67,7 +71,7 @@ abstract contract NativeRestakingController is
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
     ) external payable whenNotPaused {
         IExoCapsule capsule = _getCapsule(msg.sender);
-        bool partialWithdrawal = capsule.verifyWithdrawalProof(
+        (bool partialWithdrawal, uint256 withdrawalAmount) = capsule.verifyWithdrawalProof(
             validatorContainer,
             validatorProof,
             withdrawalContainer,
@@ -78,7 +82,7 @@ abstract contract NativeRestakingController is
             _processRequest(
                 VIRTUAL_STAKED_ETH_ADDRESS,
                 msg.sender,
-                32 ether,
+                withdrawalAmount,
                 Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
                 ""
             );
