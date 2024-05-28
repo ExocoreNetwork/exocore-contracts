@@ -361,47 +361,9 @@ contract WithdrawalSetup is Test {
     uint256 mockCurrentBlockTimestamp;
 
     function setUp() public {
-        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
-
-        validatorContainer = stdJson.readBytes32Array(withdrawalInfo, ".ValidatorFields");
-        require(validatorContainer.length > 0, "validator container should not be empty");
-
-        validatorProof.stateRoot = stdJson.readBytes32(withdrawalInfo, ".beaconStateRoot");
-        require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
-        validatorProof.stateRootProof = stdJson.readBytes32Array(
-            withdrawalInfo,
-            ".StateRootAgainstLatestBlockHeaderProof"
-        );
-        require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
-        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(withdrawalInfo, ".ValidatorProof");
-        require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
-        validatorProof.validatorIndex = stdJson.readUint(withdrawalInfo, ".validatorIndex");
-        require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
-
-        beaconBlockRoot = stdJson.readBytes32(withdrawalInfo, ".latestBlockHeaderRoot");
-        require(beaconBlockRoot != bytes32(0), "beacon block root should not be empty");
-
-        withdrawalContainer = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalFields");
-        require(withdrawalContainer.length > 0, "validator container should not be empty");
-
-        withdrawalProof.blockRoot = stdJson.readBytes32(withdrawalInfo, ".blockHeaderRoot");
-        require(withdrawalProof.blockRoot != bytes32(0), "block header root should not be empty");
-
-        withdrawalProof.blockRootIndex = stdJson.readUint(withdrawalInfo, ".blockHeaderRootIndex");
-        require(withdrawalProof.blockRootIndex != 0, "block header root index should not be 0");
-
-        withdrawalProof.withdrawalIndex = stdJson.readUint(withdrawalInfo, ".withdrawalIndex");
-
-        withdrawalProof.historicalSummaryIndex = stdJson.readUint(withdrawalInfo, ".historicalSummaryIndex");
-        require(withdrawalProof.historicalSummaryIndex != 0, "historical summary index should not be 0");
-
-        withdrawalProof.historicalSummaryBlockRootProof = stdJson.readBytes32Array(
-            withdrawalInfo,
-            ".HistoricalSummaryProof"
-        );
-        withdrawalProof.withdrawalContainerRootProof = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalProof");
-        withdrawalProof.executionPayloadRoot = stdJson.readBytes32(withdrawalInfo, ".executionPayloadRoot");
-        withdrawalProof.executionPayloadRootProof = stdJson.readBytes32Array(withdrawalInfo, ".ExecutionPayloadProof");
+        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
+        // string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
+        _setValidatorContainer(withdrawalInfo);
 
         beaconOracle = IBeaconChainOracle(address(0x123));
         vm.etch(address(beaconOracle), bytes("aabb"));
@@ -424,6 +386,79 @@ contract WithdrawalSetup is Test {
         );
 
         stdstore.target(capsuleAddress).sig("hasRestaked()").checked_write(true);
+
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
+            _getActivationEpoch(validatorContainer) *
+            SECONDS_PER_EPOCH;
+        mockProofTimestamp = activationTimestamp;
+        mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
+        vm.warp(mockCurrentBlockTimestamp);
+        validatorProof.beaconBlockTimestamp = mockProofTimestamp;
+
+        vm.mockCall(
+            address(beaconOracle),
+            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector),
+            abi.encode(beaconBlockRoot)
+        );
+
+        capsule.verifyDepositProof(validatorContainer, validatorProof);
+
+        ExoCapsuleStorage.Validator memory validator = capsule.getRegisteredValidatorByPubkey(
+            _getPubkey(validatorContainer)
+        );
+        assertEq(uint8(validator.status), uint8(ExoCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
+        assertEq(validator.validatorIndex, validatorProof.validatorIndex);
+        assertEq(validator.mostRecentBalanceUpdateTimestamp, validatorProof.beaconBlockTimestamp);
+        assertEq(validator.restakedBalanceGwei, _getEffectiveBalance(validatorContainer));
+    }
+
+    function _setValidatorContainer(string memory withdrawalInfo) internal {
+        validatorContainer = stdJson.readBytes32Array(withdrawalInfo, ".ValidatorFields");
+        require(validatorContainer.length > 0, "validator container should not be empty");
+
+        validatorProof.stateRoot = stdJson.readBytes32(withdrawalInfo, ".beaconStateRoot");
+        require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
+        validatorProof.stateRootProof = stdJson.readBytes32Array(
+            withdrawalInfo,
+            ".StateRootAgainstLatestBlockHeaderProof"
+        );
+        require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
+        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(
+            withdrawalInfo,
+            ".WithdrawalCredentialProof"
+        );
+        require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
+        validatorProof.validatorIndex = stdJson.readUint(withdrawalInfo, ".validatorIndex");
+        require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
+
+        beaconBlockRoot = stdJson.readBytes32(withdrawalInfo, ".latestBlockHeaderRoot");
+        require(beaconBlockRoot != bytes32(0), "beacon block root should not be empty");
+    }
+
+    function _setWithdrawalContainer() internal {
+        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
+
+        withdrawalContainer = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalFields");
+        require(withdrawalContainer.length > 0, "validator container should not be empty");
+
+        withdrawalProof.blockRoot = stdJson.readBytes32(withdrawalInfo, ".blockHeaderRoot");
+        require(withdrawalProof.blockRoot != bytes32(0), "block header root should not be empty");
+
+        withdrawalProof.blockRootIndex = stdJson.readUint(withdrawalInfo, ".blockHeaderRootIndex");
+        require(withdrawalProof.blockRootIndex != 0, "block header root index should not be 0");
+
+        withdrawalProof.withdrawalIndex = stdJson.readUint(withdrawalInfo, ".withdrawalIndex");
+
+        withdrawalProof.historicalSummaryIndex = stdJson.readUint(withdrawalInfo, ".historicalSummaryIndex");
+        require(withdrawalProof.historicalSummaryIndex != 0, "historical summary index should not be 0");
+
+        withdrawalProof.historicalSummaryBlockRootProof = stdJson.readBytes32Array(
+            withdrawalInfo,
+            ".HistoricalSummaryProof"
+        );
+        withdrawalProof.withdrawalContainerRootProof = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalProof");
+        withdrawalProof.executionPayloadRoot = stdJson.readBytes32(withdrawalInfo, ".executionPayloadRoot");
+        withdrawalProof.executionPayloadRootProof = stdJson.readBytes32Array(withdrawalInfo, ".ExecutionPayloadProof");
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
@@ -476,31 +511,5 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
             )
         );
         capsule.withdrawNonBeaconChainETHBalance(recipient, 0.5 ether);
-    }
-
-    function test_verifyWithdrawalProof_success() public {
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
-            _getActivationEpoch(validatorContainer) *
-            SECONDS_PER_EPOCH;
-        mockProofTimestamp = activationTimestamp;
-        mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
-        vm.warp(mockCurrentBlockTimestamp);
-        validatorProof.beaconBlockTimestamp = mockProofTimestamp;
-
-        vm.mockCall(
-            address(beaconOracle),
-            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector),
-            abi.encode(beaconBlockRoot)
-        );
-
-        capsule.verifyDepositProof(validatorContainer, validatorProof);
-
-        ExoCapsuleStorage.Validator memory validator = capsule.getRegisteredValidatorByPubkey(
-            _getPubkey(validatorContainer)
-        );
-        assertEq(uint8(validator.status), uint8(ExoCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
-        assertEq(validator.validatorIndex, validatorProof.validatorIndex);
-        assertEq(validator.mostRecentBalanceUpdateTimestamp, validatorProof.beaconBlockTimestamp);
-        assertEq(validator.restakedBalanceGwei, _getEffectiveBalance(validatorContainer));
     }
 }
