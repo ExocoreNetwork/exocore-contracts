@@ -359,11 +359,13 @@ contract WithdrawalSetup is Test {
 
     uint256 mockProofTimestamp;
     uint256 mockCurrentBlockTimestamp;
+    uint256 activationTimestamp;
 
     function setUp() public {
         string memory withdrawalInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
         // string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
         _setValidatorContainer(withdrawalInfo);
+        _setWithdrawalContainer();
 
         beaconOracle = IBeaconChainOracle(address(0x123));
         vm.etch(address(beaconOracle), bytes("aabb"));
@@ -387,9 +389,7 @@ contract WithdrawalSetup is Test {
 
         stdstore.target(capsuleAddress).sig("hasRestaked()").checked_write(true);
 
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
-            _getActivationEpoch(validatorContainer) *
-            SECONDS_PER_EPOCH;
+        activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);
@@ -511,5 +511,27 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
             )
         );
         capsule.withdrawNonBeaconChainETHBalance(recipient, 0.5 ether);
+    }
+
+    function test_processFullWithdrawal_revert_AlreadyProcessed() public setValidatorContainerAndTimestamp {
+        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+    }
+
+    modifier setValidatorContainerAndTimestamp() {
+        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
+        _setValidatorContainer(withdrawalInfo);
+
+        vm.warp(mockCurrentBlockTimestamp);
+        validatorProof.beaconBlockTimestamp = mockProofTimestamp;
+
+        vm.mockCall(
+            address(beaconOracle),
+            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector),
+            abi.encode(beaconBlockRoot)
+        );
+
+        validatorProof.beaconBlockTimestamp = activationTimestamp;
+        withdrawalProof.beaconBlockTimestamp = activationTimestamp;
+        _;
     }
 }

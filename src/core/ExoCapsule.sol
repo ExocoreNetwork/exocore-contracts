@@ -7,7 +7,7 @@ import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
-
+import "forge-std/console.sol";
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
