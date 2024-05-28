@@ -21,7 +21,7 @@ import "../../src/interfaces/IVault.sol";
 import "../../src/interfaces/IExoCapsule.sol";
 import "src/core/BeaconProxyBytecode.sol";
 
-contract ClientChainGatewayTest is Test {
+contract SetUp is Test {
     Player[] players;
     address[] whitelistTokens;
     Player exocoreValidatorSet;
@@ -127,7 +127,9 @@ contract ClientChainGatewayTest is Test {
         EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
         return oracle;
     }
+}
 
+contract Pausable is SetUp {
     function test_PauseClientChainGateway() public {
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit Paused(exocoreValidatorSet.addr);

@@ -9,6 +9,6 @@ contract ClaimRewardMock is IClaimReward {
     {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid withdrawer address");
-        return (success, uint256(1234));
+        return (true, uint256(1234));
     }
 }
