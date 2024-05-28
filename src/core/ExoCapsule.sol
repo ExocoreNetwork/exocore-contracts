@@ -69,6 +69,12 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         _;
     }
 
+    /// @notice checks that hasRestaked is set to true by calling activateRestaking()
+    modifier hasEnabledRestaking() {
+        require(hasRestaked, "restaking is not enabled");
+        _;
+    }
+
     /// @notice Checks that `timestamp` is greater than or equal to the value stored in `mostRecentWithdrawalTimestamp`
     /// @notice All partial/full withdrawal timestamps should be greater than `mostRecentWithdrawalTimestamp`
     modifier proofIsForValidTimestamp(uint256 timestamp) {
@@ -96,12 +102,19 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         gateway = INativeRestakingController(gateway_);
         beaconOracle = IBeaconChainOracle(beaconOracle_);
         capsuleOwner = capsuleOwner_;
+        hasRestaked = true;
     }
 
     function verifyDepositProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata proof
-    ) external onlyGateway {
+    )
+        external
+        onlyGateway
+        proofIsForValidTimestamp(proof.beaconBlockTimestamp)
+        // ensure that caller has previously enabled restaking by calling `activateRestaking()`
+        hasEnabledRestaking
+    {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         Validator storage validator = _capsuleValidators[validatorPubkey];
@@ -221,6 +234,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
             "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
         );
         nonBeaconChainETHBalance -= amountToWithdraw;
+        _sendETH(recipient, amountToWithdraw);
         emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
     }
 
