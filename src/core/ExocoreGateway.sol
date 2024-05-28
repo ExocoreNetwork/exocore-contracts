@@ -62,14 +62,17 @@ OAppUpgradeable
     // For manual calls, this function should be called immediately after deployment and
     // then never needs to be called again.
     function markBootstrapOnAllChains() public {
-        (bool success, uint16[] memory clientChainIds) = IClientChains(CLIENT_CHAINS_PRECOMPILE_ADDRESS).getClientChains();
+        (bool success, bytes memory result) = CLIENT_CHAINS_PRECOMPILE_ADDRESS.
+            staticcall(abi.encodeWithSelector(IClientChains.getClientChains.selector));
         require(success, "ExocoreGateway: failed to get client chain ids");
-
+        // TODO: change to uint32[] when the precompile is upgraded
+        (bool ok, uint16[] memory clientChainIds) = abi.decode(result, (bool, uint16[]));
+        require(ok, "ExocoreGateway: failed to decode client chain ids");
         for (uint256 i = 0; i < clientChainIds.length; i++) {
             uint16 clientChainId = clientChainIds[i];
             if (!chainToBootstrapped[clientChainId]) {
                 _sendInterchainMsg(uint32(clientChainId), Action.MARK_BOOTSTRAP, "");
-                // TODO: should this be marked only when receiving a response?
+                // TODO: should this be marked only upon receiving a response?
                 chainToBootstrapped[clientChainId] = true;
             }
         }
