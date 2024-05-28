@@ -42,6 +42,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
 
     error InvalidValidatorContainer(bytes32 pubkey);
     error InvalidWithdrawalContainer(uint64 validatorIndex);
+    error InvalidHistoricalSummaries(uint64 validatorIndex);
     error DoubleDepositedValidator(bytes32 pubkey);
     error StaleValidatorContainer(bytes32 pubkey, uint256 timestamp);
     error WithdrawalAlreadyProven(bytes32 pubkey, uint256 timestamp);
@@ -335,6 +336,16 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         );
         if (!valid) {
             revert InvalidWithdrawalContainer(withdrawalContainer.getValidatorIndex());
+        }
+        // Verify historical summaries
+        bool validHistoricalSummaries = beaconBlockRoot.isValidHistoricalSummaryRoot(
+            proof.historicalSummaryBlockRootProof,
+            proof.historicalSummaryIndex,
+            proof.blockRoot,
+            proof.blockRootIndex
+        );
+        if (!validHistoricalSummaries) {
+            revert InvalidHistoricalSummaries(withdrawalContainer.getValidatorIndex());
         }
     }
 
