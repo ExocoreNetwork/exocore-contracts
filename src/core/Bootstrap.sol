@@ -655,7 +655,7 @@ contract Bootstrap is
             depositAmount: depositsByToken[tokenAddress]
         });
     }
-    
+   
     // TODO: might be better to share this function between Bootstrap and ClientChainGateay
     // as they both use this function.
     function _deployVault(address underlyingToken) internal returns (IVault) {

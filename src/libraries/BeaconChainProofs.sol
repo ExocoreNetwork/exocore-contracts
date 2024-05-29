@@ -24,7 +24,9 @@ library BeaconChainProofs {
     uint256 internal constant VALIDATOR_FIELD_TREE_HEIGHT = 3;
 
     uint256 internal constant NUM_EXECUTION_PAYLOAD_HEADER_FIELDS = 15;
-    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT = 4;
+    uint256 internal constant DENEB_FORK_TIMESTAMP = 1710338135;
+    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA = 4;
+    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB = 5; // After deneb hard fork, it's increased from 4 to 5
 
     uint256 internal constant NUM_EXECUTION_PAYLOAD_FIELDS = 15;
     uint256 internal constant EXECUTION_PAYLOAD_FIELD_TREE_HEIGHT = 4;
@@ -103,7 +105,7 @@ library BeaconChainProofs {
     /// @notice The number of seconds in a slot in the beacon chain
     uint64 internal constant SECONDS_PER_SLOT = 12;
 
-    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot 
+    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot
     uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
 
     bytes8 internal constant UINT64_MASK = 0xffffffffffffffff;
@@ -139,7 +141,12 @@ library BeaconChainProofs {
         bytes32[] calldata stateRootProof
     ) internal view returns (bool valid) {
         bool validStateRoot = isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
-        bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex);
+        bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(
+            validatorContainerRoot,
+            stateRoot,
+            validatorContainerRootProof,
+            validatorIndex
+        );
         if (validStateRoot && validVCRootAgainstStateRoot) {
             valid = true;
         }
@@ -150,17 +157,15 @@ library BeaconChainProofs {
         bytes32 beaconBlockRoot,
         bytes32[] calldata stateRootProof
     ) internal view returns (bool) {
-        require(
-            stateRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT,
-            "state root proof should have 3 nodes"
-        );
+        require(stateRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT, "state root proof should have 3 nodes");
 
-        return Merkle.verifyInclusionSha256({
-            proof: stateRootProof,
-            root: beaconBlockRoot,
-            leaf: stateRoot,
-            index: STATE_ROOT_INDEX
-        });
+        return
+            Merkle.verifyInclusionSha256({
+                proof: stateRootProof,
+                root: beaconBlockRoot,
+                leaf: stateRoot,
+                index: STATE_ROOT_INDEX
+            });
     }
 
     function isValidVCRootAgainstStateRoot(
@@ -176,29 +181,38 @@ library BeaconChainProofs {
 
         uint256 leafIndex = (VALIDATOR_TREE_ROOT_INDEX << (VALIDATOR_TREE_HEIGHT + 1)) | uint256(validatorIndex);
 
-        return Merkle.verifyInclusionSha256({
-            proof: validatorContainerRootProof,
-            root: stateRoot,
-            leaf: validatorContainerRoot,
-            index: leafIndex
-        });
+        return
+            Merkle.verifyInclusionSha256({
+                proof: validatorContainerRootProof,
+                root: stateRoot,
+                leaf: validatorContainerRoot,
+                index: leafIndex
+            });
     }
 
     function isValidWithdrawalContainerRoot(
         bytes32 withdrawalContainerRoot,
         bytes32[] calldata withdrawalContainerRootProof,
         uint256 withdrawalIndex,
-        bytes32 beaconBlockRoot,
+        bytes32 blockRoot,
         bytes32 executionPayloadRoot,
-        bytes32[] calldata executionPayloadRootProof
+        bytes32[] calldata executionPayloadRootProof,
+        uint256 beaconBlockTimestamp
     ) internal view returns (bool valid) {
-        bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(executionPayloadRoot, beaconBlockRoot, executionPayloadRootProof);
-        bool validWCRootAgainstExecutionPayloadRoot = isValidWCRootAgainstExecutionPayloadRoot(
-            withdrawalContainerRoot, 
-            executionPayloadRoot, 
-            withdrawalContainerRootProof, 
-            withdrawalIndex
+        bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(
+            executionPayloadRoot,
+            blockRoot,
+            executionPayloadRootProof
         );
+
+        bool validWCRootAgainstExecutionPayloadRoot = isValidWCRootAgainstExecutionPayloadRoot(
+            withdrawalContainerRoot,
+            executionPayloadRoot,
+            withdrawalContainerRootProof,
+            withdrawalIndex,
+            beaconBlockTimestamp
+        );
+
         if (validExecutionPayloadRoot && validWCRootAgainstExecutionPayloadRoot) {
             valid = true;
         }
@@ -206,44 +220,86 @@ library BeaconChainProofs {
 
     function isValidExecutionPayloadRoot(
         bytes32 executionPayloadRoot,
-        bytes32 beaconBlockRoot,
+        bytes32 blockRoot,
         bytes32[] calldata executionPayloadRootProof
     ) internal view returns (bool) {
         require(
-            executionPayloadRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT + BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT,
+            executionPayloadRootProof.length ==
+                BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT + BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT,
             "state root proof should have 3 nodes"
         );
 
-        uint256 leafIndex = (BODY_ROOT_INDEX << (BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT)) |
-                EXECUTION_PAYLOAD_INDEX;
+        uint256 leafIndex = (BODY_ROOT_INDEX << (BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT)) | EXECUTION_PAYLOAD_INDEX;
 
-        return Merkle.verifyInclusionSha256({
-            proof: executionPayloadRootProof,
-            root: beaconBlockRoot,
-            leaf: executionPayloadRoot,
-            index: leafIndex
-        });
+        return
+            Merkle.verifyInclusionSha256({
+                proof: executionPayloadRootProof,
+                root: blockRoot,
+                leaf: executionPayloadRoot,
+                index: leafIndex
+            });
     }
 
     function isValidWCRootAgainstExecutionPayloadRoot(
         bytes32 withdrawalContainerRoot,
         bytes32 executionPayloadRoot,
         bytes32[] calldata withdrawalContainerRootProof,
-        uint256 withdrawalIndex
+        uint256 withdrawalIndex,
+        uint256 beaconBlockTimestamp
     ) internal view returns (bool) {
+        uint256 executionPayloadHeaderFieldTreeHeight = (beaconBlockTimestamp < DENEB_FORK_TIMESTAMP)
+            ? EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA
+            : EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB;
+
         require(
-            withdrawalContainerRootProof.length == (VALIDATOR_TREE_HEIGHT + 1) + BEACON_STATE_FIELD_TREE_HEIGHT,
-            "validator container root proof should have 46 nodes"
+            withdrawalContainerRootProof.length ==
+                (executionPayloadHeaderFieldTreeHeight + WITHDRAWALS_TREE_HEIGHT + 1),
+            "withdrawalProof has incorrect length"
         );
 
-        uint256 leafIndex = (WITHDRAWALS_INDEX << (WITHDRAWALS_TREE_HEIGHT + 1)) |
-                uint256(withdrawalIndex);
+        uint256 leafIndex = (WITHDRAWALS_INDEX << (WITHDRAWALS_TREE_HEIGHT + 1)) | uint256(withdrawalIndex);
 
-        return Merkle.verifyInclusionSha256({
-            proof: withdrawalContainerRootProof,
-            root: executionPayloadRoot,
-            leaf: withdrawalContainerRoot,
-            index: leafIndex
-        });
+        return
+            Merkle.verifyInclusionSha256({
+                proof: withdrawalContainerRootProof,
+                root: executionPayloadRoot,
+                leaf: withdrawalContainerRoot,
+                index: leafIndex
+            });
+    }
+
+    function isValidHistoricalSummaryRoot(
+        bytes32 beaconStateRoot,
+        bytes32[] calldata historicalSummaryBlockRootProof,
+        uint256 historicalSummaryIndex,
+        bytes32 blockRoot,
+        uint256 blockRootIndex
+    ) internal view returns (bool) {
+        require(
+            historicalSummaryBlockRootProof.length ==
+                (BEACON_STATE_FIELD_TREE_HEIGHT +
+                    (HISTORICAL_SUMMARIES_TREE_HEIGHT + 1) +
+                    1 +
+                    (BLOCK_ROOTS_TREE_HEIGHT)),
+            "historicalSummaryBlockRootProof has incorrect length"
+        );
+        /**
+         * Note: Here, the "1" in "1 + (BLOCK_ROOTS_TREE_HEIGHT)" signifies that extra step of choosing the "block_root_summary" within the individual
+         * "historical_summary". Everywhere else it signifies merkelize_with_mixin, where the length of an array is hashed with the root of the array,
+         * but not here.
+         */
+        uint256 historicalBlockHeaderIndex = (HISTORICAL_SUMMARIES_INDEX <<
+            ((HISTORICAL_SUMMARIES_TREE_HEIGHT + 1) + 1 + (BLOCK_ROOTS_TREE_HEIGHT))) |
+            (historicalSummaryIndex << (1 + (BLOCK_ROOTS_TREE_HEIGHT))) |
+            (BLOCK_SUMMARY_ROOT_INDEX << (BLOCK_ROOTS_TREE_HEIGHT)) |
+            blockRootIndex;
+
+        return
+            Merkle.verifyInclusionSha256({
+                proof: historicalSummaryBlockRootProof,
+                root: beaconStateRoot,
+                leaf: blockRoot,
+                index: historicalBlockHeaderIndex
+            });
     }
 }

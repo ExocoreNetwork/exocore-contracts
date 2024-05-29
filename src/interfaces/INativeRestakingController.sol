@@ -42,16 +42,10 @@ interface INativeRestakingController is IBaseRestakingController {
      * https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#withdrawal
      * @param withdrawalProof is the merkle proof needed for verifying that `withdrawalContainer` is included in some beacon block root.
      */
-    function processBeaconChainPartialWithdrawal(
-        bytes32[] calldata validatorContainer,
-        IExoCapsule.ValidatorContainerProof calldata validatorProof,
-        bytes32[] calldata withdrawalContainer,
-        IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) payable external;
 
     /**
-     * @notice When a beacon chain full withdrawal to this capsule contract happens(the withdrawal time is euqal to or greater than 
-     * validator's withdrawable_epoch), this function could be called with `validatorContainer`, `withdrawalContainer` and corresponding 
+     * @notice When a beacon chain full withdrawal to this capsule contract happens(the withdrawal time is euqal to or greater than
+     * validator's withdrawable_epoch), this function could be called with `validatorContainer`, `withdrawalContainer` and corresponding
      * proofs to prove this full withdrawal from beacon chain is done, send withdrawal request to Exocore network to be processed.
      * After Exocore network finishs dealing with withdrawal request and sending back the response, ExoCapsule would unlock corresponding ETH
      * in response to be cliamable for ExoCapsule owner.
@@ -63,10 +57,10 @@ interface INativeRestakingController is IBaseRestakingController {
      * https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#withdrawal
      * @param withdrawalProof is the merkle proof needed for verifying that `withdrawalContainer` is included in some beacon block root.
      */
-    function processBeaconChainFullWithdrawal(
+    function processBeaconChainWithdrawal(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) payable external;
+    ) external payable;
 }

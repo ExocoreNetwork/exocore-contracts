@@ -29,7 +29,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     uint256 constant GWEI_TO_WEI = 1e9;
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     IETHPOSDeposit constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
-    
     uint256[40] private __gap;
 
     /* -------------------------------------------------------------------------- */
