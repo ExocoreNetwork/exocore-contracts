@@ -24,7 +24,9 @@ library BeaconChainProofs {
     uint256 internal constant VALIDATOR_FIELD_TREE_HEIGHT = 3;
 
     uint256 internal constant NUM_EXECUTION_PAYLOAD_HEADER_FIELDS = 15;
-    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT = 5; // After deneb hard fork, it's increased from 4 to 5
+    uint256 internal constant DENEB_FORK_TIMESTAMP = 1710338135;
+    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA = 4;
+    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB = 5; // After deneb hard fork, it's increased from 4 to 5
 
     uint256 internal constant NUM_EXECUTION_PAYLOAD_FIELDS = 15;
     uint256 internal constant EXECUTION_PAYLOAD_FIELD_TREE_HEIGHT = 4;
@@ -192,20 +194,23 @@ library BeaconChainProofs {
         bytes32 withdrawalContainerRoot,
         bytes32[] calldata withdrawalContainerRootProof,
         uint256 withdrawalIndex,
-        bytes32 beaconBlockRoot,
+        bytes32 blockRoot,
         bytes32 executionPayloadRoot,
-        bytes32[] calldata executionPayloadRootProof
+        bytes32[] calldata executionPayloadRootProof,
+        uint256 beaconBlockTimestamp
     ) internal view returns (bool valid) {
         bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(
             executionPayloadRoot,
-            beaconBlockRoot,
+            blockRoot,
             executionPayloadRootProof
         );
+
         bool validWCRootAgainstExecutionPayloadRoot = isValidWCRootAgainstExecutionPayloadRoot(
             withdrawalContainerRoot,
             executionPayloadRoot,
             withdrawalContainerRootProof,
-            withdrawalIndex
+            withdrawalIndex,
+            beaconBlockTimestamp
         );
 
         if (validExecutionPayloadRoot && validWCRootAgainstExecutionPayloadRoot) {
@@ -215,7 +220,7 @@ library BeaconChainProofs {
 
     function isValidExecutionPayloadRoot(
         bytes32 executionPayloadRoot,
-        bytes32 beaconBlockRoot,
+        bytes32 blockRoot,
         bytes32[] calldata executionPayloadRootProof
     ) internal view returns (bool) {
         require(
@@ -229,7 +234,7 @@ library BeaconChainProofs {
         return
             Merkle.verifyInclusionSha256({
                 proof: executionPayloadRootProof,
-                root: beaconBlockRoot,
+                root: blockRoot,
                 leaf: executionPayloadRoot,
                 index: leafIndex
             });
@@ -239,11 +244,16 @@ library BeaconChainProofs {
         bytes32 withdrawalContainerRoot,
         bytes32 executionPayloadRoot,
         bytes32[] calldata withdrawalContainerRootProof,
-        uint256 withdrawalIndex
+        uint256 withdrawalIndex,
+        uint256 beaconBlockTimestamp
     ) internal view returns (bool) {
+        uint256 executionPayloadHeaderFieldTreeHeight = (beaconBlockTimestamp < DENEB_FORK_TIMESTAMP)
+            ? EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA
+            : EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB;
+
         require(
             withdrawalContainerRootProof.length ==
-                (EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT + WITHDRAWALS_TREE_HEIGHT + 1),
+                (executionPayloadHeaderFieldTreeHeight + WITHDRAWALS_TREE_HEIGHT + 1),
             "withdrawalProof has incorrect length"
         );
 
@@ -259,7 +269,7 @@ library BeaconChainProofs {
     }
 
     function isValidHistoricalSummaryRoot(
-        bytes32 beaconBlockRoot,
+        bytes32 beaconStateRoot,
         bytes32[] calldata historicalSummaryBlockRootProof,
         uint256 historicalSummaryIndex,
         bytes32 blockRoot,
@@ -287,7 +297,7 @@ library BeaconChainProofs {
         return
             Merkle.verifyInclusionSha256({
                 proof: historicalSummaryBlockRootProof,
-                root: beaconBlockRoot,
+                root: beaconStateRoot,
                 leaf: blockRoot,
                 index: historicalBlockHeaderIndex
             });

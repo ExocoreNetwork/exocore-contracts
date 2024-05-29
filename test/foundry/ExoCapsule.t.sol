@@ -441,6 +441,9 @@ contract WithdrawalSetup is Test {
         withdrawalContainer = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalFields");
         require(withdrawalContainer.length > 0, "validator container should not be empty");
 
+        withdrawalProof.stateRoot = stdJson.readBytes32(withdrawalInfo, ".beaconStateRoot");
+        require(withdrawalProof.stateRoot != bytes32(0), "state root should not be empty");
+
         withdrawalProof.blockRoot = stdJson.readBytes32(withdrawalInfo, ".blockHeaderRoot");
         require(withdrawalProof.blockRoot != bytes32(0), "block header root should not be empty");
 

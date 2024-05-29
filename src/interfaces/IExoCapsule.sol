@@ -12,6 +12,7 @@ interface IExoCapsule {
 
     struct WithdrawalContainerProof {
         uint256 beaconBlockTimestamp;
+        bytes32 stateRoot;
         bytes32 executionPayloadRoot;
         bytes32[] executionPayloadRootProof;
         bytes32[] withdrawalContainerRootProof;
