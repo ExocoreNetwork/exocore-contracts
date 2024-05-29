@@ -103,39 +103,39 @@ contract ClientChainGateway is
         // no risk keeping these but they are cheap to clear.
         delete exocoreSpawnTime;
         delete offsetDuration;
-        // TODO: are these loops even worth it? the maximum refund is 50% of the gas cost.
-        // if not, we can remove them.
-        // the lines above this set of comments are at least cheaper to clear,
-        // and have no utility after initialization.
-        for(uint i = 0; i < depositors.length; i++) {
-            address depositor = depositors[i];
-            for(uint j = 0; j < whitelistTokens.length; j++) {
-                address token = whitelistTokens[j];
-                delete totalDepositAmounts[depositor][token];
-                delete withdrawableAmounts[depositor][token];
-                for(uint k = 0; k < registeredOperators.length; k++) {
-                    address eth = registeredOperators[k];
-                    string memory exo = ethToExocoreAddress[eth];
-                    delete delegations[depositor][exo][token];
-                }
-            }
-            delete isDepositor[depositor];
-        }
-        for(uint k = 0; k < registeredOperators.length; k++) {
-            address eth = registeredOperators[k];
-            string memory exo = ethToExocoreAddress[eth];
-            delete operators[exo];
-            delete commissionEdited[exo];
-            delete ethToExocoreAddress[eth];
-            for(uint j = 0; j < whitelistTokens.length; j++) {
-                address token = whitelistTokens[j];
-                delete delegationsByOperator[exo][token];
-            }
-        }
-        for(uint j = 0; j < whitelistTokens.length; j++) {
-            address token = whitelistTokens[j];
-            delete depositsByToken[token];
-        }
+        // // TODO: are these loops even worth it? the maximum refund is 50% of the gas cost.
+        // // if not, we can remove them.
+        // // the lines above this set of comments are at least cheaper to clear,
+        // // and have no utility after initialization.
+        // for(uint i = 0; i < depositors.length; i++) {
+        //     address depositor = depositors[i];
+        //     for(uint j = 0; j < whitelistTokens.length; j++) {
+        //         address token = whitelistTokens[j];
+        //         delete totalDepositAmounts[depositor][token];
+        //         delete withdrawableAmounts[depositor][token];
+        //         for(uint k = 0; k < registeredOperators.length; k++) {
+        //             address eth = registeredOperators[k];
+        //             string memory exo = ethToExocoreAddress[eth];
+        //             delete delegations[depositor][exo][token];
+        //         }
+        //     }
+        //     delete isDepositor[depositor];
+        // }
+        // for(uint k = 0; k < registeredOperators.length; k++) {
+        //     address eth = registeredOperators[k];
+        //     string memory exo = ethToExocoreAddress[eth];
+        //     delete operators[exo];
+        //     delete commissionEdited[exo];
+        //     delete ethToExocoreAddress[eth];
+        //     for(uint j = 0; j < whitelistTokens.length; j++) {
+        //         address token = whitelistTokens[j];
+        //         delete delegationsByOperator[exo][token];
+        //     }
+        // }
+        // for(uint j = 0; j < whitelistTokens.length; j++) {
+        //     address token = whitelistTokens[j];
+        //     delete depositsByToken[token];
+        // }
         // these should also be cleared - even if the loops are not used
         // cheap to clear and potentially large in size.
         delete depositors;
