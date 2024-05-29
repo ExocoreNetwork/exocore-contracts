@@ -37,7 +37,7 @@ const isValidBech32 = (address) => {
 
 
 // Load variables from .env file
-const { SEPOLIA_RPC, BOOTSTRAP_ADDRESS, BASE_GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
+const { SEPOLIA_RPC, BOOTSTRAP_ADDRESS, BASE_GENESIS_FILE_PATH, RESULT_GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
 
 async function updateGenesisFile() {
   try {
@@ -407,7 +407,7 @@ async function updateGenesisFile() {
     });
     genesisJSON.app_state.delegation.delegations = baseLevel;
 
-    await fs.writeFile(BASE_GENESIS_FILE_PATH, JSON.stringify(genesisJSON, null, 2));
+    await fs.writeFile(RESULT_GENESIS_FILE_PATH, JSON.stringify(genesisJSON, null, 2));
     console.log('Genesis file updated successfully.');
   } catch (error) {
     console.error('Error updating genesis file:', error.message);
