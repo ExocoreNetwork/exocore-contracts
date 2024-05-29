@@ -14,7 +14,7 @@ contract DepositWithdrawMock is IDeposit, IWithdraw {
         require(stakerAddress.length == 32, "invalid staker address");
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
 
-        return (success, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);
+        return (true, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
     function withdrawPrinciple(
@@ -28,7 +28,7 @@ contract DepositWithdrawMock is IDeposit, IWithdraw {
         require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
         principleBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
 
-        return (success, principleBalances[clientChainLzId][assetsAddress][withdrawer]);
+        return (true, principleBalances[clientChainLzId][assetsAddress][withdrawer]);
     }
 
     function getPrincipleBalance(uint32 clientChainLzId, address token, address staker) public view returns (uint256) {

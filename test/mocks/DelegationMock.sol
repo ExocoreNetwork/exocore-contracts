@@ -37,6 +37,8 @@ contract DelegationMock is IDelegation {
         emit DelegateRequestProcessed(
             clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
         );
+
+        return true;
     }
 
     function undelegateFromThroughClientChain(
@@ -55,6 +57,8 @@ contract DelegationMock is IDelegation {
         emit UndelegateRequestProcessed(
             clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
         );
+
+        return true;
     }
 
     function getDelegateAmount(address delegator, string memory operator, uint32 clientChainLzId, address token) public view returns (uint256) {

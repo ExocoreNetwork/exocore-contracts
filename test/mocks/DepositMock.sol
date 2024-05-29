@@ -19,7 +19,7 @@ contract DepositMock is IDeposit {
         require(stakerAddress.length == 32, "invalid staker address");
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
         WithdrawPrincipleMock(WITHDRAW_PRECOMPILE_ADDRESS).depositTo(clientChainLzId, assetsAddress, stakerAddress, opAmount);
-        return (success, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);
+        return (true, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
     function withdrawPrinciple(

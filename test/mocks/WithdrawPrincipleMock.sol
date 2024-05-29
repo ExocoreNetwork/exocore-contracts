@@ -32,6 +32,6 @@ contract WithdrawPrincipleMock is IWithdraw {
         require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
         principleBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
         DepositMock(DEPOSIT_PRECOMPILE_ADDRESS).withdrawPrinciple(clientChainLzId, assetsAddress, withdrawer, opAmount);
-        return (success, principleBalances[clientChainLzId][assetsAddress][withdrawer]);
+        return (true, principleBalances[clientChainLzId][assetsAddress][withdrawer]);
     }
 }
