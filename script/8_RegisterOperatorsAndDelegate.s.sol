@@ -8,7 +8,9 @@ import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ER
 
 import "forge-std/Script.sol";
 
-contract DeployBootstrapOnly is Script {
+// This script does not intentionally inherit from BaseScript, since
+// that script has boilerplate that is not needed here.
+contract RegisterOperatorsAndDelegate is Script {
     // registration data for operators
     uint256[] operatorKeys;
     string[] exoAddresses;
@@ -16,7 +18,7 @@ contract DeployBootstrapOnly is Script {
     bytes32[] consKeys;
     // rpc settings
     string clientChainRPCURL;
-    uint256 clientChainFork;
+    uint256 clientChain;
     // addresses of contracts
     address bootstrapAddr;
     address tokenAddr;
@@ -34,8 +36,8 @@ contract DeployBootstrapOnly is Script {
         names = vm.envString("NAMES", ",");
         consKeys = vm.envBytes32("CONS_KEYS", ",");
 
-        clientChainRPCURL = vm.envString("CLIENT_CHAIN_URL");
-        clientChainFork = vm.createSelectFork(clientChainRPCURL);
+        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
+        clientChain = vm.createSelectFork(clientChainRPCURL);
 
         require(
             operatorKeys.length == exoAddresses.length &&
@@ -52,7 +54,7 @@ contract DeployBootstrapOnly is Script {
     }
 
     function run() public {
-        vm.selectFork(clientChainFork);
+        vm.selectFork(clientChain);
         IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(
             0, 1e18, 1e18
         );
