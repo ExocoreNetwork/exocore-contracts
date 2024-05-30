@@ -5,10 +5,6 @@ import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ER
 import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IVault.sol";
 import "../src/interfaces/IExocoreGateway.sol";
-import "../src/interfaces/precompiles/IDelegation.sol";
-import "../src/interfaces/precompiles/IDeposit.sol";
-import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/storage/GatewayStorage.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
@@ -43,54 +39,17 @@ contract DepositScript is BaseScript {
         require(address(exocoreLzEndpoint) != address(0), "exocoreLzEndpoint address should not be empty");
 
         if (!useExocorePrecompileMock) {
-            // bind precompile mock contracts code to constant precompile address so that local simulation could pass
-            bytes memory DepositMockCode = vm.getDeployedCode("DepositWithdrawMock.sol");
-            vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, DepositMockCode);
-
-            bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
-            vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
-
-            bytes memory WithdrawPrincipleMockCode = vm.getDeployedCode("DepositWithdrawMock.sol");
-            vm.etch(WITHDRAW_PRECOMPILE_ADDRESS, WithdrawPrincipleMockCode);
-
-            bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
-            vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+            _bindPrecompileMocks();
         }
 
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        vm.startBroadcast(deployer.privateKey);
-        if (depositor.addr.balance < 0.2 ether) {
-            (bool sent,) = depositor.addr.call{value: 0.2 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        if (exocoreValidatorSet.addr.balance < 0.02 ether) {
-            (bool sent,) = exocoreValidatorSet.addr.call{value: 0.02 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        vm.stopBroadcast();
-
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        if (restakeToken.balanceOf(depositor.addr) < DEPOSIT_AMOUNT) {
-            restakeToken.transfer(depositor.addr, DEPOSIT_AMOUNT);
-        }
-        vm.stopBroadcast();
+        _topUpPlayer(clientChain, address(0), deployer, depositor.addr, 0.2 ether);
+        _topUpPlayer(clientChain, address(restakeToken), exocoreValidatorSet, depositor.addr, 2 * DEPOSIT_AMOUNT);
 
         exocore = vm.createSelectFork(exocoreRPCURL);
-        vm.startBroadcast(exocoreGenesis.privateKey);
-        if (depositor.addr.balance < 2 ether) {
-            (bool sent,) = depositor.addr.call{value: 2 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        if (relayer.addr.balance < 2 ether) {
-            (bool sent,) = relayer.addr.call{value: 2 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        if (address(exocoreGateway).balance < 2 ether) {
-            (bool sent,) = address(exocoreGateway).call{value: 2 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        vm.stopBroadcast();
+        _topUpPlayer(exocore, address(0), exocoreGenesis, relayer.addr, 0.2 ether);
+        _topUpPlayer(exocore, address(0), exocoreGenesis, address(exocoreGateway), 2 ether);
     }
 
     function run() public {

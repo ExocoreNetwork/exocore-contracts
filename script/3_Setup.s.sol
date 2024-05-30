@@ -39,20 +39,10 @@ contract SetupScript is BaseScript {
 
         // transfer some gas fee to exocore validator set address
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        vm.startBroadcast(deployer.privateKey);
-        if (exocoreValidatorSet.addr.balance < 0.1 ether) {
-            (bool sent,) = exocoreValidatorSet.addr.call{value: 0.1 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        vm.stopBroadcast();
+        _topUpPlayer(clientChain, address(0), deployer, exocoreValidatorSet.addr, 0.2 ether);
 
         exocore = vm.createSelectFork(exocoreRPCURL);
-        vm.startBroadcast(exocoreGenesis.privateKey);
-        if (exocoreValidatorSet.addr.balance < 1 ether) {
-            (bool sent,) = exocoreValidatorSet.addr.call{value: 1 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        vm.stopBroadcast();
+        _topUpPlayer(exocore, address(0), exocoreGenesis, exocoreValidatorSet.addr, 0.2 ether);
     }
 
     function run() public {
