@@ -18,12 +18,7 @@ contract PrerequisitiesScript is BaseScript {
 
         // transfer some eth to deployer address
         exocore = vm.createSelectFork(exocoreRPCURL);
-        vm.startBroadcast(exocoreGenesis.privateKey);
-        if (deployer.addr.balance < 1 ether) {
-            (bool sent,) = deployer.addr.call{value: 1 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        vm.stopBroadcast();
+        _topUpPlayer(exocore, address(0), exocoreGenesis, deployer.addr, 1 ether);
     }
 
     function run() public {
