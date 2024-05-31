@@ -142,7 +142,3 @@ contract DeployBootstrapOnly is BaseScript {
         vm.writeJson(finalJson, "script/deployedBootstrapOnly.json");
     }
 }
-
-// forge verify-contract --chain 11155111 --num-of-optimizations 200 --compiler-version "0.8.22" --constructor-args $(cast abi-encode "constructor(address,uint32,address,address,address,address)" "0x6EDCE65403992e310A62460808c4b910D972f10f" 40259 "0xd3D285cd1516038dAED61B8BF7Ae2daD63662492" "0x2899181D6EB55847165cfa3288E4708dA5070751" "0xe87e516C7116eC4DcFC5408c05618De6e1Cd4c10" "0xA15Ce26ba8E50ac21ecDa1791BAa3bf22a95b575") --watch --etherscan-api-key RDD5I2JQPJ8GSP4AMEFYJI9GYBWH1E2G95 0xcE10583b1Efe34319812d96c7edFFD71E8403ba2 ClientChainGateway
-
-// forge verify-contract --chain 11155111 --num-of-optimizations 200 --compiler-version "0.8.22" --watch --etherscan-api-key RDD5I2JQPJ8GSP4AMEFYJI9GYBWH1E2G95 --constructor-args $(cast abi-encode "constructor(address)" "0xF22097E6799DF7D8b25CCeF6E64DA3CB9133012D") 0x2899181D6EB55847165cfa3288E4708dA5070751 UpgradeableBeacon
