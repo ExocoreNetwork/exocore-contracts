@@ -20,7 +20,7 @@ contract DelegateTest is ExocoreDeployer {
     event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
     event DelegateResult(
-        bool indexed success, address indexed delegator, string delegatee, address token, uint256 amount
+        bool indexed success, address indexed delegator, string indexed delegatee, address token, uint256 amount
     );
      event UndelegateResult(
         bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
