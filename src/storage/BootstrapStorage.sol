@@ -306,7 +306,7 @@ contract BootstrapStorage is GatewayStorage {
      * @param amount The amount of the token delegated.
      */
     event DelegateResult(
-        bool indexed success, address indexed delegator, string delegatee,
+        bool indexed success, address indexed delegator, string indexed delegatee,
         address token, uint256 amount
     );
 
@@ -320,7 +320,8 @@ contract BootstrapStorage is GatewayStorage {
      * @param amount The amount of the token undelegated.
      */
     event UndelegateResult(
-        bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
+        bool indexed success, address indexed undelegator, string indexed undelegatee,
+        address token, uint256 amount
     );
 
     /**
