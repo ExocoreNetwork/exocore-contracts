@@ -6,7 +6,6 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 
@@ -72,7 +71,7 @@ contract Bootstrap is
         exocoreSpawnTime = spawnTime_;
         offsetDuration = offsetDuration_;
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
-        
+
         for (uint256 i = 0; i < whitelistTokens_.length; i++) {
             address underlyingToken = whitelistTokens_[i];
             whitelistTokens.push(underlyingToken);
@@ -418,7 +417,7 @@ contract Bootstrap is
     ) view internal returns (IVault) {
         require(isWhitelistedToken[token], "Bootstrap: token is not whitelisted");
         require(amount > 0, "Bootstrap: amount should be greater than zero");
-        
+
         return _getVault(token);
     }
 
@@ -654,23 +653,5 @@ contract Bootstrap is
             totalSupply: token.totalSupply(),
             depositAmount: depositsByToken[tokenAddress]
         });
-    }
-    
-    // TODO: might be better to share this function between Bootstrap and ClientChainGateay
-    // as they both use this function.
-    function _deployVault(address underlyingToken) internal returns (IVault) {
-        Vault vault = Vault(
-            Create2.deploy(
-                0,
-                bytes32(uint256(uint160(underlyingToken))),
-                // set the beacon address for beacon proxy
-                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
-            )
-        );
-        vault.initialize(underlyingToken, address(this));
-        emit VaultCreated(underlyingToken, address(vault));
-
-        tokenToVault[underlyingToken] = vault;
-        return vault;
     }
 }

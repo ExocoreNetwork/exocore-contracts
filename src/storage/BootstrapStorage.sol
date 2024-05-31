@@ -5,6 +5,8 @@ import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
+import {Vault} from "../core/Vault.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 // BootstrapStorage should inherit from GatewayStorage since it exists
 // prior to ClientChainGateway. ClientChainStorage should inherit from
@@ -342,6 +344,13 @@ contract BootstrapStorage is GatewayStorage {
      */
     event ClientChainGatewayLogicUpdated(address newLogic, bytes initializationData);
 
+    /**
+     * @dev Emitted when a new vault is created.
+     * @param vault The address of the vault that has been added.
+     * @param underlyingToken The underlying token of vault.
+     */
+    event VaultCreated(address underlyingToken, address vault);
+
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
     /* -------------------------------------------------------------------------- */
@@ -426,5 +435,21 @@ contract BootstrapStorage is GatewayStorage {
         }
 
         return true;
+    }
+
+    function _deployVault(address underlyingToken) internal returns (IVault) {
+        Vault vault = Vault(
+            Create2.deploy(
+                0,
+                bytes32(uint256(uint160(underlyingToken))),
+                // set the beacon address for beacon proxy
+                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
+            )
+        );
+        vault.initialize(underlyingToken, address(this));
+        emit VaultCreated(underlyingToken, address(vault));
+
+        tokenToVault[underlyingToken] = vault;
+        return vault;
     }
 }

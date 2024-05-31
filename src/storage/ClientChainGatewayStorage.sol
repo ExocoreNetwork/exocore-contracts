@@ -22,24 +22,19 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     // immutable state variables
     address public immutable beaconOracleAddress;
     IBeacon public immutable exoCapsuleBeacon;
-    
+
     // constant state variables
     uint128 constant DESTINATION_GAS_LIMIT = 500000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
     uint256 constant GWEI_TO_WEI = 1e9;
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     IETHPOSDeposit constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
-    
+
     uint256[40] private __gap;
 
     /* -------------------------------------------------------------------------- */
     /*     ClientChainGateway Events(besides inherited from BootstrapStorage)     */
     /* -------------------------------------------------------------------------- */
-
-    /* ----------------- whitelist tokens and vaults management ----------------- */
-    event WhitelistTokenAdded(address _token);
-    event WhitelistTokenRemoved(address _token);
-    event VaultCreated(address _underlyingToken, address _vault);
 
     /* ---------------------------- native restaking ---------------------------- */
     event CapsuleCreated(address owner, address capsule);
