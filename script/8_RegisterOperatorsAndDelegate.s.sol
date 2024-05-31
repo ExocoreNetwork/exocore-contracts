@@ -11,6 +11,7 @@ import "forge-std/Script.sol";
 // This script does not intentionally inherit from BaseScript, since
 // that script has boilerplate that is not needed here.
 contract RegisterOperatorsAndDelegate is Script {
+    uint256 primaryKey;
     // registration data for operators
     uint256[] operatorKeys;
     string[] exoAddresses;
@@ -31,6 +32,7 @@ contract RegisterOperatorsAndDelegate is Script {
     ];
  
     function setUp() public {
+        primaryKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         operatorKeys = vm.envUint("OPERATOR_KEYS", ",");
         exoAddresses = vm.envString("EXO_ADDRESSES", ",");
         names = vm.envString("NAMES", ",");
@@ -63,7 +65,8 @@ contract RegisterOperatorsAndDelegate is Script {
         address vaultAddr = address(bootstrap.tokenToVault(tokenAddr));
         for(uint256 i = 0; i < operatorKeys.length; i++) {
             uint256 pk = operatorKeys[i];
-            // address addr = vm.addr(pk);
+            address addr = vm.addr(pk);
+            console.log(i, addr);
             string memory exoAddr = exoAddresses[i];
             string memory name = names[i];
             bytes32 consKey = consKeys[i];
@@ -72,11 +75,19 @@ contract RegisterOperatorsAndDelegate is Script {
             bootstrap.registerOperator(
                 exoAddr, name, commission, consKey
             );
+            vm.stopBroadcast();
+            // give them the balance
+            vm.startBroadcast(primaryKey);
             uint256 depositAmount = 0;
             for(uint256 j = 0; j < amounts[i].length; j++) {
                 depositAmount += amounts[i][j];
             }
+            if (token.balanceOf(addr) < depositAmount) {
+                token.transfer(addr, depositAmount);
+            }
+            vm.stopBroadcast();
             // approve
+            vm.startBroadcast(pk);
             token.approve(vaultAddr, type(uint256).max);
             // transfer
             bootstrap.deposit(tokenAddr, depositAmount);

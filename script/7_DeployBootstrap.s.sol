@@ -15,6 +15,8 @@ import {BaseScript} from "./BaseScript.sol";
 import {ILayerZeroEndpointV2} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+
 contract DeployBootstrapOnly is BaseScript {
     function setUp() public virtual override {
         // load keys
@@ -24,10 +26,34 @@ contract DeployBootstrapOnly is BaseScript {
         clientChainLzEndpoint = ILayerZeroEndpointV2(
             stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint")
         );
+        require(
+            address(clientChainLzEndpoint) != address(0),
+            "Client chain endpoint not found"
+        );
         restakeToken = ERC20PresetFixedSupply(
             stdJson.readAddress(prerequisiteContracts, ".clientChain.erc20Token")
         );
+        require(
+            address(restakeToken) != address(0),
+            "Restake token not found"
+        );
         clientChain = vm.createSelectFork(clientChainRPCURL);
+        // we should use the pre-requisite to save gas instead of deploying our own
+        beaconOracle = EigenLayerBeaconOracle(
+            stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconOracle")
+        );
+        require(
+            address(beaconOracle) != address(0),
+            "Beacon oracle not found"
+        );
+        // same for BeaconProxyBytecode
+        beaconProxyBytecode = BeaconProxyBytecode(
+            stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode")
+        );
+        require(
+            address(beaconProxyBytecode) != address(0),
+            "Beacon proxy bytecode not found"
+        );
     }
 
     function run() public {
@@ -40,8 +66,6 @@ contract DeployBootstrapOnly is BaseScript {
         // vault, shared between bootstrap and client chain gateway
         vaultImplementation = new Vault();
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
-        // proxy bytecode, also shared between the two
-        beaconProxyBytecode = new BeaconProxyBytecode();
         // bootstrap logic
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint),
@@ -57,7 +81,7 @@ contract DeployBootstrapOnly is BaseScript {
                     abi.encodeCall(Bootstrap.initialize,
                         (
                             exocoreValidatorSet.addr,
-                            block.timestamp + 365 days,
+                            block.timestamp + 365 days + 24 hours,
                             24 hours,
                             payable(exocoreValidatorSet.addr),
                             whitelistTokens, // vault is auto deployed
@@ -67,14 +91,11 @@ contract DeployBootstrapOnly is BaseScript {
                 ))
             )
         );
-        console.log("Bootstrap logic: ", address(bootstrapLogic));
-        console.log("Bootstrap address: ", address(bootstrap));
 
         // initialize proxyAdmin with bootstrap address
         proxyAdmin.initialize(address(bootstrap));
 
         // now, focus on the client chain constructor
-        beaconOracle = _deployBeaconOracle();
         capsuleImplementation = new ExoCapsule();
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(
@@ -96,7 +117,6 @@ contract DeployBootstrapOnly is BaseScript {
             address(clientGatewayLogic),
             initialization
         );
-        console.log("Client chain gateway logic: ", address(clientGatewayLogic));
 
         vm.stopBroadcast();
 

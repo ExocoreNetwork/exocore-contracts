@@ -17,13 +17,6 @@ interface ITokenWhitelister {
     event WhitelistTokenRemoved(address _token);
 
     /**
-     * @dev Emitted when a new vault is created.
-     * @param vault The address of the vault that has been added.
-     * @param underlyingToken The underlying token of vault.
-     */
-    event VaultCreated(address underlyingToken, address vault);
-
-    /**
      * @dev Indicates an operation was attempted with a token that is not authorized.
      */
     error UnauthorizedToken();

@@ -203,22 +203,4 @@ contract ClientChainGateway is
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
     }
-
-    // TODO: might be better to share this function between Bootstrap and ClientChainGateay
-    // as they both use this function.
-    function _deployVault(address underlyingToken) internal returns (IVault) {
-        Vault vault = Vault(
-            Create2.deploy(
-                0,
-                bytes32(uint256(uint160(underlyingToken))),
-                // set the beacon address for beacon proxy
-                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
-            )
-        );
-        vault.initialize(underlyingToken, address(this));
-        emit VaultCreated(underlyingToken, address(vault));
-
-        tokenToVault[underlyingToken] = vault;
-        return vault;
-    }
 }
