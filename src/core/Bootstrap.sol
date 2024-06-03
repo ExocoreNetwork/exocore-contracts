@@ -161,11 +161,6 @@ contract Bootstrap is
 
     // implementation of ITokenWhitelister
     function addWhitelistToken(address _token) external beforeLocked onlyOwner whenNotPaused {
-        // modifiers: onlyOwner and whenNotPaused copied from client chain gateway.
-        // i added beforeLocked to ensure that new tokens may not be added after
-        // the offset duration before the spawn time begins.
-        // anyway it would be pointless to add such tokens since other operations
-        // cannot be performed.
         require(!isWhitelistedToken[_token], "Bootstrap: token should be not whitelisted before");
         whitelistTokens.push(_token);
         isWhitelistedToken[_token] = true;
