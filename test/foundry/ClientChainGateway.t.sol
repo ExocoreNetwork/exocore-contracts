@@ -77,7 +77,6 @@ contract SetUp is Test {
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
 
-        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
         beaconProxyBytecode = new BeaconProxyBytecode();
 
         restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
