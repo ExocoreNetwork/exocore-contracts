@@ -1,4 +1,4 @@
-name: test
+name: Run `solhint` linter
 
 on: 
   pull_request:
