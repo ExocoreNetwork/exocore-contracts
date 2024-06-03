@@ -415,10 +415,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
     }
 
     modifier isValidBech32Address(string calldata exocoreAddress) {
-        require(
-            isValidExocoreAddress(exocoreAddress),
-            "BootstrapStorage: invalid bech32 encoded Exocore address"
-        );
+        require(isValidExocoreAddress(exocoreAddress), "BootstrapStorage: invalid bech32 encoded Exocore address");
         _;
     }
 
