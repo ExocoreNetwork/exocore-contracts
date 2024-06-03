@@ -52,5 +52,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'The GitHub Actions workflow has failed. Please check the logs for more details.'
+              body: 'The tests have failed. Please check the logs for more details.'
             })
