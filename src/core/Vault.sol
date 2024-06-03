@@ -65,11 +65,10 @@ contract Vault is Initializable, VaultStorage, IVault {
         emit RewardBalanceUpdated(user, lastlyUpdatedRewardBalance);
     }
 
-    function updateWithdrawableBalance(
-        address user,
-        uint256 unlockPrincipleAmount,
-        uint256 unlockRewardAmount
-    ) external onlyGateway {
+    function updateWithdrawableBalance(address user, uint256 unlockPrincipleAmount, uint256 unlockRewardAmount)
+        external
+        onlyGateway
+    {
         uint256 totalDeposited = totalDepositedPrincipleAmount[user];
         require(
             unlockPrincipleAmount <= totalDeposited,

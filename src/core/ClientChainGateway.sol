@@ -59,10 +59,10 @@ contract ClientChainGateway is
 
     // initialization happens from another contract so it must be external.
     // reinitializer(2) is used so that the ownable and oappcore functions can be called again.
-    function initialize(
-        address payable exocoreValidatorSetAddress_,
-        address[] calldata appendedWhitelistTokens_
-    ) external reinitializer(2) {
+    function initialize(address payable exocoreValidatorSetAddress_, address[] calldata appendedWhitelistTokens_)
+        external
+        reinitializer(2)
+    {
         _clearBootstrapData();
 
         require(
@@ -87,14 +87,12 @@ contract ClientChainGateway is
         }
 
         _registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this
-            .afterReceiveWithdrawPrincipleResponse
-            .selector;
+        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
+            this.afterReceiveWithdrawPrincipleResponse.selector;
         _registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
         _registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this
-            .afterReceiveWithdrawRewardResponse
-            .selector;
+        _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
+            this.afterReceiveWithdrawRewardResponse.selector;
 
         bootstrapped = true;
 
@@ -144,10 +142,9 @@ contract ClientChainGateway is
     }
 
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {
-        bytes memory options = OptionsBuilder
-            .newOptions()
-            .addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE)
-            .addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(exocoreChainId, _message, options, false);
         return fee.nativeFee;
     }

@@ -129,15 +129,13 @@ contract CustomProxyAdminTest is Test {
         proxyAdmin.initialize(address(0x1));
         vm.startPrank(address(0x1));
         // same logic as above for using a try/catch.
-        try
-            proxyAdmin.changeImplementation(
-                // the call is made to the ProxyAdmin from address(0x1)
-                // when instead it should have been made from the TransparentUpgradeableProxy
-                address(implementationChanger),
-                address(new NewImplementation()),
-                abi.encodeCall(NewImplementation.initialize, ())
-            )
-        {
+        try proxyAdmin.changeImplementation(
+            // the call is made to the ProxyAdmin from address(0x1)
+            // when instead it should have been made from the TransparentUpgradeableProxy
+            address(implementationChanger),
+            address(new NewImplementation()),
+            abi.encodeCall(NewImplementation.initialize, ())
+        ) {
             // should never happen
             assertTrue(false);
         } catch {}

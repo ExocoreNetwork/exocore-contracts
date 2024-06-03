@@ -5,7 +5,8 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {ITransparentUpgradeableProxy} from "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {ITransparentUpgradeableProxy} from
+    "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 
@@ -32,12 +33,10 @@ contract Bootstrap is
     IOperatorRegistry,
     BootstrapLzReceiver
 {
-    constructor(
-        address endpoint_,
-        uint32 exocoreChainId_,
-        address vaultBeacon_,
-        address beaconProxyBytecode_
-    ) OAppCoreUpgradeable(endpoint_) BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_) {
+    constructor(address endpoint_, uint32 exocoreChainId_, address vaultBeacon_, address beaconProxyBytecode_)
+        OAppCoreUpgradeable(endpoint_)
+        BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_)
+    {
         _disableInitializers();
     }
 
@@ -56,8 +55,7 @@ contract Bootstrap is
         uint256 lockTime = spawnTime_ - offsetDuration_;
         require(lockTime > block.timestamp, "Bootstrap: lock time should be in the future");
         require(
-            exocoreValidatorSetAddress_ != address(0),
-            "Bootstrap: exocore validator set address should not be empty"
+            exocoreValidatorSetAddress_ != address(0), "Bootstrap: exocore validator set address should not be empty"
         );
         require(customProxyAdmin_ != address(0), "Bootstrap: custom proxy admin should not be empty");
 
@@ -163,9 +161,14 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function removeWhitelistToken(
-        address _token
-    ) public override beforeLocked onlyOwner whenNotPaused isTokenWhitelisted(_token) {
+    function removeWhitelistToken(address _token)
+        public
+        override
+        beforeLocked
+        onlyOwner
+        whenNotPaused
+        isTokenWhitelisted(_token)
+    {
         super.removeWhitelistToken(_token);
     }
 
@@ -192,11 +195,8 @@ contract Bootstrap is
         // check that the commission is valid.
         require(isCommissionValid(commission), "invalid commission");
         ethToExocoreAddress[msg.sender] = operatorExocoreAddress;
-        operators[operatorExocoreAddress] = IOperatorRegistry.Operator({
-            name: name,
-            commission: commission,
-            consensusPublicKey: consensusPublicKey
-        });
+        operators[operatorExocoreAddress] =
+            IOperatorRegistry.Operator({name: name, commission: commission, consensusPublicKey: consensusPublicKey});
         registeredOperators.push(msg.sender);
         emit OperatorRegistered(msg.sender, operatorExocoreAddress, name, commission, consensusPublicKey);
     }
@@ -242,12 +242,8 @@ contract Bootstrap is
      * `false` otherwise.
      */
     function isCommissionValid(Commission memory commission) public pure returns (bool) {
-        return
-            commission.rate <= 1e18 &&
-            commission.maxRate <= 1e18 &&
-            commission.maxChangeRate <= 1e18 &&
-            commission.rate <= commission.maxRate &&
-            commission.maxChangeRate <= commission.maxRate;
+        return commission.rate <= 1e18 && commission.maxRate <= 1e18 && commission.maxChangeRate <= 1e18
+            && commission.rate <= commission.maxRate && commission.maxChangeRate <= commission.maxRate;
     }
 
     /**
@@ -308,10 +304,15 @@ contract Bootstrap is
     }
 
     // implementation of IController
-    function deposit(
-        address token,
-        uint256 amount
-    ) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
+    function deposit(address token, uint256 amount)
+        external
+        payable
+        override
+        beforeLocked
+        whenNotPaused
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+    {
         IVault vault = _getVault(token);
         vault.deposit(msg.sender, amount);
 
@@ -335,10 +336,15 @@ contract Bootstrap is
 
     // implementation of IController
     // This will allow release of undelegated (free) funds to the user for claiming separately.
-    function withdrawPrincipleFromExocore(
-        address token,
-        uint256 amount
-    ) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
+    function withdrawPrincipleFromExocore(address token, uint256 amount)
+        external
+        payable
+        override
+        beforeLocked
+        whenNotPaused
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+    {
         IVault vault = _getVault(token);
 
         uint256 deposited = totalDepositAmounts[msg.sender][token];
@@ -365,21 +371,20 @@ contract Bootstrap is
     }
 
     // implementation of IController
-    function claim(
-        address token,
-        uint256 amount,
-        address recipient
-    ) external override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
+    function claim(address token, uint256 amount, address recipient)
+        external
+        override
+        beforeLocked
+        whenNotPaused
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+    {
         IVault vault = _getVault(token);
         vault.withdraw(msg.sender, recipient, amount);
     }
 
     // implementation of IController
-    function delegateTo(
-        string calldata operator,
-        address token,
-        uint256 amount
-    )
+    function delegateTo(string calldata operator, address token, uint256 amount)
         external
         payable
         override
@@ -404,11 +409,7 @@ contract Bootstrap is
     }
 
     // implementation of IController
-    function undelegateFrom(
-        string calldata operator,
-        address token,
-        uint256 amount
-    )
+    function undelegateFrom(string calldata operator, address token, uint256 amount)
         external
         payable
         override
@@ -475,10 +476,10 @@ contract Bootstrap is
      * @param _clientChainInitializationData The initialization data to be used when setting up
      * the new logic contract.
      */
-    function setClientChainGatewayLogic(
-        address _clientChainGatewayLogic,
-        bytes calldata _clientChainInitializationData
-    ) public onlyOwner {
+    function setClientChainGatewayLogic(address _clientChainGatewayLogic, bytes calldata _clientChainInitializationData)
+        public
+        onlyOwner
+    {
         clientChainGatewayLogic = _clientChainGatewayLogic;
         clientChainInitializationData = _clientChainInitializationData;
         emit ClientChainGatewayLogicUpdated(_clientChainGatewayLogic, _clientChainInitializationData);
@@ -521,14 +522,13 @@ contract Bootstrap is
         require(index < whitelistTokens.length, "Index out of bounds");
         address tokenAddress = whitelistTokens[index];
         ERC20 token = ERC20(tokenAddress);
-        return
-            TokenInfo({
-                name: token.name(),
-                symbol: token.symbol(),
-                tokenAddress: tokenAddress,
-                decimals: token.decimals(),
-                totalSupply: token.totalSupply(),
-                depositAmount: depositsByToken[tokenAddress]
-            });
+        return TokenInfo({
+            name: token.name(),
+            symbol: token.symbol(),
+            tokenAddress: tokenAddress,
+            decimals: token.decimals(),
+            totalSupply: token.totalSupply(),
+            depositAmount: depositsByToken[tokenAddress]
+        });
     }
 }

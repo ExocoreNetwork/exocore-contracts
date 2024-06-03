@@ -23,9 +23,8 @@ contract DepositScript is BaseScript {
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
-        clientGateway = IClientChainGateway(
-            payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway"))
-        );
+        clientGateway =
+            IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
         require(address(clientGateway) != address(0), "clientGateway address should not be empty");
 
         clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".clientChain.lzEndpoint"));
@@ -80,11 +79,7 @@ contract DepositScript is BaseScript {
                 Origin(clientChainId, address(clientGateway).toBytes32(), nonce),
                 address(exocoreGateway),
                 GUID.generate(
-                    nonce,
-                    clientChainId,
-                    address(clientGateway),
-                    exocoreChainId,
-                    address(exocoreGateway).toBytes32()
+                    nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
                 ),
                 msg_,
                 bytes("")

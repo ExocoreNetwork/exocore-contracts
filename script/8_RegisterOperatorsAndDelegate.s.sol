@@ -42,9 +42,8 @@ contract RegisterOperatorsAndDelegate is Script {
         clientChain = vm.createSelectFork(clientChainRPCURL);
 
         require(
-            operatorKeys.length == exoAddresses.length &&
-                operatorKeys.length == names.length &&
-                operatorKeys.length == consKeys.length,
+            operatorKeys.length == exoAddresses.length && operatorKeys.length == names.length
+                && operatorKeys.length == consKeys.length,
             "Operator registration data length mismatch"
         );
 

@@ -90,9 +90,7 @@ contract DeployScript is BaseScript {
                         address(clientGatewayLogic),
                         address(clientChainProxyAdmin),
                         abi.encodeWithSelector(
-                            clientGatewayLogic.initialize.selector,
-                            payable(exocoreValidatorSet.addr),
-                            whitelistTokens
+                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr), whitelistTokens
                         )
                     )
                 )
@@ -113,11 +111,7 @@ contract DeployScript is BaseScript {
 
         if (useExocorePrecompileMock) {
             ExocoreGatewayMock exocoreGatewayLogic = new ExocoreGatewayMock(
-                address(exocoreLzEndpoint),
-                depositMock,
-                withdrawMock,
-                delegationMock,
-                claimRewardMock
+                address(exocoreLzEndpoint), depositMock, withdrawMock, delegationMock, claimRewardMock
             );
             exocoreGateway = ExocoreGateway(
                 payable(
@@ -126,8 +120,7 @@ contract DeployScript is BaseScript {
                             address(exocoreGatewayLogic),
                             address(exocoreProxyAdmin),
                             abi.encodeWithSelector(
-                                exocoreGatewayLogic.initialize.selector,
-                                payable(exocoreValidatorSet.addr)
+                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
                             )
                         )
                     )
@@ -142,8 +135,7 @@ contract DeployScript is BaseScript {
                             address(exocoreGatewayLogic),
                             address(exocoreProxyAdmin),
                             abi.encodeWithSelector(
-                                exocoreGatewayLogic.initialize.selector,
-                                payable(exocoreValidatorSet.addr)
+                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
                             )
                         )
                     )
@@ -164,11 +156,8 @@ contract DeployScript is BaseScript {
         vm.serializeAddress(clientChainContracts, "vaultBeacon", address(vaultBeacon));
         vm.serializeAddress(clientChainContracts, "capsuleBeacon", address(capsuleBeacon));
         vm.serializeAddress(clientChainContracts, "beaconProxyBytecode", address(beaconProxyBytecode));
-        string memory clientChainContractsOutput = vm.serializeAddress(
-            clientChainContracts,
-            "proxyAdmin",
-            address(clientChainProxyAdmin)
-        );
+        string memory clientChainContractsOutput =
+            vm.serializeAddress(clientChainContracts, "proxyAdmin", address(clientChainProxyAdmin));
 
         vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
         vm.serializeAddress(exocoreContracts, "exocoreGateway", address(exocoreGateway));
@@ -180,11 +169,8 @@ contract DeployScript is BaseScript {
             vm.serializeAddress(exocoreContracts, "claimRewardPrecompileMock", claimRewardMock);
         }
 
-        string memory exocoreContractsOutput = vm.serializeAddress(
-            exocoreContracts,
-            "proxyAdmin",
-            address(exocoreProxyAdmin)
-        );
+        string memory exocoreContractsOutput =
+            vm.serializeAddress(exocoreContracts, "proxyAdmin", address(exocoreProxyAdmin));
 
         vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
         string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);

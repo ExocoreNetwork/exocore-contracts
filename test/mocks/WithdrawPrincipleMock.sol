@@ -6,12 +6,11 @@ import "./DepositMock.sol";
 
 contract WithdrawPrincipleMock is IWithdraw {
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) principleBalances;
-    function depositTo(
-        uint32 clientChainLzId,
-        bytes memory assetsAddress,
-        bytes memory stakerAddress,
-        uint256 opAmount
-    ) external returns (bool success, uint256 latestAssetState) {
+
+    function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
+        external
+        returns (bool success, uint256 latestAssetState)
+    {
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
     }
 

@@ -24,12 +24,11 @@ library Merkle {
      *
      * Note this is for a Merkle tree using the sha256 hash function
      */
-    function verifyInclusionSha256(
-        bytes32[] memory proof,
-        bytes32 root,
-        bytes32 leaf,
-        uint256 index
-    ) internal view returns (bool) {
+    function verifyInclusionSha256(bytes32[] memory proof, bytes32 root, bytes32 leaf, uint256 index)
+        internal
+        view
+        returns (bool)
+    {
         return processInclusionProofSha256(proof, leaf, index) == root;
     }
 
@@ -43,14 +42,13 @@ library Merkle {
      *
      * Note this is for a Merkle tree using the sha256 hash function
      */
-    function processInclusionProofSha256(
-        bytes32[] memory proof,
-        bytes32 leaf,
-        uint256 index
-    ) internal view returns (bytes32) {
+    function processInclusionProofSha256(bytes32[] memory proof, bytes32 leaf, uint256 index)
+        internal
+        view
+        returns (bytes32)
+    {
         require(
-            proof.length != 0,
-            "Merkle.processInclusionProofSha256: proof length should be a non-zero multiple of 32"
+            proof.length != 0, "Merkle.processInclusionProofSha256: proof length should be a non-zero multiple of 32"
         );
         bytes32[1] memory computedHash = [leaf];
         for (uint256 i = 0; i < proof.length; i++) {
@@ -60,9 +58,7 @@ library Merkle {
                 assembly {
                     mstore(0x00, mload(computedHash))
                     mstore(0x20, mload(node))
-                    if iszero(staticcall(sub(gas(), 2000), 2, 0x00, 0x40, computedHash, 0x20)) {
-                        revert(0, 0)
-                    }
+                    if iszero(staticcall(sub(gas(), 2000), 2, 0x00, 0x40, computedHash, 0x20)) { revert(0, 0) }
                     index := div(index, 2)
                 }
             } else {
@@ -70,9 +66,7 @@ library Merkle {
                 assembly {
                     mstore(0x00, mload(node))
                     mstore(0x20, mload(computedHash))
-                    if iszero(staticcall(sub(gas(), 2000), 2, 0x00, 0x40, computedHash, 0x20)) {
-                        revert(0, 0)
-                    }
+                    if iszero(staticcall(sub(gas(), 2000), 2, 0x00, 0x40, computedHash, 0x20)) { revert(0, 0) }
                     index := div(index, 2)
                 }
             }
@@ -81,10 +75,10 @@ library Merkle {
     }
 
     /**
-     @notice this function returns the merkle root of a tree created from a set of leaves using sha256 as its hash function
-     @param leaves the leaves of the merkle tree
-     @return The computed Merkle root of the tree.
-     @dev A pre-condition to this function is that leaves.length is a power of two.  If not, the function will merkleize the inputs incorrectly.
+     * @notice this function returns the merkle root of a tree created from a set of leaves using sha256 as its hash function
+     *  @param leaves the leaves of the merkle tree
+     *  @return The computed Merkle root of the tree.
+     *  @dev A pre-condition to this function is that leaves.length is a power of two.  If not, the function will merkleize the inputs incorrectly.
      */
     function merkleizeSha256(bytes32[] memory leaves) internal pure returns (bytes32) {
         //there are half as many nodes in the layer above the leaves

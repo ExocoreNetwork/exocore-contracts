@@ -56,11 +56,8 @@ contract PrerequisitiesScript is BaseScript {
         string memory exocoreContracts = "exocoreContracts";
         vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
         vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
-        string memory clientChainContractsOutput = vm.serializeAddress(
-            clientChainContracts,
-            "erc20Token",
-            address(restakeToken)
-        );
+        string memory clientChainContractsOutput =
+            vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
 
         if (useExocorePrecompileMock) {
             vm.serializeAddress(exocoreContracts, "depositPrecompileMock", depositMock);
@@ -69,11 +66,8 @@ contract PrerequisitiesScript is BaseScript {
             vm.serializeAddress(exocoreContracts, "claimRewardPrecompileMock", claimRewardMock);
         }
 
-        string memory exocoreContractsOutput = vm.serializeAddress(
-            exocoreContracts,
-            "lzEndpoint",
-            address(exocoreLzEndpoint)
-        );
+        string memory exocoreContractsOutput =
+            vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
 
         vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
         string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);

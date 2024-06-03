@@ -4,15 +4,15 @@ import "../libraries/Endian.sol";
 
 /**
  * class Validator(Container):
-    pubkey: BLSPubkey
-    withdrawal_credentials: Bytes32  # Commitment to pubkey for withdrawals
-    effective_balance: Gwei  # Balance at stake
-    slashed: boolean
-    # Status epochs
-    activation_eligibility_epoch: Epoch  # When criteria for activation were met
-    activation_epoch: Epoch
-    exit_epoch: Epoch
-    withdrawable_epoch: Epoch  # When validator can withdraw funds
+ *     pubkey: BLSPubkey
+ *     withdrawal_credentials: Bytes32  # Commitment to pubkey for withdrawals
+ *     effective_balance: Gwei  # Balance at stake
+ *     slashed: boolean
+ *     # Status epochs
+ *     activation_eligibility_epoch: Epoch  # When criteria for activation were met
+ *     activation_epoch: Epoch
+ *     exit_epoch: Epoch
+ *     withdrawable_epoch: Epoch  # When validator can withdraw funds
  */
 library ValidatorContainer {
     using Endian for bytes32;
@@ -54,9 +54,9 @@ library ValidatorContainer {
 
     function merklelizeValidatorContainer(bytes32[] calldata validatorContainer) internal pure returns (bytes32) {
         bytes32[] memory leaves = validatorContainer;
-        for (uint i; i < MERKLE_TREE_HEIGHT; i++) {
+        for (uint256 i; i < MERKLE_TREE_HEIGHT; i++) {
             bytes32[] memory roots = new bytes32[](leaves.length / 2);
-            for (uint j; j < leaves.length / 2; j++) {
+            for (uint256 j; j < leaves.length / 2; j++) {
                 roots[j] = sha256(abi.encodePacked(leaves[2 * j], leaves[2 * j + 1]));
             }
             leaves = roots;

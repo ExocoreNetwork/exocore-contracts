@@ -106,15 +106,11 @@ contract ExocoreDeployer is Test {
 
         validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
         require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
-        validatorProof.stateRootProof = stdJson.readBytes32Array(
-            validatorInfo,
-            ".StateRootAgainstLatestBlockHeaderProof"
-        );
+        validatorProof.stateRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
         require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
-        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(
-            validatorInfo,
-            ".WithdrawalCredentialProof"
-        );
+        validatorProof.validatorContainerRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
@@ -169,9 +165,7 @@ contract ExocoreDeployer is Test {
                         address(clientGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(
-                            clientGatewayLogic.initialize.selector,
-                            payable(exocoreValidatorSet.addr),
-                            whitelistTokens
+                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr), whitelistTokens
                         )
                     )
                 )
@@ -190,8 +184,7 @@ contract ExocoreDeployer is Test {
                         address(exocoreGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(
-                            exocoreGatewayLogic.initialize.selector,
-                            payable(exocoreValidatorSet.addr)
+                            exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
                         )
                     )
                 )
@@ -200,12 +193,10 @@ contract ExocoreDeployer is Test {
 
         // set the destination endpoint for corresponding destinations in endpoint mock
         NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
-            address(exocoreGateway),
-            address(exocoreLzEndpoint)
+            address(exocoreGateway), address(exocoreLzEndpoint)
         );
         NonShortCircuitEndpointV2Mock(address(exocoreLzEndpoint)).setDestLzEndpoint(
-            address(clientGateway),
-            address(clientChainLzEndpoint)
+            address(clientGateway), address(clientChainLzEndpoint)
         );
 
         // Exocore validator set should be the owner of gateway contracts and only owner could call these functions.

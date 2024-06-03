@@ -45,11 +45,11 @@ contract DepositScript is BaseScript {
         exocore = vm.createSelectFork(exocoreRPCURL);
         vm.startBroadcast(exocoreGenesis.privateKey);
         if (depositor.addr.balance < 1 ether) {
-            (bool sent, ) = depositor.addr.call{value: 2 ether}("");
+            (bool sent,) = depositor.addr.call{value: 2 ether}("");
             require(sent, "Failed to send Ether");
         }
         if (address(exocoreGateway).balance < 1 ether) {
-            (bool sent, ) = address(exocoreGateway).call{value: 2 ether}("");
+            (bool sent,) = address(exocoreGateway).call{value: 2 ether}("");
             require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();
@@ -83,11 +83,7 @@ contract DepositScript is BaseScript {
             Origin(clientChainId, address(clientGateway).toBytes32(), nonce),
             address(exocoreGateway),
             GUID.generate(
-                nonce,
-                clientChainId,
-                address(clientGateway),
-                exocoreChainId,
-                address(exocoreGateway).toBytes32()
+                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
             ),
             depositMsg,
             bytes("")
@@ -108,11 +104,7 @@ contract DepositScript is BaseScript {
             Origin(clientChainId, address(clientGateway).toBytes32(), nonce),
             address(exocoreGateway),
             GUID.generate(
-                nonce,
-                clientChainId,
-                address(clientGateway),
-                exocoreChainId,
-                address(exocoreGateway).toBytes32()
+                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
             ),
             withdrawMsg,
             bytes("")

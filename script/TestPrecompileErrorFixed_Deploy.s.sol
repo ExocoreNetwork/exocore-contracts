@@ -37,7 +37,7 @@ contract DepositScript is BaseScript {
         exocore = vm.createSelectFork(exocoreRPCURL);
         vm.startBroadcast(exocoreGenesis.privateKey);
         if (deployer.addr.balance < 1 ether) {
-            (bool sent, ) = deployer.addr.call{value: 1 ether}("");
+            (bool sent,) = deployer.addr.call{value: 1 ether}("");
             require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();
@@ -50,11 +50,8 @@ contract DepositScript is BaseScript {
         string memory exocoreContracts = "exocoreContracts";
 
         vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
-        string memory exocoreContractsOutput = vm.serializeAddress(
-            exocoreContracts,
-            "exocoreGateway",
-            address(exocoreGateway)
-        );
+        string memory exocoreContractsOutput =
+            vm.serializeAddress(exocoreContracts, "exocoreGateway", address(exocoreGateway));
 
         string memory finalJson = vm.serializeString(testContracts, "exocore", exocoreContractsOutput);
 
@@ -80,8 +77,7 @@ contract DepositScript is BaseScript {
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
         NonShortCircuitEndpointV2Mock(address(exocoreLzEndpoint)).setDestLzEndpoint(
-            address(clientGateway),
-            address(clientChainLzEndpoint)
+            address(clientGateway), address(clientChainLzEndpoint)
         );
         vm.stopBroadcast();
     }

@@ -137,8 +137,8 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      * @notice This allows tracking of how much each delegator has delegated to each operator
      * for all of the whitelisted tokens.
      */
-    mapping(address delegator => mapping(string exoAddress => mapping(address tokenAddress => uint256)))
-        public delegations;
+    mapping(address delegator => mapping(string exoAddress => mapping(address tokenAddress => uint256))) public
+        delegations;
 
     // bootstrapping information - including status, address of proxy, implementation, and
     // initialization
@@ -286,10 +286,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      * @param amount The amount of the token available to claim.
      */
     event WithdrawPrincipleResult(
-        bool indexed success,
-        address indexed token,
-        address indexed withdrawer,
-        uint256 amount
+        bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
     );
 
     /**
@@ -302,11 +299,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      * @param amount The amount of the token delegated.
      */
     event DelegateResult(
-        bool indexed success,
-        address indexed delegator,
-        string indexed delegatee,
-        address token,
-        uint256 amount
+        bool indexed success, address indexed delegator, string indexed delegatee, address token, uint256 amount
     );
 
     /**
@@ -319,11 +312,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      * @param amount The amount of the token undelegated.
      */
     event UndelegateResult(
-        bool indexed success,
-        address indexed undelegator,
-        string indexed undelegatee,
-        address token,
-        uint256 amount
+        bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
     );
 
     /**
@@ -422,12 +411,10 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
     constructor(uint32 exocoreChainId_, address vaultBeacon_, address beaconProxyBytecode_) {
         require(exocoreChainId_ != 0, "BootstrapStorage: exocore chain id should not be empty");
         require(
-            vaultBeacon_ != address(0),
-            "BootstrapStorage: the vaultBeacon address for beacon proxy should not be empty"
+            vaultBeacon_ != address(0), "BootstrapStorage: the vaultBeacon address for beacon proxy should not be empty"
         );
         require(
-            beaconProxyBytecode_ != address(0),
-            "BootstrapStorage: the beaconProxyBytecode address should not be empty"
+            beaconProxyBytecode_ != address(0), "BootstrapStorage: the beaconProxyBytecode address should not be empty"
         );
 
         exocoreChainId = exocoreChainId_;
@@ -448,7 +435,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
         if (stringBytes.length != 42) {
             return false;
         }
-        for (uint i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
+        for (uint256 i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
             if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
                 return false;
             }
@@ -492,7 +479,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
         isWhitelistedToken[_token] = false;
         // the implicit assumption here is that the _token must be included in whitelistTokens
         // if isWhitelistedToken[_token] is true
-        for (uint i = 0; i < whitelistTokens.length; i++) {
+        for (uint256 i = 0; i < whitelistTokens.length; i++) {
             if (whitelistTokens[i] == _token) {
                 whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
                 whitelistTokens.pop();

@@ -2,7 +2,13 @@ pragma solidity ^0.8.19;
 
 import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OAppUpgradeable, Origin, MessagingFee, MessagingReceipt, OAppReceiverUpgradeable} from "src/lzApp/OAppUpgradeable.sol";
+import {
+    OAppUpgradeable,
+    Origin,
+    MessagingFee,
+    MessagingReceipt,
+    OAppReceiverUpgradeable
+} from "src/lzApp/OAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -103,9 +109,8 @@ contract ExocoreGatewayMock is
         whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
         whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
         whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
-        whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this
-            .requestWithdrawPrinciple
-            .selector;
+        whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
+            this.requestWithdrawPrinciple.selector;
         whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
 
         __Ownable_init_unchained(exocoreValidatorSetAddress);
@@ -118,8 +123,8 @@ contract ExocoreGatewayMock is
     // For manual calls, this function should be called immediately after deployment and
     // then never needs to be called again.
     function markBootstrapOnAllChains() public {
-        (bool success, uint16[] memory clientChainIds) = IClientChains(CLIENT_CHAINS_PRECOMPILE_MOCK_ADDRESS)
-            .getClientChains();
+        (bool success, uint16[] memory clientChainIds) =
+            IClientChains(CLIENT_CHAINS_PRECOMPILE_MOCK_ADDRESS).getClientChains();
         require(success, "ExocoreGateway: failed to get client chain ids");
 
         for (uint256 i = 0; i < clientChainIds.length; i++) {
@@ -157,9 +162,8 @@ contract ExocoreGatewayMock is
             revert UnsupportedRequest(act);
         }
 
-        (bool success, bytes memory responseOrReason) = address(this).call(
-            abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, payload[1:]))
-        );
+        (bool success, bytes memory responseOrReason) =
+            address(this).call(abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, payload[1:])));
         if (!success) {
             revert RequestExecuteFailed(act, _origin.nonce, responseOrReason);
         }
@@ -183,22 +187,17 @@ contract ExocoreGatewayMock is
             (, lastlyUpdatedPrincipleBalance) = abi.decode(responseOrReason, (bool, uint256));
         }
         _sendInterchainMsg(
-            srcChainId,
-            Action.RESPOND,
-            abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance)
+            srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance)
         );
     }
 
-    function requestWithdrawPrinciple(
-        uint32 srcChainId,
-        uint64 lzNonce,
-        bytes calldata payload
-    ) public onlyCalledFromThis {
+    function requestWithdrawPrinciple(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
         if (payload.length != WITHDRAW_PRINCIPLE_REQUEST_LENGTH) {
             revert InvalidRequestLength(
-                Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
-                WITHDRAW_PRINCIPLE_REQUEST_LENGTH,
-                payload.length
+                Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, WITHDRAW_PRINCIPLE_REQUEST_LENGTH, payload.length
             );
         }
 
@@ -215,22 +214,17 @@ contract ExocoreGatewayMock is
             (, lastlyUpdatedPrincipleBalance) = abi.decode(responseOrReason, (bool, uint256));
         }
         _sendInterchainMsg(
-            srcChainId,
-            Action.RESPOND,
-            abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance)
+            srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, lastlyUpdatedPrincipleBalance)
         );
     }
 
-    function requestWithdrawReward(
-        uint32 srcChainId,
-        uint64 lzNonce,
-        bytes calldata payload
-    ) public onlyCalledFromThis {
+    function requestWithdrawReward(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
         if (payload.length != CLAIM_REWARD_REQUEST_LENGTH) {
             revert InvalidRequestLength(
-                Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE,
-                CLAIM_REWARD_REQUEST_LENGTH,
-                payload.length
+                Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, CLAIM_REWARD_REQUEST_LENGTH, payload.length
             );
         }
 
@@ -259,7 +253,7 @@ contract ExocoreGatewayMock is
         bytes calldata operator = payload[64:106];
         uint256 amount = uint256(bytes32(payload[106:138]));
 
-        (bool success, ) = DELEGATION_PRECOMPILE_MOCK_ADDRESS.call(
+        (bool success,) = DELEGATION_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
                 srcChainId,
@@ -273,11 +267,10 @@ contract ExocoreGatewayMock is
         _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
     }
 
-    function requestUndelegateFrom(
-        uint32 srcChainId,
-        uint64 lzNonce,
-        bytes calldata payload
-    ) public onlyCalledFromThis {
+    function requestUndelegateFrom(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
         if (payload.length != UNDELEGATE_REQUEST_LENGTH) {
             revert InvalidRequestLength(Action.REQUEST_UNDELEGATE_FROM, UNDELEGATE_REQUEST_LENGTH, payload.length);
         }
@@ -287,7 +280,7 @@ contract ExocoreGatewayMock is
         bytes memory operator = payload[64:106];
         uint256 amount = uint256(bytes32(payload[106:138]));
 
-        (bool success, ) = DELEGATION_PRECOMPILE_MOCK_ADDRESS.call(
+        (bool success,) = DELEGATION_PRECOMPILE_MOCK_ADDRESS.call(
             abi.encodeWithSelector(
                 UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR,
                 srcChainId,
@@ -303,36 +296,31 @@ contract ExocoreGatewayMock is
 
     function _sendInterchainMsg(uint32 srcChainId, Action act, bytes memory actionArgs) internal whenNotPaused {
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        bytes memory options = OptionsBuilder
-            .newOptions()
-            .addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE)
-            .addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
-        MessagingReceipt memory receipt = _lzSend(
-            srcChainId,
-            payload,
-            options,
-            MessagingFee(fee.nativeFee, 0),
-            exocoreValidatorSetAddress,
-            true
-        );
+        MessagingReceipt memory receipt =
+            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, true);
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
     function quote(uint32 srcChainid, bytes memory _message) public view returns (uint256 nativeFee) {
-        bytes memory options = OptionsBuilder
-            .newOptions()
-            .addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE)
-            .addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(srcChainid, _message, options, false);
         return fee.nativeFee;
     }
 
-    function nextNonce(
-        uint32 srcEid,
-        bytes32 sender
-    ) public view virtual override(ILayerZeroReceiver, OAppReceiverUpgradeable) returns (uint64) {
+    function nextNonce(uint32 srcEid, bytes32 sender)
+        public
+        view
+        virtual
+        override(ILayerZeroReceiver, OAppReceiverUpgradeable)
+        returns (uint64)
+    {
         return inboundNonce[srcEid][sender] + 1;
     }
 

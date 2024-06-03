@@ -148,6 +148,7 @@ contract Pausable is SetUp {
 
 contract LzReceive is SetUp {
     using AddressCast for address;
+
     uint256 constant WITHDRAWAL_AMOUNT = 123;
 
     function test_NotRevert_WithdrawalAmountOverflow() public {

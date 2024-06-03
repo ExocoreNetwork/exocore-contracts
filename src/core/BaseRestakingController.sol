@@ -19,11 +19,12 @@ abstract contract BaseRestakingController is
 
     receive() external payable {}
 
-    function claim(
-        address token,
-        uint256 amount,
-        address recipient
-    ) external isTokenWhitelisted(token) isValidAmount(amount) whenNotPaused {
+    function claim(address token, uint256 amount, address recipient)
+        external
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+        whenNotPaused
+    {
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = _getCapsule(msg.sender);
             capsule.withdraw(amount, recipient);
@@ -37,19 +38,25 @@ abstract contract BaseRestakingController is
         }
     }
 
-    function delegateTo(
-        string calldata operator,
-        address token,
-        uint256 amount
-    ) external payable isTokenWhitelisted(token) isValidAmount(amount) isValidBech32Address(operator) whenNotPaused {
+    function delegateTo(string calldata operator, address token, uint256 amount)
+        external
+        payable
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+        isValidBech32Address(operator)
+        whenNotPaused
+    {
         _processRequest(token, msg.sender, amount, Action.REQUEST_DELEGATE_TO, operator);
     }
 
-    function undelegateFrom(
-        string calldata operator,
-        address token,
-        uint256 amount
-    ) external payable isTokenWhitelisted(token) isValidAmount(amount) isValidBech32Address(operator) whenNotPaused {
+    function undelegateFrom(string calldata operator, address token, uint256 amount)
+        external
+        payable
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+        isValidBech32Address(operator)
+        whenNotPaused
+    {
         _processRequest(token, msg.sender, amount, Action.REQUEST_UNDELEGATE_FROM, operator);
     }
 
@@ -70,9 +77,8 @@ abstract contract BaseRestakingController is
         bool hasOperator = bytes(operator).length > 0;
 
         // Use a single abi.encode call via ternary operators to handle both cases.
-        _registeredRequests[outboundNonce] = hasOperator
-            ? abi.encode(token, operator, sender, amount)
-            : abi.encode(token, sender, amount);
+        _registeredRequests[outboundNonce] =
+            hasOperator ? abi.encode(token, operator, sender, amount) : abi.encode(token, sender, amount);
 
         _registeredRequestActions[outboundNonce] = action;
 
@@ -83,22 +89,16 @@ abstract contract BaseRestakingController is
 
         _sendMsgToExocore(action, actionArgs);
     }
+
     function _sendMsgToExocore(Action action, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(action, actionArgs);
-        bytes memory options = OptionsBuilder
-            .newOptions()
-            .addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE)
-            .addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(exocoreChainId, payload, options, false);
 
-        MessagingReceipt memory receipt = _lzSend(
-            exocoreChainId,
-            payload,
-            options,
-            MessagingFee(fee.nativeFee, 0),
-            exocoreValidatorSetAddress,
-            false
-        );
+        MessagingReceipt memory receipt =
+            _lzSend(exocoreChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false);
         emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 }

@@ -87,10 +87,7 @@ contract BootstrapTest is Test {
         // then the logic
         clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet);
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         // then the params + proxy
         spawnTime = block.timestamp + 1 hours;
@@ -319,9 +316,8 @@ contract BootstrapTest is Test {
             // check ethToExocoreAddress mapping
             string memory exoAddress = bootstrap.ethToExocoreAddress(addrs[i]);
             assertTrue(keccak256(abi.encodePacked(exoAddress)) == keccak256(abi.encodePacked(operators[i])));
-            (string memory name, IOperatorRegistry.Commission memory thisCommision, bytes32 key) = bootstrap.operators(
-                exoAddress
-            );
+            (string memory name, IOperatorRegistry.Commission memory thisCommision, bytes32 key) =
+                bootstrap.operators(exoAddress);
             assertTrue(keccak256(abi.encodePacked(name)) == keccak256(abi.encodePacked(names[i])));
             assertTrue(key == pubKeys[i]);
             assertTrue(thisCommision.rate == commission.rate);
@@ -411,12 +407,12 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         bootstrap.registerOperator(exo, name, commission, pubKey);
         assertTrue(bootstrap.getOperatorsCount() == 1);
-        (, , bytes32 consensusPublicKey) = bootstrap.operators(exo);
+        (,, bytes32 consensusPublicKey) = bootstrap.operators(exo);
         assertTrue(consensusPublicKey == pubKey);
         // Then change the key
         bytes32 newKey = bytes32(0xd995b7f4b2178b0466cfa512955ce2299a4487ebcd86f817d686880dd2b7c4b0);
         bootstrap.replaceKey(newKey);
-        (, , consensusPublicKey) = bootstrap.operators(exo);
+        (,, consensusPublicKey) = bootstrap.operators(exo);
         assertTrue(consensusPublicKey == newKey);
         vm.stopPrank();
     }
@@ -458,7 +454,7 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         bootstrap.registerOperator(exo, name, commission, pubKey);
         bootstrap.updateRate(1e17);
-        (, IOperatorRegistry.Commission memory newCommission, ) = bootstrap.operators(exo);
+        (, IOperatorRegistry.Commission memory newCommission,) = bootstrap.operators(exo);
         assertTrue(newCommission.rate == 1e17);
         vm.stopPrank();
     }
@@ -472,7 +468,7 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         bootstrap.registerOperator(exo, name, commission, pubKey);
         bootstrap.updateRate(1e17);
-        (, IOperatorRegistry.Commission memory newCommission, ) = bootstrap.operators(exo);
+        (, IOperatorRegistry.Commission memory newCommission,) = bootstrap.operators(exo);
         assertTrue(newCommission.rate == 1e17);
         vm.expectRevert("Commission already edited once");
         bootstrap.updateRate(1e17);
@@ -741,14 +737,14 @@ contract BootstrapTest is Test {
             uint256 prevDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
             uint256 prevWithdrawable = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             uint256 prevTokenDeposit = bootstrap.depositsByToken(address(myToken));
-            uint256 prevVaultWithdrawable = Vault(address(bootstrap.tokenToVault(address(myToken))))
-                .withdrawableBalances(addrs[i]);
+            uint256 prevVaultWithdrawable =
+                Vault(address(bootstrap.tokenToVault(address(myToken)))).withdrawableBalances(addrs[i]);
             bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[i]);
             uint256 postDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
             uint256 postWithdrawable = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             uint256 postTokenDeposit = bootstrap.depositsByToken(address(myToken));
-            uint256 postVaultWithdrawable = Vault(address(bootstrap.tokenToVault(address(myToken))))
-                .withdrawableBalances(addrs[i]);
+            uint256 postVaultWithdrawable =
+                Vault(address(bootstrap.tokenToVault(address(myToken)))).withdrawableBalances(addrs[i]);
             assertTrue(postDeposit == prevDeposit - amounts[i]);
             assertTrue(postWithdrawable == prevWithdrawable - amounts[i]);
             assertTrue(postTokenDeposit == prevTokenDeposit - amounts[i]);
@@ -903,10 +899,7 @@ contract BootstrapTest is Test {
     function test15_Initialize_OwnerZero() public {
         vm.startPrank(deployer);
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         vm.expectRevert("Bootstrap: owner should not be empty");
         Bootstrap(
@@ -935,10 +928,7 @@ contract BootstrapTest is Test {
     function test15_Initialize_SpawnTimeNotFuture() public {
         vm.startPrank(deployer);
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         vm.warp(20);
         vm.expectRevert("Bootstrap: spawn time should be in the future");
@@ -968,10 +958,7 @@ contract BootstrapTest is Test {
     function test15_Initialize_OffsetDurationZero() public {
         vm.startPrank(deployer);
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         vm.expectRevert("Bootstrap: offset duration should be greater than 0");
         Bootstrap(
@@ -993,10 +980,7 @@ contract BootstrapTest is Test {
     function test15_Initialize_SpawnTimeLTOffsetDuration() public {
         vm.startPrank(deployer);
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         vm.expectRevert("Bootstrap: spawn time should be greater than offset duration");
         vm.warp(20);
@@ -1019,10 +1003,7 @@ contract BootstrapTest is Test {
     function test15_Initialize_LockTimeNotFuture() public {
         vm.startPrank(deployer);
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         vm.expectRevert("Bootstrap: lock time should be in the future");
         vm.warp(20);
@@ -1045,10 +1026,7 @@ contract BootstrapTest is Test {
     function test15_Initialize_ExocoreValSetZero() public {
         vm.startPrank(deployer);
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         vm.expectRevert("Bootstrap: exocore validator set address should not be empty");
         Bootstrap(
@@ -1077,10 +1055,7 @@ contract BootstrapTest is Test {
     function test15_Initialize_CustomProxyAdminZero() public {
         vm.startPrank(deployer);
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         vm.expectRevert("Bootstrap: custom proxy admin should not be empty");
         Bootstrap(

@@ -56,10 +56,10 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         capsuleOwner = capsuleOwner_;
     }
 
-    function verifyDepositProof(
-        bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata proof
-    ) external onlyGateway {
+    function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
+        external
+        onlyGateway
+    {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         Validator storage validator = _capsuleValidators[validatorPubkey];
@@ -153,12 +153,11 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
 
     function withdraw(uint256 amount, address recipient) external onlyGateway {
         require(
-            amount <= withdrawableBalance,
-            "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
+            amount <= withdrawableBalance, "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
         );
 
         withdrawableBalance -= amount;
-        (bool sent, ) = recipient.call{value: amount}("");
+        (bool sent,) = recipient.call{value: amount}("");
         if (!sent) {
             revert WithdrawalFailure(capsuleOwner, recipient, amount);
         }
@@ -215,10 +214,10 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         return validator;
     }
 
-    function _verifyValidatorContainer(
-        bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata proof
-    ) internal view {
+    function _verifyValidatorContainer(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
+        internal
+        view
+    {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
         bytes32 validatorContainerRoot = validatorContainer.merklelizeValidatorContainer();
         bool valid = validatorContainerRoot.isValidValidatorContainerRoot(
@@ -233,10 +232,10 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         }
     }
 
-    function _verifyWithdrawalContainer(
-        bytes32[] calldata withdrawalContainer,
-        WithdrawalContainerProof calldata proof
-    ) internal view {
+    function _verifyWithdrawalContainer(bytes32[] calldata withdrawalContainer, WithdrawalContainerProof calldata proof)
+        internal
+        view
+    {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
         bytes32 withdrawalContainerRoot = withdrawalContainer.merklelizeWithdrawalContainer();
         bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(
@@ -251,10 +250,11 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         }
     }
 
-    function _isActivatedAtEpoch(
-        bytes32[] calldata validatorContainer,
-        uint256 atTimestamp
-    ) internal pure returns (bool) {
+    function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint256 atTimestamp)
+        internal
+        pure
+        returns (bool)
+    {
         uint64 atEpoch = _timestampToEpoch(atTimestamp);
         uint64 activationEpoch = validatorContainer.getActivationEpoch();
         uint64 exitEpoch = validatorContainer.getExitEpoch();
@@ -263,15 +263,13 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     }
 
     function _isStaleProof(Validator storage validator, uint256 proofTimestamp) internal view returns (bool) {
-        return
-            proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS < block.timestamp ||
-            proofTimestamp <= validator.mostRecentBalanceUpdateTimestamp;
+        return proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS < block.timestamp
+            || proofTimestamp <= validator.mostRecentBalanceUpdateTimestamp;
     }
 
     function _hasFullyWithdrawn(bytes32[] calldata validatorContainer) internal view returns (bool) {
-        return
-            validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp) &&
-            validatorContainer.getEffectiveBalance() == 0;
+        return validatorContainer.getWithdrawableEpoch() <= _timestampToEpoch(block.timestamp)
+            && validatorContainer.getEffectiveBalance() == 0;
     }
 
     /**
@@ -281,8 +279,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
      */
     function _timestampToEpoch(uint256 timestamp) internal pure returns (uint64) {
         require(
-            timestamp >= BEACON_CHAIN_GENESIS_TIME,
-            "timestamp should be greater than beacon chain genesis timestamp"
+            timestamp >= BEACON_CHAIN_GENESIS_TIME, "timestamp should be greater than beacon chain genesis timestamp"
         );
         return uint64((timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH);
     }

@@ -24,9 +24,8 @@ contract DepositScript is BaseScript {
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
-        clientGateway = IClientChainGateway(
-            payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway"))
-        );
+        clientGateway =
+            IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
         require(address(clientGateway) != address(0), "clientGateway address should not be empty");
 
         if (!useExocorePrecompileMock) {

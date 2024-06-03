@@ -114,10 +114,7 @@ contract DeployContracts is Script {
         proxyAdmin = new CustomProxyAdmin();
         EndpointV2Mock clientChainLzEndpoint = new EndpointV2Mock(clientChainId);
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         bootstrap = Bootstrap(
             payable(

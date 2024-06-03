@@ -32,10 +32,13 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
         }
     }
 
-    function nextNonce(
-        uint32 srcEid,
-        bytes32 sender
-    ) public view virtual override(OAppReceiverUpgradeable) returns (uint64) {
+    function nextNonce(uint32 srcEid, bytes32 sender)
+        public
+        view
+        virtual
+        override(OAppReceiverUpgradeable)
+        returns (uint64)
+    {
         return inboundNonce[srcEid][sender] + 1;
     }
 

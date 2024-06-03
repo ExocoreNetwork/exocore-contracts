@@ -18,9 +18,8 @@ contract SetupScript is BaseScript {
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
-        clientGateway = IClientChainGateway(
-            payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway"))
-        );
+        clientGateway =
+            IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
         require(address(clientGateway) != address(0), "clientGateway address should not be empty");
 
         clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".clientChain.lzEndpoint"));
@@ -54,8 +53,7 @@ contract SetupScript is BaseScript {
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
         if (useEndpointMock) {
             NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
-                address(exocoreGateway),
-                address(exocoreLzEndpoint)
+                address(exocoreGateway), address(exocoreLzEndpoint)
             );
         }
 
@@ -70,8 +68,7 @@ contract SetupScript is BaseScript {
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
         if (useEndpointMock) {
             NonShortCircuitEndpointV2Mock(address(exocoreLzEndpoint)).setDestLzEndpoint(
-                address(clientGateway),
-                address(clientChainLzEndpoint)
+                address(clientGateway), address(clientChainLzEndpoint)
             );
         }
         exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());

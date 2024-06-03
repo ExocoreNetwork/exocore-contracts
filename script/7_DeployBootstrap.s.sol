@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
-import {TransparentUpgradeableProxy} from "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {TransparentUpgradeableProxy} from
+    "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
 import {Bootstrap} from "../src/core/Bootstrap.sol";
@@ -23,9 +24,8 @@ contract DeployBootstrapOnly is BaseScript {
         super.setUp();
         // load contracts
         string memory prerequisiteContracts = vm.readFile("script/prerequisiteContracts.json");
-        clientChainLzEndpoint = ILayerZeroEndpointV2(
-            stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint")
-        );
+        clientChainLzEndpoint =
+            ILayerZeroEndpointV2(stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint"));
         require(address(clientChainLzEndpoint) != address(0), "Client chain endpoint not found");
         restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisiteContracts, ".clientChain.erc20Token"));
         require(address(restakeToken) != address(0), "Restake token not found");
@@ -34,9 +34,8 @@ contract DeployBootstrapOnly is BaseScript {
         beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconOracle"));
         require(address(beaconOracle) != address(0), "Beacon oracle not found");
         // same for BeaconProxyBytecode
-        beaconProxyBytecode = BeaconProxyBytecode(
-            stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode")
-        );
+        beaconProxyBytecode =
+            BeaconProxyBytecode(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode"));
         require(address(beaconProxyBytecode) != address(0), "Beacon proxy bytecode not found");
     }
 
@@ -52,10 +51,7 @@ contract DeployBootstrapOnly is BaseScript {
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         // bootstrap logic
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         // bootstrap implementation
         Bootstrap bootstrap = Bootstrap(
@@ -96,11 +92,8 @@ contract DeployBootstrapOnly is BaseScript {
         );
         // then the client chain initialization
         address[] memory emptyList;
-        bytes memory initialization = abi.encodeWithSelector(
-            clientGatewayLogic.initialize.selector,
-            exocoreValidatorSet.addr,
-            emptyList
-        );
+        bytes memory initialization =
+            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr, emptyList);
         bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
 
         vm.stopBroadcast();
@@ -117,11 +110,8 @@ contract DeployBootstrapOnly is BaseScript {
         vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
         vm.serializeAddress(clientChainContracts, "capsuleImplementation", address(capsuleImplementation));
         vm.serializeAddress(clientChainContracts, "capsuleBeacon", address(capsuleBeacon));
-        string memory clientChainContractsOutput = vm.serializeAddress(
-            clientChainContracts,
-            "clientGatewayLogic",
-            address(clientGatewayLogic)
-        );
+        string memory clientChainContractsOutput =
+            vm.serializeAddress(clientChainContracts, "clientGatewayLogic", address(clientGatewayLogic));
 
         string memory deployedContracts = "deployedContracts";
         string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);

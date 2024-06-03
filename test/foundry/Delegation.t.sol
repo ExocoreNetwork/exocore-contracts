@@ -20,18 +20,10 @@ contract DelegateTest is ExocoreDeployer {
     event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
     event DelegateResult(
-        bool indexed success,
-        address indexed delegator,
-        string indexed delegatee,
-        address token,
-        uint256 amount
+        bool indexed success, address indexed delegator, string indexed delegatee, address token, uint256 amount
     );
     event UndelegateResult(
-        bool indexed success,
-        address indexed undelegator,
-        string indexed undelegatee,
-        address token,
-        uint256 amount
+        bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
     );
     event DelegateRequestProcessed(
         uint32 clientChainLzId,
@@ -76,12 +68,9 @@ contract DelegateTest is ExocoreDeployer {
         _testUndelegate(delegator.addr, relayer.addr, operatorAddress, undelegateAmount);
     }
 
-    function _testDelegate(
-        address delegator,
-        address relayer,
-        string memory operator,
-        uint256 delegateAmount
-    ) internal {
+    function _testDelegate(address delegator, address relayer, string memory operator, uint256 delegateAmount)
+        internal
+    {
         /* ------------------------- delegate workflow test ------------------------- */
 
         // 1. first user call client chain gateway to delegate
@@ -160,10 +149,7 @@ contract DelegateTest is ExocoreDeployer {
 
         /// assert that DelegationMock contract should have recorded the delegate
         uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
-            delegator,
-            operator,
-            clientChainId,
-            address(restakeToken)
+            delegator, operator, clientChainId, address(restakeToken)
         );
         assertEq(actualDelegateAmount, delegateAmount);
 
@@ -185,18 +171,12 @@ contract DelegateTest is ExocoreDeployer {
         vm.stopPrank();
     }
 
-    function _testUndelegate(
-        address delegator,
-        address relayer,
-        string memory operator,
-        uint256 undelegateAmount
-    ) internal {
+    function _testUndelegate(address delegator, address relayer, string memory operator, uint256 undelegateAmount)
+        internal
+    {
         /* ------------------------- undelegate workflow test ------------------------- */
         uint256 totalDelegate = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
-            delegator,
-            operator,
-            clientChainId,
-            address(restakeToken)
+            delegator, operator, clientChainId, address(restakeToken)
         );
         require(undelegateAmount <= totalDelegate, "undelegate amount overflow");
 
@@ -276,10 +256,7 @@ contract DelegateTest is ExocoreDeployer {
 
         /// assert that DelegationMock contract should have recorded the undelegation
         uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
-            delegator,
-            operator,
-            clientChainId,
-            address(restakeToken)
+            delegator, operator, clientChainId, address(restakeToken)
         );
         assertEq(actualDelegateAmount, totalDelegate - undelegateAmount);
 
@@ -304,19 +281,11 @@ contract DelegateTest is ExocoreDeployer {
     function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
         if (fromClientChainToExocore) {
             uid = GUID.generate(
-                nonce,
-                clientChainId,
-                address(clientGateway),
-                exocoreChainId,
-                address(exocoreGateway).toBytes32()
+                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
             );
         } else {
             uid = GUID.generate(
-                nonce,
-                exocoreChainId,
-                address(exocoreGateway),
-                clientChainId,
-                address(clientGateway).toBytes32()
+                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
             );
         }
     }

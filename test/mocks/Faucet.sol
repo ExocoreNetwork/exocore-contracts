@@ -19,7 +19,7 @@ contract Faucet {
             revert("gas airdrop finished in this block");
         }
         // Send the amount to the address that requested it
-        (bool success, ) = msg.sender.call{value: amount}("");
+        (bool success,) = msg.sender.call{value: amount}("");
         if (success) {
             emit GasSent(msg.sender, amount);
         }
