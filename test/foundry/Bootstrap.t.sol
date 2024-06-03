@@ -147,11 +147,7 @@ contract BootstrapTest is Test {
         );
         // we could also use encodeWithSelector and supply .initialize.selector instead.
         bytes memory initialization = abi.encodeCall(
-            clientGatewayLogic.initialize,
-            (
-                payable(exocoreValidatorSet),
-                appendedWhitelistTokensForUpgrade
-            )
+            clientGatewayLogic.initialize, (payable(exocoreValidatorSet), appendedWhitelistTokensForUpgrade)
         );
         bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
         vm.stopPrank();
