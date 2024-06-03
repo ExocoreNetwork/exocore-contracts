@@ -193,31 +193,51 @@ contract BootstrapTest is Test {
         }
         vm.stopPrank();
 
+        // get the vault to play with
+        Vault vault = Vault(address(bootstrap.tokenToVault(address(myToken))));
+
         // Make deposits and check values
         for (uint256 i = 0; i < 6; i++) {
             vm.startPrank(addrs[i]);
-            Vault vault = Vault(address(bootstrap.tokenToVault(address(myToken))));
+            // first approve the vault
             myToken.approve(address(vault), amounts[i]);
+
+            // store the current state of depositors count and if we are already one
             uint256 prevDepositorsCount = bootstrap.getDepositorsCount();
             bool prevIsDepositor = bootstrap.isDepositor(addrs[i]);
+            // ...and current balance
             uint256 prevBalance = myToken.balanceOf(addrs[i]);
+            // ...and current deposit by us
             uint256 prevDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
+            // ...and current withdrawable
             uint256 prevWithdrawable = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
+            // ...and current total token deposit
             uint256 prevTokenDeposit = bootstrap.depositsByToken(address(myToken));
+
+            // finally execute the deposit
             bootstrap.deposit(address(myToken), amounts[i]);
+
+            // check the balance and if it has decreased by the respective amount
             uint256 newBalance = myToken.balanceOf(addrs[i]);
             assertTrue(newBalance == prevBalance - amounts[i]);
+
+            // check the deposit and withdrawable amounts
             uint256 newDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
             assertTrue(newDeposit == prevDeposit + amounts[i]);
             uint256 newWithdrawable = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             assertTrue(newWithdrawable == prevWithdrawable + amounts[i]);
+
+            // if previously not a depositor, count will increase
             if (!prevIsDepositor) {
                 assertTrue(bootstrap.isDepositor(addrs[i]));
                 assertTrue(bootstrap.getDepositorsCount() == prevDepositorsCount + 1);
             } else {
                 assertTrue(bootstrap.getDepositorsCount() == prevDepositorsCount);
             }
+
+            // total deposit amount should increase
             assertTrue(bootstrap.depositsByToken(address(myToken)) == prevTokenDeposit + amounts[i]);
+
             vm.stopPrank();
         }
     }
