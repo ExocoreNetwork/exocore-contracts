@@ -10,6 +10,7 @@ import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
 import "../src/interfaces/precompiles/IDeposit.sol";
 import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
+import "../src/interfaces/precompiles/IClientChains.sol";
 
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
@@ -33,6 +34,8 @@ contract BaseScript is Script {
     Player depositor;
     Player relayer;
 
+    string sepoliaRPCURL;
+    string holeskyRPCURL;
     string clientChainRPCURL;
     string exocoreRPCURL;
 
@@ -94,7 +97,7 @@ contract BaseScript is Script {
         useExocorePrecompileMock = vm.envBool("USE_EXOCORE_PRECOMPILE_MOCK");
         console.log("NOTICE: using exocore precompiles mock", useExocorePrecompileMock);
 
-        clientChainRPCURL = vm.envString("HOLESKY_RPC");
+        clientChainRPCURL = vm.envString("CLIENT_CHAIN_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
     }
 
@@ -130,6 +133,9 @@ contract BaseScript is Script {
 
         bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
         vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+
+        bytes memory ClientChainsMockCode = vm.getDeployedCode("ClientChainsMock.sol");
+        vm.etch(CLIENT_CHAINS_PRECOMPILE_ADDRESS, ClientChainsMockCode);
     }
 
     function _topUpPlayer(
