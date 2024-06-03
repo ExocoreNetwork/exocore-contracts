@@ -478,6 +478,8 @@ contract Bootstrap is
         public
         onlyOwner
     {
+        require(_clientChainGatewayLogic != address(0), "Bootstrap: client chain gateway logic address cannot be empty");
+        require(_clientChainInitializationData.length >= 4, "Bootstrap: client chain initialization data is malformed");
         clientChainGatewayLogic = _clientChainGatewayLogic;
         clientChainInitializationData = _clientChainInitializationData;
         emit ClientChainGatewayLogicUpdated(_clientChainGatewayLogic, _clientChainInitializationData);

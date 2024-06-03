@@ -9,9 +9,10 @@ contract WithdrawPrincipleMock is IWithdraw {
 
     function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
         external
-        returns (bool success, uint256 latestAssetState)
+        returns (bool, uint256)
     {
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
+        return (true, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
     function withdrawPrinciple(
