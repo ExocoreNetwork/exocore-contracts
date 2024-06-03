@@ -50,8 +50,7 @@ contract SetPeersAndUpgrade is BaseScript {
         uint256 i = 0;
         uint256 tries = 5;
         bool success;
-        while(i < tries) {
-
+        while (i < tries) {
             vm.selectFork(exocore);
             success = gateway.peers(clientChainId) == bootstrapAddr.toBytes32();
 
@@ -90,7 +89,7 @@ contract SetPeersAndUpgrade is BaseScript {
         console.log(
             "source .env && cast send --rpc-url $EXOCORE_TESETNET_RPC",
             exocoreGatewayAddr,
-            "\"markBootstrapOnAllChains()\"",
+            '"markBootstrapOnAllChains()"',
             "--private-key $TEST_ACCOUNT_THREE_PRIVATE_KEY"
         );
     }

@@ -18,10 +18,7 @@ interface IExoCapsule {
         uint256 withdrawalIndex;
     }
 
-    function verifyDepositProof(
-        bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata proof
-    ) external;
+    function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof) external;
 
     function verifyPartialWithdrawalProof(
         bytes32[] calldata validatorContainer,

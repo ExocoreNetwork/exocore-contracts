@@ -20,7 +20,9 @@ contract PrerequisitiesScript is BaseScript {
 
         vm.startBroadcast(deployer.privateKey);
         beaconOracle = EigenLayerBeaconOracle(0xd3D285cd1516038dAED61B8BF7Ae2daD63662492);
-        (bool success,) = address(beaconOracle).call(abi.encodeWithSelector(beaconOracle.addTimestamp.selector, 1715918948));
+        (bool success, ) = address(beaconOracle).call(
+            abi.encodeWithSelector(beaconOracle.addTimestamp.selector, 1715918948)
+        );
         vm.stopPrank();
     }
 }

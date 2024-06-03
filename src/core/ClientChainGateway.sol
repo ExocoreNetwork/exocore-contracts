@@ -46,7 +46,13 @@ contract ClientChainGateway is
         address beaconProxyBytecode_
     )
         OAppCoreUpgradeable(endpoint_)
-        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_, beaconProxyBytecode_)
+        ClientChainGatewayStorage(
+            exocoreChainId_,
+            beaconOracleAddress_,
+            vaultBeacon_,
+            exoCapsuleBeacon_,
+            beaconProxyBytecode_
+        )
     {
         _disableInitializers();
     }
@@ -59,7 +65,10 @@ contract ClientChainGateway is
     ) external reinitializer(2) {
         _clearBootstrapData();
 
-        require(exocoreValidatorSetAddress_ != address(0), "ClientChainGateway: exocore validator set address should not be empty");
+        require(
+            exocoreValidatorSetAddress_ != address(0),
+            "ClientChainGateway: exocore validator set address should not be empty"
+        );
 
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
@@ -78,12 +87,14 @@ contract ClientChainGateway is
         }
 
         _registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
-            this.afterReceiveWithdrawPrincipleResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this
+            .afterReceiveWithdrawPrincipleResponse
+            .selector;
         _registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
         _registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
-            this.afterReceiveWithdrawRewardResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this
+            .afterReceiveWithdrawRewardResponse
+            .selector;
 
         bootstrapped = true;
 
@@ -144,14 +155,16 @@ contract ClientChainGateway is
 
     function pause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "ClientChainGateway: caller is not Exocore validator set aggregated address"
+            msg.sender == exocoreValidatorSetAddress,
+            "ClientChainGateway: caller is not Exocore validator set aggregated address"
         );
         _pause();
     }
 
     function unpause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "ClientChainGateway: caller is not Exocore validator set aggregated address"
+            msg.sender == exocoreValidatorSetAddress,
+            "ClientChainGateway: caller is not Exocore validator set aggregated address"
         );
         _unpause();
     }
@@ -170,7 +183,7 @@ contract ClientChainGateway is
 
     function removeWhitelistToken(address _token) external isTokenWhitelisted(_token) onlyOwner whenNotPaused {
         isWhitelistedToken[_token] = false;
-        for(uint i = 0; i < whitelistTokens.length; i++) {
+        for (uint i = 0; i < whitelistTokens.length; i++) {
             if (whitelistTokens[i] == _token) {
                 whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
                 whitelistTokens.pop();
@@ -182,9 +195,10 @@ contract ClientChainGateway is
     }
 
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
-            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
-        ).addExecutorOrderedExecutionOption();
+        bytes memory options = OptionsBuilder
+            .newOptions()
+            .addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE)
+            .addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(exocoreChainId, _message, options, false);
         return fee.nativeFee;
     }

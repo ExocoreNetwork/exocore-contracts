@@ -6,10 +6,12 @@ import {IWithdraw} from "../../src/interfaces/precompiles/IWithdrawPrinciple.sol
 contract DepositWithdrawMock is IDeposit, IWithdraw {
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principleBalances;
 
-    function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
-        external
-        returns (bool success, uint256 latestAssetState)
-    {
+    function depositTo(
+        uint32 clientChainLzId,
+        bytes memory assetsAddress,
+        bytes memory stakerAddress,
+        uint256 opAmount
+    ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
         require(stakerAddress.length == 32, "invalid staker address");
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;

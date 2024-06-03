@@ -13,7 +13,10 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     error DepositShouldNotFailOnExocore(address token, address depositor);
 
     modifier onlyCalledFromThis() {
-        require(msg.sender == address(this), "ClientChainLzReceiver: could only be called from this contract itself with low level call");
+        require(
+            msg.sender == address(this),
+            "ClientChainLzReceiver: could only be called from this contract itself with low level call"
+        );
         _;
     }
 
@@ -39,8 +42,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                 revert UnexpectedResponse(requestId);
             }
 
-            (bool success, bytes memory reason) =
-                address(this).call(abi.encodePacked(hookSelector, abi.encode(requestPayload, payload[9:])));
+            (bool success, bytes memory reason) = address(this).call(
+                abi.encodePacked(hookSelector, abi.encode(requestPayload, payload[9:]))
+            );
             if (!success) {
                 revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
@@ -53,21 +57,19 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                 revert UnsupportedRequest(act);
             }
 
-            (bool success, bytes memory reason) =
-                address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
+            (bool success, bytes memory reason) = address(this).call(
+                abi.encodePacked(selector_, abi.encode(payload[1:]))
+            );
             if (!success) {
                 revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
         }
     }
 
-    function nextNonce(uint32 srcEid, bytes32 sender)
-        public
-        view
-        virtual
-        override(OAppReceiverUpgradeable)
-        returns (uint64)
-    {
+    function nextNonce(
+        uint32 srcEid,
+        bytes32 sender
+    ) public view virtual override(OAppReceiverUpgradeable) returns (uint64) {
         return inboundNonce[srcEid][sender] + 1;
     }
 
@@ -78,10 +80,10 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         }
     }
 
-    function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
+    function afterReceiveDepositResponse(
+        bytes memory requestPayload,
+        bytes calldata responsePayload
+    ) public onlyCalledFromThis {
         (address token, address depositor, uint256 amount) = abi.decode(requestPayload, (address, address, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
@@ -102,12 +104,14 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit DepositResult(success, token, depositor, amount);
     }
 
-    function afterReceiveWithdrawPrincipleResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
-        (address token, address withdrawer, uint256 unlockPrincipleAmount) =
-            abi.decode(requestPayload, (address, address, uint256));
+    function afterReceiveWithdrawPrincipleResponse(
+        bytes memory requestPayload,
+        bytes calldata responsePayload
+    ) public onlyCalledFromThis {
+        (address token, address withdrawer, uint256 unlockPrincipleAmount) = abi.decode(
+            requestPayload,
+            (address, address, uint256)
+        );
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:33]));
@@ -121,12 +125,14 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit WithdrawPrincipleResult(success, token, withdrawer, unlockPrincipleAmount);
     }
 
-    function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
-        (address token, address withdrawer, uint256 unlockRewardAmount) =
-            abi.decode(requestPayload, (address, address, uint256));
+    function afterReceiveWithdrawRewardResponse(
+        bytes memory requestPayload,
+        bytes calldata responsePayload
+    ) public onlyCalledFromThis {
+        (address token, address withdrawer, uint256 unlockRewardAmount) = abi.decode(
+            requestPayload,
+            (address, address, uint256)
+        );
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedRewardBalance = uint256(bytes32(responsePayload[1:33]));
@@ -140,24 +146,28 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit WithdrawRewardResult(success, token, withdrawer, unlockRewardAmount);
     }
 
-    function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
-        (address token, string memory operator, address delegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
+    function afterReceiveDelegateResponse(
+        bytes memory requestPayload,
+        bytes calldata responsePayload
+    ) public onlyCalledFromThis {
+        (address token, string memory operator, address delegator, uint256 amount) = abi.decode(
+            requestPayload,
+            (address, string, address, uint256)
+        );
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 
         emit DelegateResult(success, delegator, operator, token, amount);
     }
 
-    function afterReceiveUndelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
-        public
-        onlyCalledFromThis
-    {
-        (address token, string memory operator, address undelegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
+    function afterReceiveUndelegateResponse(
+        bytes memory requestPayload,
+        bytes calldata responsePayload
+    ) public onlyCalledFromThis {
+        (address token, string memory operator, address undelegator, uint256 amount) = abi.decode(
+            requestPayload,
+            (address, string, address, uint256)
+        );
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 

@@ -127,13 +127,19 @@ contract BaseScript is Script {
         vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
     }
 
-    function _topUpPlayer(uint256 chain, address token, Player memory provider, address recipient, uint256 targetBalance) internal {
+    function _topUpPlayer(
+        uint256 chain,
+        address token,
+        Player memory provider,
+        address recipient,
+        uint256 targetBalance
+    ) internal {
         vm.selectFork(chain);
         vm.startBroadcast(provider.privateKey);
-        
+
         if (token == address(0)) {
             if (recipient.balance < targetBalance) {
-                (bool sent,) = recipient.call{value: targetBalance - recipient.balance}("");
+                (bool sent, ) = recipient.call{value: targetBalance - recipient.balance}("");
                 require(sent, "Failed to send Ether");
             }
         } else {

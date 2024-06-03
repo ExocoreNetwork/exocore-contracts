@@ -68,8 +68,9 @@ contract DeployScript is Script {
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
-        clientGateway =
-            ClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
+        clientGateway = ClientChainGateway(
+            payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway"))
+        );
         clientChainLzEndpoint = ILayerZeroEndpoint(stdJson.readAddress(deployedContracts, ".clientChain.lzEndpoint"));
         restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(deployedContracts, ".clientChain.erc20Token"));
         vault = Vault(stdJson.readAddress(deployedContracts, ".clientChain.resVault"));
@@ -96,11 +97,11 @@ contract DeployScript is Script {
 
         vm.startBroadcast(clientChainDeployer.privateKey);
         if (address(clientGateway).balance < 0.2 ether) {
-            (bool sent,) = address(clientGateway).call{value: 0.2 ether}("");
+            (bool sent, ) = address(clientGateway).call{value: 0.2 ether}("");
             require(sent, "Failed to send Ether");
         }
         if (exocoreValidatorSet.addr.balance < 0.02 ether) {
-            (bool sent,) = exocoreValidatorSet.addr.call{value: 0.02 ether}("");
+            (bool sent, ) = exocoreValidatorSet.addr.call{value: 0.02 ether}("");
             require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();
@@ -108,11 +109,11 @@ contract DeployScript is Script {
         exocore = vm.createSelectFork(exocoreRPCURL);
         vm.startBroadcast(exocoreDeployer.privateKey);
         if (relayer.addr.balance < 1 ether) {
-            (bool sent,) = relayer.addr.call{value: 0.1 ether}("");
+            (bool sent, ) = relayer.addr.call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");
         }
         if (address(exocoreGateway).balance < 1 ether) {
-            (bool sent,) = address(exocoreGateway).call{value: 0.1 ether}("");
+            (bool sent, ) = address(exocoreGateway).call{value: 0.1 ether}("");
             require(sent, "Failed to send Ether");
         }
         vm.stopBroadcast();

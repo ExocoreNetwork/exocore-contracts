@@ -56,7 +56,7 @@ contract ExocoreDeployer is Test {
     uint64 internal constant SLOTS_PER_EPOCH = 32;
     /// @notice The number of seconds in a slot in the beacon chain
     uint64 internal constant SECONDS_PER_SLOT = 12;
-    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot 
+    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot
     uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
     uint256 constant GWEI_TO_WEI = 1e9;
@@ -106,9 +106,15 @@ contract ExocoreDeployer is Test {
 
         validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
         require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
-        validatorProof.stateRootProof = stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+        validatorProof.stateRootProof = stdJson.readBytes32Array(
+            validatorInfo,
+            ".StateRootAgainstLatestBlockHeaderProof"
+        );
         require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
-        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(
+            validatorInfo,
+            ".WithdrawalCredentialProof"
+        );
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
@@ -146,7 +152,7 @@ contract ExocoreDeployer is Test {
 
         // deploy and initialize client chain contracts
         whitelistTokens.push(address(restakeToken));
-        
+
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint),
@@ -184,7 +190,8 @@ contract ExocoreDeployer is Test {
                         address(exocoreGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(
-                            exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
+                            exocoreGatewayLogic.initialize.selector,
+                            payable(exocoreValidatorSet.addr)
                         )
                     )
                 )
@@ -193,10 +200,12 @@ contract ExocoreDeployer is Test {
 
         // set the destination endpoint for corresponding destinations in endpoint mock
         NonShortCircuitEndpointV2Mock(address(clientChainLzEndpoint)).setDestLzEndpoint(
-            address(exocoreGateway), address(exocoreLzEndpoint)
+            address(exocoreGateway),
+            address(exocoreLzEndpoint)
         );
         NonShortCircuitEndpointV2Mock(address(exocoreLzEndpoint)).setDestLzEndpoint(
-            address(clientGateway), address(clientChainLzEndpoint)
+            address(clientGateway),
+            address(clientChainLzEndpoint)
         );
 
         // Exocore validator set should be the owner of gateway contracts and only owner could call these functions.
@@ -227,13 +236,13 @@ contract ExocoreDeployer is Test {
         // mainnet
         if (block.chainid == 1) {
             GENESIS_BLOCK_TIMESTAMP = 1606824023;
-        // goerli
+            // goerli
         } else if (block.chainid == 5) {
             GENESIS_BLOCK_TIMESTAMP = 1616508000;
-        // sepolia
+            // sepolia
         } else if (block.chainid == 11155111) {
             GENESIS_BLOCK_TIMESTAMP = 1655733600;
-        // holesky
+            // holesky
         } else if (block.chainid == 17000) {
             GENESIS_BLOCK_TIMESTAMP = 1695902400;
         } else {

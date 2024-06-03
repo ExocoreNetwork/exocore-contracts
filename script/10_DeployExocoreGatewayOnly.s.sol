@@ -10,7 +10,6 @@ import "forge-std/Script.sol";
 import {BaseScript} from "./BaseScript.sol";
 
 contract DeployExocoreGatewayOnly is BaseScript {
-
     function setUp() public virtual override {
         // load keys
         super.setUp();
@@ -48,14 +47,15 @@ contract DeployExocoreGatewayOnly is BaseScript {
         string memory exocoreContracts = "exocoreContracts";
         vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
         vm.serializeAddress(exocoreContracts, "exocoreGatewayLogic", address(exocoreGatewayLogic));
-        string memory exocoreContractsOutput =
-            vm.serializeAddress(exocoreContracts, "exocoreGateway", address(exocoreGateway));
+        string memory exocoreContractsOutput = vm.serializeAddress(
+            exocoreContracts,
+            "exocoreGateway",
+            address(exocoreGateway)
+        );
 
         string memory deployedContracts = "deployedContracts";
-        string memory finalJson =
-            vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);
 
         vm.writeJson(finalJson, "script/deployedExocoreGatewayOnly.json");
-
     }
 }

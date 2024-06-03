@@ -6,6 +6,12 @@ import {ILSTRestakingController} from "./ILSTRestakingController.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 
-interface IClientChainGateway is ITokenWhitelister, IOAppReceiver, IOAppCore, ILSTRestakingController, INativeRestakingController {
+interface IClientChainGateway is
+    ITokenWhitelister,
+    IOAppReceiver,
+    IOAppCore,
+    ILSTRestakingController,
+    INativeRestakingController
+{
     function quote(bytes memory _message) external view returns (uint256 nativeFee);
 }

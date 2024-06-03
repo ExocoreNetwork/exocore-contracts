@@ -45,12 +45,19 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // client chain layerzero endpoint should emit the message packet including withdraw payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId, address(clientGateway), address(exocoreGateway).toBytes32(), 1, withdrawRequestPayload
+            exocoreChainId,
+            address(clientGateway),
+            address(exocoreGateway).toBytes32(),
+            1,
+            withdrawRequestPayload
         );
         // client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit MessageSent(
-            GatewayStorage.Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, requestId, uint64(1), requestNativeFee
+            GatewayStorage.Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE,
+            requestId,
+            uint64(1),
+            requestNativeFee
         );
         clientGateway.withdrawRewardFromExocore{value: requestNativeFee}(address(restakeToken), withdrawAmount);
 
@@ -58,8 +65,12 @@ contract WithdrawRewardTest is ExocoreDeployer {
 
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
-        bytes memory withdrawResponsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true, uint256(1234));
+        bytes memory withdrawResponsePayload = abi.encodePacked(
+            GatewayStorage.Action.RESPOND,
+            uint64(1),
+            true,
+            uint256(1234)
+        );
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
         bytes32 responseId = generateUID(1, false);
         emit NewPacket(
@@ -97,11 +108,19 @@ contract WithdrawRewardTest is ExocoreDeployer {
     function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
         if (fromClientChainToExocore) {
             uid = GUID.generate(
-                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+                nonce,
+                clientChainId,
+                address(clientGateway),
+                exocoreChainId,
+                address(exocoreGateway).toBytes32()
             );
         } else {
             uid = GUID.generate(
-                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
+                nonce,
+                exocoreChainId,
+                address(exocoreGateway),
+                clientChainId,
+                address(clientGateway).toBytes32()
             );
         }
     }

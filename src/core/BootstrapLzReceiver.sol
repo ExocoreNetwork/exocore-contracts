@@ -6,11 +6,7 @@ import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/Own
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
-abstract contract BootstrapLzReceiver is
-    PausableUpgradeable,
-    OAppReceiverUpgradeable,
-    BootstrapStorage
-{
+abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, BootstrapStorage {
     modifier onlyCalledFromThis() {
         require(
             msg.sender == address(this),
@@ -19,9 +15,7 @@ abstract contract BootstrapLzReceiver is
         _;
     }
 
-    function _lzReceive(
-        Origin calldata _origin, bytes calldata payload
-    ) internal virtual override {
+    function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override {
         if (_origin.srcEid != exocoreChainId) {
             revert UnexpectedSourceChain(_origin.srcEid);
         }
@@ -32,20 +26,16 @@ abstract contract BootstrapLzReceiver is
         if (selector_ == bytes4(0)) {
             revert UnsupportedRequest(act);
         }
-        (bool success, bytes memory reason) =
-            address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
+        (bool success, bytes memory reason) = address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
         if (!success) {
             revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
         }
     }
 
-    function nextNonce(uint32 srcEid, bytes32 sender)
-        public
-        view
-        virtual
-        override(OAppReceiverUpgradeable)
-        returns (uint64)
-    {
+    function nextNonce(
+        uint32 srcEid,
+        bytes32 sender
+    ) public view virtual override(OAppReceiverUpgradeable) returns (uint64) {
         return inboundNonce[srcEid][sender] + 1;
     }
 

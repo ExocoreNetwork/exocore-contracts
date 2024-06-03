@@ -79,9 +79,7 @@ contract SetUp is Test {
         vm.prank(exocoreValidatorSet.addr);
         exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
 
-        exocoreLzEndpoint.setDestLzEndpoint(
-                address(clientGateway), address(clientLzEndpoint)
-            );
+        exocoreLzEndpoint.setDestLzEndpoint(address(clientGateway), address(clientLzEndpoint));
 
         // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when sending back response
         deal(address(exocoreGateway), 1e22);
@@ -103,7 +101,7 @@ contract SetUp is Test {
 
 contract Pausable is SetUp {
     using AddressCast for address;
-    
+
     function test_PauseExocoreGateway() public {
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit Paused(exocoreValidatorSet.addr);
@@ -158,16 +156,10 @@ contract LzReceive is SetUp {
             abi.encodePacked(bytes32(bytes20(withdrawer.addr))),
             uint256(WITHDRAWAL_AMOUNT)
         );
-        bytes memory msg_ = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
-            payload
-        );
+        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, payload);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit ExocorePrecompileError(
-            WITHDRAW_PRECOMPILE_ADDRESS,
-            uint64(1)
-        );
+        emit ExocorePrecompileError(WITHDRAW_PRECOMPILE_ADDRESS, uint64(1));
 
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(

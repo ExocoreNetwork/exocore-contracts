@@ -37,8 +37,9 @@ contract DepositScript is BaseScript {
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
-        clientGateway =
-            IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
+        clientGateway = IClientChainGateway(
+            payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway"))
+        );
         require(address(clientGateway) != address(0), "clientGateway address should not be empty");
 
         beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(deployedContracts, ".clientChain.beaconOracle"));
@@ -70,7 +71,9 @@ contract DepositScript is BaseScript {
         vm.selectFork(clientChain);
 
         vm.startBroadcast(depositor.privateKey);
-        (bool success,) = address(beaconOracle).call(abi.encodeWithSelector(beaconOracle.addTimestamp.selector, validatorProof.beaconBlockTimestamp));
+        (bool success, ) = address(beaconOracle).call(
+            abi.encodeWithSelector(beaconOracle.addTimestamp.selector, validatorProof.beaconBlockTimestamp)
+        );
         vm.stopBroadcast();
 
         vm.startBroadcast(depositor.privateKey);
@@ -104,9 +107,15 @@ contract DepositScript is BaseScript {
 
         validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
         require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
-        validatorProof.stateRootProof = stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+        validatorProof.stateRootProof = stdJson.readBytes32Array(
+            validatorInfo,
+            ".StateRootAgainstLatestBlockHeaderProof"
+        );
         require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
-        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(
+            validatorInfo,
+            ".WithdrawalCredentialProof"
+        );
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");

@@ -2,13 +2,7 @@
 pragma solidity 0.8.22;
 
 import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {
-    ILayerZeroEndpointV2,
-    MessagingParams,
-    MessagingReceipt,
-    MessagingFee,
-    Origin
-} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import {ILayerZeroEndpointV2, MessagingParams, MessagingReceipt, MessagingFee, Origin} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {ExecutionState} from "@layerzerolabs/lz-evm-protocol-v2/contracts/EndpointV2ViewUpgradeable.sol";
 import {ILayerZeroReceiver} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroReceiver.sol";
 import {SetConfigParam} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/IMessageLibManager.sol";
@@ -39,12 +33,10 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
     uint32 public immutable eid;
     mapping(address => address) public lzEndpointLookup;
 
-    mapping(address receiver => mapping(uint32 srcEid => mapping(bytes32 sender => uint64 nonce))) public
-        lazyInboundNonce;
-    mapping(
-        address receiver
-            => mapping(uint32 srcEid => mapping(bytes32 sender => mapping(uint64 inboundNonce => bytes32 payloadHash)))
-    ) public inboundPayloadHash;
+    mapping(address receiver => mapping(uint32 srcEid => mapping(bytes32 sender => uint64 nonce)))
+        public lazyInboundNonce;
+    mapping(address receiver => mapping(uint32 srcEid => mapping(bytes32 sender => mapping(uint64 inboundNonce => bytes32 payloadHash))))
+        public inboundPayloadHash;
     mapping(address sender => mapping(uint32 dstEid => mapping(bytes32 receiver => uint64 nonce))) public outboundNonce;
 
     RelayerFeeConfig public relayerFeeConfig;
@@ -84,7 +76,12 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
     event ValueTransferFailed(address indexed to, uint256 indexed quantity);
     event NewPacket(uint32, address, bytes32, uint64, bytes);
     event PayloadStored(
-        uint32 srcChainId, bytes32 srcAddress, address dstAddress, uint64 nonce, bytes payload, bytes reason
+        uint32 srcChainId,
+        bytes32 srcAddress,
+        address dstAddress,
+        uint64 nonce,
+        bytes payload,
+        bytes reason
     );
 
     constructor(uint32 _eid, address _exocoreValidatorSet) {
@@ -104,12 +101,10 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         verifierFee = 1e16;
     }
 
-    function send(MessagingParams calldata _params, address _refundAddress)
-        public
-        payable
-        sendContext(_params.dstEid, msg.sender)
-        returns (MessagingReceipt memory receipt)
-    {
+    function send(
+        MessagingParams calldata _params,
+        address _refundAddress
+    ) public payable sendContext(_params.dstEid, msg.sender) returns (MessagingReceipt memory receipt) {
         if (_params.payInLzToken) revert Errors.LZ_LzTokenUnavailable();
 
         address lzEndpoint = lzEndpointLookup[_params.receiver.bytes32ToAddress()];
@@ -135,7 +130,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         // refund if they send too much
         uint256 amount = msg.value - receipt.fee.nativeFee;
         if (amount > 0) {
-            (bool success,) = _refundAddress.call{value: amount}("");
+            (bool success, ) = _refundAddress.call{value: amount}("");
             require(success, "LayerZeroMock: failed to refund");
         }
 
@@ -158,9 +153,13 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         _sendMessage(packet.dstEid, msg.sender, packet.receiver, packet.nonce, packet.message);
     }
 
-    function _sendMessage(uint32 dstChainId, address srcAddress, bytes32 dstAddr, uint64 nonce, bytes memory payload)
-        internal
-    {
+    function _sendMessage(
+        uint32 dstChainId,
+        address srcAddress,
+        bytes32 dstAddr,
+        uint64 nonce,
+        bytes memory payload
+    ) internal {
         emit NewPacket(dstChainId, srcAddress, dstAddr, nonce, payload);
     }
 
@@ -192,11 +191,12 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         }
     }
 
-    function _hasPayloadHash(address _receiver, uint32 _srcEid, bytes32 _sender, uint64 _nonce)
-        internal
-        view
-        returns (bool)
-    {
+    function _hasPayloadHash(
+        address _receiver,
+        uint32 _srcEid,
+        bytes32 _sender,
+        uint64 _nonce
+    ) internal view returns (bool) {
         return inboundPayloadHash[_receiver][_srcEid][_sender][_nonce] != EMPTY_PAYLOAD_HASH;
     }
 
@@ -215,20 +215,18 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint256 basePrice = (nativeFee * relayerFeeConfig.dstPriceRatio) / 10 ** 10;
 
         // pricePerByte = (dstGasPriceInWei * gasPerBytes) * tokenConversionRate
-        uint256 pricePerByte = (
-            (relayerFeeConfig.dstGasPriceInWei * relayerFeeConfig.gasPerByte * relayerFeeConfig.dstPriceRatio)
-                / 10 ** 10
-        ) * _payloadSize;
+        uint256 pricePerByte = ((relayerFeeConfig.dstGasPriceInWei *
+            relayerFeeConfig.gasPerByte *
+            relayerFeeConfig.dstPriceRatio) / 10 ** 10) * _payloadSize;
 
         return basePrice + pricePerByte;
     }
 
-    function _quote(MessagingParams calldata _params, address /*_sender*/ )
-        internal
-        view
-        returns (MessagingFee memory messagingFee)
-    {
-        (bytes memory executorOptions,) = splitOptions(_params.options);
+    function _quote(
+        MessagingParams calldata _params,
+        address /*_sender*/
+    ) internal view returns (MessagingFee memory messagingFee) {
+        (bytes memory executorOptions, ) = splitOptions(_params.options);
 
         // 2) get Executor fee
         uint256 executorFee = this.getExecutorFee(_params.message.length, executorOptions);
@@ -255,10 +253,12 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         return lazyInboundNonce[_receiver][_srcEid][_sender];
     }
 
-    function resetInboundNonce(address _receiver, uint32 _srcEid, bytes32 _sender, uint64 _nonce)
-        external
-        onlyExocoreValidatorSet
-    {
+    function resetInboundNonce(
+        address _receiver,
+        uint32 _srcEid,
+        bytes32 _sender,
+        uint64 _nonce
+    ) external onlyExocoreValidatorSet {
         lazyInboundNonce[_receiver][_srcEid][_sender] = _nonce;
     }
 
@@ -266,10 +266,12 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         return outboundNonce[_sender][_dstEid][_receiver];
     }
 
-    function resetOutboundNonce(address _sender, uint32 _dstEid, bytes32 _receiver, uint64 _nonce)
-        external
-        onlyExocoreValidatorSet
-    {
+    function resetOutboundNonce(
+        address _sender,
+        uint32 _dstEid,
+        bytes32 _receiver,
+        uint64 _nonce
+    ) external onlyExocoreValidatorSet {
         outboundNonce[_sender][_dstEid][_receiver] = _nonce;
     }
 
@@ -277,11 +279,9 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         lzEndpointLookup[destAddr] = lzEndpointAddr;
     }
 
-    function _decodeExecutorOptions(bytes calldata _options)
-        internal
-        view
-        returns (uint256 dstAmount, uint256 totalGas)
-    {
+    function _decodeExecutorOptions(
+        bytes calldata _options
+    ) internal view returns (uint256 dstAmount, uint256 totalGas) {
         if (_options.length == 0) {
             revert IExecutorFeeLib.Executor_NoOptions();
         }
@@ -308,7 +308,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
                 dstAmount += value;
                 lzReceiveGas += gas;
             } else if (optionType == ExecutorOptions.OPTION_TYPE_NATIVE_DROP) {
-                (uint128 nativeDropAmount,) = ExecutorOptions.decodeNativeDropOption(option);
+                (uint128 nativeDropAmount, ) = ExecutorOptions.decodeNativeDropOption(option);
                 dstAmount += nativeDropAmount;
             } else if (optionType == ExecutorOptions.OPTION_TYPE_LZCOMPOSE) {
                 // endpoint v1 does not support lzCompose
@@ -345,11 +345,9 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         return (executorOpts, workerOpts);
     }
 
-    function decode(bytes calldata _options)
-        internal
-        pure
-        returns (bytes memory executorOptions, bytes memory dvnOptions)
-    {
+    function decode(
+        bytes calldata _options
+    ) internal pure returns (bytes memory executorOptions, bytes memory dvnOptions) {
         // at least 2 bytes for the option type, but can have no options
         if (_options.length < 2) revert UlnOptions.LZ_ULN_InvalidWorkerOptions(0);
 
@@ -377,8 +375,12 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
                         lastWorkerId = workerId;
                     } else if (workerId != lastWorkerId) {
                         bytes calldata op = _options[start:cursor]; // slice out the last worker's options
-                        (executorOptions, dvnOptions) =
-                            _insertWorkerOptions(executorOptions, dvnOptions, lastWorkerId, op);
+                        (executorOptions, dvnOptions) = _insertWorkerOptions(
+                            executorOptions,
+                            dvnOptions,
+                            lastWorkerId,
+                            op
+                        );
 
                         // reset the start cursor and lastWorkerId
                         start = cursor;
@@ -414,8 +416,9 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         bytes calldata _newOptions
     ) private pure returns (bytes memory, bytes memory) {
         if (_workerId == ExecutorOptions.WORKER_ID) {
-            _executorOptions =
-                _executorOptions.length == 0 ? _newOptions : abi.encodePacked(_executorOptions, _newOptions);
+            _executorOptions = _executorOptions.length == 0
+                ? _newOptions
+                : abi.encodePacked(_executorOptions, _newOptions);
         } else if (_workerId == DVNOptions.WORKER_ID) {
             _dvnOptions = _dvnOptions.length == 0 ? _newOptions : abi.encodePacked(_dvnOptions, _newOptions);
         } else {
@@ -424,11 +427,10 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         return (_executorOptions, _dvnOptions);
     }
 
-    function decodeLegacyOptions(uint16 _optionType, bytes calldata _options)
-        internal
-        pure
-        returns (bytes memory executorOptions)
-    {
+    function decodeLegacyOptions(
+        uint16 _optionType,
+        bytes calldata _options
+    ) internal pure returns (bytes memory executorOptions) {
         if (_optionType == UlnOptions.TYPE_1) {
             if (_options.length != 34) revert UlnOptions.LZ_ULN_InvalidLegacyType1Option();
 
@@ -489,39 +491,38 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
 
     function clear(address _oapp, Origin calldata _origin, bytes32 _guid, bytes calldata _message) external {}
 
-    mapping(
-        address from => mapping(address to => mapping(bytes32 guid => mapping(uint16 index => bytes32 messageHash)))
-    ) public composeQueue;
+    mapping(address from => mapping(address to => mapping(bytes32 guid => mapping(uint16 index => bytes32 messageHash))))
+        public composeQueue;
 
-    function defaultReceiveLibrary(uint32 /*_eid*/ ) external pure returns (address) {
+    function defaultReceiveLibrary(uint32 /*_eid*/) external pure returns (address) {
         return address(0);
     }
 
-    function defaultReceiveLibraryTimeout(uint32 /*_eid*/ ) external pure returns (address lib, uint256 expiry) {
+    function defaultReceiveLibraryTimeout(uint32 /*_eid*/) external pure returns (address lib, uint256 expiry) {
         return (address(0), 0);
     }
 
-    function defaultSendLibrary(uint32 /*_eid*/ ) external pure returns (address) {
+    function defaultSendLibrary(uint32 /*_eid*/) external pure returns (address) {
         return address(0);
     }
 
-    function executable(Origin calldata, /*_origin*/ address /*receiver*/ ) external pure returns (ExecutionState) {
+    function executable(Origin calldata, /*_origin*/ address /*receiver*/) external pure returns (ExecutionState) {
         return ExecutionState.NotExecutable;
     }
 
-    function getConfig(address, /*_oapp*/ address, /*_lib*/ uint32, /*_eid*/ uint32 /*_configType*/ )
-        external
-        pure
-        returns (bytes memory config)
-    {
+    function getConfig(
+        address,
+        /*_oapp*/ address,
+        /*_lib*/ uint32,
+        /*_eid*/ uint32 /*_configType*/
+    ) external pure returns (bytes memory config) {
         return bytes("0x");
     }
 
-    function getReceiveLibrary(address, /*receiver*/ uint32 /*_eid*/ )
-        external
-        pure
-        returns (address lib, bool isDefault)
-    {
+    function getReceiveLibrary(
+        address,
+        /*receiver*/ uint32 /*_eid*/
+    ) external pure returns (address lib, bool isDefault) {
         return (address(0), false);
     }
 
@@ -531,7 +532,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         return addresses;
     }
 
-    function getSendLibrary(address, /*_sender*/ uint32 /*_eid*/ ) external pure returns (address lib) {
+    function getSendLibrary(address, /*_sender*/ uint32 /*_eid*/) external pure returns (address lib) {
         return address(0);
     }
 
@@ -539,24 +540,24 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         return lazyInboundNonce[_receiver][_srcEid][_sender];
     }
 
-    function isDefaultSendLibrary(address, /*_sender*/ uint32 /*_eid*/ ) external pure returns (bool) {
+    function isDefaultSendLibrary(address, /*_sender*/ uint32 /*_eid*/) external pure returns (bool) {
         return false;
     }
 
-    function isRegisteredLibrary(address /*_lib*/ ) external pure returns (bool) {
+    function isRegisteredLibrary(address /*_lib*/) external pure returns (bool) {
         return false;
     }
 
-    function isSupportedEid(uint32 /*_eid*/ ) external pure returns (bool) {
+    function isSupportedEid(uint32 /*_eid*/) external pure returns (bool) {
         return false;
     }
 
     function lzCompose(
-        address, /*_from,*/
-        address, /*_to,*/
-        bytes32, /*_guid,*/
-        uint16, /*_index,*/
-        bytes calldata, /*_message,*/
+        address /*_from,*/,
+        address /*_to,*/,
+        bytes32 /*_guid,*/,
+        uint16 /*_index,*/,
+        bytes calldata /*_message,*/,
         bytes calldata /*_extraData*/
     ) external payable {}
 
@@ -576,19 +577,19 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         return address(0);
     }
 
-    function nextGuid(address, /*_sender,*/ uint32, /*_dstEid,*/ bytes32 /*_receiver*/ )
-        external
-        pure
-        returns (bytes32)
-    {
+    function nextGuid(
+        address,
+        /*_sender,*/ uint32,
+        /*_dstEid,*/ bytes32 /*_receiver*/
+    ) external pure returns (bytes32) {
         return 0;
     }
 
     function nilify(
-        address, /*_oapp,*/
-        uint32, /*_srcEid,*/
-        bytes32, /*_sender,*/
-        uint64, /*_nonce,*/
+        address /*_oapp,*/,
+        uint32 /*_srcEid,*/,
+        bytes32 /*_sender,*/,
+        uint64 /*_nonce,*/,
         bytes32 /*_payloadHash*/
     ) external {}
 
@@ -598,23 +599,21 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
 
     mapping(address receiver => mapping(uint32 srcEid => Timeout)) public receiveLibraryTimeout;
 
-    function registerLibrary(address /*_lib*/ ) public {}
+    function registerLibrary(address /*_lib*/) public {}
 
-    function sendCompose(address, /*_to*/ bytes32, /*_guid*/ uint16, /*_index*/ bytes calldata /*_message*/ )
-        external
-    {}
+    function sendCompose(address, /*_to*/ bytes32, /*_guid*/ uint16, /*_index*/ bytes calldata /*_message*/) external {}
 
-    function setConfig(address, /*_oapp*/ address, /*_lib*/ SetConfigParam[] calldata /*_params*/ ) external {}
+    function setConfig(address, /*_oapp*/ address, /*_lib*/ SetConfigParam[] calldata /*_params*/) external {}
 
-    function setDefaultReceiveLibrary(uint32, /*_eid*/ address, /*_newLib*/ uint256 /*_gracePeriod*/ ) external {}
+    function setDefaultReceiveLibrary(uint32, /*_eid*/ address, /*_newLib*/ uint256 /*_gracePeriod*/) external {}
 
-    function setDefaultReceiveLibraryTimeout(uint32, /*_eid*/ address, /*_lib*/ uint256 /*_expiry*/ ) external {}
+    function setDefaultReceiveLibraryTimeout(uint32, /*_eid*/ address, /*_lib*/ uint256 /*_expiry*/) external {}
 
-    function setDefaultSendLibrary(uint32, /*_eid*/ address /*_newLib*/ ) external {}
+    function setDefaultSendLibrary(uint32, /*_eid*/ address /*_newLib*/) external {}
 
-    function setDelegate(address /*_delegate*/ ) external {}
+    function setDelegate(address /*_delegate*/) external {}
 
-    function setLzToken(address /*_lzToken*/ ) external {}
+    function setLzToken(address /*_lzToken*/) external {}
 
     function setReceiveLibrary(
         address,
@@ -636,34 +635,32 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         uint256 /*_gracePeriod*/
     ) external {}
 
-    function setSendLibrary(address, /*_oapp*/ uint32, /*_eid*/ address /*_newLib*/ ) external {}
+    function setSendLibrary(address, /*_oapp*/ uint32, /*_eid*/ address /*_newLib*/) external {}
 
-    function skip(address, /*_oapp*/ uint32, /*_srcEid*/ bytes32, /*_sender*/ uint64 /*_nonce*/ ) external {}
+    function skip(address, /*_oapp*/ uint32, /*_srcEid*/ bytes32, /*_sender*/ uint64 /*_nonce*/) external {}
 
     function verifiable(
-        Origin calldata, /*_origin*/
-        address, /*_receiver*/
-        address, /*_receiveLib*/
+        Origin calldata /*_origin*/,
+        address /*_receiver*/,
+        address /*_receiveLib*/,
         bytes32 /*_payloadHash*/
     ) external pure returns (bool) {
         return false;
     }
 
-    function verify(Origin calldata, /*origin*/ address, /*_receiver*/ bytes32 /*_payloadHash*/ ) external {}
+    function verify(Origin calldata, /*origin*/ address, /*_receiver*/ bytes32 /*_payloadHash*/) external {}
 
     // Helper Functions
-    function executeNativeAirDropAndReturnLzGas(bytes calldata _options)
-        public
-        returns (uint256 totalGas, uint256 dstAmount)
-    {
-        (bytes memory executorOpts,) = decode(_options);
+    function executeNativeAirDropAndReturnLzGas(
+        bytes calldata _options
+    ) public returns (uint256 totalGas, uint256 dstAmount) {
+        (bytes memory executorOpts, ) = decode(_options);
         return this._executeNativeAirDropAndReturnLzGas(executorOpts);
     }
 
-    function _executeNativeAirDropAndReturnLzGas(bytes calldata _options)
-        public
-        returns (uint256 totalGas, uint256 dstAmount)
-    {
+    function _executeNativeAirDropAndReturnLzGas(
+        bytes calldata _options
+    ) public returns (uint256 totalGas, uint256 dstAmount) {
         if (_options.length == 0) {
             revert IExecutorFeeLib.Executor_NoOptions();
         }
@@ -679,7 +676,7 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
                 dstAmount += value;
             } else if (optionType == ExecutorOptions.OPTION_TYPE_NATIVE_DROP) {
                 (uint128 nativeDropAmount, bytes32 receiver) = ExecutorOptions.decodeNativeDropOption(option);
-                (bool success,) = receiver.bytes32ToAddress().call{value: nativeDropAmount}("");
+                (bool success, ) = receiver.bytes32ToAddress().call{value: nativeDropAmount}("");
                 if (!success) {
                     emit ValueTransferFailed(receiver.bytes32ToAddress(), nativeDropAmount);
                 }
@@ -693,23 +690,25 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
         if (cursor != _options.length) revert IExecutorFeeLib.Executor_InvalidExecutorOptions(cursor);
     }
 
-    function _initializable(Origin calldata _origin, address _receiver, uint64 _lazyInboundNonce)
-        internal
-        view
-        returns (bool)
-    {
-        return _lazyInboundNonce > 0 // allowInitializePath already checked
-            || ILayerZeroReceiver(_receiver).allowInitializePath(_origin);
+    function _initializable(
+        Origin calldata _origin,
+        address _receiver,
+        uint64 _lazyInboundNonce
+    ) internal view returns (bool) {
+        return
+            _lazyInboundNonce > 0 || // allowInitializePath already checked
+            ILayerZeroReceiver(_receiver).allowInitializePath(_origin);
     }
 
     /// @dev bytes(0) payloadHash can never be submitted
-    function _verifiable(Origin calldata _origin, address _receiver, uint64 _lazyInboundNonce)
-        internal
-        view
-        returns (bool)
-    {
-        return _origin.nonce > _lazyInboundNonce // either initializing an empty slot or reverifying
-            || inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] != EMPTY_PAYLOAD_HASH; // only allow reverifying if it hasn't been executed
+    function _verifiable(
+        Origin calldata _origin,
+        address _receiver,
+        uint64 _lazyInboundNonce
+    ) internal view returns (bool) {
+        return
+            _origin.nonce > _lazyInboundNonce || // either initializing an empty slot or reverifying
+            inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] != EMPTY_PAYLOAD_HASH; // only allow reverifying if it hasn't been executed
     }
 
     // ========================= VIEW FUNCTIONS FOR OFFCHAIN ONLY =========================
@@ -726,11 +725,11 @@ contract NonShortCircuitEndpointV2Mock is ILayerZeroEndpointV2, MessagingContext
     /// @dev called when the endpoint checks if the msgLib attempting to verify the msg is the configured msgLib of the Oapp
     /// @dev this check provides the ability for Oapp to lock in a trusted msgLib
     /// @dev it will fist check if the msgLib is the currently configured one. then check if the msgLib is the one in grace period of msgLib versioning upgrade
-    function isValidReceiveLibrary(address, /*_receiver*/ uint32, /*_srcEid*/ address /*_actualReceiveLib*/ )
-        public
-        pure
-        returns (bool)
-    {
+    function isValidReceiveLibrary(
+        address,
+        /*_receiver*/ uint32,
+        /*_srcEid*/ address /*_actualReceiveLib*/
+    ) public pure returns (bool) {
         return true;
     }
 }

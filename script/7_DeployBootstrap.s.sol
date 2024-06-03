@@ -26,34 +26,18 @@ contract DeployBootstrapOnly is BaseScript {
         clientChainLzEndpoint = ILayerZeroEndpointV2(
             stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint")
         );
-        require(
-            address(clientChainLzEndpoint) != address(0),
-            "Client chain endpoint not found"
-        );
-        restakeToken = ERC20PresetFixedSupply(
-            stdJson.readAddress(prerequisiteContracts, ".clientChain.erc20Token")
-        );
-        require(
-            address(restakeToken) != address(0),
-            "Restake token not found"
-        );
+        require(address(clientChainLzEndpoint) != address(0), "Client chain endpoint not found");
+        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisiteContracts, ".clientChain.erc20Token"));
+        require(address(restakeToken) != address(0), "Restake token not found");
         clientChain = vm.createSelectFork(clientChainRPCURL);
         // we should use the pre-requisite to save gas instead of deploying our own
-        beaconOracle = EigenLayerBeaconOracle(
-            stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconOracle")
-        );
-        require(
-            address(beaconOracle) != address(0),
-            "Beacon oracle not found"
-        );
+        beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconOracle"));
+        require(address(beaconOracle) != address(0), "Beacon oracle not found");
         // same for BeaconProxyBytecode
         beaconProxyBytecode = BeaconProxyBytecode(
             stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode")
         );
-        require(
-            address(beaconProxyBytecode) != address(0),
-            "Beacon proxy bytecode not found"
-        );
+        require(address(beaconProxyBytecode) != address(0), "Beacon proxy bytecode not found");
     }
 
     function run() public {
@@ -75,20 +59,24 @@ contract DeployBootstrapOnly is BaseScript {
         );
         // bootstrap implementation
         Bootstrap bootstrap = Bootstrap(
-            payable(address(
-                new TransparentUpgradeableProxy(
-                    address(bootstrapLogic), address(proxyAdmin),
-                    abi.encodeCall(Bootstrap.initialize,
-                        (
-                            exocoreValidatorSet.addr,
-                            block.timestamp + 365 days + 24 hours,
-                            24 hours,
-                            payable(exocoreValidatorSet.addr),
-                            whitelistTokens, // vault is auto deployed
-                            address(proxyAdmin)
+            payable(
+                address(
+                    new TransparentUpgradeableProxy(
+                        address(bootstrapLogic),
+                        address(proxyAdmin),
+                        abi.encodeCall(
+                            Bootstrap.initialize,
+                            (
+                                exocoreValidatorSet.addr,
+                                block.timestamp + 365 days + 24 hours,
+                                24 hours,
+                                payable(exocoreValidatorSet.addr),
+                                whitelistTokens, // vault is auto deployed
+                                address(proxyAdmin)
+                            )
                         )
                     )
-                ))
+                )
             )
         );
 
@@ -113,10 +101,7 @@ contract DeployBootstrapOnly is BaseScript {
             exocoreValidatorSet.addr,
             emptyList
         );
-        bootstrap.setClientChainGatewayLogic(
-            address(clientGatewayLogic),
-            initialization
-        );
+        bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
 
         vm.stopBroadcast();
 
@@ -132,12 +117,14 @@ contract DeployBootstrapOnly is BaseScript {
         vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
         vm.serializeAddress(clientChainContracts, "capsuleImplementation", address(capsuleImplementation));
         vm.serializeAddress(clientChainContracts, "capsuleBeacon", address(capsuleBeacon));
-        string memory clientChainContractsOutput =
-            vm.serializeAddress(clientChainContracts, "clientGatewayLogic", address(clientGatewayLogic));
+        string memory clientChainContractsOutput = vm.serializeAddress(
+            clientChainContracts,
+            "clientGatewayLogic",
+            address(clientGatewayLogic)
+        );
 
         string memory deployedContracts = "deployedContracts";
-        string memory finalJson =
-            vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
 
         vm.writeJson(finalJson, "script/deployedBootstrapOnly.json");
     }

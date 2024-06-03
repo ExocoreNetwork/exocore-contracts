@@ -25,12 +25,12 @@ contract RegisterOperatorsAndDelegate is Script {
     address tokenAddr;
     // each subarray sums to deposits, and each item is the delegation amount
     uint256[4][4] amounts = [
-        [ 1500 * 1e18, 250 * 1e18, 250 * 1e18, 0 * 1e18 ],
-        [ 300 * 1e18, 1500 * 1e18, 0 * 1e18, 200 * 1e18 ],
-        [ 0 * 1e18, 0 * 1e18, 2500 * 1e18, 500 * 1e18 ],
-        [ 1000 * 1e18, 0 * 1e18, 0 * 1e18, 2000 * 1e18 ]
+        [1500 * 1e18, 250 * 1e18, 250 * 1e18, 0 * 1e18],
+        [300 * 1e18, 1500 * 1e18, 0 * 1e18, 200 * 1e18],
+        [0 * 1e18, 0 * 1e18, 2500 * 1e18, 500 * 1e18],
+        [1000 * 1e18, 0 * 1e18, 0 * 1e18, 2000 * 1e18]
     ];
- 
+
     function setUp() public {
         primaryKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
         operatorKeys = vm.envUint("OPERATOR_KEYS", ",");
@@ -43,8 +43,8 @@ contract RegisterOperatorsAndDelegate is Script {
 
         require(
             operatorKeys.length == exoAddresses.length &&
-            operatorKeys.length == names.length &&
-            operatorKeys.length == consKeys.length,
+                operatorKeys.length == names.length &&
+                operatorKeys.length == consKeys.length,
             "Operator registration data length mismatch"
         );
 
@@ -57,13 +57,11 @@ contract RegisterOperatorsAndDelegate is Script {
 
     function run() public {
         vm.selectFork(clientChain);
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(
-            0, 1e18, 1e18
-        );
+        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
         Bootstrap bootstrap = Bootstrap(bootstrapAddr);
         ERC20PresetFixedSupply token = ERC20PresetFixedSupply(tokenAddr);
         address vaultAddr = address(bootstrap.tokenToVault(tokenAddr));
-        for(uint256 i = 0; i < operatorKeys.length; i++) {
+        for (uint256 i = 0; i < operatorKeys.length; i++) {
             uint256 pk = operatorKeys[i];
             address addr = vm.addr(pk);
             console.log(i, addr);
@@ -72,14 +70,12 @@ contract RegisterOperatorsAndDelegate is Script {
             bytes32 consKey = consKeys[i];
             vm.startBroadcast(pk);
             // register operator
-            bootstrap.registerOperator(
-                exoAddr, name, commission, consKey
-            );
+            bootstrap.registerOperator(exoAddr, name, commission, consKey);
             vm.stopBroadcast();
             // give them the balance
             vm.startBroadcast(primaryKey);
             uint256 depositAmount = 0;
-            for(uint256 j = 0; j < amounts[i].length; j++) {
+            for (uint256 j = 0; j < amounts[i].length; j++) {
                 depositAmount += amounts[i][j];
             }
             if (token.balanceOf(addr) < depositAmount) {
@@ -93,10 +89,10 @@ contract RegisterOperatorsAndDelegate is Script {
             bootstrap.deposit(tokenAddr, depositAmount);
             vm.stopBroadcast();
         }
-        for(uint256 i = 0; i < operatorKeys.length; i++) {
+        for (uint256 i = 0; i < operatorKeys.length; i++) {
             uint256 pk = operatorKeys[i];
             vm.startBroadcast(pk);
-            for(uint256 j = 0; j < operatorKeys.length; j++) {
+            for (uint256 j = 0; j < operatorKeys.length; j++) {
                 uint256 amount = amounts[i][j];
                 if (amount == 0) {
                     continue;

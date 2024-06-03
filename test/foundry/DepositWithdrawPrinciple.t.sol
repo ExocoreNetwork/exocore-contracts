@@ -18,7 +18,10 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
 
     event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
     event WithdrawPrincipleResult(
-        bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
+        bool indexed success,
+        address indexed token,
+        address indexed withdrawer,
+        uint256 amount
     );
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
@@ -81,8 +84,12 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
         lastlyUpdatedPrincipleBalance = depositAmount;
-        bytes memory depositResponsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true, lastlyUpdatedPrincipleBalance);
+        bytes memory depositResponsePayload = abi.encodePacked(
+            GatewayStorage.Action.RESPOND,
+            uint64(1),
+            true,
+            lastlyUpdatedPrincipleBalance
+        );
         uint256 depositResponseNativeFee = exocoreGateway.quote(clientChainId, depositResponsePayload);
         bytes32 depositResponseId = generateUID(1, false);
         emit NewPacket(
@@ -149,7 +156,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
             withdrawRequestNativeFee
         );
         clientGateway.withdrawPrincipleFromExocore{value: withdrawRequestNativeFee}(
-            address(restakeToken), withdrawAmount
+            address(restakeToken),
+            withdrawAmount
         );
 
         // second layerzero relayers should watch the request message packet and relay the message to destination endpoint
@@ -157,8 +165,12 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
         lastlyUpdatedPrincipleBalance -= withdrawAmount;
-        bytes memory withdrawResponsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(2), true, lastlyUpdatedPrincipleBalance);
+        bytes memory withdrawResponsePayload = abi.encodePacked(
+            GatewayStorage.Action.RESPOND,
+            uint64(2),
+            true,
+            lastlyUpdatedPrincipleBalance
+        );
         uint256 withdrawResponseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
         bytes32 withdrawResponseId = generateUID(2, false);
         emit NewPacket(
@@ -207,7 +219,9 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         // before native stake and deposit, we simulate proper block environment states to make proof valid
 
         /// we set the timestamp of proof to be exactly the timestamp that the validator container get activated on beacon chain
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME +
+            _getActivationEpoch(validatorContainer) *
+            SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         validatorProof.beaconBlockTimestamp = mockProofTimestamp;
 
@@ -223,11 +237,13 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         );
 
         // 1. firstly depositor should stake to beacon chain by depositing 32 ETH to ETHPOS contract
-        ExoCapsule expectedCapsule = ExoCapsule(Create2.computeAddress(
-            bytes32(uint256(uint160(depositor.addr))),
-            keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(capsuleBeacon), ""))),
-            address(clientGateway)
-        ));
+        ExoCapsule expectedCapsule = ExoCapsule(
+            Create2.computeAddress(
+                bytes32(uint256(uint160(depositor.addr))),
+                keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(capsuleBeacon), ""))),
+                address(clientGateway)
+            )
+        );
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit CapsuleCreated(depositor.addr, address(expectedCapsule));
         emit StakedWithCapsule(depositor.addr, address(expectedCapsule));
@@ -246,11 +262,7 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
 
         /// replace expectedCapsule with capsule
         bytes32 capsuleSlotInGateway = bytes32(
-            stdstore
-            .target(address(clientGatewayLogic))
-            .sig("ownerToCapsule(address)")
-            .with_key(depositor.addr)
-            .find()
+            stdstore.target(address(clientGatewayLogic)).sig("ownerToCapsule(address)").with_key(depositor.addr).find()
         );
         vm.store(address(clientGateway), capsuleSlotInGateway, bytes32(uint256(uint160(address(capsule)))));
         assertEq(address(clientGateway.ownerToCapsule(depositor.addr)), address(capsule));
@@ -293,8 +305,12 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
 
         /// exocore gateway should return response message to exocore network layerzero endpoint
         uint256 lastlyUpdatedPrincipleBalance = depositAmount;
-        bytes memory depositResponsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true, lastlyUpdatedPrincipleBalance);
+        bytes memory depositResponsePayload = abi.encodePacked(
+            GatewayStorage.Action.RESPOND,
+            uint64(1),
+            true,
+            lastlyUpdatedPrincipleBalance
+        );
         uint256 depositResponseNativeFee = exocoreGateway.quote(clientChainId, depositResponsePayload);
         bytes32 depositResponseId = generateUID(1, false);
 
@@ -343,11 +359,19 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
     function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
         if (fromClientChainToExocore) {
             uid = GUID.generate(
-                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+                nonce,
+                clientChainId,
+                address(clientGateway),
+                exocoreChainId,
+                address(exocoreGateway).toBytes32()
             );
         } else {
             uid = GUID.generate(
-                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
+                nonce,
+                exocoreChainId,
+                address(exocoreGateway),
+                clientChainId,
+                address(clientGateway).toBytes32()
             );
         }
     }

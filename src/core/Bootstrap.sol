@@ -36,7 +36,7 @@ contract Bootstrap is
 {
     constructor(
         address endpoint_,
-        uint32 exocoreChainId_, 
+        uint32 exocoreChainId_,
         address vaultBeacon_,
         address beaconProxyBytecode_
     ) OAppCoreUpgradeable(endpoint_) BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_) {
@@ -54,19 +54,14 @@ contract Bootstrap is
         require(owner != address(0), "Bootstrap: owner should not be empty");
         require(spawnTime_ > block.timestamp, "Bootstrap: spawn time should be in the future");
         require(offsetDuration_ > 0, "Bootstrap: offset duration should be greater than 0");
-        require(
-            spawnTime_ > offsetDuration_,
-            "Bootstrap: spawn time should be greater than offset duration"
-        );
+        require(spawnTime_ > offsetDuration_, "Bootstrap: spawn time should be greater than offset duration");
         uint256 lockTime = spawnTime_ - offsetDuration_;
+        require(lockTime > block.timestamp, "Bootstrap: lock time should be in the future");
         require(
-            lockTime > block.timestamp,
-            "Bootstrap: lock time should be in the future"
+            exocoreValidatorSetAddress_ != address(0),
+            "Bootstrap: exocore validator set address should not be empty"
         );
-        require(exocoreValidatorSetAddress_ != address(0),
-            "Bootstrap: exocore validator set address should not be empty");
-        require(customProxyAdmin_ != address(0),
-            "Bootstrap: custom proxy admin should not be empty");
+        require(customProxyAdmin_ != address(0), "Bootstrap: custom proxy admin should not be empty");
 
         exocoreSpawnTime = spawnTime_;
         offsetDuration = offsetDuration_;
@@ -81,8 +76,7 @@ contract Bootstrap is
             _deployVault(underlyingToken);
         }
 
-        _whiteListFunctionSelectors[Action.MARK_BOOTSTRAP] =
-            this.markBootstrapped.selector;
+        _whiteListFunctionSelectors[Action.MARK_BOOTSTRAP] = this.markBootstrapped.selector;
 
         customProxyAdmin = customProxyAdmin_;
         bootstrapped = false;
@@ -117,21 +111,18 @@ contract Bootstrap is
      * to perform these operations during the lock period will result in a transaction
      * revert with an informative error message.
      */
-    modifier beforeLocked {
-        require(
-            !isLocked(),
-            "Bootstrap: operation not allowed after lock time"
-        );
+    modifier beforeLocked() {
+        require(!isLocked(), "Bootstrap: operation not allowed after lock time");
         _;
     }
 
     // pausing and unpausing can happen at all times, including after locked time.
-    function pause() onlyOwner external {
+    function pause() external onlyOwner {
         _pause();
     }
 
     // pausing and unpausing can happen at all times, including after locked time.
-    function unpause() onlyOwner external {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
@@ -143,19 +134,10 @@ contract Bootstrap is
      * @param _spawnTime The new spawn time in seconds.
      */
     function setSpawnTime(uint256 _spawnTime) external onlyOwner beforeLocked {
-        require(
-            _spawnTime > block.timestamp,
-            "Bootstrap: spawn time should be in the future"
-        );
-        require(
-            _spawnTime > offsetDuration,
-            "Bootstrap: spawn time should be greater than offset duration"
-        );
+        require(_spawnTime > block.timestamp, "Bootstrap: spawn time should be in the future");
+        require(_spawnTime > offsetDuration, "Bootstrap: spawn time should be greater than offset duration");
         uint256 lockTime = _spawnTime - offsetDuration;
-        require(
-            lockTime > block.timestamp,
-            "Bootstrap: lock time should be in the future"
-        );
+        require(lockTime > block.timestamp, "Bootstrap: lock time should be in the future");
         // technically the spawn time can be moved backwards in time as well.
         exocoreSpawnTime = _spawnTime;
         emit SpawnTimeUpdated(_spawnTime);
@@ -170,32 +152,21 @@ contract Bootstrap is
      * @param _offsetDuration The new offset duration in seconds.
      */
     function setOffsetDuration(uint256 _offsetDuration) external onlyOwner beforeLocked {
-        require(
-            exocoreSpawnTime > _offsetDuration,
-            "Bootstrap: spawn time should be greater than offset duration"
-        );
+        require(exocoreSpawnTime > _offsetDuration, "Bootstrap: spawn time should be greater than offset duration");
         uint256 lockTime = exocoreSpawnTime - _offsetDuration;
-        require(
-            lockTime > block.timestamp,
-            "Bootstrap: lock time should be in the future"
-        );
+        require(lockTime > block.timestamp, "Bootstrap: lock time should be in the future");
         offsetDuration = _offsetDuration;
         emit OffsetDurationUpdated(_offsetDuration);
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistToken(
-        address _token
-    ) external beforeLocked onlyOwner whenNotPaused {
+    function addWhitelistToken(address _token) external beforeLocked onlyOwner whenNotPaused {
         // modifiers: onlyOwner and whenNotPaused copied from client chain gateway.
         // i added beforeLocked to ensure that new tokens may not be added after
         // the offset duration before the spawn time begins.
         // anyway it would be pointless to add such tokens since other operations
         // cannot be performed.
-        require(
-            !isWhitelistedToken[_token],
-            "Bootstrap: token should be not whitelisted before"
-        );
+        require(!isWhitelistedToken[_token], "Bootstrap: token should be not whitelisted before");
         whitelistTokens.push(_token);
         isWhitelistedToken[_token] = true;
 
@@ -208,17 +179,12 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function removeWhitelistToken(
-        address _token
-    ) external beforeLocked onlyOwner whenNotPaused {
-        require(
-            isWhitelistedToken[_token],
-            "Bootstrap: token should be already whitelisted"
-        );
+    function removeWhitelistToken(address _token) external beforeLocked onlyOwner whenNotPaused {
+        require(isWhitelistedToken[_token], "Bootstrap: token should be already whitelisted");
         isWhitelistedToken[_token] = false;
         // the implicit assumption here is that the _token must be included in whitelistTokens
         // if isWhitelistedToken[_token] is true
-        for(uint i = 0; i < whitelistTokens.length; i++) {
+        for (uint i = 0; i < whitelistTokens.length; i++) {
             if (whitelistTokens[i] == _token) {
                 whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
                 whitelistTokens.pop();
@@ -237,35 +203,20 @@ contract Bootstrap is
         bytes32 consensusPublicKey
     ) external beforeLocked whenNotPaused {
         // ensure the address format is valid.
-        require(
-            isValidExocoreAddress(operatorExocoreAddress),
-            "Bootstrap: invalid bech32 address"
-        );
+        require(isValidExocoreAddress(operatorExocoreAddress), "Bootstrap: invalid bech32 address");
         // ensure that there is only one operator per ethereum address
-        require(
-            bytes(ethToExocoreAddress[msg.sender]).length == 0,
-            "Ethereum address already linked to an operator"
-        );
+        require(bytes(ethToExocoreAddress[msg.sender]).length == 0, "Ethereum address already linked to an operator");
         // check if operator with the same exocore address already exists
         require(
             bytes(operators[operatorExocoreAddress].name).length == 0,
             "Operator with this Exocore address is already registered"
         );
         // check that the consensus key is unique.
-        require(
-            !consensusPublicKeyInUse(consensusPublicKey),
-            "Consensus public key already in use"
-        );
+        require(!consensusPublicKeyInUse(consensusPublicKey), "Consensus public key already in use");
         // and that the name (meta info) is unique.
-        require(
-            !nameInUse(name),
-            "Name already in use"
-        );
+        require(!nameInUse(name), "Name already in use");
         // check that the commission is valid.
-        require(
-            isCommissionValid(commission),
-            "invalid commission"
-        );
+        require(isCommissionValid(commission), "invalid commission");
         ethToExocoreAddress[msg.sender] = operatorExocoreAddress;
         operators[operatorExocoreAddress] = IOperatorRegistry.Operator({
             name: name,
@@ -273,13 +224,7 @@ contract Bootstrap is
             consensusPublicKey: consensusPublicKey
         });
         registeredOperators.push(msg.sender);
-        emit OperatorRegistered(
-            msg.sender,
-            operatorExocoreAddress,
-            name,
-            commission,
-            consensusPublicKey
-        );
+        emit OperatorRegistered(msg.sender, operatorExocoreAddress, name, commission, consensusPublicKey);
     }
 
     /**
@@ -299,7 +244,7 @@ contract Bootstrap is
      * existing operator, indicating that the key is not unique. Returns `false` if the
      * public key is not found among the registered operators, indicating that the key
      * is unique and can be safely used for a new or updating operator.
-    */
+     */
     function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
         require(newKey != bytes32(0), "Consensus public key cannot be zero");
         for (uint256 i = 0; i < registeredOperators.length; i++) {
@@ -346,13 +291,12 @@ contract Bootstrap is
      * indicating that the name is not unique. Returns `false` if the name is not found
      * among the registered operators, indicating that the name is unique and can be
      * safely used for a new operator.
-    */
+     */
     function nameInUse(string memory newName) public view returns (bool) {
         for (uint256 i = 0; i < registeredOperators.length; i++) {
             address ethAddress = registeredOperators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (keccak256(abi.encodePacked(operators[exoAddress].name)) ==
-                keccak256(abi.encodePacked(newName))) {
+            if (keccak256(abi.encodePacked(operators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
                 return true;
             }
         }
@@ -360,30 +304,17 @@ contract Bootstrap is
     }
 
     // implementation of IOperatorRegistry
-    function replaceKey(
-        bytes32 newKey
-    ) external beforeLocked whenNotPaused {
-        require(
-            bytes(ethToExocoreAddress[msg.sender]).length != 0,
-            "no such operator exists"
-        );
-        require(
-            !consensusPublicKeyInUse(newKey),
-            "Consensus public key already in use"
-        );
+    function replaceKey(bytes32 newKey) external beforeLocked whenNotPaused {
+        require(bytes(ethToExocoreAddress[msg.sender]).length != 0, "no such operator exists");
+        require(!consensusPublicKeyInUse(newKey), "Consensus public key already in use");
         operators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
         emit OperatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
     }
 
     // implementation of IOperatorRegistry
-    function updateRate(
-        uint256 newRate
-    ) external beforeLocked whenNotPaused {
+    function updateRate(uint256 newRate) external beforeLocked whenNotPaused {
         string memory operatorAddress = ethToExocoreAddress[msg.sender];
-        require(
-            bytes(operatorAddress).length != 0,
-            "no such operator exists"
-        );
+        require(bytes(operatorAddress).length != 0, "no such operator exists");
         // across the lifetime of this contract before network bootstrap,
         // allow the editing of commission only once.
         require(!commissionEdited[operatorAddress], "Commission already edited once");
@@ -396,10 +327,7 @@ contract Bootstrap is
         // to prevent operators from blindsiding users by first registering at low rate and
         // subsequently increasing it, we should also check that the change is within the
         // allowed rate change.
-        require(
-            newRate <= rate + maxChangeRate,
-            "Rate change exceeds max change rate"
-        );
+        require(newRate <= rate + maxChangeRate, "Rate change exceeds max change rate");
         operators[operatorAddress].commission.rate = newRate;
         commissionEdited[operatorAddress] = true;
         emit OperatorCommissionUpdated(newRate);
@@ -412,9 +340,7 @@ contract Bootstrap is
      * @dev This function checks if the token is whitelisted, the amount is greater than zero
      * and that a vault for the token exists.
      */
-    function _validateAndGetVault(
-        address token, uint256 amount
-    ) view internal returns (IVault) {
+    function _validateAndGetVault(address token, uint256 amount) internal view returns (IVault) {
         require(isWhitelistedToken[token], "Bootstrap: token is not whitelisted");
         require(amount > 0, "Bootstrap: amount should be greater than zero");
 
@@ -422,9 +348,7 @@ contract Bootstrap is
     }
 
     // implementation of IController
-    function deposit(
-        address token, uint256 amount
-    ) override external payable beforeLocked whenNotPaused {
+    function deposit(address token, uint256 amount) external payable override beforeLocked whenNotPaused {
         IVault vault = _validateAndGetVault(token, amount);
         vault.deposit(msg.sender, amount);
 
@@ -449,20 +373,15 @@ contract Bootstrap is
     // implementation of IController
     // This will allow release of undelegated (free) funds to the user for claiming separately.
     function withdrawPrincipleFromExocore(
-        address token, uint256 amount
-    ) override external payable beforeLocked whenNotPaused {
+        address token,
+        uint256 amount
+    ) external payable override beforeLocked whenNotPaused {
         IVault vault = _validateAndGetVault(token, amount);
 
         uint256 deposited = totalDepositAmounts[msg.sender][token];
-        require(
-            deposited >= amount,
-            "Bootstrap: insufficient deposited balance"
-        );
+        require(deposited >= amount, "Bootstrap: insufficient deposited balance");
         uint256 withdrawable = withdrawableAmounts[msg.sender][token];
-        require(
-            withdrawable >= amount,
-            "Bootstrap: insufficient withdrawable balance"
-        );
+        require(withdrawable >= amount, "Bootstrap: insufficient withdrawable balance");
 
         // when the withdraw precompile is called, it does these things.
         totalDepositAmounts[msg.sender][token] -= amount;
@@ -478,38 +397,30 @@ contract Bootstrap is
 
     // implementation of IController
     // there are no rewards before the network bootstrap, so this function is not supported.
-    function withdrawRewardFromExocore(
-        address, uint256
-    ) override external payable beforeLocked whenNotPaused {
+    function withdrawRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
         revert NotYetSupported();
     }
 
     // implementation of IController
-    function claim(
-        address token, uint256 amount, address recipient
-    ) override external beforeLocked whenNotPaused {
+    function claim(address token, uint256 amount, address recipient) external override beforeLocked whenNotPaused {
         IVault vault = _validateAndGetVault(token, amount);
         vault.withdraw(msg.sender, recipient, amount);
     }
 
     // implementation of IController
     function delegateTo(
-        string calldata operator, address token, uint256 amount
-    ) override external payable beforeLocked whenNotPaused {
-         _validateAndGetVault(token, amount);
+        string calldata operator,
+        address token,
+        uint256 amount
+    ) external payable override beforeLocked whenNotPaused {
+        _validateAndGetVault(token, amount);
         // check that operator is registered
-        require(
-            bytes(operators[operator].name).length != 0,
-            "Operator does not exist"
-        );
+        require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
         uint256 withdrawable = withdrawableAmounts[msg.sender][token];
-        require(
-            withdrawable >= amount,
-            "Bootstrap: insufficient withdrawable balance"
-        );
+        require(withdrawable >= amount, "Bootstrap: insufficient withdrawable balance");
         delegations[msg.sender][operator][token] += amount;
         delegationsByOperator[operator][token] += amount;
         withdrawableAmounts[msg.sender][token] -= amount;
@@ -519,22 +430,18 @@ contract Bootstrap is
 
     // implementation of IController
     function undelegateFrom(
-        string calldata operator, address token, uint256 amount
-    ) override external payable beforeLocked whenNotPaused {
+        string calldata operator,
+        address token,
+        uint256 amount
+    ) external payable override beforeLocked whenNotPaused {
         _validateAndGetVault(token, amount);
         // check that operator is registered
-        require(
-            bytes(operators[operator].name).length != 0,
-            "Operator does not exist"
-        );
+        require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
         uint256 delegated = delegations[msg.sender][operator][token];
-        require(
-            delegated >= amount,
-            "Bootstrap: insufficient delegated balance"
-        );
+        require(delegated >= amount, "Bootstrap: insufficient delegated balance");
         // the undelegation is released immediately since it is not at stake yet.
         delegations[msg.sender][operator][token] -= amount;
         delegationsByOperator[operator][token] -= amount;
@@ -563,22 +470,14 @@ contract Bootstrap is
         // nonce match, which requires that inbound nonce is uint64(1).
         // TSS checks are not super clear since they can be set by anyone
         // but at this point that does not matter since it is not fully implemented anyway.
-        require(
-            block.timestamp >= exocoreSpawnTime,
-            "Bootstrap: not yet in the bootstrap time"
-        );
-        require(
-            !bootstrapped,
-            "Bootstrap: already bootstrapped"
-        );
-        require(
-            clientChainGatewayLogic != address(0),
-            "Bootstrap: client chain gateway logic not set"
-        );
+        require(block.timestamp >= exocoreSpawnTime, "Bootstrap: not yet in the bootstrap time");
+        require(!bootstrapped, "Bootstrap: already bootstrapped");
+        require(clientChainGatewayLogic != address(0), "Bootstrap: client chain gateway logic not set");
         ICustomProxyAdmin(customProxyAdmin).changeImplementation(
             // address(this) is storage address and not logic address. so it is a proxy.
             ITransparentUpgradeableProxy(address(this)),
-            clientChainGatewayLogic, clientChainInitializationData
+            clientChainGatewayLogic,
+            clientChainInitializationData
         );
         emit Bootstrapped();
     }
@@ -599,10 +498,7 @@ contract Bootstrap is
     ) public onlyOwner {
         clientChainGatewayLogic = _clientChainGatewayLogic;
         clientChainInitializationData = _clientChainInitializationData;
-        emit ClientChainGatewayLogicUpdated(
-            _clientChainGatewayLogic,
-            _clientChainInitializationData
-        );
+        emit ClientChainGatewayLogicUpdated(_clientChainGatewayLogic, _clientChainInitializationData);
     }
 
     /**
@@ -610,8 +506,7 @@ contract Bootstrap is
      * @return The number of registered operators.
      * @notice This function returns the total number of registered operators in the contract.
      */
-    function getOperatorsCount(
-    ) external view returns (uint256) {
+    function getOperatorsCount() external view returns (uint256) {
         return registeredOperators.length;
     }
 
@@ -620,8 +515,7 @@ contract Bootstrap is
      * @return The number of depositors.
      * @notice This function returns the total number of depositors in the contract.
      */
-    function getDepositorsCount(
-    ) external view returns (uint256) {
+    function getDepositorsCount() external view returns (uint256) {
         return depositors.length;
     }
 
@@ -630,8 +524,7 @@ contract Bootstrap is
      * @return The number of whitelisted tokens.
      * @notice This function returns the total number of whitelisted tokens in the contract.
      */
-    function getWhitelistedTokensCount(
-    ) external view returns (uint256) {
+    function getWhitelistedTokensCount() external view returns (uint256) {
         return whitelistTokens.length;
     }
 
@@ -645,13 +538,14 @@ contract Bootstrap is
         require(index < whitelistTokens.length, "Index out of bounds");
         address tokenAddress = whitelistTokens[index];
         ERC20 token = ERC20(tokenAddress);
-        return TokenInfo({
-            name: token.name(),
-            symbol: token.symbol(),
-            tokenAddress: tokenAddress,
-            decimals: token.decimals(),
-            totalSupply: token.totalSupply(),
-            depositAmount: depositsByToken[tokenAddress]
-        });
+        return
+            TokenInfo({
+                name: token.name(),
+                symbol: token.symbol(),
+                tokenAddress: tokenAddress,
+                decimals: token.decimals(),
+                totalSupply: token.totalSupply(),
+                depositAmount: depositsByToken[tokenAddress]
+            });
     }
 }

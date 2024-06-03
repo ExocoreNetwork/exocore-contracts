@@ -22,7 +22,7 @@ contract Vault is Initializable, VaultStorage, IVault {
 
     function initialize(address underlyingToken_, address gateway_) external initializer {
         require(underlyingToken_ != address(0), "Vault: underlying token can not be empty");
-        require(gateway_!= address(0), "VaultStorage: the gateway address should not be empty");
+        require(gateway_ != address(0), "VaultStorage: the gateway address should not be empty");
 
         underlyingToken = IERC20(underlyingToken_);
         gateway = ILSTRestakingController(gateway_);
@@ -65,10 +65,11 @@ contract Vault is Initializable, VaultStorage, IVault {
         emit RewardBalanceUpdated(user, lastlyUpdatedRewardBalance);
     }
 
-    function updateWithdrawableBalance(address user, uint256 unlockPrincipleAmount, uint256 unlockRewardAmount)
-        external
-        onlyGateway
-    {
+    function updateWithdrawableBalance(
+        address user,
+        uint256 unlockPrincipleAmount,
+        uint256 unlockRewardAmount
+    ) external onlyGateway {
         uint256 totalDeposited = totalDepositedPrincipleAmount[user];
         require(
             unlockPrincipleAmount <= totalDeposited,

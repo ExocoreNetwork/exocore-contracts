@@ -79,7 +79,7 @@ contract SetUp is Test {
 
         // deploy BeaconProxyBytecode to store BeaconProxyBytecode
         beaconProxyBytecode = new BeaconProxyBytecode();
-        
+
         restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
         whitelistTokens.push(address(restakeToken));
 
@@ -97,10 +97,7 @@ contract SetUp is Test {
             payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))
         );
 
-        clientGateway.initialize(
-            payable(exocoreValidatorSet.addr),
-            whitelistTokens
-        );
+        clientGateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens);
 
         vm.stopPrank();
     }
@@ -111,13 +108,13 @@ contract SetUp is Test {
         // mainnet
         if (block.chainid == 1) {
             GENESIS_BLOCK_TIMESTAMP = 1606824023;
-        // goerli
+            // goerli
         } else if (block.chainid == 5) {
             GENESIS_BLOCK_TIMESTAMP = 1616508000;
-        // sepolia
+            // sepolia
         } else if (block.chainid == 11155111) {
             GENESIS_BLOCK_TIMESTAMP = 1655733600;
-        // holesky
+            // holesky
         } else if (block.chainid == 17000) {
             GENESIS_BLOCK_TIMESTAMP = 1695902400;
         } else {

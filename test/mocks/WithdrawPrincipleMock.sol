@@ -11,10 +11,7 @@ contract WithdrawPrincipleMock is IWithdraw {
         bytes memory assetsAddress,
         bytes memory stakerAddress,
         uint256 opAmount
-    ) 
-        external 
-        returns (bool success,uint256 latestAssetState) 
-    {
+    ) external returns (bool success, uint256 latestAssetState) {
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
     }
 
@@ -23,10 +20,7 @@ contract WithdrawPrincipleMock is IWithdraw {
         bytes memory assetsAddress,
         bytes memory withdrawer,
         uint256 opAmount
-    ) 
-        external 
-        returns (bool success,uint256 latestAssetState) 
-    {   
+    ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid staker address");
         require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");

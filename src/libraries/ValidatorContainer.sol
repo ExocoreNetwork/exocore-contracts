@@ -19,7 +19,7 @@ library ValidatorContainer {
 
     uint256 internal constant VALID_LENGTH = 8;
     uint256 internal constant MERKLE_TREE_HEIGHT = 3;
-    
+
     function verifyValidatorContainerBasic(bytes32[] calldata validatorContainer) internal pure returns (bool) {
         return validatorContainer.length == VALID_LENGTH;
     }

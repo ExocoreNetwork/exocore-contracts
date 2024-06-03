@@ -4,9 +4,7 @@ pragma solidity >=0.8.17;
 address constant CLIENT_CHAINS_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000801;
 
 /// @dev The CLIENT_CHAINS contract's instance.
-IClientChains constant CLIENT_CHAINS_CONTRACT = IClientChains(
-    CLIENT_CHAINS_PRECOMPILE_ADDRESS
-);
+IClientChains constant CLIENT_CHAINS_CONTRACT = IClientChains(CLIENT_CHAINS_PRECOMPILE_ADDRESS);
 
 /// @author Exocore Team
 /// @title Client Chains Precompile Contract
@@ -16,4 +14,3 @@ interface IClientChains {
     /// @dev Returns the chain indices of the client chains.
     function getClientChains() external view returns (bool, uint16[] memory);
 }
-

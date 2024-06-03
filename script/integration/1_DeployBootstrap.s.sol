@@ -83,21 +83,17 @@ contract DeployContracts is Script {
     function deployTokens() private {
         string[2] memory names = ["MyToken1", "MyToken2"];
         string[2] memory symbols = ["MT1", "MT2"];
-        uint256[2] memory initialBalances = [
-            2000 * 10 ** decimals[0], 5000 * 10 ** decimals[1]
-        ];
+        uint256[2] memory initialBalances = [2000 * 10 ** decimals[0], 5000 * 10 ** decimals[1]];
         address[] memory initialAddresses = new address[](operators.length + stakers.length);
-        for(uint256 i = 0; i < operators.length; i++) {
+        for (uint256 i = 0; i < operators.length; i++) {
             initialAddresses[i] = vm.addr(operators[i]);
         }
-        for(uint256 i = 0; i < stakers.length; i++) {
+        for (uint256 i = 0; i < stakers.length; i++) {
             initialAddresses[operators.length + i] = vm.addr(stakers[i]);
         }
-        for(uint256 i = 0; i < tokenDeployers.length; i++) {
+        for (uint256 i = 0; i < tokenDeployers.length; i++) {
             vm.startBroadcast(tokenDeployers[i]);
-            MyToken myToken = new MyToken(
-                names[i], symbols[i], decimals[i], initialAddresses, initialBalances[i]
-            );
+            MyToken myToken = new MyToken(names[i], symbols[i], decimals[i], initialAddresses, initialBalances[i]);
             whitelistTokens.push(address(myToken));
             vm.stopBroadcast();
         }
@@ -124,20 +120,24 @@ contract DeployContracts is Script {
             address(beaconProxyBytecode)
         );
         bootstrap = Bootstrap(
-            payable(address(
-                new TransparentUpgradeableProxy(
-                    address(bootstrapLogic), address(proxyAdmin),
-                    abi.encodeCall(bootstrap.initialize,
-                        (
-                            vm.addr(contractDeployer),
-                            block.timestamp + 3 minutes,
-                            1 seconds,
-                            payable(exocoreValidatorSet),
-                            whitelistTokens,
-                            address(proxyAdmin)
+            payable(
+                address(
+                    new TransparentUpgradeableProxy(
+                        address(bootstrapLogic),
+                        address(proxyAdmin),
+                        abi.encodeCall(
+                            bootstrap.initialize,
+                            (
+                                vm.addr(contractDeployer),
+                                block.timestamp + 3 minutes,
+                                1 seconds,
+                                payable(exocoreValidatorSet),
+                                whitelistTokens,
+                                address(proxyAdmin)
+                            )
                         )
                     )
-                ))
+                )
             )
         );
         vm.stopBroadcast();
@@ -146,23 +146,19 @@ contract DeployContracts is Script {
 
     function approveAndDeposit() private {
         // amounts deposited by each operator, for the tokens 1 and 2.
-        uint256[2] memory operatorAmounts = [
-            1500 * 10 ** decimals[0], 2000 * 10 ** decimals[1]
-        ];
+        uint256[2] memory operatorAmounts = [1500 * 10 ** decimals[0], 2000 * 10 ** decimals[1]];
         // stakerAmounts - keep divisible by 3 for delegate
-        uint256[2] memory stakerAmounts = [
-            300 * 10 ** decimals[0], 600 * 10 ** decimals[1]
-        ];
-        for(uint256 i = 0; i < whitelistTokens.length; i++) {
-            for(uint256 j = 0; j < operators.length; j++) {
+        uint256[2] memory stakerAmounts = [300 * 10 ** decimals[0], 600 * 10 ** decimals[1]];
+        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+            for (uint256 j = 0; j < operators.length; j++) {
                 vm.startBroadcast(operators[j]);
                 MyToken(whitelistTokens[i]).approve(address(vaults[i]), type(uint256).max);
                 bootstrap.deposit(whitelistTokens[i], operatorAmounts[i]);
                 vm.stopBroadcast();
             }
         }
-        for(uint256 i = 0; i < whitelistTokens.length; i++) {
-            for(uint256 j = 0; j < stakers.length; j++) {
+        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+            for (uint256 j = 0; j < stakers.length; j++) {
                 vm.startBroadcast(stakers[j]);
                 MyToken(whitelistTokens[i]).approve(address(vaults[i]), type(uint256).max);
                 bootstrap.deposit(whitelistTokens[i], stakerAmounts[i]);
@@ -195,14 +191,10 @@ contract DeployContracts is Script {
             // wise sister language work muscle parade dad angry across emerge trade
             bytes32(0x4C9DE94E1F3225906602AE812E30F1BE56427126D60F2F6CB661B7F4FDA638DC)
         ];
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(
-            0, 1e18, 1e18
-        );
+        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
         for (uint256 i = 0; i < operators.length; i++) {
             vm.startBroadcast(operators[i]);
-            bootstrap.registerOperator(
-                exos[i], names[i], commission, pubKeys[i]
-            );
+            bootstrap.registerOperator(exos[i], names[i], commission, pubKeys[i]);
             vm.stopBroadcast();
         }
     }
@@ -233,9 +225,7 @@ contract DeployContracts is Script {
                     string memory operatorExo = bootstrap.ethToExocoreAddress(operator);
                     vm.startBroadcast(delegator);
                     if (amount != 0) {
-                        bootstrap.delegateTo(
-                            operatorExo, whitelistTokens[i], amount
-                        );
+                        bootstrap.delegateTo(operatorExo, whitelistTokens[i], amount);
                     }
                     vm.stopBroadcast();
                 }
@@ -250,10 +240,8 @@ contract DeployContracts is Script {
             for (uint256 j = 0; j < stakers.length; j++) {
                 uint256 delegator = stakers[j];
                 address delegatorAddress = vm.addr(delegator);
-                uint256 deposit = bootstrap.totalDepositAmounts(
-                    delegatorAddress, whitelistTokens[i]
-                );
-                uint256 stakerDelegationToDo =  deposit * (i+1) / 3;
+                uint256 deposit = bootstrap.totalDepositAmounts(delegatorAddress, whitelistTokens[i]);
+                uint256 stakerDelegationToDo = (deposit * (i + 1)) / 3;
                 for (uint256 k = 0; k < operators.length; k++) {
                     uint256 amount;
                     if (k == operators.length - 1) {
@@ -264,9 +252,7 @@ contract DeployContracts is Script {
                     address operator = vm.addr(operators[k]);
                     string memory exo = bootstrap.ethToExocoreAddress(operator);
                     vm.startBroadcast(delegator);
-                    bootstrap.delegateTo(
-                        exo, whitelistTokens[i], amount
-                    );
+                    bootstrap.delegateTo(exo, whitelistTokens[i], amount);
                     stakerDelegationToDo -= amount;
                     vm.stopBroadcast();
                 }
@@ -289,7 +275,7 @@ contract DeployContracts is Script {
         delegate();
         console.log("[Delegated]; done!");
 
-        for(uint256 i = 0; i < whitelistTokens.length; i++) {
+        for (uint256 i = 0; i < whitelistTokens.length; i++) {
             console.log("Token ", i, " address: ", whitelistTokens[i]);
         }
     }
@@ -297,7 +283,6 @@ contract DeployContracts is Script {
     // Helper function to generate a random number within a range
     function random(uint256 _range) internal view returns (uint256) {
         // Basic random number generation; consider a more robust approach for production
-        return uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % (_range - 1) + 1;
+        return (uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % (_range - 1)) + 1;
     }
-
 }

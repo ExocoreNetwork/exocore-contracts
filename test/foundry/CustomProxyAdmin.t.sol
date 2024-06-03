@@ -27,15 +27,11 @@ contract ImplementationChanger is Initializable, StorageOld {
         implementationChanged = false;
     }
 
-    function changeImplementation(
-        address customProxyAdmin,
-        address newImplementation
-    ) public {
+    function changeImplementation(address customProxyAdmin, address newImplementation) public {
         ICustomProxyAdmin(customProxyAdmin).changeImplementation(
             ITransparentUpgradeableProxy(address(this)),
-            newImplementation, abi.encodeCall(
-                NewImplementation.initialize, ()
-            )
+            newImplementation,
+            abi.encodeCall(NewImplementation.initialize, ())
         );
     }
 }
@@ -81,17 +77,12 @@ contract CustomProxyAdminTest is Test {
         // validate that the implementation has not changed already
         assertFalse(implementationChanger.implementationChanged());
         // check that it does not have a `hi` function in there.
-        NewImplementation newImplementation = NewImplementation(
-            address(implementationChanger)
-        );
-        vm.expectRevert();  // EVM error
+        NewImplementation newImplementation = NewImplementation(address(implementationChanger));
+        vm.expectRevert(); // EVM error
         assertFalse(newImplementation.hi());
         // now change the implementation
         proxyAdmin.initialize(address(implementationChanger));
-        implementationChanger.changeImplementation(
-            address(proxyAdmin),
-            address(new NewImplementation())
-        );
+        implementationChanger.changeImplementation(address(proxyAdmin), address(new NewImplementation()));
         // validate that it has changed
         assertTrue(implementationChanger.implementationChanged());
         assertTrue(newImplementation.hi());
@@ -114,10 +105,7 @@ contract CustomProxyAdminTest is Test {
         // for some reason, i could not get `vm.expectRevert` to work here.
         // if i had that line, it would not revert.
         // if i didn't have that line, it would not revert.
-        try implementationChanger.changeImplementation(
-                address(proxyAdmin),
-                address(new NewImplementation())
-        ) {
+        try implementationChanger.changeImplementation(address(proxyAdmin), address(new NewImplementation())) {
             // should never happen
             assertTrue(false);
         } catch {}
@@ -141,13 +129,15 @@ contract CustomProxyAdminTest is Test {
         proxyAdmin.initialize(address(0x1));
         vm.startPrank(address(0x1));
         // same logic as above for using a try/catch.
-        try proxyAdmin.changeImplementation(
-            // the call is made to the ProxyAdmin from address(0x1)
-            // when instead it should have been made from the TransparentUpgradeableProxy
-            address(implementationChanger),
-            address(new NewImplementation()),
-            abi.encodeCall(NewImplementation.initialize, ())
-        ) {
+        try
+            proxyAdmin.changeImplementation(
+                // the call is made to the ProxyAdmin from address(0x1)
+                // when instead it should have been made from the TransparentUpgradeableProxy
+                address(implementationChanger),
+                address(new NewImplementation()),
+                abi.encodeCall(NewImplementation.initialize, ())
+            )
+        {
             // should never happen
             assertTrue(false);
         } catch {}

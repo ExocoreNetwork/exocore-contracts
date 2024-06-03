@@ -28,25 +28,17 @@ contract RedeployClientChainGateway is BaseScript {
             stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint")
         );
         require(address(clientChainLzEndpoint) != address(0), "client chain l0 endpoint should not be empty");
-        beaconOracle = EigenLayerBeaconOracle(
-            stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconOracle")
-        );
+        beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconOracle"));
         require(address(beaconOracle) != address(0), "beacon oracle should not be empty");
-        vaultBeacon = UpgradeableBeacon(
-            stdJson.readAddress(prerequisiteContracts, ".clientChain.vaultBeacon")
-        );
+        vaultBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.vaultBeacon"));
         require(address(vaultBeacon) != address(0), "vault beacon should not be empty");
-        capsuleBeacon = UpgradeableBeacon(
-            stdJson.readAddress(prerequisiteContracts, ".clientChain.capsuleBeacon")
-        );
+        capsuleBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.capsuleBeacon"));
         require(address(capsuleBeacon) != address(0), "capsule beacon should not be empty");
         beaconProxyBytecode = BeaconProxyBytecode(
             stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode")
         );
         require(address(beaconProxyBytecode) != address(0), "beacon proxy bytecode should not be empty");
-        bootstrap = Bootstrap(
-            stdJson.readAddress(prerequisiteContracts, ".clientChain.bootstrap")
-        );
+        bootstrap = Bootstrap(stdJson.readAddress(prerequisiteContracts, ".clientChain.bootstrap"));
         require(address(bootstrap) != address(0), "bootstrap should not be empty");
         clientChain = vm.createSelectFork(clientChainRPCURL);
     }
@@ -69,19 +61,18 @@ contract RedeployClientChainGateway is BaseScript {
             exocoreValidatorSet.addr,
             emptyList
         );
-        bootstrap.setClientChainGatewayLogic(
-            address(clientGatewayLogic),
-            initialization
-        );
+        bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
         vm.stopBroadcast();
 
         string memory clientChainContracts = "clientChainContracts";
-        string memory clientChainContractsOutput =
-            vm.serializeAddress(clientChainContracts, "clientGatewayLogic", address(clientGatewayLogic));
+        string memory clientChainContractsOutput = vm.serializeAddress(
+            clientChainContracts,
+            "clientGatewayLogic",
+            address(clientGatewayLogic)
+        );
 
         string memory deployedContracts = "deployedContracts";
-        string memory finalJson =
-            vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
+        string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
 
         vm.writeJson(finalJson, "script/redeployClientChainGateway.json");
     }

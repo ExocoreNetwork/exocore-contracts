@@ -3,11 +3,7 @@
 pragma solidity ^0.8.20;
 
 import {SafeERC20, IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {
-    MessagingParams,
-    MessagingFee,
-    MessagingReceipt
-} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import {MessagingParams, MessagingFee, MessagingReceipt} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {OAppCoreUpgradeable} from "./OAppCoreUpgradeable.sol";
 
 /**
@@ -48,15 +44,17 @@ abstract contract OAppSenderUpgradeable is OAppCoreUpgradeable {
      *      - nativeFee: The native fee for the message.
      *      - lzTokenFee: The LZ token fee for the message.
      */
-    function _quote(uint32 _dstEid, bytes memory _message, bytes memory _options, bool _payInLzToken)
-        internal
-        view
-        virtual
-        returns (MessagingFee memory fee)
-    {
-        return endpoint.quote(
-            MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _payInLzToken), address(this)
-        );
+    function _quote(
+        uint32 _dstEid,
+        bytes memory _message,
+        bytes memory _options,
+        bool _payInLzToken
+    ) internal view virtual returns (MessagingFee memory fee) {
+        return
+            endpoint.quote(
+                MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _payInLzToken),
+                address(this)
+            );
     }
 
     /**
@@ -87,11 +85,12 @@ abstract contract OAppSenderUpgradeable is OAppCoreUpgradeable {
         uint256 messageValue = _payNative(_fee.nativeFee, byApp);
         if (_fee.lzTokenFee > 0) _payLzToken(_fee.lzTokenFee);
 
-        return endpoint
+        return
+            endpoint.send{value: messageValue}(
             // solhint-disable-next-line check-send-result
-            .send{value: messageValue}(
-            MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _fee.lzTokenFee > 0), _refundAddress
-        );
+                MessagingParams(_dstEid, _getPeerOrRevert(_dstEid), _message, _options, _fee.lzTokenFee > 0),
+                _refundAddress
+            );
     }
 
     /**
