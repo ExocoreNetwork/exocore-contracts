@@ -73,10 +73,10 @@ contract BootstrapTest is Test {
         appendedToken = new MyToken("MyToken2", "MYT2", 18, addrs, 1000 * 10 ** 18);
         appendedWhitelistTokensForUpgrade.push(address(appendedToken));
 
-        /// deploy vault implementationcontract that has logics called by proxy
+        // deploy vault implementationcontract that has logics called by proxy
         vaultImplementation = new Vault();
 
-        /// deploy the vault beacon that store the implementation contract address
+        // deploy the vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
 
         // deploy BeaconProxyBytecode to store BeaconProxyBytecode
@@ -145,17 +145,10 @@ contract BootstrapTest is Test {
             address(capsuleBeacon),
             address(beaconProxyBytecode)
         );
-        // uint256 tokenCount = bootstrap.getWhitelistedTokensCount();
-        // address[] memory tokensForCall = new address[](tokenCount);
-        // for (uint256 i = 0; i < tokenCount; i++) {
-        //     tokensForCall[i] = bootstrap.whitelistTokens(i);
-        // }
+        // we could also use encodeWithSelector and supply .initialize.selector instead.
         bytes memory initialization = abi.encodeCall(
             clientGatewayLogic.initialize,
             (
-                // bootstrap.exocoreChainId(),
-                // bootstrap.exocoreValidatorSetAddress(),
-                // tokensForCall
                 payable(exocoreValidatorSet),
                 appendedWhitelistTokensForUpgrade
             )
