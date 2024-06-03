@@ -5,11 +5,6 @@ import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.
 import {ILSTRestakingController} from "./ILSTRestakingController.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 
-interface IClientChainGateway is
-    IOAppReceiver,
-    IOAppCore,
-    ILSTRestakingController,
-    INativeRestakingController
-{
+interface IClientChainGateway is IOAppReceiver, IOAppCore, ILSTRestakingController, INativeRestakingController {
     function quote(bytes memory _message) external view returns (uint256 nativeFee);
 }

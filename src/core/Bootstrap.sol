@@ -163,7 +163,9 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function removeWhitelistToken(address _token) public override beforeLocked onlyOwner whenNotPaused isTokenWhitelisted(_token) {
+    function removeWhitelistToken(
+        address _token
+    ) public override beforeLocked onlyOwner whenNotPaused isTokenWhitelisted(_token) {
         super.removeWhitelistToken(_token);
     }
 
@@ -306,7 +308,10 @@ contract Bootstrap is
     }
 
     // implementation of IController
-    function deposit(address token, uint256 amount) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
+    function deposit(
+        address token,
+        uint256 amount
+    ) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
         IVault vault = _getVault(token);
         vault.deposit(msg.sender, amount);
 
@@ -360,7 +365,11 @@ contract Bootstrap is
     }
 
     // implementation of IController
-    function claim(address token, uint256 amount, address recipient) external override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
+    function claim(
+        address token,
+        uint256 amount,
+        address recipient
+    ) external override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
         IVault vault = _getVault(token);
         vault.withdraw(msg.sender, recipient, amount);
     }
@@ -370,7 +379,16 @@ contract Bootstrap is
         string calldata operator,
         address token,
         uint256 amount
-    ) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) isValidBech32Address(operator) {
+    )
+        external
+        payable
+        override
+        beforeLocked
+        whenNotPaused
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+        isValidBech32Address(operator)
+    {
         // check that operator is registered
         require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative
@@ -390,7 +408,16 @@ contract Bootstrap is
         string calldata operator,
         address token,
         uint256 amount
-    ) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) isValidBech32Address(operator) {
+    )
+        external
+        payable
+        override
+        beforeLocked
+        whenNotPaused
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+        isValidBech32Address(operator)
+    {
         // check that operator is registered
         require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative

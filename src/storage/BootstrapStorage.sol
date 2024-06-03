@@ -399,7 +399,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
 
     uint256[40] private __gap;
 
-     modifier isTokenWhitelisted(address token) {
+    modifier isTokenWhitelisted(address token) {
         require(isWhitelistedToken[token], "BaseRestakingController: token is not whitelisted");
         _;
     }
