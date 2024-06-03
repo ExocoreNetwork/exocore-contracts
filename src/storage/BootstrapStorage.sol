@@ -445,7 +445,15 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
     }
 
     function _deployVault(address underlyingToken) internal returns (IVault) {
-        Vault vault = Vault(Create2.deploy(0, bytes32(uint256(uint160(underlyingToken))), type(Vault).creationCode));
+        Vault vault = Vault(
+            Create2.deploy(
+                0,
+                bytes32(uint256(uint160(underlyingToken))),
+                // for clarity, this BEACON_PROXY is not related to beacon chain
+                // but rather it is the bytecode for the beacon proxy upgrade pattern.
+                abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(VAULT_BEACON), ""))
+            )
+        );
         vault.initialize(underlyingToken, address(this));
         emit VaultCreated(underlyingToken, address(vault));
 
