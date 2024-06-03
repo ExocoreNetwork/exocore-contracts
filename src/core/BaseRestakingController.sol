@@ -97,8 +97,9 @@ abstract contract BaseRestakingController is
         ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(EXOCORE_CHAIN_ID, payload, options, false);
 
-        MessagingReceipt memory receipt =
-            _lzSend(EXOCORE_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false);
+        MessagingReceipt memory receipt = _lzSend(
+            EXOCORE_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false
+        );
         emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 }

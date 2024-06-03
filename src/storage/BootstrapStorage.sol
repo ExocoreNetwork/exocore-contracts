@@ -235,7 +235,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      */
     BeaconProxyBytecode public immutable BEACON_PROXY_BYTECODE;
 
-    bytes constant public EXO_ADDRESS_PREFIX = bytes("exo1");
+    bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -445,13 +445,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
     }
 
     function _deployVault(address underlyingToken) internal returns (IVault) {
-        Vault vault = Vault(
-            Create2.deploy(
-                0,
-                bytes32(uint256(uint160(underlyingToken))),
-                type(Vault).creationCode
-            )
-        );
+        Vault vault = Vault(Create2.deploy(0, bytes32(uint256(uint160(underlyingToken))), type(Vault).creationCode));
         vault.initialize(underlyingToken, address(this));
         emit VaultCreated(underlyingToken, address(vault));
 
