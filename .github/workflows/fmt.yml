@@ -1,4 +1,4 @@
-name: test
+name: Format using `forge fmt`
 
 on: 
   pull_request:
