@@ -179,7 +179,7 @@ contract BootstrapTest is Test {
 
     function test01_AddWhitelistToken_AlreadyExists() public {
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: token should be not whitelisted before");
+        vm.expectRevert("BootstrapStorage: token should be not whitelisted before");
         bootstrap.addWhitelistToken(address(myToken));
         vm.stopPrank();
     }
@@ -265,7 +265,7 @@ contract BootstrapTest is Test {
 
         // now try to deposit
         myToken.approve(address(bootstrap), amounts[0]);
-        vm.expectRevert("Bootstrap: token is not whitelisted");
+        vm.expectRevert("BootstrapStorage: token is not whitelisted");
         bootstrap.deposit(cloneAddress, amounts[0]);
         vm.stopPrank();
     }
@@ -532,7 +532,7 @@ contract BootstrapTest is Test {
 
     function test07_AddWhitelistedToken_AlreadyWhitelisted() public {
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: token should be not whitelisted before");
+        vm.expectRevert("BootstrapStorage: token should be not whitelisted before");
         bootstrap.addWhitelistToken(address(myToken));
         vm.stopPrank();
     }
@@ -606,7 +606,7 @@ contract BootstrapTest is Test {
         test03_RegisterOperator();
         test02_Deposit();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: token is not whitelisted");
+        vm.expectRevert("BootstrapStorage: token is not whitelisted");
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
     }
 
@@ -624,7 +624,7 @@ contract BootstrapTest is Test {
         test03_RegisterOperator();
         test02_Deposit();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: amount should be greater than zero");
+        vm.expectRevert("BootstrapStorage: amount should be greater than zero");
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), 0);
     }
 
@@ -696,7 +696,7 @@ contract BootstrapTest is Test {
     function test10_UndelegateFrom_TokenNotWhitelisted() public {
         test03_RegisterOperator();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: token is not whitelisted");
+        vm.expectRevert("BootstrapStorage: token is not whitelisted");
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
     }
 
@@ -714,7 +714,7 @@ contract BootstrapTest is Test {
         test03_RegisterOperator();
         test02_Deposit();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: amount should be greater than zero");
+        vm.expectRevert("BootstrapStorage: amount should be greater than zero");
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), 0);
     }
 
@@ -760,14 +760,14 @@ contract BootstrapTest is Test {
 
     function test11_WithdrawPrincipleFromExocore_TokenNotWhitelisted() public {
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: token is not whitelisted");
+        vm.expectRevert("BootstrapStorage: token is not whitelisted");
         bootstrap.withdrawPrincipleFromExocore(address(0xa), amounts[0]);
         vm.stopPrank();
     }
 
     function test11_WithdrawPrincipleFromExocore_ZeroAmount() public {
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: amount should be greater than zero");
+        vm.expectRevert("BootstrapStorage: amount should be greater than zero");
         bootstrap.withdrawPrincipleFromExocore(address(myToken), 0);
         vm.stopPrank();
     }
@@ -1164,7 +1164,7 @@ contract BootstrapTest is Test {
     function test18_RemoveWhitelistToken_DoesNotExist() public {
         address fakeToken = address(0xa);
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: token should be already whitelisted");
+        vm.expectRevert("BootstrapStorage: token is not whitelisted");
         bootstrap.removeWhitelistToken(fakeToken);
     }
 
@@ -1187,13 +1187,13 @@ contract BootstrapTest is Test {
 
     function test22_Claim_TokenNotWhitelisted() public {
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: token is not whitelisted");
+        vm.expectRevert("BootstrapStorage: token is not whitelisted");
         bootstrap.claim(address(0xa), amounts[0], addrs[0]);
     }
 
     function test22_Claim_ZeroAmount() public {
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: amount should be greater than zero");
+        vm.expectRevert("BootstrapStorage: amount should be greater than zero");
         bootstrap.claim(address(myToken), 0, addrs[0]);
     }
 

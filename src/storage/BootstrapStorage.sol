@@ -400,24 +400,24 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
     uint256[40] private __gap;
 
     modifier isTokenWhitelisted(address token) {
-        require(isWhitelistedToken[token], "BaseRestakingController: token is not whitelisted");
+        require(isWhitelistedToken[token], "BootstrapStorage: token is not whitelisted");
         _;
     }
 
     modifier isValidAmount(uint256 amount) {
-        require(amount > 0, "BaseRestakingController: amount should be greater than zero");
+        require(amount > 0, "BootstrapStorage: amount should be greater than zero");
         _;
     }
 
     modifier vaultExists(address token) {
-        require(address(tokenToVault[token]) != address(0), "BaseRestakingController: no vault added for this token");
+        require(address(tokenToVault[token]) != address(0), "BootstrapStorage: no vault added for this token");
         _;
     }
 
     modifier isValidBech32Address(string calldata exocoreAddress) {
         require(
             isValidExocoreAddress(exocoreAddress),
-            "BaseRestakingController: invalid bech32 encoded Exocore address"
+            "BootstrapStorage: invalid bech32 encoded Exocore address"
         );
         _;
     }
