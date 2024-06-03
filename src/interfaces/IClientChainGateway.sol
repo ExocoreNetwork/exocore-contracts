@@ -4,10 +4,8 @@ import {IOAppReceiver} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppR
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {ILSTRestakingController} from "./ILSTRestakingController.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
-import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 
 interface IClientChainGateway is
-    ITokenWhitelister,
     IOAppReceiver,
     IOAppCore,
     ILSTRestakingController,

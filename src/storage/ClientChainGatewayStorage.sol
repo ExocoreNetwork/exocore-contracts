@@ -50,29 +50,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     error CapsuleNotExist();
 
-    modifier isTokenWhitelisted(address token) {
-        require(isWhitelistedToken[token], "BaseRestakingController: token is not whitelisted");
-        _;
-    }
-
-    modifier isValidAmount(uint256 amount) {
-        require(amount > 0, "BaseRestakingController: amount should be greater than zero");
-        _;
-    }
-
-    modifier vaultExists(address token) {
-        require(address(tokenToVault[token]) != address(0), "BaseRestakingController: no vault added for this token");
-        _;
-    }
-
-    modifier isValidBech32Address(string calldata exocoreAddress) {
-        require(
-            isValidExocoreAddress(exocoreAddress),
-            "BaseRestakingController: invalid bech32 encoded Exocore address"
-        );
-        _;
-    }
-
     constructor(
         uint32 exocoreChainId_,
         address beaconOracleAddress_,

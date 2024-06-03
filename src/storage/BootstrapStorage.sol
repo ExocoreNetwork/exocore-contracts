@@ -7,12 +7,13 @@ import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.so
 import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
+import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 
 // BootstrapStorage should inherit from GatewayStorage since it exists
 // prior to ClientChainGateway. ClientChainStorage should inherit from
 // BootstrapStorage to ensure overlap of positioning between the
 // members of each contract.
-contract BootstrapStorage is GatewayStorage {
+contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
     /* -------------------------------------------------------------------------- */
     /*               state variables exclusively owned by Bootstrap               */
     /* -------------------------------------------------------------------------- */
@@ -398,6 +399,29 @@ contract BootstrapStorage is GatewayStorage {
 
     uint256[40] private __gap;
 
+     modifier isTokenWhitelisted(address token) {
+        require(isWhitelistedToken[token], "BaseRestakingController: token is not whitelisted");
+        _;
+    }
+
+    modifier isValidAmount(uint256 amount) {
+        require(amount > 0, "BaseRestakingController: amount should be greater than zero");
+        _;
+    }
+
+    modifier vaultExists(address token) {
+        require(address(tokenToVault[token]) != address(0), "BaseRestakingController: no vault added for this token");
+        _;
+    }
+
+    modifier isValidBech32Address(string calldata exocoreAddress) {
+        require(
+            isValidExocoreAddress(exocoreAddress),
+            "BaseRestakingController: invalid bech32 encoded Exocore address"
+        );
+        _;
+    }
+
     constructor(uint32 exocoreChainId_, address vaultBeacon_, address beaconProxyBytecode_) {
         require(exocoreChainId_ != 0, "BootstrapStorage: exocore chain id should not be empty");
         require(
@@ -450,5 +474,35 @@ contract BootstrapStorage is GatewayStorage {
 
         tokenToVault[underlyingToken] = vault;
         return vault;
+    }
+
+    // implementation of ITokenWhitelister
+    function addWhitelistToken(address _token) public virtual override {
+        require(!isWhitelistedToken[_token], "BootstrapStorage: token should be not whitelisted before");
+        whitelistTokens.push(_token);
+        isWhitelistedToken[_token] = true;
+
+        // deploy the corresponding vault if not deployed before
+        if (address(tokenToVault[_token]) == address(0)) {
+            _deployVault(_token);
+        }
+
+        emit WhitelistTokenAdded(_token);
+    }
+
+    // implementation of ITokenWhitelister
+    function removeWhitelistToken(address _token) public virtual override {
+        isWhitelistedToken[_token] = false;
+        // the implicit assumption here is that the _token must be included in whitelistTokens
+        // if isWhitelistedToken[_token] is true
+        for (uint i = 0; i < whitelistTokens.length; i++) {
+            if (whitelistTokens[i] == _token) {
+                whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
+                whitelistTokens.pop();
+                break;
+            }
+        }
+
+        emit WhitelistTokenRemoved(_token);
     }
 }

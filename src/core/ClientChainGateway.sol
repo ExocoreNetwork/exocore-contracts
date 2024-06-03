@@ -114,41 +114,7 @@ contract ClientChainGateway is
         // no risk keeping these but they are cheap to clear.
         delete exocoreSpawnTime;
         delete offsetDuration;
-        // // TODO: are these loops even worth it? the maximum refund is 50% of the gas cost.
-        // // if not, we can remove them.
-        // // the lines above this set of comments are at least cheaper to clear,
-        // // and have no utility after initialization.
-        // for(uint i = 0; i < depositors.length; i++) {
-        //     address depositor = depositors[i];
-        //     for(uint j = 0; j < whitelistTokens.length; j++) {
-        //         address token = whitelistTokens[j];
-        //         delete totalDepositAmounts[depositor][token];
-        //         delete withdrawableAmounts[depositor][token];
-        //         for(uint k = 0; k < registeredOperators.length; k++) {
-        //             address eth = registeredOperators[k];
-        //             string memory exo = ethToExocoreAddress[eth];
-        //             delete delegations[depositor][exo][token];
-        //         }
-        //     }
-        //     delete isDepositor[depositor];
-        // }
-        // for(uint k = 0; k < registeredOperators.length; k++) {
-        //     address eth = registeredOperators[k];
-        //     string memory exo = ethToExocoreAddress[eth];
-        //     delete operators[exo];
-        //     delete commissionEdited[exo];
-        //     delete ethToExocoreAddress[eth];
-        //     for(uint j = 0; j < whitelistTokens.length; j++) {
-        //         address token = whitelistTokens[j];
-        //         delete delegationsByOperator[exo][token];
-        //     }
-        // }
-        // for(uint j = 0; j < whitelistTokens.length; j++) {
-        //     address token = whitelistTokens[j];
-        //     delete depositsByToken[token];
-        // }
-        // these should also be cleared - even if the loops are not used
-        // cheap to clear and potentially large in size.
+        // previously, we tried clearing the loops but it is too expensive.
         delete depositors;
         delete registeredOperators;
     }
@@ -169,29 +135,12 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    function addWhitelistToken(address _token) public onlyOwner whenNotPaused {
-        require(!isWhitelistedToken[_token], "ClientChainGateway: token should not be whitelisted before");
-        whitelistTokens.push(_token);
-        isWhitelistedToken[_token] = true;
-        emit WhitelistTokenAdded(_token);
-
-        // deploy the corresponding vault if not deployed before
-        if (address(tokenToVault[_token]) == address(0)) {
-            _deployVault(_token);
-        }
+    function addWhitelistToken(address _token) public override onlyOwner whenNotPaused {
+        super.addWhitelistToken(_token);
     }
 
-    function removeWhitelistToken(address _token) external isTokenWhitelisted(_token) onlyOwner whenNotPaused {
-        isWhitelistedToken[_token] = false;
-        for (uint i = 0; i < whitelistTokens.length; i++) {
-            if (whitelistTokens[i] == _token) {
-                whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
-                whitelistTokens.pop();
-                break;
-            }
-        }
-
-        emit WhitelistTokenRemoved(_token);
+    function removeWhitelistToken(address _token) public override isTokenWhitelisted(_token) onlyOwner whenNotPaused {
+        super.removeWhitelistToken(_token);
     }
 
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {

@@ -12,7 +12,6 @@ import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
-import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
@@ -29,7 +28,6 @@ contract Bootstrap is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
-    ITokenWhitelister,
     ILSTRestakingController,
     IOperatorRegistry,
     BootstrapLzReceiver
@@ -160,34 +158,13 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistToken(address _token) external beforeLocked onlyOwner whenNotPaused {
-        require(!isWhitelistedToken[_token], "Bootstrap: token should be not whitelisted before");
-        whitelistTokens.push(_token);
-        isWhitelistedToken[_token] = true;
-
-        // deploy the corresponding vault if not deployed before
-        if (address(tokenToVault[_token]) == address(0)) {
-            _deployVault(_token);
-        }
-
-        emit WhitelistTokenAdded(_token);
+    function addWhitelistToken(address _token) public override beforeLocked onlyOwner whenNotPaused {
+        super.addWhitelistToken(_token);
     }
 
     // implementation of ITokenWhitelister
-    function removeWhitelistToken(address _token) external beforeLocked onlyOwner whenNotPaused {
-        require(isWhitelistedToken[_token], "Bootstrap: token should be already whitelisted");
-        isWhitelistedToken[_token] = false;
-        // the implicit assumption here is that the _token must be included in whitelistTokens
-        // if isWhitelistedToken[_token] is true
-        for (uint i = 0; i < whitelistTokens.length; i++) {
-            if (whitelistTokens[i] == _token) {
-                whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
-                whitelistTokens.pop();
-                break;
-            }
-        }
-
-        emit WhitelistTokenRemoved(_token);
+    function removeWhitelistToken(address _token) public override beforeLocked onlyOwner whenNotPaused isTokenWhitelisted(_token) {
+        super.removeWhitelistToken(_token);
     }
 
     // implementation of IOperatorRegistry
@@ -328,23 +305,9 @@ contract Bootstrap is
         emit OperatorCommissionUpdated(newRate);
     }
 
-    /**
-     * @notice Validates the inputs and returns the vault for the given token.
-     * @param token The adddress of the token.
-     * @param amount The amount of the token.
-     * @dev This function checks if the token is whitelisted, the amount is greater than zero
-     * and that a vault for the token exists.
-     */
-    function _validateAndGetVault(address token, uint256 amount) internal view returns (IVault) {
-        require(isWhitelistedToken[token], "Bootstrap: token is not whitelisted");
-        require(amount > 0, "Bootstrap: amount should be greater than zero");
-
-        return _getVault(token);
-    }
-
     // implementation of IController
-    function deposit(address token, uint256 amount) external payable override beforeLocked whenNotPaused {
-        IVault vault = _validateAndGetVault(token, amount);
+    function deposit(address token, uint256 amount) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
+        IVault vault = _getVault(token);
         vault.deposit(msg.sender, amount);
 
         if (!isDepositor[msg.sender]) {
@@ -370,8 +333,8 @@ contract Bootstrap is
     function withdrawPrincipleFromExocore(
         address token,
         uint256 amount
-    ) external payable override beforeLocked whenNotPaused {
-        IVault vault = _validateAndGetVault(token, amount);
+    ) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
+        IVault vault = _getVault(token);
 
         uint256 deposited = totalDepositAmounts[msg.sender][token];
         require(deposited >= amount, "Bootstrap: insufficient deposited balance");
@@ -397,8 +360,8 @@ contract Bootstrap is
     }
 
     // implementation of IController
-    function claim(address token, uint256 amount, address recipient) external override beforeLocked whenNotPaused {
-        IVault vault = _validateAndGetVault(token, amount);
+    function claim(address token, uint256 amount, address recipient) external override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) {
+        IVault vault = _getVault(token);
         vault.withdraw(msg.sender, recipient, amount);
     }
 
@@ -407,8 +370,7 @@ contract Bootstrap is
         string calldata operator,
         address token,
         uint256 amount
-    ) external payable override beforeLocked whenNotPaused {
-        _validateAndGetVault(token, amount);
+    ) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) isValidBech32Address(operator) {
         // check that operator is registered
         require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative
@@ -428,8 +390,7 @@ contract Bootstrap is
         string calldata operator,
         address token,
         uint256 amount
-    ) external payable override beforeLocked whenNotPaused {
-        _validateAndGetVault(token, amount);
+    ) external payable override beforeLocked whenNotPaused isTokenWhitelisted(token) isValidAmount(amount) isValidBech32Address(operator) {
         // check that operator is registered
         require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative
