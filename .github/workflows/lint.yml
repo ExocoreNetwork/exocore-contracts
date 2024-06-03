@@ -1,0 +1,45 @@
+name: test
+
+on: 
+  pull_request:
+  push:
+    branches:
+      - main
+      - release/**
+    tags:
+      - "*"
+
+jobs:
+  check:
+    strategy:
+      fail-fast: true
+
+    name: Foundry project
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '22'
+
+      - name: Install Solhint
+        run: npm install --save-dev solhint
+
+      - name: Run Solhint
+        run: |
+          npx solhint 'src/**/*.sol' -c ./src/.solhint.json
+
+      - name: Add comment on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Linting failed. Please check the logs.'
+            })
