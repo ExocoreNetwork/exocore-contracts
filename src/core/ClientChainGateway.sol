@@ -1,6 +1,5 @@
 pragma solidity ^0.8.19;
 
-import {IVault} from "../interfaces/IVault.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppSenderUpgradeable, MessagingFee} from "../lzApp/OAppSenderUpgradeable.sol";
@@ -10,13 +9,11 @@ import {NativeRestakingController} from "./NativeRestakingController.sol";
 import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {Vault} from "./Vault.sol";
 
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 contract ClientChainGateway is
     Initializable,
@@ -145,7 +142,7 @@ contract ClientChainGateway is
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(exocoreChainId, _message, options, false);
+        MessagingFee memory fee = _quote(EXOCORE_CHAIN_ID, _message, options, false);
         return fee.nativeFee;
     }
 

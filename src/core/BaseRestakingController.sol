@@ -95,10 +95,10 @@ abstract contract BaseRestakingController is
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(exocoreChainId, payload, options, false);
+        MessagingFee memory fee = _quote(EXOCORE_CHAIN_ID, payload, options, false);
 
         MessagingReceipt memory receipt =
-            _lzSend(exocoreChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false);
+            _lzSend(EXOCORE_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false);
         emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 }

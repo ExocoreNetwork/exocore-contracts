@@ -1,8 +1,6 @@
 pragma solidity ^0.8.19;
 
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
@@ -16,7 +14,7 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override {
-        if (_origin.srcEid != exocoreChainId) {
+        if (_origin.srcEid != EXOCORE_CHAIN_ID) {
             revert UnexpectedSourceChain(_origin.srcEid);
         }
         _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);

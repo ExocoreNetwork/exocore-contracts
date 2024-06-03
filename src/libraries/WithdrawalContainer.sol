@@ -1,6 +1,6 @@
 pragma solidity ^0.8.19;
 
-import "../libraries/Endian.sol";
+import {Endian} from "../libraries/Endian.sol";
 
 /**
  * class Withdrawal(Container):

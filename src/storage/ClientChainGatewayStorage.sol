@@ -1,7 +1,6 @@
 pragma solidity ^0.8.19;
 
 import {BootstrapStorage} from "./BootstrapStorage.sol";
-import {IVault} from "../interfaces/IVault.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
@@ -15,20 +14,20 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     uint64 public outboundNonce;
     mapping(address => IExoCapsule) public ownerToCapsule;
-    mapping(uint64 => bytes) _registeredRequests;
-    mapping(uint64 => Action) _registeredRequestActions;
-    mapping(Action => bytes4) _registeredResponseHooks;
+    mapping(uint64 => bytes) internal _registeredRequests;
+    mapping(uint64 => Action) internal _registeredRequestActions;
+    mapping(Action => bytes4) internal _registeredResponseHooks;
 
     // immutable state variables
-    address public immutable beaconOracleAddress;
-    IBeacon public immutable exoCapsuleBeacon;
+    address public immutable BEACON_ORACLE_ADDRESS;
+    IBeacon public immutable EXO_CAPSULE_BEACON;
 
     // constant state variables
-    uint128 constant DESTINATION_GAS_LIMIT = 500000;
-    uint128 constant DESTINATION_MSG_VALUE = 0;
-    uint256 constant GWEI_TO_WEI = 1e9;
-    address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-    IETHPOSDeposit constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
+    uint128 constant internal DESTINATION_GAS_LIMIT = 500000;
+    uint128 constant internal DESTINATION_MSG_VALUE = 0;
+    uint256 constant internal GWEI_TO_WEI = 1e9;
+    address constant internal VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    IETHPOSDeposit constant internal ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
 
     uint256[40] private __gap;
 
@@ -66,8 +65,8 @@ contract ClientChainGatewayStorage is BootstrapStorage {
             "ClientChainGatewayStorage: the exoCapsuleBeacon address for beacon proxy should not be empty"
         );
 
-        beaconOracleAddress = beaconOracleAddress_;
-        exoCapsuleBeacon = IBeacon(exoCapsuleBeacon_);
+        BEACON_ORACLE_ADDRESS = beaconOracleAddress_;
+        EXO_CAPSULE_BEACON = IBeacon(exoCapsuleBeacon_);
     }
 
     function _getCapsule(address owner) internal view returns (IExoCapsule) {

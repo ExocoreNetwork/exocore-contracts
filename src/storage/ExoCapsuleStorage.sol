@@ -1,11 +1,11 @@
 pragma solidity ^0.8.19;
 
-import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 
 contract ExoCapsuleStorage {
+    // solhint-disable-next-line contract-name-camelcase
     enum VALIDATOR_STATUS {
         UNREGISTERED, // the validator has not been registered in this ExoCapsule
         REGISTERED, // staked on ethpos and withdrawal credentials are pointed to the ExoCapsule
@@ -35,8 +35,8 @@ contract ExoCapsuleStorage {
     INativeRestakingController public gateway;
     IBeaconChainOracle public beaconOracle;
 
-    mapping(bytes32 pubkey => Validator validator) _capsuleValidators;
-    mapping(uint256 index => bytes32 pubkey) _capsuleValidatorsByIndex;
+    mapping(bytes32 pubkey => Validator validator) internal _capsuleValidators;
+    mapping(uint256 index => bytes32 pubkey) internal _capsuleValidatorsByIndex;
 
     uint256[40] private __gap;
 }

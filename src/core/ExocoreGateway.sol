@@ -6,7 +6,7 @@ import {DEPOSIT_CONTRACT} from "../interfaces/precompiles/IDeposit.sol";
 import {WITHDRAW_CONTRACT, WITHDRAW_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IWithdrawPrinciple.sol";
 import {CLAIM_REWARD_CONTRACT, CLAIM_REWARD_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IClaimReward.sol";
 import {DELEGATION_CONTRACT, DELEGATION_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IDelegation.sol";
-import {CLIENT_CHAINS_CONTRACT, CLIENT_CHAINS_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IClientChains.sol";
+import {IClientChains, CLIENT_CHAINS_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IClientChains.sol";
 import {
     OAppReceiverUpgradeable,
     OAppUpgradeable,
@@ -20,7 +20,6 @@ import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/Pau
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
-import {IClientChains} from "../interfaces/precompiles/IClientChains.sol";
 
 contract ExocoreGateway is
     Initializable,

@@ -1,8 +1,6 @@
 pragma solidity ^0.8.19;
 
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
-import {IVault} from "../interfaces/IVault.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";

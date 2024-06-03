@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
-import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";

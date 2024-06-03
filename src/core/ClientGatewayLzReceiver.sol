@@ -21,7 +21,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
-        if (_origin.srcEid != exocoreChainId) {
+        if (_origin.srcEid != EXOCORE_CHAIN_ID) {
             revert UnexpectedSourceChain(_origin.srcEid);
         }
 

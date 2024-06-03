@@ -168,7 +168,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      * @notice This data is used to initialize the new logic contract (ClientChainGateway) when
      * the proxy admin switches the implementation post-bootstrapping.
      */
-    bytes clientChainInitializationData;
+    bytes public clientChainInitializationData;
 
     /* -------------------------------------------------------------------------- */
     /*         shared state variables for Bootstrap and ClientChainGateway        */
@@ -203,7 +203,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      * @notice Used to identify the specific Exocore chain this contract interacts with for
      * cross-chain functionalities.
      */
-    uint32 public immutable exocoreChainId;
+    uint32 public immutable EXOCORE_CHAIN_ID;
 
     /**
      * @dev A mapping of source chain id to source sender to the nonce of the last inbound
@@ -211,7 +211,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      * @notice This mapping is used to track the last message processed from each sender on
      * each source chain to prevent replay attacks.
      */
-    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) inboundNonce;
+    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
 
     // TSS information.
     /**
@@ -219,23 +219,23 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      * @notice This nonce is used to track the last message processed by the contract to
      * prevent replay attacks.
      */
-    uint256 lastMessageNonce;
+    uint256 public lastMessageNonce;
 
     // the beacon that stores the Vault implementation contract address for proxy
     /**
      * @notice this stores the Vault implementation contract address for proxy, and it is
-     * shsared among all beacon proxies as an immutable.
+     * shared among all beacon proxies.
      */
-    IBeacon public immutable vaultBeacon;
+    IBeacon public immutable VAULT_BEACON;
 
     /**
      * @notice a stantalone contract that is dedicated for providing the bytecode of beacon proxy contract
      * @dev we do not store bytecode of beacon proxy contract in this storage because that would cause the code size
      * of this contract exeeding limit and leading to creation failure
      */
-    BeaconProxyBytecode public immutable beaconProxyBytecode;
+    BeaconProxyBytecode public immutable BEACON_PROXY_BYTECODE;
 
-    bytes constant EXO_ADDRESS_PREFIX = bytes("exo1");
+    bytes constant public EXO_ADDRESS_PREFIX = bytes("exo1");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -417,9 +417,9 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
             beaconProxyBytecode_ != address(0), "BootstrapStorage: the beaconProxyBytecode address should not be empty"
         );
 
-        exocoreChainId = exocoreChainId_;
-        vaultBeacon = IBeacon(vaultBeacon_);
-        beaconProxyBytecode = BeaconProxyBytecode(beaconProxyBytecode_);
+        EXOCORE_CHAIN_ID = exocoreChainId_;
+        VAULT_BEACON = IBeacon(vaultBeacon_);
+        BEACON_PROXY_BYTECODE = BeaconProxyBytecode(beaconProxyBytecode_);
     }
 
     function _getVault(address token) internal view returns (IVault) {
@@ -449,8 +449,7 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
             Create2.deploy(
                 0,
                 bytes32(uint256(uint160(underlyingToken))),
-                // set the beacon address for beacon proxy
-                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
+                type(Vault).creationCode
             )
         );
         vault.initialize(underlyingToken, address(this));

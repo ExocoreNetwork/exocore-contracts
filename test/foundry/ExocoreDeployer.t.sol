@@ -17,6 +17,7 @@ import {Vault} from "../../src/core/Vault.sol";
 import "../../src/core/ExoCapsule.sol";
 import "../../src/core/ExocoreGateway.sol";
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
+import {IVault} from "../../src/interfaces/IVault.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";

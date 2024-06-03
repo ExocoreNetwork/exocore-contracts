@@ -17,8 +17,6 @@ import {IVault} from "../interfaces/IVault.sol";
 
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
-import {Vault} from "./Vault.sol";
-import {BeaconProxyBytecode} from "./BeaconProxyBytecode.sol";
 
 // ClientChainGateway differences:
 // replace IClientChainGateway with ITokenWhitelister (excludes only quote function).
@@ -516,7 +514,8 @@ contract Bootstrap is
      * @notice Retrieves information for a supported token by its index in the storage array.
      * @dev Returns comprehensive details about a token, including its ERC20 attributes and deposit amount.
      * @param index The index of the token in the `supportedTokens` array.
-     * @return A `TokenInfo` struct containing the token's name, symbol, address, decimals, total supply, and deposit amount.
+     * @return A `TokenInfo` struct containing the token's name, symbol, address, decimals, total supply, and deposit
+     * amount.
      */
     function getWhitelistedTokenAtIndex(uint256 index) public view returns (TokenInfo memory) {
         require(index < whitelistTokens.length, "Index out of bounds");
