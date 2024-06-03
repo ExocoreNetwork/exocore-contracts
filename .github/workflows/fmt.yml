@@ -39,7 +39,7 @@ jobs:
 
       - name: Run Forge Formatter
         run: |
-          forge fmt
+          forge fmt --check
         id: fmt
 
       - name: Add comment on failure
