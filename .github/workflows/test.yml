@@ -1,6 +1,13 @@
 name: test
 
-on: workflow_dispatch
+on: 
+  pull_request:
+  push:
+    branches:
+      - main
+      - release/**
+    tags:
+      - "*"
 
 env:
   FOUNDRY_PROFILE: ci
@@ -20,7 +27,9 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          # replace nightly because latest nightly release has some breaking changes that result in test failures
+          # this is a previous recent nightly release that should work
+          version: nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9
 
       - name: Run Forge build
         run: |
@@ -32,3 +41,16 @@ jobs:
         run: |
           forge test -vvv
         id: test
+
+      - name: Add comment on failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'The GitHub Actions workflow has failed. Please check the logs for more details.'
+            })
