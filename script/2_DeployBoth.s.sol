@@ -48,12 +48,7 @@ contract DeployScript is BaseScript {
         clientChain = vm.createSelectFork(clientChainRPCURL);
 
         exocore = vm.createSelectFork(exocoreRPCURL);
-        vm.startBroadcast(exocoreGenesis.privateKey);
-        if (deployer.addr.balance < 1 ether) {
-            (bool sent,) = deployer.addr.call{value: 1 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        vm.stopBroadcast();
+        _topUpPlayer(exocore, address(0), exocoreGenesis, deployer.addr, 1 ether);
     }
 
     function run() public {
