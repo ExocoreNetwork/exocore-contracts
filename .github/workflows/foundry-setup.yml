@@ -19,6 +19,7 @@ jobs:
     needs: pre-setup
     outputs:
       key: ${{ steps.set-key.outputs.key }}
+      installation_dir: ${{ steps.find-path.outputs.installation_dir }}
     steps:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
@@ -26,13 +27,19 @@ jobs:
           version: ${{ needs.pre-setup.outputs.foundry_version }}
       - name: Print forge version
         run: forge --version
+      # Unfortunately, the `foundry-toolchain` action installs it in a randomly generated location, so we must determine it ourselves
+      - name: Determine Foundry installation path
+        id: find-path
+        run: |
+          installation_path=$(which forge)
+          installation_dir=$(dirname $installation_path)
+          echo "installation_dir=$installation_dir" >> "$GITHUB_OUTPUT"
       - name: Save Foundry cache
         uses: actions/cache/save@v3
         with:
-          path: |
-            ~/.foundry
+          path: ${{ steps.find-path.outputs.installation_dir }}
           key: ${{ runner.os }}-foundry-${{ needs.pre-setup.outputs.foundry_version }}
-      - name: Save key
+      - name: Set key
         id: set-key
         run: |
           echo "key=${{ runner.os }}-foundry-${{ needs.pre-setup.outputs.foundry_version }}" >> "$GITHUB_OUTPUT"
