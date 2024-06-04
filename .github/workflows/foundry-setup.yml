@@ -2,6 +2,13 @@ name: Foundry Setup
 
 on:
   workflow_call:
+    outputs:
+      installation_dir:
+        description: "The installation directory of Foundry toolchain"
+        value: ${{ jobs.setup.outputs.installation_dir }}
+      key:
+        description: "The cache key for Foundry toolchain"
+        value: ${{ jobs.setup.outputs.key }}
 
 jobs:
   pre-setup:
@@ -34,7 +41,7 @@ jobs:
           installation_path=$(which forge)
           installation_dir=$(dirname $installation_path)
           echo "installation_dir=$installation_dir" >> "$GITHUB_OUTPUT"
-      - name: Save Foundry cache
+      - name: Cached Foundry toolchain
         uses: actions/cache/save@v3
         with:
           path: ${{ steps.find-path.outputs.installation_dir }}

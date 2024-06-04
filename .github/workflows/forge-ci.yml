@@ -9,9 +9,6 @@ on:
     tags:
       - "*"
 
-env:
-  FOUNDRY_PROFILE: ci
-
 jobs:
   setup:
     uses: ./.github/workflows/foundry-setup.yml
@@ -19,19 +16,20 @@ jobs:
   build:
     runs-on: ubuntu-latest
     needs: setup
+    outputs:
+      installation_dir: ${{ needs.setup.outputs.installation_dir }}
+      key: ${{ needs.setup.outputs.key }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Restore Foundry binaries cache
+      - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
-          path: |
-            ~/.foundry
+          path: ${{ needs.setup.outputs.installation_dir }}
           key: ${{ needs.setup.outputs.key }}
-
+      - name: Add Foundry to PATH
+        run: echo "${{ needs.setup.outputs.installation_dir }}" >> $GITHUB_PATH
       - name: Build
         run: forge build
-
       - name: Add comment for build failure
         if: failure()
         uses: actions/github-script@v6
@@ -44,8 +42,7 @@ jobs:
               repo: context.repo.repo,
               body: 'The build has failed. Please check the logs.'
             })
-
-      - name: Cache build artifacts (not binaries)
+      - name: Cache build artifacts
         uses: actions/cache/save@v3
         with:
           path: |
@@ -59,14 +56,13 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v4
-
-      - name: Restore Foundry binaries cache
+      - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
-          path: |
-            ~/.foundry
-          key: ${{ needs.setup.outputs.key }}
-
+          path: ${{ needs.build.outputs.installation_dir }}
+          key: ${{ needs.build.outputs.key }}
+      - name: Add Foundry to PATH
+        run: echo "${{ needs.build.outputs.installation_dir }}" >> $GITHUB_PATH
       - name: Restore build artifacts
         uses: actions/cache/restore@v3
         with:
@@ -75,10 +71,10 @@ jobs:
             ./cache
             ./broadcast
           key: ${{ runner.os }}-build-${{ github.sha }}
-
       - name: Run tests
         run: forge test -vvv
-
+      - name: Run test snapshot
+        run: NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
       - name: Add comment for test failure
         if: failure()
         uses: actions/github-script@v6
@@ -97,14 +93,13 @@ jobs:
     needs: build
     steps:
       - uses: actions/checkout@v4
-
-      - name: Restore Foundry binaries cache
+      - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
-          path: |
-            ~/.foundry
-          key: ${{ needs.setup.outputs.key }}
-
+          path: ${{ needs.build.outputs.installation_dir }}
+          key: ${{ needs.build.outputs.key }}
+      - name: Add Foundry to PATH
+        run: echo "${{ needs.build.outputs.installation_dir }}" >> $GITHUB_PATH
       - name: Restore build artifacts
         uses: actions/cache/restore@v3
         with:
@@ -113,10 +108,8 @@ jobs:
             ./cache
             ./broadcast
           key: ${{ runner.os }}-build-${{ github.sha }}
-
       - name: Check formatting
         run: forge fmt --check
-
       - name: Add comment for format failure
         if: failure()
         uses: actions/github-script@v6
