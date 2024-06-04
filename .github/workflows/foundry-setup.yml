@@ -6,10 +6,13 @@ on:
 jobs:
   pre-setup:
     runs-on: ubuntu-latest
+    outputs:
+      foundry_version: ${{ steps.set-version.outputs.foundry_version }}
     steps:
       - name: Set Foundry version
         id: set-version
-        run: echo "FOUNDRY_VERSION=nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9" >> "$GITHUB_ENV"
+        run: |
+          echo "foundry_version=nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9" >> "$GITHUB_OUTPUT"
 
   setup:
     runs-on: ubuntu-latest
@@ -20,7 +23,7 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: ${{ env.FOUNDRY_VERSION }}
+          version: ${{ needs.pre-setup.outputs.foundry_version }}
       - name: Print forge version
         run: forge --version
       - name: Save Foundry cache
@@ -28,7 +31,8 @@ jobs:
         with:
           path: |
             ~/.foundry
-          key: ${{ runner.os }}-foundry-${{ env.FOUNDRY_VERSION }}
+          key: ${{ runner.os }}-foundry-${{ needs.pre-setup.outputs.foundry_version }}
       - name: Save key
         id: set-key
-        run: echo "key=${{ runner.os }}-foundry-${{ env.FOUNDRY_VERSION }}" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "key=${{ runner.os }}-foundry-${{ needs.pre-setup.outputs.foundry_version }}" >> "$GITHUB_OUTPUT"
