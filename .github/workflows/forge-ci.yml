@@ -14,20 +14,10 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/foundry-setup.yml
+    with:
+      version: nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
-        with:
-          # replace nightly because latest nightly release has some breaking changes that result in test failures
-          # this is a previous recent nightly release that should work
-          version: nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9
-
-      - name: Print forge version
-        run: forge --version
-
       - name: Build
         run: forge build
 
@@ -47,7 +37,7 @@ jobs:
       - name: Cache Foundry artifacts (excluding binaries)
         uses: actions/cache/save@v3
         with:
-          key: "${{ github.job }}-${{ github.sha }}"
+          key: "${{ runner.os }}-build-${{ github.sha }}"
           path: |
             - ./out
             - ./cache
@@ -57,26 +47,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+      - uses: ./.github/workflows/foundry-setup.yml
         with:
-          # replace nightly because latest nightly release has some breaking changes that result in test failures
-          # this is a previous recent nightly release that should work
           version: nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9
 
       - name: Restore cached Foundry artifacts
         uses: actions/cache/restore@v3
         with:
-          key: "${{ github.job }}-${{ github.sha }}"
+          key: "${{ runner.os }}-build-${{ github.sha }}"
           path: |
             - ./out
             - ./cache
             - ./broadcast
-
-      - name: Print forge version
-        run: forge --version
 
       - name: Run tests
         run: forge test -vvv
@@ -98,26 +80,18 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Install Foundry
-        uses: onbjerg/foundry-toolchain@v1
+      - uses: ./.github/workflows/foundry-setup.yml
         with:
-          # replace nightly because latest nightly release has some breaking changes that result in test failures
-          # this is a previous recent nightly release that should work
           version: nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9
 
       - name: Restore cached Foundry artifacts
         uses: actions/cache/restore@v3
         with:
-          key: "${{ github.job }}-${{ github.sha }}"
+          key: "${{ runner.os }}-build-${{ github.sha }}"
           path: |
             - ./out
             - ./cache
             - ./broadcast
-
-      - name: Print forge version
-        run: forge --version
 
       - name: Check formatting
         run: forge fmt --check
