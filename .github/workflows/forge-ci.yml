@@ -11,13 +11,10 @@ on:
 
 env:
   FOUNDRY_PROFILE: ci
-  FOUNDRY_VERSION: f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9
 
 jobs:
   setup:
     uses: ./.github/workflows/foundry-setup.yml
-    with:
-      version: ${{ env.FOUNDRY_VERSION }}
 
   build:
     runs-on: ubuntu-latest
@@ -30,7 +27,7 @@ jobs:
         with:
           path: |
             ~/.foundry
-          key: ${{ runner.os }}-foundry-${{ env.FOUNDRY_VERSION }}
+          key: ${{ needs.setup.outputs.key }}
 
       - name: Build
         run: forge build
@@ -68,7 +65,7 @@ jobs:
         with:
           path: |
             ~/.foundry
-          key: ${{ runner.os }}-foundry-${{ env.FOUNDRY_VERSION }}
+          key: ${{ needs.setup.outputs.key }}
 
       - name: Restore build artifacts
         uses: actions/cache/restore@v3
@@ -106,7 +103,7 @@ jobs:
         with:
           path: |
             ~/.foundry
-          key: ${{ runner.os }}-foundry-${{ env.FOUNDRY_VERSION }}
+          key: ${{ needs.setup.outputs.key }}
 
       - name: Restore build artifacts
         uses: actions/cache/restore@v3

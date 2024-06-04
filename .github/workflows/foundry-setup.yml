@@ -2,21 +2,29 @@ name: Foundry Setup
 
 on:
   workflow_call:
-    inputs:
-      version:
-        required: true
-        type: string
 
 jobs:
+  pre-setup:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.set-version.outputs.version }}
+    steps:
+      - id: set-version
+        run: |
+          echo "::set-output name=version::nightly-f625d0fa7c51e65b4bf1e8f7931cd1c6e2e285e9"
+
   setup:
     runs-on: ubuntu-latest
+    needs: pre-setup
+    outputs:
+      version: ${{ steps.set-key.outputs.key }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: ${{ inputs.version }}
+          version: ${{ needs.pre-setup.outputs.version }}
 
       - name: Print forge version
         run: forge --version
@@ -26,4 +34,9 @@ jobs:
         with:
           path: |
             ~/.foundry
-          key: ${{ runner.os }}-foundry-${{ inputs.version }}
+          key: ${{ runner.os }}-foundry-${{ needs.pre-setup.outputs.version }}
+
+      - name: Save key
+        id: set-key
+        run: |
+          echo "::set-output name=key::${{ runner.os }}-foundry-${{ needs.pre-setup.outputs.version }}"
