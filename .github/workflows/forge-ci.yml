@@ -21,6 +21,8 @@ jobs:
       key: ${{ needs.setup.outputs.key }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
@@ -46,6 +48,7 @@ jobs:
         uses: actions/cache/save@v3
         with:
           path: |
+            ./lib
             ./out
             ./cache
             ./broadcast
@@ -67,6 +70,7 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: |
+            ./lib
             ./out
             ./cache
             ./broadcast
@@ -104,6 +108,7 @@ jobs:
         uses: actions/cache/restore@v3
         with:
           path: |
+            ./lib
             ./out
             ./cache
             ./broadcast
