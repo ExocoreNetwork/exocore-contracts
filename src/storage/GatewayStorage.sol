@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 contract GatewayStorage {
+
     enum Action {
         REQUEST_DEPOSIT,
         REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
@@ -22,4 +23,5 @@ contract GatewayStorage {
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
 
     uint256[40] private __gap;
+
 }

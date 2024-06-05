@@ -12,6 +12,7 @@ IDeposit constant DEPOSIT_CONTRACT = IDeposit(DEPOSIT_PRECOMPILE_ADDRESS);
 /// @dev The interface through which solidity contracts will interact with Deposit
 /// @custom:address 0x0000000000000000000000000000000000000804
 interface IDeposit {
+
     /// TRANSACTIONS
     /// @dev deposit the client chain assets to the staker, that will change the state in deposit module
     /// Note that this address cannot be a module account.
@@ -22,4 +23,5 @@ interface IDeposit {
     function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
         external
         returns (bool success, uint256 latestAssetState);
+
 }

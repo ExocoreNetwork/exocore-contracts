@@ -1,19 +1,21 @@
 pragma solidity ^0.8.19;
 
-import {GatewayStorage} from "./GatewayStorage.sol";
-import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
-import {IVault} from "../interfaces/IVault.sol";
-import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
-import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
+import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
+
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
+import {IVault} from "../interfaces/IVault.sol";
+import {GatewayStorage} from "./GatewayStorage.sol";
+import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 // BootstrapStorage should inherit from GatewayStorage since it exists
 // prior to ClientChainGateway. ClientChainStorage should inherit from
 // BootstrapStorage to ensure overlap of positioning between the
 // members of each contract.
 contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
+
     /* -------------------------------------------------------------------------- */
     /*               state variables exclusively owned by Bootstrap               */
     /* -------------------------------------------------------------------------- */
@@ -495,4 +497,5 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
     function getWhitelistedTokensCount() external view returns (uint256) {
         return whitelistTokens.length;
     }
+
 }

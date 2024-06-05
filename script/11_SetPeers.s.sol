@@ -1,16 +1,17 @@
 pragma solidity ^0.8.19;
 
-import {ExocoreGateway} from "../src/core/ExocoreGateway.sol";
 import {Bootstrap} from "../src/core/Bootstrap.sol";
+import {ExocoreGateway} from "../src/core/ExocoreGateway.sol";
 
 import {CLIENT_CHAINS_PRECOMPILE_ADDRESS} from "../src/interfaces/precompiles/IClientChains.sol";
 
-import "forge-std/Script.sol";
 import {BaseScript} from "./BaseScript.sol";
+import "forge-std/Script.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 
 contract SetPeersAndUpgrade is BaseScript {
+
     using AddressCast for address;
 
     address bootstrapAddr;
@@ -93,4 +94,5 @@ contract SetPeersAndUpgrade is BaseScript {
             "--private-key $TEST_ACCOUNT_THREE_PRIVATE_KEY"
         );
     }
+
 }

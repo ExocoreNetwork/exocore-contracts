@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 import {GatewayStorage} from "./GatewayStorage.sol";
 
 contract ExocoreGatewayStorage is GatewayStorage {
+
     // bytes32 token + bytes32 depositor + uint256 amount
     uint256 internal constant DEPOSIT_REQUEST_LENGTH = 96;
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
@@ -14,7 +15,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     // bytes32 token + bytes32 withdrawer + uint256 amount
     uint256 internal constant CLAIM_REWARD_REQUEST_LENGTH = 96;
 
-    uint128 internal constant DESTINATION_GAS_LIMIT = 500000;
+    uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
     uint128 internal constant DESTINATION_MSG_VALUE = 0;
 
     mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
@@ -28,4 +29,5 @@ contract ExocoreGatewayStorage is GatewayStorage {
     error DepositRequestShouldNotFail(uint32 srcChainId, uint64 lzNonce);
 
     uint256[40] private __gap;
+
 }

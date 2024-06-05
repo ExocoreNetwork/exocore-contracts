@@ -5,6 +5,7 @@ import {INativeRestakingController} from "../interfaces/INativeRestakingControll
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 
 contract ExoCapsuleStorage {
+
     // solhint-disable-next-line contract-name-camelcase
     enum VALIDATOR_STATUS {
         UNREGISTERED, // the validator has not been registered in this ExoCapsule
@@ -26,7 +27,7 @@ contract ExoCapsuleStorage {
 
     // constant state variables
     address public constant BEACON_ROOTS_ADDRESS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
-    uint256 public constant BEACON_CHAIN_GENESIS_TIME = 1606824023;
+    uint256 public constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
 
     uint256 public principleBalance;
@@ -39,4 +40,5 @@ contract ExoCapsuleStorage {
     mapping(uint256 index => bytes32 pubkey) internal _capsuleValidatorsByIndex;
 
     uint256[40] private __gap;
+
 }

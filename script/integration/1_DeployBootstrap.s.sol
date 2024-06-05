@@ -1,22 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "forge-std/console.sol";
 import "forge-std/Script.sol";
+import "forge-std/console.sol";
 
-import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {EndpointV2Mock} from "../../test/mocks/EndpointV2Mock.sol";
 
-import {IOperatorRegistry} from "../../src/interfaces/IOperatorRegistry.sol";
+import "../../src/core/BeaconProxyBytecode.sol";
 import {Bootstrap} from "../../src/core/Bootstrap.sol";
 import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
-import {MyToken} from "../../test/foundry/MyToken.sol";
 import {Vault} from "../../src/core/Vault.sol";
+import {IOperatorRegistry} from "../../src/interfaces/IOperatorRegistry.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
-import "../../src/core/BeaconProxyBytecode.sol";
+import {MyToken} from "../../test/foundry/MyToken.sol";
 
 // Technically this is used for testing but it is marked as a script
 // because it is a script that is used to deploy the contracts on Anvil
@@ -27,6 +27,7 @@ import "../../src/core/BeaconProxyBytecode.sol";
 // When you run with this config, the keys already in the file will work
 // because Anvil uses a common mnemonic across systems.
 contract DeployContracts is Script {
+
     uint16 exocoreChainId = 1;
     uint16 clientChainId = 2;
     address exocoreValidatorSet = vm.addr(uint256(0x8));
@@ -282,4 +283,5 @@ contract DeployContracts is Script {
         // Basic random number generation; consider a more robust approach for production
         return (uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % (_range - 1)) + 1;
     }
+
 }

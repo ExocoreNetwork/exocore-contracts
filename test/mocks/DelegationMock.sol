@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 import {IDelegation} from "../../src/interfaces/precompiles/IDelegation.sol";
 
 contract DelegationMock is IDelegation {
+
     mapping(bytes => mapping(bytes => mapping(uint32 => mapping(bytes => uint256)))) public delegateTo;
 
     event DelegateRequestProcessed(
@@ -72,4 +73,5 @@ contract DelegationMock is IDelegation {
     function _addressToBytes(address addr) internal pure returns (bytes memory) {
         return abi.encodePacked(bytes32(bytes20(addr)));
     }
+
 }

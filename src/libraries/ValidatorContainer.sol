@@ -15,6 +15,7 @@ import {Endian} from "../libraries/Endian.sol";
  *     withdrawable_epoch: Epoch  # When validator can withdraw funds
  */
 library ValidatorContainer {
+
     using Endian for bytes32;
 
     uint256 internal constant VALID_LENGTH = 8;
@@ -64,4 +65,5 @@ library ValidatorContainer {
 
         return leaves[0];
     }
+
 }

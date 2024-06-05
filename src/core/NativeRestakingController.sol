@@ -1,10 +1,11 @@
 pragma solidity ^0.8.19;
 
-import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
-import {ExoCapsule} from "./ExoCapsule.sol";
-import {BaseRestakingController} from "./BaseRestakingController.sol";
+import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
+
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
+import {BaseRestakingController} from "./BaseRestakingController.sol";
+import {ExoCapsule} from "./ExoCapsule.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -14,6 +15,7 @@ abstract contract NativeRestakingController is
     INativeRestakingController,
     BaseRestakingController
 {
+
     using ValidatorContainer for bytes32[];
 
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot)
@@ -77,4 +79,5 @@ abstract contract NativeRestakingController is
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
     ) external payable whenNotPaused {}
+
 }

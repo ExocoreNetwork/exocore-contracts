@@ -1,22 +1,23 @@
 pragma solidity ^0.8.19;
 
 // Do not use IERC20 because it does not expose the decimals() function.
-import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+
 import {ITransparentUpgradeableProxy} from
     "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 
-import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
+import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
-import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
+import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 
 // ClientChainGateway differences:
 // replace IClientChainGateway with ITokenWhitelister (excludes only quote function).
@@ -31,6 +32,7 @@ contract Bootstrap is
     IOperatorRegistry,
     BootstrapLzReceiver
 {
+
     constructor(address endpoint_, uint32 exocoreChainId_, address vaultBeacon_, address beaconProxyBytecode_)
         OAppCoreUpgradeable(endpoint_)
         BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_)
@@ -525,4 +527,5 @@ contract Bootstrap is
             depositAmount: depositsByToken[tokenAddress]
         });
     }
+
 }

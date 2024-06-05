@@ -10,6 +10,7 @@ import {Endian} from "../libraries/Endian.sol";
  *     amount: Gwei
  */
 library WithdrawalContainer {
+
     using Endian for bytes32;
 
     uint256 internal constant VALID_LENGTH = 4;
@@ -47,4 +48,5 @@ library WithdrawalContainer {
 
         return leaves[0];
     }
+
 }

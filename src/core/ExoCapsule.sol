@@ -1,16 +1,18 @@
 pragma solidity ^0.8.19;
 
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
-import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
-import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
+
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
+import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
+import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
+
     using BeaconChainProofs for bytes32;
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
@@ -282,4 +284,5 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         );
         return uint64((timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH);
     }
+
 }

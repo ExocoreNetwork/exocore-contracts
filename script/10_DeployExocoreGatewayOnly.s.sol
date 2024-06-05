@@ -7,10 +7,12 @@ import {TransparentUpgradeableProxy} from
     "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {ExocoreGateway} from "../src/core/ExocoreGateway.sol";
-import "forge-std/Script.sol";
+
 import {BaseScript} from "./BaseScript.sol";
+import "forge-std/Script.sol";
 
 contract DeployExocoreGatewayOnly is BaseScript {
+
     function setUp() public virtual override {
         // load keys
         super.setUp();
@@ -55,4 +57,5 @@ contract DeployExocoreGatewayOnly is BaseScript {
 
         vm.writeJson(finalJson, "script/deployedExocoreGatewayOnly.json");
     }
+
 }

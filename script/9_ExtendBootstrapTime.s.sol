@@ -2,10 +2,11 @@ pragma solidity ^0.8.19;
 
 import {Bootstrap} from "../src/core/Bootstrap.sol";
 
-import "forge-std/Script.sol";
 import {BaseScript} from "./BaseScript.sol";
+import "forge-std/Script.sol";
 
 contract SetBootstrapTime is BaseScript {
+
     address bootstrapAddr;
 
     function setUp() public virtual override {
@@ -27,4 +28,5 @@ contract SetBootstrapTime is BaseScript {
 
         vm.stopBroadcast();
     }
+
 }

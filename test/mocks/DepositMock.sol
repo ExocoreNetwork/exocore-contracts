@@ -5,6 +5,7 @@ import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "./WithdrawPrincipleMock.sol";
 
 contract DepositMock is IDeposit {
+
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) principleBalances;
 
     function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
@@ -29,4 +30,5 @@ contract DepositMock is IDeposit {
         require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
         principleBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
     }
+
 }

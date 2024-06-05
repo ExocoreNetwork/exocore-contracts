@@ -1,22 +1,23 @@
 pragma solidity ^0.8.19;
 
-import "../src/core/ClientChainGateway.sol";
-import {Vault} from "../src/core/Vault.sol";
-import "../src/core/ExocoreGateway.sol";
-import "../test/mocks/ExocoreGatewayMock.sol";
-import "../src/core/ExoCapsule.sol";
 import "../src/core/BeaconProxyBytecode.sol";
+import "../src/core/ClientChainGateway.sol";
+import "../src/core/ExoCapsule.sol";
+import "../src/core/ExocoreGateway.sol";
+import {Vault} from "../src/core/Vault.sol";
+import "../test/mocks/ExocoreGatewayMock.sol";
 
-import "forge-std/Script.sol";
+import {BaseScript} from "./BaseScript.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
-import {BaseScript} from "./BaseScript.sol";
+import "forge-std/Script.sol";
 
 contract DeployScript is BaseScript {
+
     function setUp() public virtual override {
         super.setUp();
 
@@ -177,4 +178,5 @@ contract DeployScript is BaseScript {
 
         vm.writeJson(finalJson, "script/deployedContracts.json");
     }
+
 }

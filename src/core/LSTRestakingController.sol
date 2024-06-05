@@ -6,6 +6,7 @@ import {BaseRestakingController} from "./BaseRestakingController.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingController, BaseRestakingController {
+
     function deposit(address token, uint256 amount)
         external
         payable
@@ -35,4 +36,5 @@ abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingCo
     {
         _processRequest(token, msg.sender, rewardAmount, Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, "");
     }
+
 }

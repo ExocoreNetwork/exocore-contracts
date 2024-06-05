@@ -1,20 +1,24 @@
 pragma solidity ^0.8.19;
 
-import "./ExocoreDeployer.t.sol";
-import "forge-std/Test.sol";
 import "../../src/core/ExocoreGateway.sol";
-import "../../src/storage/GatewayStorage.sol";
+
 import "../../src/interfaces/precompiles/IDelegation.sol";
+import "../../src/storage/GatewayStorage.sol";
 import "../mocks/DelegationMock.sol";
-import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import "./ExocoreDeployer.t.sol";
+
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import "forge-std/Test.sol";
+
 import "forge-std/console.sol";
 
 contract DelegateTest is ExocoreDeployer {
+
     using AddressCast for address;
 
-    uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
+    uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
 
     event NewPacket(uint32, address, bytes32, uint64, bytes);
     event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
@@ -49,7 +53,7 @@ contract DelegateTest is ExocoreDeployer {
 
         deal(delegator.addr, 1e22);
         deal(address(exocoreGateway), 1e22);
-        uint256 delegateAmount = 10000;
+        uint256 delegateAmount = 10_000;
 
         _testDelegate(delegator.addr, relayer.addr, operatorAddress, delegateAmount);
     }
@@ -61,7 +65,7 @@ contract DelegateTest is ExocoreDeployer {
 
         deal(delegator.addr, 1e22);
         deal(address(exocoreGateway), 1e22);
-        uint256 delegateAmount = 10000;
+        uint256 delegateAmount = 10_000;
         uint256 undelegateAmount = 5000;
 
         _testDelegate(delegator.addr, relayer.addr, operatorAddress, delegateAmount);
@@ -105,7 +109,8 @@ contract DelegateTest is ExocoreDeployer {
         clientGateway.delegateTo{value: requestNativeFee}(operator, address(restakeToken), delegateAmount);
         vm.stopPrank();
 
-        // 2. second layerzero relayers should watch the request message packet and relay the message to destination endpoint
+        // 2. second layerzero relayers should watch the request message packet and relay the message to destination
+        // endpoint
 
         bytes memory delegateResponsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, delegateResponsePayload);
@@ -153,9 +158,11 @@ contract DelegateTest is ExocoreDeployer {
         );
         assertEq(actualDelegateAmount, delegateAmount);
 
-        // 3. third layerzero relayers should watch the response message packet and relay the message to source chain endpoint
+        // 3. third layerzero relayers should watch the response message packet and relay the message to source chain
+        // endpoint
 
-        /// after relayer relay the response message back to client chain, clientGateway should emit DelegateResult event
+        /// after relayer relay the response message back to client chain, clientGateway should emit DelegateResult
+        /// event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit DelegateResult(true, delegator, operator, address(restakeToken), delegateAmount);
 
@@ -212,7 +219,8 @@ contract DelegateTest is ExocoreDeployer {
         clientGateway.undelegateFrom{value: requestNativeFee}(operator, address(restakeToken), undelegateAmount);
         vm.stopPrank();
 
-        // 2. second layerzero relayers should watch the request message packet and relay the message to destination endpoint
+        // 2. second layerzero relayers should watch the request message packet and relay the message to destination
+        // endpoint
 
         bytes memory undelegateResponsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(2), true);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, undelegateResponsePayload);
@@ -260,9 +268,11 @@ contract DelegateTest is ExocoreDeployer {
         );
         assertEq(actualDelegateAmount, totalDelegate - undelegateAmount);
 
-        // 3. third layerzero relayers should watch the response message packet and relay the message to source chain endpoint
+        // 3. third layerzero relayers should watch the response message packet and relay the message to source chain
+        // endpoint
 
-        /// after relayer relay the response message back to client chain, clientGateway should emit UndelegateResult event
+        /// after relayer relay the response message back to client chain, clientGateway should emit UndelegateResult
+        /// event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit UndelegateResult(true, delegator, operator, address(restakeToken), undelegateAmount);
 
@@ -289,4 +299,5 @@ contract DelegateTest is ExocoreDeployer {
             );
         }
     }
+
 }

@@ -1,13 +1,14 @@
 pragma solidity ^0.8.19;
 
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {IVault} from "../interfaces/IVault.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IVault} from "../interfaces/IVault.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
+import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
+
     error UnsupportedResponse(Action act);
     error UnexpectedResponse(uint64 nonce);
     error DepositShouldNotFailOnExocore(address token, address depositor);
@@ -166,4 +167,5 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
         emit UndelegateResult(success, undelegator, operator, token, amount);
     }
+
 }

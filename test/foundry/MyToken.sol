@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 
 contract MyToken is ERC20Burnable {
+
     uint8 private _decimals;
 
     constructor(
@@ -24,4 +25,5 @@ contract MyToken is ERC20Burnable {
     function decimals() public view virtual override returns (uint8) {
         return _decimals;
     }
+
 }

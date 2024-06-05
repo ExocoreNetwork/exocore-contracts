@@ -1,13 +1,14 @@
 pragma solidity ^0.8.19;
 
-import {BootstrapStorage} from "./BootstrapStorage.sol";
-import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
+import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
+import {BootstrapStorage} from "./BootstrapStorage.sol";
 
 import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 
 contract ClientChainGatewayStorage is BootstrapStorage {
+
     /* -------------------------------------------------------------------------- */
     /*       state variables exclusively owned by ClientChainGateway              */
     /* -------------------------------------------------------------------------- */
@@ -23,7 +24,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     IBeacon public immutable EXO_CAPSULE_BEACON;
 
     // constant state variables
-    uint128 internal constant DESTINATION_GAS_LIMIT = 500000;
+    uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
     uint128 internal constant DESTINATION_MSG_VALUE = 0;
     uint256 internal constant GWEI_TO_WEI = 1e9;
     address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
@@ -76,4 +77,5 @@ contract ClientChainGatewayStorage is BootstrapStorage {
         }
         return capsule;
     }
+
 }

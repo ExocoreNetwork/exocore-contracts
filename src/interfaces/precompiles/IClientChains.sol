@@ -11,6 +11,8 @@ IClientChains constant CLIENT_CHAINS_CONTRACT = IClientChains(CLIENT_CHAINS_PREC
 /// @dev The interface through which solidity contracts will interact with ClientChains
 /// @custom:address 0x0000000000000000000000000000000000000801
 interface IClientChains {
+
     /// @dev Returns the chain indices of the client chains.
     function getClientChains() external view returns (bool, uint16[] memory);
+
 }

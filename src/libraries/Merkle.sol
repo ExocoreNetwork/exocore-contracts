@@ -16,6 +16,7 @@ pragma solidity ^0.8.0;
  * against this attack out of the box.
  */
 library Merkle {
+
     /**
      * @dev Returns the rebuilt hash obtained by traversing a Merkle tree up
      * from `leaf` using `proof`. A `proof` is valid if and only if the rebuilt
@@ -105,4 +106,5 @@ library Merkle {
         //the first node in the layer is the root
         return layer[0];
     }
+
 }

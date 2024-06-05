@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 import {IBaseRestakingController} from "./IBaseRestakingController.sol";
 
 interface ILSTRestakingController is IBaseRestakingController {
+
     // @notice this info is used to update specific user's owned tokens balance
     struct UserBalanceUpdateInfo {
         address user;
@@ -45,4 +46,5 @@ interface ILSTRestakingController is IBaseRestakingController {
     function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external payable;
 
     function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
+
 }

@@ -4,7 +4,9 @@ import {ITransparentUpgradeableProxy} from
     "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 interface ICustomProxyAdmin {
+
     function changeImplementation(ITransparentUpgradeableProxy proxy, address implementation, bytes memory data)
         external
         payable;
+
 }

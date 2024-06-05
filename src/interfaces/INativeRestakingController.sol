@@ -1,9 +1,10 @@
 pragma solidity ^0.8.19;
 
-import {IExoCapsule} from "./IExoCapsule.sol";
 import {IBaseRestakingController} from "./IBaseRestakingController.sol";
+import {IExoCapsule} from "./IExoCapsule.sol";
 
 interface INativeRestakingController is IBaseRestakingController {
+
     /// *** function signatures for staker operations ***
 
     /**
@@ -83,4 +84,5 @@ interface INativeRestakingController is IBaseRestakingController {
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
     ) external payable;
+
 }

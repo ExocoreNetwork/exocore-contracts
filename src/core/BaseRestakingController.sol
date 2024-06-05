@@ -1,13 +1,13 @@
 pragma solidity ^0.8.19;
 
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {OAppSenderUpgradeable, MessagingFee, MessagingReceipt} from "../lzApp/OAppSenderUpgradeable.sol";
-import {IVault} from "../interfaces/IVault.sol";
-import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {IBaseRestakingController} from "../interfaces/IBaseRestakingController.sol";
+import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IVault} from "../interfaces/IVault.sol";
+import {MessagingFee, MessagingReceipt, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
+import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract BaseRestakingController is
     PausableUpgradeable,
@@ -15,6 +15,7 @@ abstract contract BaseRestakingController is
     IBaseRestakingController,
     ClientChainGatewayStorage
 {
+
     using OptionsBuilder for bytes;
 
     receive() external payable {}
@@ -102,4 +103,5 @@ abstract contract BaseRestakingController is
         );
         emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
+
 }

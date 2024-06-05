@@ -11,6 +11,7 @@ import "forge-std/Script.sol";
 // This script does not intentionally inherit from BaseScript, since
 // that script has boilerplate that is not needed here.
 contract RegisterOperatorsAndDelegate is Script {
+
     uint256 primaryKey;
     // registration data for operators
     uint256[] operatorKeys;
@@ -103,4 +104,5 @@ contract RegisterOperatorsAndDelegate is Script {
             vm.stopBroadcast();
         }
     }
+
 }

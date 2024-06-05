@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 interface IExoCapsule {
+
     /// @notice This struct contains the infos needed for validator container validity verification
     struct ValidatorContainerProof {
         uint256 beaconBlockTimestamp;
@@ -42,4 +43,5 @@ interface IExoCapsule {
     function updateWithdrawableBalance(uint256 unlockPrincipleAmount) external;
 
     function capsuleWithdrawalCredentials() external view returns (bytes memory);
+
 }

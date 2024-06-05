@@ -4,21 +4,26 @@ pragma solidity ^0.8.0;
 import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
 import {ICustomProxyAdmin} from "../../src/interfaces/ICustomProxyAdmin.sol";
 
-import "forge-std/console.sol";
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 contract StorageOld {
+
     bool public implementationChanged;
+
 }
 
 contract StorageNew is StorageOld {
+
     bool public hi;
+
 }
 
 contract ImplementationChanger is Initializable, StorageOld {
+
     constructor() {
         _disableInitializers();
     }
@@ -34,9 +39,11 @@ contract ImplementationChanger is Initializable, StorageOld {
             abi.encodeCall(NewImplementation.initialize, ())
         );
     }
+
 }
 
 contract NewImplementation is Initializable, StorageNew {
+
     constructor() {
         _disableInitializers();
     }
@@ -45,9 +52,11 @@ contract NewImplementation is Initializable, StorageNew {
         implementationChanged = true;
         hi = true;
     }
+
 }
 
 contract CustomProxyAdminTest is Test {
+
     CustomProxyAdmin proxyAdmin;
 
     function setUp() public {
@@ -141,4 +150,5 @@ contract CustomProxyAdminTest is Test {
         } catch {}
         assertFalse(implementationChanger.implementationChanged());
     }
+
 }

@@ -1,10 +1,11 @@
 pragma solidity ^0.8.19;
 
-import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
+import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, BootstrapStorage {
+
     modifier onlyCalledFromThis() {
         require(
             msg.sender == address(this),
@@ -46,4 +47,5 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
             revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
         }
     }
+
 }

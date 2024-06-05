@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 contract BeaconProxyBytecode {
+
     /**
      * @notice Stored code of type(BeaconProxy).creationCode
      * @dev Maintained as a constant to solve an edge case - changes to OpenZeppelin's BeaconProxy code should not cause
@@ -14,4 +15,5 @@ contract BeaconProxyBytecode {
     function getBytecode() external pure returns (bytes memory) {
         return BEACON_PROXY_BYTECODE;
     }
+
 }

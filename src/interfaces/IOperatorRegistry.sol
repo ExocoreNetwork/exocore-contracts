@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 interface IOperatorRegistry {
+
     /**
      * @dev Represents commission details, represented as 18 decimals.
      * @param rate The current commission rate.
@@ -90,4 +91,5 @@ interface IOperatorRegistry {
      * @param newRate The new commission rate for the operator.
      */
     event OperatorCommissionUpdated(uint256 newRate);
+
 }

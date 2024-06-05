@@ -12,6 +12,7 @@ IDelegation constant DELEGATION_CONTRACT = IDelegation(DELEGATION_PRECOMPILE_ADD
 /// @dev The interface through which solidity contracts will interact with delegation
 /// @custom:address 0x0000000000000000000000000000000000000805
 interface IDelegation {
+
     /// TRANSACTIONS
     /// @dev delegate the client chain assets to the operator through client chain, that will change the states in
     /// delegation and assets module.
@@ -49,4 +50,5 @@ interface IDelegation {
         bytes memory operatorAddr,
         uint256 opAmount
     ) external returns (bool success);
+
 }

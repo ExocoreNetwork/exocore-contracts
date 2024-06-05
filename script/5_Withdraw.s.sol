@@ -1,21 +1,25 @@
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../src/interfaces/IClientChainGateway.sol";
-import "../src/interfaces/IVault.sol";
+
 import "../src/interfaces/IExocoreGateway.sol";
+import "../src/interfaces/IVault.sol";
+
+import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
 import "../src/interfaces/precompiles/IDeposit.sol";
 import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/storage/GatewayStorage.sol";
-import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+
 import {BaseScript} from "./BaseScript.sol";
+import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "forge-std/Script.sol";
 
 contract DepositScript is BaseScript {
+
     using AddressCast for address;
 
     function setUp() public virtual override {
@@ -75,7 +79,7 @@ contract DepositScript is BaseScript {
             vm.selectFork(exocore);
             vm.startBroadcast(relayer.privateKey);
             uint64 nonce = exocoreGateway.nextNonce(clientChainId, address(clientGateway).toBytes32());
-            exocoreLzEndpoint.lzReceive{gas: 500000}(
+            exocoreLzEndpoint.lzReceive{gas: 500_000}(
                 Origin(clientChainId, address(clientGateway).toBytes32(), nonce),
                 address(exocoreGateway),
                 GUID.generate(
@@ -87,4 +91,5 @@ contract DepositScript is BaseScript {
             vm.stopBroadcast();
         }
     }
+
 }

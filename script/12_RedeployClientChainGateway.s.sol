@@ -1,23 +1,25 @@
 pragma solidity ^0.8.19;
 
+import {UpgradeableBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {TransparentUpgradeableProxy} from
     "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 
+import "../src/core/BeaconProxyBytecode.sol";
 import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
 import {CustomProxyAdmin} from "../src/core/CustomProxyAdmin.sol";
-import {Vault} from "../src/core/Vault.sol";
-import "../src/core/BeaconProxyBytecode.sol";
 import "../src/core/ExoCapsule.sol";
+import {Vault} from "../src/core/Vault.sol";
 
-import "forge-std/Script.sol";
 import {BaseScript} from "./BaseScript.sol";
+
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import {ILayerZeroEndpointV2} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import "forge-std/Script.sol";
 
 contract RedeployClientChainGateway is BaseScript {
+
     Bootstrap bootstrap;
 
     function setUp() public virtual override {
@@ -69,4 +71,5 @@ contract RedeployClientChainGateway is BaseScript {
 
         vm.writeJson(finalJson, "script/redeployClientChainGateway.json");
     }
+
 }

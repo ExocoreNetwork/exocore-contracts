@@ -10,6 +10,7 @@ import {Merkle} from "./Merkle.sol";
 // BeaconState
 // Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconstate
 library BeaconChainProofs {
+
     // constants are the number of fields and the heights of the different merkle trees used in merkleizing
     // beacon chain containers
     uint256 internal constant NUM_BEACON_BLOCK_HEADER_FIELDS = 5;
@@ -250,4 +251,5 @@ library BeaconChainProofs {
             index: leafIndex
         });
     }
+
 }
