@@ -1,13 +1,18 @@
 pragma solidity ^0.8.0;
 
-import "./Merkle.sol";
+import {Merkle} from "./Merkle.sol";
 
-//Utility library for parsing and PHASE0 beacon chain block headers
-//SSZ Spec: https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md#merkleization
-//BeaconBlockHeader Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconblockheader
-//BeaconState Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconstate
+// Utility library for parsing and PHASE0 beacon chain block headers
+// SSZ
+// Spec: https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md#merkleization
+// BeaconBlockHeader
+// Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconblockheader
+// BeaconState
+// Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconstate
 library BeaconChainProofs {
-    // constants are the number of fields and the heights of the different merkle trees used in merkleizing beacon chain containers
+
+    // constants are the number of fields and the heights of the different merkle trees used in merkleizing
+    // beacon chain containers
     uint256 internal constant NUM_BEACON_BLOCK_HEADER_FIELDS = 5;
     uint256 internal constant BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT = 3;
 
@@ -54,15 +59,18 @@ library BeaconChainProofs {
     // MAX_WITHDRAWALS_PER_PAYLOAD = 2**4, making tree height = 4
     uint256 internal constant WITHDRAWALS_TREE_HEIGHT = 4;
 
-    //in beacon block body https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconblockbody
+    // in beacon block body
+    // https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconblockbody
     uint256 internal constant EXECUTION_PAYLOAD_INDEX = 9;
 
-    // in beacon block header https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconblockheader
+    // in beacon block header
+    // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconblockheader
     uint256 internal constant SLOT_INDEX = 0;
     uint256 internal constant PROPOSER_INDEX_INDEX = 1;
     uint256 internal constant STATE_ROOT_INDEX = 3;
     uint256 internal constant BODY_ROOT_INDEX = 4;
-    // in beacon state https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconstate
+    // in beacon state
+    // https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconstate
     uint256 internal constant HISTORICAL_BATCH_STATE_ROOT_INDEX = 1;
     uint256 internal constant BEACON_STATE_SLOT_INDEX = 2;
     uint256 internal constant LATEST_BLOCK_HEADER_ROOT_INDEX = 4;
@@ -74,7 +82,8 @@ library BeaconChainProofs {
     uint256 internal constant EXECUTION_PAYLOAD_HEADER_INDEX = 24;
     uint256 internal constant HISTORICAL_SUMMARIES_INDEX = 27;
 
-    // in validator https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#validator
+    // in validator
+    // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#validator
     uint256 internal constant VALIDATOR_PUBKEY_INDEX = 0;
     uint256 internal constant VALIDATOR_WITHDRAWAL_CREDENTIALS_INDEX = 1;
     uint256 internal constant VALIDATOR_BALANCE_INDEX = 2;
@@ -103,7 +112,7 @@ library BeaconChainProofs {
     /// @notice The number of seconds in a slot in the beacon chain
     uint64 internal constant SECONDS_PER_SLOT = 12;
 
-    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot 
+    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot
     uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
 
     bytes8 internal constant UINT64_MASK = 0xffffffffffffffff;
@@ -139,21 +148,20 @@ library BeaconChainProofs {
         bytes32[] calldata stateRootProof
     ) internal view returns (bool valid) {
         bool validStateRoot = isValidStateRoot(stateRoot, beaconBlockRoot, stateRootProof);
-        bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex);
+        bool validVCRootAgainstStateRoot = isValidVCRootAgainstStateRoot(
+            validatorContainerRoot, stateRoot, validatorContainerRootProof, validatorIndex
+        );
         if (validStateRoot && validVCRootAgainstStateRoot) {
             valid = true;
         }
     }
 
-    function isValidStateRoot(
-        bytes32 stateRoot,
-        bytes32 beaconBlockRoot,
-        bytes32[] calldata stateRootProof
-    ) internal view returns (bool) {
-        require(
-            stateRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT,
-            "state root proof should have 3 nodes"
-        );
+    function isValidStateRoot(bytes32 stateRoot, bytes32 beaconBlockRoot, bytes32[] calldata stateRootProof)
+        internal
+        view
+        returns (bool)
+    {
+        require(stateRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT, "state root proof should have 3 nodes");
 
         return Merkle.verifyInclusionSha256({
             proof: stateRootProof,
@@ -192,12 +200,10 @@ library BeaconChainProofs {
         bytes32 executionPayloadRoot,
         bytes32[] calldata executionPayloadRootProof
     ) internal view returns (bool valid) {
-        bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(executionPayloadRoot, beaconBlockRoot, executionPayloadRootProof);
+        bool validExecutionPayloadRoot =
+            isValidExecutionPayloadRoot(executionPayloadRoot, beaconBlockRoot, executionPayloadRootProof);
         bool validWCRootAgainstExecutionPayloadRoot = isValidWCRootAgainstExecutionPayloadRoot(
-            withdrawalContainerRoot, 
-            executionPayloadRoot, 
-            withdrawalContainerRootProof, 
-            withdrawalIndex
+            withdrawalContainerRoot, executionPayloadRoot, withdrawalContainerRootProof, withdrawalIndex
         );
         if (validExecutionPayloadRoot && validWCRootAgainstExecutionPayloadRoot) {
             valid = true;
@@ -210,12 +216,12 @@ library BeaconChainProofs {
         bytes32[] calldata executionPayloadRootProof
     ) internal view returns (bool) {
         require(
-            executionPayloadRootProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT + BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT,
+            executionPayloadRootProof.length
+                == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT + BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT,
             "state root proof should have 3 nodes"
         );
 
-        uint256 leafIndex = (BODY_ROOT_INDEX << (BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT)) |
-                EXECUTION_PAYLOAD_INDEX;
+        uint256 leafIndex = (BODY_ROOT_INDEX << (BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT)) | EXECUTION_PAYLOAD_INDEX;
 
         return Merkle.verifyInclusionSha256({
             proof: executionPayloadRootProof,
@@ -236,8 +242,7 @@ library BeaconChainProofs {
             "validator container root proof should have 46 nodes"
         );
 
-        uint256 leafIndex = (WITHDRAWALS_INDEX << (WITHDRAWALS_TREE_HEIGHT + 1)) |
-                uint256(withdrawalIndex);
+        uint256 leafIndex = (WITHDRAWALS_INDEX << (WITHDRAWALS_TREE_HEIGHT + 1)) | uint256(withdrawalIndex);
 
         return Merkle.verifyInclusionSha256({
             proof: withdrawalContainerRootProof,
@@ -246,4 +251,5 @@ library BeaconChainProofs {
             index: leafIndex
         });
     }
+
 }

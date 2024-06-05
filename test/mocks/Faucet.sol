@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 contract Faucet {
+
     mapping(uint256 => uint256) gasSentWithinBlock;
     mapping(address => uint256) receivedLastBlock;
 
@@ -24,4 +25,5 @@ contract Faucet {
             emit GasSent(msg.sender, amount);
         }
     }
+
 }

@@ -1,8 +1,10 @@
 pragma solidity ^0.8.19;
 
 interface ITokenWhitelister {
+
     function addWhitelistToken(address _token) external;
     function removeWhitelistToken(address _token) external;
+    function getWhitelistedTokensCount() external returns (uint256);
 
     /**
      * @dev Emitted when a new token is added to the whitelist.
@@ -20,4 +22,5 @@ interface ITokenWhitelister {
      * @dev Indicates an operation was attempted with a token that is not authorized.
      */
     error UnauthorizedToken();
+
 }

@@ -1,10 +1,11 @@
 pragma solidity ^0.8.19;
 
-import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
-import {ExoCapsule} from "./ExoCapsule.sol";
-import {BaseRestakingController} from "./BaseRestakingController.sol";
+import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
+
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
+import {BaseRestakingController} from "./BaseRestakingController.sol";
+import {ExoCapsule} from "./ExoCapsule.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -14,9 +15,14 @@ abstract contract NativeRestakingController is
     INativeRestakingController,
     BaseRestakingController
 {
+
     using ValidatorContainer for bytes32[];
 
-    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable whenNotPaused {
+    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot)
+        external
+        payable
+        whenNotPaused
+    {
         require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
 
         IExoCapsule capsule = ownerToCapsule[msg.sender];
@@ -29,16 +35,19 @@ abstract contract NativeRestakingController is
     }
 
     function createExoCapsule() public whenNotPaused returns (address) {
-        require(address(ownerToCapsule[msg.sender]) == address(0), "NativeRestakingController: message sender has already created the capsule");
+        require(
+            address(ownerToCapsule[msg.sender]) == address(0),
+            "NativeRestakingController: message sender has already created the capsule"
+        );
         ExoCapsule capsule = ExoCapsule(
             Create2.deploy(
                 0,
                 bytes32(uint256(uint160(msg.sender))),
                 // set the beacon address for beacon proxy
-                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(exoCapsuleBeacon), ""))
+                abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(EXO_CAPSULE_BEACON), ""))
             )
         );
-        capsule.initialize(address(this), msg.sender, beaconOracleAddress);
+        capsule.initialize(address(this), msg.sender, BEACON_ORACLE_ADDRESS);
         ownerToCapsule[msg.sender] = capsule;
 
         emit CapsuleCreated(msg.sender, address(capsule));
@@ -55,8 +64,6 @@ abstract contract NativeRestakingController is
 
         uint256 depositValue = uint256(validatorContainer.getEffectiveBalance()) * GWEI_TO_WEI;
         _processRequest(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue, Action.REQUEST_DEPOSIT, "");
-
-
     }
 
     function processBeaconChainPartialWithdrawal(
@@ -64,16 +71,13 @@ abstract contract NativeRestakingController is
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused {
-
-    }
+    ) external payable whenNotPaused {}
 
     function processBeaconChainFullWithdrawal(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused {
+    ) external payable whenNotPaused {}
 
-    }
 }

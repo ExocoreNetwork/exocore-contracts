@@ -1,33 +1,36 @@
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "../src/core/ExoCapsule.sol";
 import "../src/interfaces/IClientChainGateway.sol";
-import "../src/interfaces/IVault.sol";
 import "../src/interfaces/IExocoreGateway.sol";
+import "../src/interfaces/IVault.sol";
+
+import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
 import "../src/interfaces/precompiles/IDeposit.sol";
 import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/storage/GatewayStorage.sol";
-import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
-import "../src/core/ExoCapsule.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "forge-std/Script.sol";
+
 import "src/libraries/Endian.sol";
 
 import {BaseScript} from "./BaseScript.sol";
 import "forge-std/StdJson.sol";
 
 contract DepositScript is BaseScript {
+
     using AddressCast for address;
     using Endian for bytes32;
 
     bytes32[] validatorContainer;
     IExoCapsule.ValidatorContainerProof validatorProof;
 
-    uint256 internal constant GENESIS_BLOCK_TIMESTAMP = 1695902400;
+    uint256 internal constant GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
     uint256 internal constant SECONDS_PER_SLOT = 12;
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     uint256 constant GWEI_TO_WEI = 1e9;
@@ -63,14 +66,14 @@ contract DepositScript is BaseScript {
     function run() public {
         bytes memory root = abi.encodePacked(hex"c0fa1dc87438211f4f73fab438558794947572b771f68c905eee959dba104877");
         vm.mockCall(
-            address(beaconOracle),
-            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector),
-            abi.encode(root)
+            address(beaconOracle), abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector), abi.encode(root)
         );
         vm.selectFork(clientChain);
 
         vm.startBroadcast(depositor.privateKey);
-        (bool success,) = address(beaconOracle).call(abi.encodeWithSelector(beaconOracle.addTimestamp.selector, validatorProof.beaconBlockTimestamp));
+        (bool success,) = address(beaconOracle).call(
+            abi.encodeWithSelector(beaconOracle.addTimestamp.selector, validatorProof.beaconBlockTimestamp)
+        );
         vm.stopBroadcast();
 
         vm.startBroadcast(depositor.privateKey);
@@ -104,9 +107,11 @@ contract DepositScript is BaseScript {
 
         validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
         require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
-        validatorProof.stateRootProof = stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+        validatorProof.stateRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
         require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
-        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+        validatorProof.validatorContainerRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
@@ -115,4 +120,5 @@ contract DepositScript is BaseScript {
     function _getEffectiveBalance(bytes32[] storage vc) internal view returns (uint64) {
         return vc[2].fromLittleEndianUint64();
     }
+
 }

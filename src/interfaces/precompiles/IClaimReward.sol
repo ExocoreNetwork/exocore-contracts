@@ -11,6 +11,7 @@ IClaimReward constant CLAIM_REWARD_CONTRACT = IClaimReward(CLAIM_REWARD_PRECOMPI
 /// @dev The interface through which solidity contracts will interact with ClaimReward
 /// @custom:address 0x0000000000000000000000000000000000000806
 interface IClaimReward {
+
     /// TRANSACTIONS
     /// @dev ClaimReward To the staker, that will change the state in reward module
     /// Note that this address cannot be a module account.
@@ -24,4 +25,5 @@ interface IClaimReward {
         bytes memory withdrawRewardAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
+
 }

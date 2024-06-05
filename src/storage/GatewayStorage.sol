@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 contract GatewayStorage {
+
     enum Action {
         REQUEST_DEPOSIT,
         REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
@@ -12,7 +13,7 @@ contract GatewayStorage {
         MARK_BOOTSTRAP
     }
 
-    mapping(Action => bytes4) _whiteListFunctionSelectors;
+    mapping(Action => bytes4) public _whiteListFunctionSelectors;
     address payable public exocoreValidatorSetAddress;
 
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
@@ -22,4 +23,5 @@ contract GatewayStorage {
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
 
     uint256[40] private __gap;
+
 }

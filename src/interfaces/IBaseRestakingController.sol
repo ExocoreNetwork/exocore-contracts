@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 interface IBaseRestakingController {
+
     /// *** function signatures for staker operations ***
 
     /**
@@ -23,4 +24,5 @@ interface IBaseRestakingController {
      * @param recipient - The destination address that the assets would be transfered to.
      */
     function claim(address token, uint256 amount, address recipient) external;
+
 }

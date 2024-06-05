@@ -1,32 +1,34 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.22;
 
-import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
-import {
-    ILayerZeroEndpointV2,
-    MessagingParams,
-    MessagingReceipt,
-    MessagingFee,
-    Origin
-} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import {ExecutionState} from "@layerzerolabs/lz-evm-protocol-v2/contracts/EndpointV2ViewUpgradeable.sol";
-import {ILayerZeroReceiver} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroReceiver.sol";
-import {SetConfigParam} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/IMessageLibManager.sol";
-import {MessagingContext} from "@layerzerolabs/lz-evm-protocol-v2/contracts/MessagingContext.sol";
-import {Packet} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ISendLib.sol";
-import {OFTMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTMsgCodec.sol";
-import {Origin} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppReceiver.sol";
-import {Errors} from "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/Errors.sol";
-import {GUID} from "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
-import {ExecutorOptions} from "@layerzerolabs/lz-evm-protocol-v2/contracts/messagelib/libs/ExecutorOptions.sol";
-import {PacketV1Codec} from "@layerzerolabs/lz-evm-protocol-v2/contracts/messagelib/libs/PacketV1Codec.sol";
 import {WorkerOptions} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/SendLibBase.sol";
 import {IExecutorFeeLib} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/interfaces/IExecutorFeeLib.sol";
 import {DVNOptions} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/libs/DVNOptions.sol";
 import {UlnOptions} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/uln/libs/UlnOptions.sol";
+import {Origin} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/OAppReceiver.sol";
+import {OFTMsgCodec} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oft/libs/OFTMsgCodec.sol";
+import {ExecutionState} from "@layerzerolabs/lz-evm-protocol-v2/contracts/EndpointV2ViewUpgradeable.sol";
+import {MessagingContext} from "@layerzerolabs/lz-evm-protocol-v2/contracts/MessagingContext.sol";
+import {
+    ILayerZeroEndpointV2,
+    MessagingFee,
+    MessagingParams,
+    MessagingReceipt,
+    Origin
+} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import {ILayerZeroReceiver} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroReceiver.sol";
+import {SetConfigParam} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/IMessageLibManager.sol";
+import {Packet} from "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ISendLib.sol";
+
 import {CalldataBytesLib} from "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/CalldataBytesLib.sol";
+import {Errors} from "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/Errors.sol";
+import {GUID} from "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import {ExecutorOptions} from "@layerzerolabs/lz-evm-protocol-v2/contracts/messagelib/libs/ExecutorOptions.sol";
+import {PacketV1Codec} from "@layerzerolabs/lz-evm-protocol-v2/contracts/messagelib/libs/PacketV1Codec.sol";
+import {SafeCast} from "@openzeppelin/contracts/utils/math/SafeCast.sol";
 
 contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
+
     using ExecutorOptions for bytes;
     using OFTMsgCodec for bytes;
     using OFTMsgCodec for bytes32;
@@ -97,7 +99,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         sendContext(_params.dstEid, msg.sender)
         returns (MessagingReceipt memory receipt)
     {
-        if (_params.payInLzToken) revert Errors.LZ_LzTokenUnavailable();
+        if (_params.payInLzToken) {
+            revert Errors.LZ_LzTokenUnavailable();
+        }
 
         address lzEndpoint = lzEndpointLookup[_params.receiver.bytes32ToAddress()];
         require(lzEndpoint != address(0), "LayerZeroMock: destination LayerZero Endpoint not found");
@@ -206,7 +210,7 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
     }
 
     function _getTreasuryAndVerifierFees(uint256 _executorFee, uint256 _verifierFee) internal view returns (uint256) {
-        return ((_executorFee + _verifierFee) * protocolFeeConfig.nativeBP) / 10000;
+        return ((_executorFee + _verifierFee) * protocolFeeConfig.nativeBP) / 10_000;
     }
 
     function _outbound(address _sender, uint32 _dstEid, bytes32 _receiver) internal returns (uint64 nonce) {
@@ -251,7 +255,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
             }
         }
 
-        if (cursor != _options.length) revert IExecutorFeeLib.Executor_InvalidExecutorOptions(cursor);
+        if (cursor != _options.length) {
+            revert IExecutorFeeLib.Executor_InvalidExecutorOptions(cursor);
+        }
         if (dstAmount > relayerFeeConfig.dstNativeAmtCap) {
             revert IExecutorFeeLib.Executor_NativeAmountExceedsCap(dstAmount, relayerFeeConfig.dstNativeAmtCap);
         }
@@ -275,7 +281,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         returns (bytes memory executorOptions, bytes memory dvnOptions)
     {
         // at least 2 bytes for the option type, but can have no options
-        if (_options.length < 2) revert UlnOptions.LZ_ULN_InvalidWorkerOptions(0);
+        if (_options.length < 2) {
+            revert UlnOptions.LZ_ULN_InvalidWorkerOptions(0);
+        }
 
         uint16 optionsType = uint16(bytes2(_options[0:2]));
         uint256 cursor = 2;
@@ -292,7 +300,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
                 // checking the workerID can reduce gas usage for most cases
                 while (cursor < _options.length) {
                     uint8 workerId = uint8(bytes1(_options[cursor:cursor + 1]));
-                    if (workerId == 0) revert UlnOptions.LZ_ULN_InvalidWorkerId(0);
+                    if (workerId == 0) {
+                        revert UlnOptions.LZ_ULN_InvalidWorkerId(0);
+                    }
 
                     // workerId must equal to the lastWorkerId for the first option
                     // so it is always skipped in the first option
@@ -312,12 +322,16 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
                     ++cursor; // for workerId
 
                     uint16 size = uint16(bytes2(_options[cursor:cursor + 2]));
-                    if (size == 0) revert UlnOptions.LZ_ULN_InvalidWorkerOptions(cursor);
+                    if (size == 0) {
+                        revert UlnOptions.LZ_ULN_InvalidWorkerOptions(cursor);
+                    }
                     cursor += size + 2;
                 }
 
                 // the options length must be the same as the cursor at the end
-                if (cursor != _options.length) revert UlnOptions.LZ_ULN_InvalidWorkerOptions(cursor);
+                if (cursor != _options.length) {
+                    revert UlnOptions.LZ_ULN_InvalidWorkerOptions(cursor);
+                }
 
                 // if we have reached the end of the options and the options are not empty
                 // we need to process the last worker's options
@@ -354,7 +368,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         returns (bytes memory executorOptions)
     {
         if (_optionType == UlnOptions.TYPE_1) {
-            if (_options.length != 34) revert UlnOptions.LZ_ULN_InvalidLegacyType1Option();
+            if (_options.length != 34) {
+                revert UlnOptions.LZ_ULN_InvalidLegacyType1Option();
+            }
 
             // execution gas
             uint128 executionGas = uint256(bytes32(_options[2:2 + 32])).toUint128();
@@ -371,7 +387,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
             );
         } else if (_optionType == UlnOptions.TYPE_2) {
             // receiver size <= 32
-            if (_options.length <= 66 || _options.length > 98) revert UlnOptions.LZ_ULN_InvalidLegacyType2Option();
+            if (_options.length <= 66 || _options.length > 98) {
+                revert UlnOptions.LZ_ULN_InvalidLegacyType2Option();
+            }
 
             // execution gas
             uint128 executionGas = uint256(bytes32(_options[2:2 + 32])).toUint128();
@@ -433,19 +451,23 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         return ExecutionState.NotExecutable;
     }
 
-    function getConfig(address, /*_oapp*/ address, /*_lib*/ uint32, /*_eid*/ uint32 /*_configType*/ )
-        external
-        pure
-        returns (bytes memory config)
-    {
+    function getConfig(
+        address,
+        /*_oapp*/
+        address,
+        /*_lib*/
+        uint32,
+        /*_eid*/
+        uint32 /*_configType*/
+    ) external pure returns (bytes memory config) {
         return bytes("0x");
     }
 
-    function getReceiveLibrary(address, /*receiver*/ uint32 /*_eid*/ )
-        external
-        pure
-        returns (address lib, bool isDefault)
-    {
+    function getReceiveLibrary(
+        address,
+        /*receiver*/
+        uint32 /*_eid*/
+    ) external pure returns (address lib, bool isDefault) {
         return (address(0), false);
     }
 
@@ -500,11 +522,13 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         return address(0);
     }
 
-    function nextGuid(address, /*_sender,*/ uint32, /*_dstEid,*/ bytes32 /*_receiver*/ )
-        external
-        pure
-        returns (bytes32)
-    {
+    function nextGuid(
+        address,
+        /*_sender,*/
+        uint32,
+        /*_dstEid,*/
+        bytes32 /*_receiver*/
+    ) external pure returns (bytes32) {
         return 0;
     }
 
@@ -612,7 +636,9 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
             }
         }
 
-        if (cursor != _options.length) revert IExecutorFeeLib.Executor_InvalidExecutorOptions(cursor);
+        if (cursor != _options.length) {
+            revert IExecutorFeeLib.Executor_InvalidExecutorOptions(cursor);
+        }
     }
 
     function _initializable(Origin calldata _origin, address _receiver, uint64 _lazyInboundNonce)
@@ -631,7 +657,8 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         returns (bool)
     {
         return _origin.nonce > _lazyInboundNonce // either initializing an empty slot or reverifying
-            || inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] != EMPTY_PAYLOAD_HASH; // only allow reverifying if it hasn't been executed
+            || inboundPayloadHash[_receiver][_origin.srcEid][_origin.sender][_origin.nonce] != EMPTY_PAYLOAD_HASH; // only
+            // allow reverifying if it hasn't been executed
     }
 
     // ========================= VIEW FUNCTIONS FOR OFFCHAIN ONLY =========================
@@ -645,14 +672,19 @@ contract EndpointV2Mock is ILayerZeroEndpointV2, MessagingContext {
         return _verifiable(_origin, _receiver, lazyInboundNonce[_receiver][_origin.srcEid][_origin.sender]);
     }
 
-    /// @dev called when the endpoint checks if the msgLib attempting to verify the msg is the configured msgLib of the Oapp
+    /// @dev called when the endpoint checks if the msgLib attempting to verify the msg is the configured msgLib of the
+    /// Oapp
     /// @dev this check provides the ability for Oapp to lock in a trusted msgLib
-    /// @dev it will fist check if the msgLib is the currently configured one. then check if the msgLib is the one in grace period of msgLib versioning upgrade
-    function isValidReceiveLibrary(address, /*_receiver*/ uint32, /*_srcEid*/ address /*_actualReceiveLib*/ )
-        public
-        pure
-        returns (bool)
-    {
+    /// @dev it will fist check if the msgLib is the currently configured one. then check if the msgLib is the one in
+    /// grace period of msgLib versioning upgrade
+    function isValidReceiveLibrary(
+        address,
+        /*_receiver*/
+        uint32,
+        /*_srcEid*/
+        address /*_actualReceiveLib*/
+    ) public pure returns (bool) {
         return true;
     }
+
 }

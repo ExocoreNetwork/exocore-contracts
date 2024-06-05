@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 interface IOperatorRegistry {
+
     /**
      * @dev Represents commission details, represented as 18 decimals.
      * @param rate The current commission rate.
@@ -9,7 +10,7 @@ interface IOperatorRegistry {
      * All rates must be less than or equal to 1e18.
      * For example, a 10% commission rate would be represented as 1e17.
      * rate must not exceed maxRate, and maxChangeRate must not exceed maxRate.
-    */
+     */
     struct Commission {
         uint256 rate;
         uint256 maxRate;
@@ -50,9 +51,7 @@ interface IOperatorRegistry {
      * @dev Updates the consensus public key for the operator corresponding to `msg.sender`.
      * @param newKey The new public key to use for consensus operations.
      */
-    function replaceKey(
-        bytes32 newKey
-    ) external;
+    function replaceKey(bytes32 newKey) external;
 
     /**
      * @notice Updates the commission rate for the calling operator.
@@ -62,9 +61,7 @@ interface IOperatorRegistry {
      * @param newRate The new commission rate to be set for the calling operator.
      * Must not exceed the operator's maximum rate.
      */
-    function updateRate(
-        uint256 newRate
-    ) external;
+    function updateRate(uint256 newRate) external;
 
     /**
      * @dev Emitted when a new operator is registered in the contract.
@@ -87,14 +84,12 @@ interface IOperatorRegistry {
      * @param operatorExocoreAddress The Exocore address of the operator.
      * @param newConsensusPublicKey The new consensus key for the operator.
      */
-    event OperatorKeyReplaced(
-        string operatorExocoreAddress,
-        bytes32 newConsensusPublicKey
-    );
+    event OperatorKeyReplaced(string operatorExocoreAddress, bytes32 newConsensusPublicKey);
 
     /**
      * @dev Emitted when an operator's commission rate is updated.
      * @param newRate The new commission rate for the operator.
      */
     event OperatorCommissionUpdated(uint256 newRate);
+
 }

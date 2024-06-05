@@ -1,24 +1,28 @@
 pragma solidity ^0.8.19;
 
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {IVault} from "../interfaces/IVault.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IVault} from "../interfaces/IVault.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
+import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
+
     error UnsupportedResponse(Action act);
     error UnexpectedResponse(uint64 nonce);
     error DepositShouldNotFailOnExocore(address token, address depositor);
 
     modifier onlyCalledFromThis() {
-        require(msg.sender == address(this), "ClientChainLzReceiver: could only be called from this contract itself with low level call");
+        require(
+            msg.sender == address(this),
+            "ClientChainLzReceiver: could only be called from this contract itself with low level call"
+        );
         _;
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
-        if (_origin.srcEid != exocoreChainId) {
+        if (_origin.srcEid != EXOCORE_CHAIN_ID) {
             revert UnexpectedSourceChain(_origin.srcEid);
         }
 
@@ -163,4 +167,5 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
         emit UndelegateResult(success, undelegator, operator, token, amount);
     }
+
 }

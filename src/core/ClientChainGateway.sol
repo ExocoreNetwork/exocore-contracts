@@ -1,22 +1,20 @@
 pragma solidity ^0.8.19;
 
-import {IVault} from "../interfaces/IVault.sol";
-import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
+import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
-import {OAppSenderUpgradeable, MessagingFee} from "../lzApp/OAppSenderUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
+import {MessagingFee, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
+
+import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
 import {LSTRestakingController} from "./LSTRestakingController.sol";
 import {NativeRestakingController} from "./NativeRestakingController.sol";
-import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
-import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {Vault} from "./Vault.sol";
+import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 contract ClientChainGateway is
     Initializable,
@@ -27,6 +25,7 @@ contract ClientChainGateway is
     NativeRestakingController,
     ClientGatewayLzReceiver
 {
+
     using OptionsBuilder for bytes;
 
     /**
@@ -46,20 +45,29 @@ contract ClientChainGateway is
         address beaconProxyBytecode_
     )
         OAppCoreUpgradeable(endpoint_)
-        ClientChainGatewayStorage(exocoreChainId_, beaconOracleAddress_, vaultBeacon_, exoCapsuleBeacon_, beaconProxyBytecode_)
+        ClientChainGatewayStorage(
+            exocoreChainId_,
+            beaconOracleAddress_,
+            vaultBeacon_,
+            exoCapsuleBeacon_,
+            beaconProxyBytecode_
+        )
     {
         _disableInitializers();
     }
 
     // initialization happens from another contract so it must be external.
     // reinitializer(2) is used so that the ownable and oappcore functions can be called again.
-    function initialize(
-        address payable exocoreValidatorSetAddress_,
-        address[] calldata appendedWhitelistTokens_
-    ) external reinitializer(2) {
+    function initialize(address payable exocoreValidatorSetAddress_, address[] calldata appendedWhitelistTokens_)
+        external
+        reinitializer(2)
+    {
         _clearBootstrapData();
 
-        require(exocoreValidatorSetAddress_ != address(0), "ClientChainGateway: exocore validator set address should not be empty");
+        require(
+            exocoreValidatorSetAddress_ != address(0),
+            "ClientChainGateway: exocore validator set address should not be empty"
+        );
 
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
@@ -103,89 +111,40 @@ contract ClientChainGateway is
         // no risk keeping these but they are cheap to clear.
         delete exocoreSpawnTime;
         delete offsetDuration;
-        // // TODO: are these loops even worth it? the maximum refund is 50% of the gas cost.
-        // // if not, we can remove them.
-        // // the lines above this set of comments are at least cheaper to clear,
-        // // and have no utility after initialization.
-        // for(uint i = 0; i < depositors.length; i++) {
-        //     address depositor = depositors[i];
-        //     for(uint j = 0; j < whitelistTokens.length; j++) {
-        //         address token = whitelistTokens[j];
-        //         delete totalDepositAmounts[depositor][token];
-        //         delete withdrawableAmounts[depositor][token];
-        //         for(uint k = 0; k < registeredOperators.length; k++) {
-        //             address eth = registeredOperators[k];
-        //             string memory exo = ethToExocoreAddress[eth];
-        //             delete delegations[depositor][exo][token];
-        //         }
-        //     }
-        //     delete isDepositor[depositor];
-        // }
-        // for(uint k = 0; k < registeredOperators.length; k++) {
-        //     address eth = registeredOperators[k];
-        //     string memory exo = ethToExocoreAddress[eth];
-        //     delete operators[exo];
-        //     delete commissionEdited[exo];
-        //     delete ethToExocoreAddress[eth];
-        //     for(uint j = 0; j < whitelistTokens.length; j++) {
-        //         address token = whitelistTokens[j];
-        //         delete delegationsByOperator[exo][token];
-        //     }
-        // }
-        // for(uint j = 0; j < whitelistTokens.length; j++) {
-        //     address token = whitelistTokens[j];
-        //     delete depositsByToken[token];
-        // }
-        // these should also be cleared - even if the loops are not used
-        // cheap to clear and potentially large in size.
+        // previously, we tried clearing the loops but it is too expensive.
         delete depositors;
         delete registeredOperators;
     }
 
     function pause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "ClientChainGateway: caller is not Exocore validator set aggregated address"
+            msg.sender == exocoreValidatorSetAddress,
+            "ClientChainGateway: caller is not Exocore validator set aggregated address"
         );
         _pause();
     }
 
     function unpause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "ClientChainGateway: caller is not Exocore validator set aggregated address"
+            msg.sender == exocoreValidatorSetAddress,
+            "ClientChainGateway: caller is not Exocore validator set aggregated address"
         );
         _unpause();
     }
 
-    function addWhitelistToken(address _token) public onlyOwner whenNotPaused {
-        require(!isWhitelistedToken[_token], "ClientChainGateway: token should not be whitelisted before");
-        whitelistTokens.push(_token);
-        isWhitelistedToken[_token] = true;
-        emit WhitelistTokenAdded(_token);
-
-        // deploy the corresponding vault if not deployed before
-        if (address(tokenToVault[_token]) == address(0)) {
-            _deployVault(_token);
-        }
+    function addWhitelistToken(address _token) public override onlyOwner whenNotPaused {
+        super.addWhitelistToken(_token);
     }
 
-    function removeWhitelistToken(address _token) external isTokenWhitelisted(_token) onlyOwner whenNotPaused {
-        isWhitelistedToken[_token] = false;
-        for(uint i = 0; i < whitelistTokens.length; i++) {
-            if (whitelistTokens[i] == _token) {
-                whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
-                whitelistTokens.pop();
-                break;
-            }
-        }
-
-        emit WhitelistTokenRemoved(_token);
+    function removeWhitelistToken(address _token) public override isTokenWhitelisted(_token) onlyOwner whenNotPaused {
+        super.removeWhitelistToken(_token);
     }
 
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(exocoreChainId, _message, options, false);
+        MessagingFee memory fee = _quote(EXOCORE_CHAIN_ID, _message, options, false);
         return fee.nativeFee;
     }
 
@@ -203,4 +162,5 @@ contract ClientChainGateway is
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
     }
+
 }

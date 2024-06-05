@@ -1,24 +1,28 @@
 pragma solidity ^0.8.19;
 
-import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "src/core/ClientChainGateway.sol";
-import {Vault} from "src/core/Vault.sol";
-import "src/core/ExocoreGateway.sol";
-import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
-import "forge-std/console.sol";
-import "forge-std/Test.sol";
+import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../../src/interfaces/precompiles/IClaimReward.sol";
-import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
-import {GatewayStorage} from "src/storage/GatewayStorage.sol";
-import "src/core/ClientChainGateway.sol";
+import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
+
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
+import "src/core/ClientChainGateway.sol";
+
+import "src/core/ClientChainGateway.sol";
+import "src/core/ExocoreGateway.sol";
+import {Vault} from "src/core/Vault.sol";
+
+import {GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 contract SetUp is Test {
+
     using AddressCast for address;
 
     Player[] players;
@@ -79,11 +83,10 @@ contract SetUp is Test {
         vm.prank(exocoreValidatorSet.addr);
         exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
 
-        exocoreLzEndpoint.setDestLzEndpoint(
-                address(clientGateway), address(clientLzEndpoint)
-            );
+        exocoreLzEndpoint.setDestLzEndpoint(address(clientGateway), address(clientLzEndpoint));
 
-        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when sending back response
+        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when
+        // sending back response
         deal(address(exocoreGateway), 1e22);
 
         // bind precompile mock contracts code to constant precompile address
@@ -99,11 +102,13 @@ contract SetUp is Test {
         bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
         vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
     }
+
 }
 
 contract Pausable is SetUp {
+
     using AddressCast for address;
-    
+
     function test_PauseExocoreGateway() public {
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit Paused(exocoreValidatorSet.addr);
@@ -146,10 +151,13 @@ contract Pausable is SetUp {
             bytes("")
         );
     }
+
 }
 
 contract LzReceive is SetUp {
+
     using AddressCast for address;
+
     uint256 constant WITHDRAWAL_AMOUNT = 123;
 
     function test_NotRevert_WithdrawalAmountOverflow() public {
@@ -158,16 +166,10 @@ contract LzReceive is SetUp {
             abi.encodePacked(bytes32(bytes20(withdrawer.addr))),
             uint256(WITHDRAWAL_AMOUNT)
         );
-        bytes memory msg_ = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
-            payload
-        );
+        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, payload);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit ExocorePrecompileError(
-            WITHDRAW_PRECOMPILE_ADDRESS,
-            uint64(1)
-        );
+        emit ExocorePrecompileError(WITHDRAW_PRECOMPILE_ADDRESS, uint64(1));
 
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(
@@ -178,4 +180,5 @@ contract LzReceive is SetUp {
             bytes("")
         );
     }
+
 }

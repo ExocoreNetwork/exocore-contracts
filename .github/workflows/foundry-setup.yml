@@ -1,0 +1,47 @@
+---
+name: Foundry Setup
+
+on:
+  workflow_call:
+    inputs:
+      foundry-version:
+        required: true
+        type: string
+    outputs:
+      installation-dir:
+        description: "The installation directory of Foundry toolchain"
+        value: ${{ jobs.setup.outputs.installation-dir }}
+      cache-key:
+        description: "The cache key for Foundry toolchain"
+        value: ${{ jobs.setup.outputs.cache-key }}
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.set-cache-key.outputs.cache-key }}
+      installation-dir: ${{ steps.find-path.outputs.installation-dir }}
+    steps:
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: ${{ inputs.foundry-version }}
+      - name: Print forge version
+        run: forge --version
+      # Unfortunately, the `foundry-toolchain` action installs it in a
+      # randomly generated location, so we must determine it ourselves
+      - name: Determine Foundry installation path
+        id: find-path
+        run: |
+          installation_path=$(which forge)
+          installation_dir=$(dirname $installation_path)
+          echo "installation-dir=$installation_dir" >> "$GITHUB_OUTPUT"
+      - name: Cached Foundry toolchain
+        uses: actions/cache/save@v3
+        with:
+          path: ${{ steps.find-path.outputs.installation-dir }}
+          key: ${{ runner.os }}-foundry-${{ inputs.foundry-version }}
+      - name: Set cache key
+        id: set-cache-key
+        run: |
+          echo "cache-key=${{ runner.os }}-foundry-${{ inputs.foundry-version }}" >> "$GITHUB_OUTPUT"

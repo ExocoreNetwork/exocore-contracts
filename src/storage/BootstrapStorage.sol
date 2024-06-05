@@ -1,18 +1,21 @@
 pragma solidity ^0.8.19;
 
-import {GatewayStorage} from "./GatewayStorage.sol";
-import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
-import {IVault} from "../interfaces/IVault.sol";
-import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
+import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
+
+import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
+import {IVault} from "../interfaces/IVault.sol";
+import {GatewayStorage} from "./GatewayStorage.sol";
+import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 // BootstrapStorage should inherit from GatewayStorage since it exists
 // prior to ClientChainGateway. ClientChainStorage should inherit from
 // BootstrapStorage to ensure overlap of positioning between the
 // members of each contract.
-contract BootstrapStorage is GatewayStorage {
+contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
+
     /* -------------------------------------------------------------------------- */
     /*               state variables exclusively owned by Bootstrap               */
     /* -------------------------------------------------------------------------- */
@@ -58,7 +61,7 @@ contract BootstrapStorage is GatewayStorage {
      * The system used is a delegated POS system, where the vote power of each operator
      * is determined by the total amount of tokens delegated to them across all supported
      * tokens.
-    */
+     */
     address[] public registeredOperators;
 
     /**
@@ -70,7 +73,7 @@ contract BootstrapStorage is GatewayStorage {
     mapping(address ethAddress => string exoAddress) public ethToExocoreAddress;
 
     /**
-     * @dev Maps Exocore addresses to their corresponding operator details stored in an 
+     * @dev Maps Exocore addresses to their corresponding operator details stored in an
      * Operator` struct.
      * @notice Use this mapping to access or modify operator details associated with a specific
      * Exocore address.
@@ -95,8 +98,7 @@ contract BootstrapStorage is GatewayStorage {
      */
     // delegationsByOperator means it is indexed by operator address and not that is is
     // a delegation made by the operator.
-    mapping(string exoAddress => mapping(address tokenAddress => uint256 amount)) public
-        delegationsByOperator;
+    mapping(string exoAddress => mapping(address tokenAddress => uint256 amount)) public delegationsByOperator;
 
     // depositor and delegation information
     /**
@@ -119,8 +121,7 @@ contract BootstrapStorage is GatewayStorage {
      * @notice This mapping is used to keep track of the total deposits made by each account
      * for each token.
      */
-    mapping(address depositor => mapping(address tokenAddress => uint256 amount)) public
-        totalDepositAmounts;
+    mapping(address depositor => mapping(address tokenAddress => uint256 amount)) public totalDepositAmounts;
 
     /**
      * @dev Maps depositor addresses to another mapping, where the key is an token address and
@@ -129,8 +130,7 @@ contract BootstrapStorage is GatewayStorage {
      * token. The amount available for withdrawal is the total deposited amount minus the
      * amount already delegated.
      */
-    mapping(address depositor => mapping(address tokenAddress => uint256 amount)) public
-        withdrawableAmounts;
+    mapping(address depositor => mapping(address tokenAddress => uint256 amount)) public withdrawableAmounts;
 
     /**
      * @dev Maps a delegator address to a nested mapping, where the first key the operator
@@ -139,13 +139,8 @@ contract BootstrapStorage is GatewayStorage {
      * @notice This allows tracking of how much each delegator has delegated to each operator
      * for all of the whitelisted tokens.
      */
-    mapping(
-        address delegator => mapping(
-            string exoAddress => mapping(
-                address tokenAddress => uint256
-            )
-        )
-    ) public delegations;
+    mapping(address delegator => mapping(string exoAddress => mapping(address tokenAddress => uint256))) public
+        delegations;
 
     // bootstrapping information - including status, address of proxy, implementation, and
     // initialization
@@ -175,7 +170,7 @@ contract BootstrapStorage is GatewayStorage {
      * @notice This data is used to initialize the new logic contract (ClientChainGateway) when
      * the proxy admin switches the implementation post-bootstrapping.
      */
-    bytes clientChainInitializationData;
+    bytes public clientChainInitializationData;
 
     /* -------------------------------------------------------------------------- */
     /*         shared state variables for Bootstrap and ClientChainGateway        */
@@ -210,7 +205,7 @@ contract BootstrapStorage is GatewayStorage {
      * @notice Used to identify the specific Exocore chain this contract interacts with for
      * cross-chain functionalities.
      */
-    uint32 public immutable exocoreChainId;
+    uint32 public immutable EXOCORE_CHAIN_ID;
 
     /**
      * @dev A mapping of source chain id to source sender to the nonce of the last inbound
@@ -218,7 +213,7 @@ contract BootstrapStorage is GatewayStorage {
      * @notice This mapping is used to track the last message processed from each sender on
      * each source chain to prevent replay attacks.
      */
-    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) inboundNonce;
+    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
 
     // TSS information.
     /**
@@ -226,23 +221,23 @@ contract BootstrapStorage is GatewayStorage {
      * @notice This nonce is used to track the last message processed by the contract to
      * prevent replay attacks.
      */
-    uint256 lastMessageNonce;
+    uint256 public lastMessageNonce;
 
     // the beacon that stores the Vault implementation contract address for proxy
     /**
-     * @notice this stores the Vault implementation contract address for proxy, and it is 
-     * shsared among all beacon proxies as an immutable.
+     * @notice this stores the Vault implementation contract address for proxy, and it is
+     * shared among all beacon proxies.
      */
-    IBeacon public immutable vaultBeacon;
+    IBeacon public immutable VAULT_BEACON;
 
     /**
      * @notice a stantalone contract that is dedicated for providing the bytecode of beacon proxy contract
      * @dev we do not store bytecode of beacon proxy contract in this storage because that would cause the code size
      * of this contract exeeding limit and leading to creation failure
      */
-    BeaconProxyBytecode public immutable beaconProxyBytecode;
+    BeaconProxyBytecode public immutable BEACON_PROXY_BYTECODE;
 
-    bytes constant EXO_ADDRESS_PREFIX = bytes("exo1");
+    bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -282,9 +277,7 @@ contract BootstrapStorage is GatewayStorage {
      * @param depositor The address of the depositor, on this chain.
      * @param amount The amount of the token accepted as deposit.
      */
-    event DepositResult(
-        bool indexed success, address indexed token, address indexed depositor, uint256 amount
-    );
+    event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
 
     /**
      * @notice Emitted when a withdrawal is made from the contract.
@@ -308,8 +301,7 @@ contract BootstrapStorage is GatewayStorage {
      * @param amount The amount of the token delegated.
      */
     event DelegateResult(
-        bool indexed success, address indexed delegator, string indexed delegatee,
-        address token, uint256 amount
+        bool indexed success, address indexed delegator, string indexed delegatee, address token, uint256 amount
     );
 
     /**
@@ -322,8 +314,7 @@ contract BootstrapStorage is GatewayStorage {
      * @param amount The amount of the token undelegated.
      */
     event UndelegateResult(
-        bool indexed success, address indexed undelegator, string indexed undelegatee,
-        address token, uint256 amount
+        bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
     );
 
     /**
@@ -399,18 +390,38 @@ contract BootstrapStorage is GatewayStorage {
 
     uint256[40] private __gap;
 
-    constructor(
-        uint32 exocoreChainId_, 
-        address vaultBeacon_,
-        address beaconProxyBytecode_
-    ) {
-        require(exocoreChainId_ != 0, "BootstrapStorage: exocore chain id should not be empty");
-        require(vaultBeacon_ != address(0), "BootstrapStorage: the vaultBeacon address for beacon proxy should not be empty");
-        require(beaconProxyBytecode_ != address(0), "BootstrapStorage: the beaconProxyBytecode address should not be empty");
+    modifier isTokenWhitelisted(address token) {
+        require(isWhitelistedToken[token], "BootstrapStorage: token is not whitelisted");
+        _;
+    }
 
-        exocoreChainId = exocoreChainId_;
-        vaultBeacon = IBeacon(vaultBeacon_);
-        beaconProxyBytecode = BeaconProxyBytecode(beaconProxyBytecode_);
+    modifier isValidAmount(uint256 amount) {
+        require(amount > 0, "BootstrapStorage: amount should be greater than zero");
+        _;
+    }
+
+    modifier vaultExists(address token) {
+        require(address(tokenToVault[token]) != address(0), "BootstrapStorage: no vault added for this token");
+        _;
+    }
+
+    modifier isValidBech32Address(string calldata exocoreAddress) {
+        require(isValidExocoreAddress(exocoreAddress), "BootstrapStorage: invalid bech32 encoded Exocore address");
+        _;
+    }
+
+    constructor(uint32 exocoreChainId_, address vaultBeacon_, address beaconProxyBytecode_) {
+        require(exocoreChainId_ != 0, "BootstrapStorage: exocore chain id should not be empty");
+        require(
+            vaultBeacon_ != address(0), "BootstrapStorage: the vaultBeacon address for beacon proxy should not be empty"
+        );
+        require(
+            beaconProxyBytecode_ != address(0), "BootstrapStorage: the beaconProxyBytecode address should not be empty"
+        );
+
+        EXOCORE_CHAIN_ID = exocoreChainId_;
+        VAULT_BEACON = IBeacon(vaultBeacon_);
+        BEACON_PROXY_BYTECODE = BeaconProxyBytecode(beaconProxyBytecode_);
     }
 
     function _getVault(address token) internal view returns (IVault) {
@@ -421,14 +432,12 @@ contract BootstrapStorage is GatewayStorage {
         return vault;
     }
 
-    function isValidExocoreAddress(
-        string calldata operatorExocoreAddress
-    ) public pure returns (bool) {
+    function isValidExocoreAddress(string calldata operatorExocoreAddress) public pure returns (bool) {
         bytes memory stringBytes = bytes(operatorExocoreAddress);
         if (stringBytes.length != 42) {
             return false;
         }
-        for (uint i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
+        for (uint256 i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
             if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
                 return false;
             }
@@ -442,8 +451,9 @@ contract BootstrapStorage is GatewayStorage {
             Create2.deploy(
                 0,
                 bytes32(uint256(uint160(underlyingToken))),
-                // set the beacon address for beacon proxy
-                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(vaultBeacon), ""))
+                // for clarity, this BEACON_PROXY is not related to beacon chain
+                // but rather it is the bytecode for the beacon proxy upgrade pattern.
+                abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(VAULT_BEACON), ""))
             )
         );
         vault.initialize(underlyingToken, address(this));
@@ -452,4 +462,40 @@ contract BootstrapStorage is GatewayStorage {
         tokenToVault[underlyingToken] = vault;
         return vault;
     }
+
+    // implementation of ITokenWhitelister
+    function addWhitelistToken(address _token) public virtual override {
+        require(!isWhitelistedToken[_token], "BootstrapStorage: token should be not whitelisted before");
+        whitelistTokens.push(_token);
+        isWhitelistedToken[_token] = true;
+
+        // deploy the corresponding vault if not deployed before
+        if (address(tokenToVault[_token]) == address(0)) {
+            _deployVault(_token);
+        }
+
+        emit WhitelistTokenAdded(_token);
+    }
+
+    // implementation of ITokenWhitelister
+    function removeWhitelistToken(address _token) public virtual override {
+        isWhitelistedToken[_token] = false;
+        // the implicit assumption here is that the _token must be included in whitelistTokens
+        // if isWhitelistedToken[_token] is true
+        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+            if (whitelistTokens[i] == _token) {
+                whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
+                whitelistTokens.pop();
+                break;
+            }
+        }
+
+        emit WhitelistTokenRemoved(_token);
+    }
+
+    // implementation of ITokenWhitelister
+    function getWhitelistedTokensCount() external view returns (uint256) {
+        return whitelistTokens.length;
+    }
+
 }
