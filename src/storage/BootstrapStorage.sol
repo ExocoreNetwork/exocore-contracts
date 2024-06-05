@@ -490,4 +490,9 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
 
         emit WhitelistTokenRemoved(_token);
     }
+
+    // implementation of ITokenWhitelister
+    function getWhitelistedTokensCount() external view returns (uint256) {
+        return whitelistTokens.length;
+    }
 }

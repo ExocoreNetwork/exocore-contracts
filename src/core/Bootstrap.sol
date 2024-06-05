@@ -504,17 +504,10 @@ contract Bootstrap is
     }
 
     /**
-     * @dev Gets the count of whitelisted tokens.
-     * @return The number of whitelisted tokens.
-     * @notice This function returns the total number of whitelisted tokens in the contract.
-     */
-    function getWhitelistedTokensCount() external view returns (uint256) {
-        return whitelistTokens.length;
-    }
-
-    /**
      * @notice Retrieves information for a supported token by its index in the storage array.
      * @dev Returns comprehensive details about a token, including its ERC20 attributes and deposit amount.
+     * This function only exists in the Bootstrap contract and not in the ClientChainGateway, which
+     * does not track the deposits of whitelisted tokens.
      * @param index The index of the token in the `supportedTokens` array.
      * @return A `TokenInfo` struct containing the token's name, symbol, address, decimals, total supply, and deposit
      * amount.
