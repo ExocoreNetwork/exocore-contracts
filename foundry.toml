@@ -13,10 +13,9 @@ exocore_local_rpc = "${EXOCORE_LOCAL_RPC}"
 
 [fmt]
 ignore = ["src/libraries/Endian.sol"]
-# TODO: enable these after linter is merged
-# number_underscore = "thousands"
-# sort_imports = true
-# wrap_comments = true
-# single_line_statement_blocks = "multi"
-# contract_new_lines = true
+number_underscore = "thousands"
+sort_imports = true
+wrap_comments = true
+single_line_statement_blocks = "multi"
+contract_new_lines = true
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
