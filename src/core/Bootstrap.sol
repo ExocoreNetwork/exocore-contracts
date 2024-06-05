@@ -178,9 +178,7 @@ contract Bootstrap is
         string calldata name,
         Commission memory commission,
         bytes32 consensusPublicKey
-    ) external beforeLocked whenNotPaused {
-        // ensure the address format is valid.
-        require(isValidExocoreAddress(operatorExocoreAddress), "Bootstrap: invalid bech32 address");
+    ) external beforeLocked whenNotPaused isValidBech32Address(operatorExocoreAddress) {
         // ensure that there is only one operator per ethereum address
         require(bytes(ethToExocoreAddress[msg.sender]).length == 0, "Ethereum address already linked to an operator");
         // check if operator with the same exocore address already exists
