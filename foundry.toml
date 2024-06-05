@@ -12,7 +12,6 @@ ethereum_local_rpc = "${ETHEREUM_LOCAL_RPC}"
 exocore_local_rpc = "${EXOCORE_LOCAL_RPC}"
 
 [fmt]
-ignore = ["src/libraries/Endian.sol"]
 number_underscore = "thousands"
 sort_imports = true
 wrap_comments = true

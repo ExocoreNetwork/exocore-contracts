@@ -1,6 +1,7 @@
 pragma solidity ^0.8.0;
 
 library Endian {
+
     /**
      * @notice Converts a little endian-formatted uint64 to a big endian-formatted uint64
      * @param lenum little endian-formatted uint64 input, provided as 'bytes32' type
@@ -8,6 +9,7 @@ library Endian {
      * @dev Note that the input is formatted as a 'bytes32' type (i.e. 256 bits), but it is immediately truncated to a
      * uint64 (i.e. 64 bits) through a right-shift/shr operation.
      */
+    // forgefmt: disable-next-item
     function fromLittleEndianUint64(bytes32 lenum) internal pure returns (uint64 n) {
         // the number needs to be stored in little-endian encoding (ie in bytes 0-8)
         n = uint64(uint256(lenum >> 192));
@@ -21,4 +23,5 @@ library Endian {
             ((0x000000000000FF00 & n) << 40) |
             ((0x00000000000000FF & n) << 56);
     }
+
 }

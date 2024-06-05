@@ -239,9 +239,13 @@ contract Bootstrap is
      * @return bool Returns `true` if all conditions for a valid commission are met,
      * `false` otherwise.
      */
+    // forgefmt: disable-next-item
     function isCommissionValid(Commission memory commission) public pure returns (bool) {
-        return commission.rate <= 1e18 && commission.maxRate <= 1e18 && commission.maxChangeRate <= 1e18
-            && commission.rate <= commission.maxRate && commission.maxChangeRate <= commission.maxRate;
+        return commission.rate <= 1e18 &&
+               commission.maxRate <= 1e18 &&
+               commission.maxChangeRate <= 1e18 &&
+               commission.rate <= commission.maxRate &&
+               commission.maxChangeRate <= commission.maxRate;
     }
 
     /**
