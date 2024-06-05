@@ -28,7 +28,7 @@ abstract contract BaseRestakingController is
     {
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = _getCapsule(msg.sender);
-            capsule.withdraw(amount, recipient);
+            capsule.withdraw(amount, payable(recipient));
 
             emit ClaimSucceeded(token, recipient, amount);
         } else {

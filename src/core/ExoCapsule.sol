@@ -152,7 +152,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         validator.status = VALIDATOR_STATUS.WITHDRAWN;
     }
 
-    function withdraw(uint256 amount, address recipient) external onlyGateway {
+    function withdraw(uint256 amount, address payable recipient) external onlyGateway {
         require(
             amount <= withdrawableBalance, "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
         );

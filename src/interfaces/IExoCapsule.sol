@@ -36,7 +36,7 @@ interface IExoCapsule {
         WithdrawalContainerProof calldata withdrawalProof
     ) external;
 
-    function withdraw(uint256 amount, address recipient) external;
+    function withdraw(uint256 amount, address payable recipient) external;
 
     function updatePrincipleBalance(uint256 lastlyUpdatedPrincipleBalance) external;
 
