@@ -38,7 +38,7 @@ contract ExocoreGateway is
     modifier onlyCalledFromThis() {
         require(
             msg.sender == address(this),
-            "ExocoreGateway: can only be called from this contract itself with low level call"
+            "ExocoreGateway: can only be called from this contract itself with a low-level call"
         );
         _;
     }
