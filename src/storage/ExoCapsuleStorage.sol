@@ -11,6 +11,7 @@ contract ExoCapsuleStorage {
         UNREGISTERED, // the validator has not been registered in this ExoCapsule
         REGISTERED, // staked on ethpos and withdrawal credentials are pointed to the ExoCapsule
         WITHDRAWN // withdrawn from the Beacon Chain
+
     }
 
     struct Validator {
