@@ -94,6 +94,7 @@ contract ClientChainGateway is
             this.afterReceiveWithdrawRewardResponse.selector;
         _registeredResponseHooks[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
             this.afterReceiveDepositThenDelegateToResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_REGISTER_ASSET] = this.afterReceiveRegisterTokenResponse.selector;
 
         bootstrapped = true;
 
@@ -134,12 +135,50 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    function addWhitelistToken(address _token) public override onlyOwner whenNotPaused {
-        super.addWhitelistToken(_token);
+    // implementation of ITokenWhitelister
+    function addWhitelistTokens(address[] memory tokens) public beforeLocked onlyOwner whenNotPaused {
+        require(tokens.length <= type(uint8).max, "Bootstrap: tokens length should not execeed 255");
+
+        bytes memory args = abi.encodePacked(uint8(tokens.length));
+        for (uint i; i < tokens.length; i++) {
+            address token = tokens[i];
+            require(token != address(0), "Bootstrap: zero token address");
+            require(!isWhitelistedToken[token], "Bootstrap: token should be not whitelisted before");
+
+            args = abi.encodePacked(args, bytes32(bytes20(token)));
+        }
+
+        _processRequest(Action.REQUEST_REGISTER_ASSET, args);
     }
 
-    function removeWhitelistToken(address _token) public override isTokenWhitelisted(_token) onlyOwner whenNotPaused {
-        super.removeWhitelistToken(_token);
+    // implementation of ITokenWhitelister
+    function removeWhitelistTokens(address[] memory tokens) public virtual override {
+        require(tokens.length <= type(uint8).max, "Bootstrap: tokens length should not execeed 255");
+
+        bytes memory args = abi.encodePacked(uint8(tokens.length));
+        for (uint i; i < tokens.length; i++) {
+            address token = tokens[i];
+            require(token != address(0), "Bootstrap: zero token address");
+            require(isWhitelistedToken[token], "Bootstrap: token should have been whitelisted before");
+
+            isWhitelistedToken[token] = false;
+            emit WhitelistTokenRemoved(token);
+
+            args = abi.encodePacked(args, bytes32(bytes20(token)));
+        }
+
+        _processRequest(Action.REQUEST_DEREGISTER_ASSET, args);
+    }
+
+    // implementation of ITokenWhitelister
+    function getWhitelistedTokensCount() external view returns (uint256) {
+        uint count;
+        for (uint i; i < historicalWhitelistedTokens.length; i++) {
+            if (isWhitelistedToken[historicalWhitelistedTokens[i]]) {
+                count += 1;
+            }
+        }
+        return count;
     }
 
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {

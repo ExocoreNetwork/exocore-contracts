@@ -67,7 +67,7 @@ contract Bootstrap is
 
         for (uint256 i = 0; i < whitelistTokens_.length; i++) {
             address underlyingToken = whitelistTokens_[i];
-            whitelistTokens.push(underlyingToken);
+            historicalWhitelistedTokens.push(underlyingToken);
             isWhitelistedToken[underlyingToken] = true;
             emit WhitelistTokenAdded(underlyingToken);
 
@@ -158,20 +158,49 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistToken(address _token) public override beforeLocked onlyOwner whenNotPaused nonReentrant {
-        super.addWhitelistToken(_token);
+    function addWhitelistTokens(address[] memory tokens) public beforeLocked onlyOwner whenNotPaused {
+        require(tokens.length <= type(uint8).max, "Bootstrap: tokens length should not execeed 255");
+
+        bytes memory args = abi.encodePacked(uint8(tokens.length));
+        for (uint i; i < tokens.length; i++) {
+            address token = tokens[i];
+            require(token != address(0), "Bootstrap: zero token address");
+            require(!isWhitelistedToken[token], "Bootstrap: token should be not whitelisted before");
+
+            args = abi.encodePacked(args, bytes32(bytes20(token)));
+        }
+
+        _processRequest(Action.REQUEST_REGISTER_ASSET, args, abi.encode(tokens));
     }
 
     // implementation of ITokenWhitelister
-    function removeWhitelistToken(address _token)
-        public
-        override
-        beforeLocked
-        onlyOwner
-        whenNotPaused
-        isTokenWhitelisted(_token)
-    {
-        super.removeWhitelistToken(_token);
+    function removeWhitelistTokens(address[] memory tokens) public virtual override {
+        require(tokens.length <= type(uint8).max, "Bootstrap: tokens length should not execeed 255");
+
+        bytes memory args = abi.encodePacked(uint8(tokens.length));
+        for (uint i; i < tokens.length; i++) {
+            address token = tokens[i];
+            require(token != address(0), "Bootstrap: zero token address");
+            require(isWhitelistedToken[token], "Bootstrap: token should have been whitelisted before");
+
+            isWhitelistedToken[token] = false;
+            emit WhitelistTokenRemoved(token);
+
+            args = abi.encodePacked(args, bytes32(bytes20(token)));
+        }
+
+        _processRequest(Action.REQUEST_DEREGISTER_ASSET, args, abi.encode(tokens));
+    }
+
+    // implementation of ITokenWhitelister
+    function getWhitelistedTokensCount() external view returns (uint256) {
+        uint count;
+        for (uint i; i < historicalWhitelistedTokens.length; i++) {
+            if (isWhitelistedToken[historicalWhitelistedTokens[i]]) {
+                count += 1;
+            }
+        }
+        return count;
     }
 
     // implementation of IOperatorRegistry
@@ -560,8 +589,8 @@ contract Bootstrap is
      * amount.
      */
     function getWhitelistedTokenAtIndex(uint256 index) public view returns (TokenInfo memory) {
-        require(index < whitelistTokens.length, "Index out of bounds");
-        address tokenAddress = whitelistTokens[index];
+        require(index < historicalWhitelistedTokens.length, "Index out of bounds");
+        address tokenAddress = historicalWhitelistedTokens[index];
         ERC20 token = ERC20(tokenAddress);
         return TokenInfo({
             name: token.name(),
@@ -571,6 +600,27 @@ contract Bootstrap is
             totalSupply: token.totalSupply(),
             depositAmount: depositsByToken[tokenAddress]
         });
+    }
+
+    function _processRequest(Action action, bytes memory actionArgs, bytes memory decodableRequestPayload) internal {
+        outboundNonce++;
+        _registeredRequests[outboundNonce] = decodableRequestPayload;
+        _registeredRequestActions[outboundNonce] = action;
+
+        _sendMsgToExocore(action, args);
+    }
+
+    function _sendMsgToExocore(Action action, bytes memory actionArgs) internal {
+        bytes memory payload = abi.encodePacked(action, actionArgs);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
+        MessagingFee memory fee = _quote(EXOCORE_CHAIN_ID, payload, options, false);
+
+        MessagingReceipt memory receipt = _lzSend(
+            EXOCORE_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false
+        );
+        emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
 }

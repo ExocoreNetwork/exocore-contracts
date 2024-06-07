@@ -31,6 +31,51 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
         }
     }
 
+    function afterReceiveRegisterTokenResponse(bytes calldata requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis 
+        whenNotPaused
+    {
+        address[] memory tokens = abi.decode(requestPayload, (address[]));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        if (success) {
+            for (uint i; i < tokens.length; i++) {
+                address token = tokens[i];
+                isWhitelistedToken[token] = true;
+                historicalWhitelistedTokens.push(token);
+
+                // deploy the corresponding vault if not deployed before
+                if (address(tokenToVault[token]) == address(0)) {
+                    _deployVault(token);
+                }
+
+                emit WhitelistTokenAdded(_token);
+            }
+        }
+
+        emit RegisterAssetsResult(success);
+    }
+
+    function afterReceiveDeregisterTokenResponse(bytes calldata requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis 
+        whenNotPaused
+    {
+        address[] memory tokens = abi.decode(requestPayload, (address[]));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        // we should recover tokens as whitelisted if they are not successfully registered
+        if (!success) {
+            for (uint i; i < tokens.length; i++) {
+                address token = tokens[i];
+                isWhitelistedToken[token] = true;
+            }
+        }
+
+        emit DeregisterAssetsResult(success);
+    }
+
     function nextNonce(uint32 srcEid, bytes32 sender)
         public
         view

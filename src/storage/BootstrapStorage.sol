@@ -14,7 +14,7 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 // prior to ClientChainGateway. ClientChainStorage should inherit from
 // BootstrapStorage to ensure overlap of positioning between the
 // members of each contract.
-contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
+contract BootstrapStorage is GatewayStorage {
 
     /* -------------------------------------------------------------------------- */
     /*               state variables exclusively owned by Bootstrap               */
@@ -178,12 +178,14 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
 
     // whitelisted tokens and their vaults, and total deposits of said tokens
     /**
-     * @dev An array containing all the token addresses that have been added to the whitelist.
-     * @notice Use this array to iterate through all whitelisted tokens.
-     * This helps in operations like audits, UI display, or when removing tokens
-     * from the whitelist needs an indexed approach.
+     * @dev An array containing all the token addresses that are once added to the whitelist.
+     * Being included in the array does not mean the token is whitelisted for now though.
+     * please use mapping `isWhitelistedToken` to check whether a token is whitelisted for now.
+     * @notice Use this array to iterate through all historically whitelisted tokens.
+     * This helps in operations like audits, UI display, and tokens would not be removed
+     * from this array once being added even if some tokens are being set not whitelisted afterwards.
      */
-    address[] public whitelistTokens;
+    address[] public historicalWhitelistedTokens;
 
     /**
      * @dev Stores a mapping of whitelisted token addresses to their status.
@@ -316,6 +318,10 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
     event UndelegateResult(
         bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
     );
+
+    event RegisterAssetsResult(bool indexed success);
+
+    event DeregisterAssetsResult(bool indexed success);
 
     /**
      * @notice Emitted when a deposit + delegation is made.
@@ -479,40 +485,4 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
         tokenToVault[underlyingToken] = vault;
         return vault;
     }
-
-    // implementation of ITokenWhitelister
-    function addWhitelistToken(address _token) public virtual override {
-        require(!isWhitelistedToken[_token], "BootstrapStorage: token should be not whitelisted before");
-        whitelistTokens.push(_token);
-        isWhitelistedToken[_token] = true;
-
-        // deploy the corresponding vault if not deployed before
-        if (address(tokenToVault[_token]) == address(0)) {
-            _deployVault(_token);
-        }
-
-        emit WhitelistTokenAdded(_token);
-    }
-
-    // implementation of ITokenWhitelister
-    function removeWhitelistToken(address _token) public virtual override {
-        isWhitelistedToken[_token] = false;
-        // the implicit assumption here is that the _token must be included in whitelistTokens
-        // if isWhitelistedToken[_token] is true
-        for (uint256 i = 0; i < whitelistTokens.length; i++) {
-            if (whitelistTokens[i] == _token) {
-                whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
-                whitelistTokens.pop();
-                break;
-            }
-        }
-
-        emit WhitelistTokenRemoved(_token);
-    }
-
-    // implementation of ITokenWhitelister
-    function getWhitelistedTokensCount() external view returns (uint256) {
-        return whitelistTokens.length;
-    }
-
 }
