@@ -276,4 +276,16 @@ contract ExocoreDeployer is Test {
         return vc[2].fromLittleEndianUint64();
     }
 
+    function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
+        if (fromClientChainToExocore) {
+            uid = GUID.generate(
+                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+            );
+        } else {
+            uid = GUID.generate(
+                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
+            );
+        }
+    }
+
 }
