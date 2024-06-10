@@ -230,8 +230,8 @@ contract ExocoreGateway is
 
         bytes calldata token = payload[:32];
         bytes calldata depositor = payload[32:64];
-        uint256 amount = uint256(bytes32(payload[64:96]));
-        bytes calldata operator = payload[96:138];
+        bytes calldata operator = payload[64:106];
+        uint256 amount = uint256(bytes32(payload[106:138]));
 
         // while some of the code from requestDeposit and requestDelegateTo is duplicated here,
         // it is done intentionally to work around Solidity's limitations with regards to
@@ -243,7 +243,7 @@ contract ExocoreGateway is
         }
         try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, depositor, operator, amount)
         returns (bool delegateSuccess) {
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, true, updatedBalance));
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, delegateSuccess, updatedBalance));
         } catch {
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, updatedBalance));
