@@ -324,10 +324,14 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      * @param delegator The address of the delegator, on this chain.
      * @param delegatee The Exocore address of the operator.
      * @param token The address of the token being delegated, on this chain.
-     * @param amount The amount of the token delegated.
+     * @param delegatedAmount The amount of the token delegated.
      */
     event DepositThenDelegateResult(
-        bool indexed delegateSuccess, address indexed delegator, string indexed delegatee, address token, uint256 amount
+        bool indexed delegateSuccess,
+        address indexed delegator,
+        string indexed delegatee,
+        address token,
+        uint256 delegatedAmount
     );
 
     /**

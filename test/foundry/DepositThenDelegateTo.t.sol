@@ -24,7 +24,11 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
     // ClientChainGateway emits this when receiving the response
     event DepositThenDelegateResult(
-        bool indexed success, address indexed delegator, string indexed delegatee, address token, uint256 amount
+        bool indexed delegateSuccess,
+        address indexed delegator,
+        string indexed delegatee,
+        address token,
+        uint256 delegatedAmount
     );
 
     // emitted by the mock delegation contract
