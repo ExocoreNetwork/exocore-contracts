@@ -92,6 +92,8 @@ contract ClientChainGateway is
         _registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
         _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
             this.afterReceiveWithdrawRewardResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
+            this.afterReceiveDepositThenDelegateToResponse.selector;
 
         bootstrapped = true;
 

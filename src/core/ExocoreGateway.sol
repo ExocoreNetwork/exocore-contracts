@@ -67,6 +67,7 @@ contract ExocoreGateway is
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
             this.requestWithdrawPrinciple.selector;
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] = this.requestDepositThenDelegateTo.selector;
     }
 
     // TODO: call this function automatically, either within the initializer (which requires
@@ -218,6 +219,34 @@ contract ExocoreGateway is
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
 
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false));
+        }
+    }
+
+    function requestDepositThenDelegateTo(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
+        _validatePayloadLength(payload, DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH, Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO);
+
+        bytes calldata token = payload[:32];
+        bytes calldata depositor = payload[32:64];
+        uint256 amount = uint256(bytes32(payload[64:96]));
+        bytes calldata operator = payload[96:138];
+
+        // while some of the code from requestDeposit and requestDelegateTo is duplicated here,
+        // it is done intentionally to work around Solidity's limitations with regards to
+        // function calls, error handling and indexing the return data of memory type.
+
+        (bool success, uint256 updatedBalance) =  DEPOSIT_CONTRACT.depositTo(srcChainId, token, depositor, amount);
+        if (!success) {
+            revert DepositRequestShouldNotFail(srcChainId, lzNonce);
+        }
+        try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, depositor, operator, amount)
+        returns (bool delegateSuccess) {
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, true, updatedBalance));
+        } catch {
+            emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, updatedBalance));
         }
     }
 

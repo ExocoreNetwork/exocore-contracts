@@ -10,7 +10,9 @@ contract GatewayStorage {
         REQUEST_UNDELEGATE_FROM,
         RESPOND,
         UPDATE_USERS_BALANCES,
-        MARK_BOOTSTRAP
+        MARK_BOOTSTRAP,
+        // TODO: can this be moved upwards safely without impacting the upgradeability?
+        REQUEST_DEPOSIT_THEN_DELEGATE_TO
     }
 
     mapping(Action => bytes4) public _whiteListFunctionSelectors;

@@ -305,7 +305,7 @@ contract Bootstrap is
         emit OperatorCommissionUpdated(newRate);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     function deposit(address token, uint256 amount)
         external
         payable
@@ -336,7 +336,7 @@ contract Bootstrap is
         emit DepositResult(true, token, msg.sender, amount);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     // This will allow release of undelegated (free) funds to the user for claiming separately.
     function withdrawPrincipleFromExocore(address token, uint256 amount)
         external
@@ -366,13 +366,13 @@ contract Bootstrap is
         emit WithdrawPrincipleResult(true, token, msg.sender, amount);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     // there are no rewards before the network bootstrap, so this function is not supported.
     function withdrawRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
         revert NotYetSupported();
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     function claim(address token, uint256 amount, address recipient)
         external
         override
@@ -385,7 +385,7 @@ contract Bootstrap is
         vault.withdraw(msg.sender, recipient, amount);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     function delegateTo(string calldata operator, address token, uint256 amount)
         external
         payable
@@ -396,6 +396,7 @@ contract Bootstrap is
         isValidAmount(amount)
         isValidBech32Address(operator)
     {
+        require(msg.value == 0, "Bootstrap: no ether required for delegation");
         // check that operator is registered
         require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative
@@ -410,7 +411,7 @@ contract Bootstrap is
         emit DelegateResult(true, msg.sender, operator, token, amount);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     function undelegateFrom(string calldata operator, address token, uint256 amount)
         external
         payable
@@ -421,6 +422,7 @@ contract Bootstrap is
         isValidAmount(amount)
         isValidBech32Address(operator)
     {
+        require(msg.value == 0, "Bootstrap: no ether required for undelegation");
         // check that operator is registered
         require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative
@@ -434,6 +436,21 @@ contract Bootstrap is
         withdrawableAmounts[msg.sender][token] += amount;
 
         emit UndelegateResult(true, msg.sender, operator, token, amount);
+    }
+
+    // implementation of ILSTRestakingController
+    function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
+        external
+        payable
+        override
+        beforeLocked
+        whenNotPaused
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+        isValidBech32Address(operator)
+    {
+        this.deposit(token, amount);
+        this.delegateTo(operator, token, amount);
     }
 
     /**

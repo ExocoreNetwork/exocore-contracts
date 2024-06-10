@@ -37,4 +37,17 @@ abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingCo
         _processRequest(token, msg.sender, rewardAmount, Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, "");
     }
 
+    // implementation of ILSTRestakingController
+    function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
+        external
+        payable
+        override
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+        isValidBech32Address(operator)
+        whenNotPaused
+    {
+        _processRequest(token, msg.sender, amount, Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, operator);
+    }
+
 }
