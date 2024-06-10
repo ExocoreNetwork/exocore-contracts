@@ -67,7 +67,8 @@ contract ExocoreGateway is
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
             this.requestWithdrawPrinciple.selector;
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
-        _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] = this.requestDepositThenDelegateTo.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
+            this.requestDepositThenDelegateTo.selector;
     }
 
     // TODO: call this function automatically, either within the initializer (which requires
@@ -237,7 +238,7 @@ contract ExocoreGateway is
         // it is done intentionally to work around Solidity's limitations with regards to
         // function calls, error handling and indexing the return data of memory type.
 
-        (bool success, uint256 updatedBalance) =  DEPOSIT_CONTRACT.depositTo(srcChainId, token, depositor, amount);
+        (bool success, uint256 updatedBalance) = DEPOSIT_CONTRACT.depositTo(srcChainId, token, depositor, amount);
         if (!success) {
             revert DepositRequestShouldNotFail(srcChainId, lzNonce);
         }

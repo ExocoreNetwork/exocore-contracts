@@ -48,16 +48,15 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         uint64 lzNonce = 1;
         uint256 delegateAmount = 10_000;
 
-        (bytes32 requestId, bytes memory requestPayload) = _testRequest(delegator, operatorAddress, lzNonce, delegateAmount);
+        (bytes32 requestId, bytes memory requestPayload) =
+            _testRequest(delegator, operatorAddress, lzNonce, delegateAmount);
         _testResponse(requestId, requestPayload, delegator, relayer, operatorAddress, lzNonce, delegateAmount);
     }
 
-    function _testRequest(
-        address delegator,
-        string memory operatorAddress,
-        uint64 lzNonce,
-        uint256 delegateAmount
-    ) private returns (bytes32 requestId, bytes memory requestPayload) {
+    function _testRequest(address delegator, string memory operatorAddress, uint64 lzNonce, uint256 delegateAmount)
+        private
+        returns (bytes32 requestId, bytes memory requestPayload)
+    {
         requestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
@@ -70,18 +69,16 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
         vm.expectEmit(address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId,
-            address(clientGateway),
-            address(exocoreGateway).toBytes32(),
-            lzNonce,
-            requestPayload
+            exocoreChainId, address(clientGateway), address(exocoreGateway).toBytes32(), lzNonce, requestPayload
         );
 
         vm.expectEmit(address(clientGateway));
         emit MessageSent(GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, requestId, lzNonce, requestNativeFee);
 
         vm.startPrank(delegator);
-        clientGateway.depositThenDelegateTo{value: requestNativeFee}(address(restakeToken), delegateAmount, operatorAddress);
+        clientGateway.depositThenDelegateTo{value: requestNativeFee}(
+            address(restakeToken), delegateAmount, operatorAddress
+        );
         vm.stopPrank();
     }
 

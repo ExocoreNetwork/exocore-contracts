@@ -47,7 +47,8 @@ interface ILSTRestakingController is IBaseRestakingController {
 
     function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
 
-    /**8
+    /**
+     * 8
      * @notice Client chain users can call this function to deposit and then delegate to specific node operator.
      * @dev This function should:
      * 1) lock the @param amount of @param token into vault.
