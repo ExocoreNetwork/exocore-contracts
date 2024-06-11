@@ -844,7 +844,9 @@ contract BootstrapTest is Test {
         test12_MarkBootstrapped();
         vm.startPrank(address(clientChainLzEndpoint));
         vm.expectRevert(
-            abi.encodeWithSelector(GatewayStorage.UnsupportedRequest.selector, GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP)
+            abi.encodeWithSelector(
+                GatewayStorage.UnsupportedRequest.selector, GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP
+            )
         );
         bootstrap.lzReceive(
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(2)),

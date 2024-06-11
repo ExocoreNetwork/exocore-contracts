@@ -11,7 +11,7 @@ contract GatewayStorage {
         REQUEST_DEPOSIT_THEN_DELEGATE_TO,
         REQUEST_MARK_BOOTSTRAP,
         RESPOND,
-        UPDATE_USERS_BALANCES,
+        UPDATE_USERS_BALANCES
     }
 
     mapping(Action => bytes4) public _whiteListFunctionSelectors;
