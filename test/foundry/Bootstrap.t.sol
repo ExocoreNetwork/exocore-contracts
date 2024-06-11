@@ -427,8 +427,8 @@ contract BootstrapTest is Test {
         uint256 deposited = bootstrap.totalDepositAmounts(addrs[0], address(myToken));
         assertTrue(deposited == amounts[0]);
 
-        uint256 delegated = bootstrap.delegations(addrs[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac",
-        address(myToken));
+        uint256 delegated =
+            bootstrap.delegations(addrs[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken));
         assertTrue(delegated == amounts[0]);
     }
 
