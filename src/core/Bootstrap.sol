@@ -72,7 +72,7 @@ contract Bootstrap is
             _deployVault(underlyingToken);
         }
 
-        _whiteListFunctionSelectors[Action.MARK_BOOTSTRAP] = this.markBootstrapped.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.markBootstrapped.selector;
 
         customProxyAdmin = customProxyAdmin_;
         bootstrapped = false;

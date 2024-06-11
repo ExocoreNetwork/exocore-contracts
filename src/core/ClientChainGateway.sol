@@ -104,7 +104,7 @@ contract ClientChainGateway is
 
     function _clearBootstrapData() internal {
         // mandatory to clear!
-        delete _whiteListFunctionSelectors[Action.MARK_BOOTSTRAP];
+        delete _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP];
         // the set below is recommended to clear, so that any possibilities of upgrades
         // can then be removed.
         delete customProxyAdmin;

@@ -85,7 +85,7 @@ contract ExocoreGateway is
         for (uint256 i = 0; i < clientChainIds.length; i++) {
             uint16 clientChainId = clientChainIds[i];
             if (!chainToBootstrapped[clientChainId]) {
-                _sendInterchainMsg(uint32(clientChainId), Action.MARK_BOOTSTRAP, "");
+                _sendInterchainMsg(uint32(clientChainId), Action.REQUEST_MARK_BOOTSTRAP, "");
                 // TODO: should this be marked only upon receiving a response?
                 chainToBootstrapped[clientChainId] = true;
             }

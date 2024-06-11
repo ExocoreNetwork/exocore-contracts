@@ -814,7 +814,7 @@ contract BootstrapTest is Test {
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(1)),
             address(bootstrap),
             generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.MARK_BOOTSTRAP, ""),
+            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             bytes("")
         );
         vm.stopPrank();
@@ -833,7 +833,7 @@ contract BootstrapTest is Test {
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(1)),
             address(bootstrap),
             generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.MARK_BOOTSTRAP, ""),
+            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             bytes("")
         );
         vm.stopPrank();
@@ -844,12 +844,12 @@ contract BootstrapTest is Test {
         test12_MarkBootstrapped();
         vm.startPrank(address(clientChainLzEndpoint));
         vm.expectRevert(
-            abi.encodeWithSelector(GatewayStorage.UnsupportedRequest.selector, GatewayStorage.Action.MARK_BOOTSTRAP)
+            abi.encodeWithSelector(GatewayStorage.UnsupportedRequest.selector, GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP)
         );
         bootstrap.lzReceive(
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(2)),
             generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.MARK_BOOTSTRAP, ""),
+            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             address(0),
             bytes("")
         );

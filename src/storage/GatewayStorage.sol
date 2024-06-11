@@ -8,11 +8,10 @@ contract GatewayStorage {
         REQUEST_WITHDRAW_REWARD_FROM_EXOCORE,
         REQUEST_DELEGATE_TO,
         REQUEST_UNDELEGATE_FROM,
+        REQUEST_DEPOSIT_THEN_DELEGATE_TO,
+        REQUEST_MARK_BOOTSTRAP,
         RESPOND,
         UPDATE_USERS_BALANCES,
-        MARK_BOOTSTRAP,
-        // TODO: can this be moved upwards safely without impacting the upgradeability?
-        REQUEST_DEPOSIT_THEN_DELEGATE_TO
     }
 
     mapping(Action => bytes4) public _whiteListFunctionSelectors;
