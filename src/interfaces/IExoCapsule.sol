@@ -30,7 +30,8 @@ interface IExoCapsule {
 
     function activateRestaking() external;
 
-    function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof) external;
+    function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
+        external;
 
     function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
@@ -46,4 +47,5 @@ interface IExoCapsule {
     function updateWithdrawableBalance(uint256 unlockPrincipleAmount) external;
 
     function capsuleWithdrawalCredentials() external view returns (bytes memory);
+
 }

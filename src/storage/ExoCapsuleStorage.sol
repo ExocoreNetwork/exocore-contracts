@@ -11,7 +11,6 @@ contract ExoCapsuleStorage {
         UNREGISTERED, // the validator has not been registered in this ExoCapsule
         REGISTERED, // staked on ethpos and withdrawal credentials are pointed to the ExoCapsule
         WITHDRAWN // withdrawn from the Beacon Chain
-
     }
 
     struct Validator {
@@ -33,16 +32,21 @@ contract ExoCapsuleStorage {
     uint64 constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
 
     /**
-     * @notice The latest timestamp at which the capsule owner withdrew the balance of the capsule, via calling `withdrawBeforeRestaking`.
-     * @dev This variable is only updated when the `withdrawBeforeRestaking` function is called, which can only occur before `hasRestaked` is set to true for this capsule.
-     * Proofs for this capsule are only valid against Beacon Chain state roots corresponding to timestamps after the stored `mostRecentWithdrawalTimestamp`.
+     * @notice The latest timestamp at which the capsule owner withdrew the balance of the capsule, via calling
+     * `withdrawBeforeRestaking`.
+     * @dev This variable is only updated when the `withdrawBeforeRestaking` function is called, which can only occur
+     * before `hasRestaked` is set to true for this capsule.
+     * Proofs for this capsule are only valid against Beacon Chain state roots corresponding to timestamps after the
+     * stored `mostRecentWithdrawalTimestamp`.
      */
     uint256 public mostRecentWithdrawalTimestamp;
-    /// @notice an indicator of whether or not the capsule owner has ever "fully restaked" by successfully calling `verifyCorrectWithdrawalCredentials`.
+    /// @notice an indicator of whether or not the capsule owner has ever "fully restaked" by successfully calling
+    /// `verifyCorrectWithdrawalCredentials`.
     bool public hasRestaked;
 
     uint256 public principleBalance;
-    /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon Chain but not from Exocore)
+    /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon
+    /// Chain but not from Exocore)
     uint256 public withdrawableBalance;
     /// @notice This variable tracks any ETH deposited into this contract via the `receive` fallback function
     uint256 public nonBeaconChainETHBalance;
@@ -52,8 +56,10 @@ contract ExoCapsuleStorage {
 
     mapping(bytes32 pubkey => Validator validator) internal _capsuleValidators;
     mapping(uint256 index => bytes32 pubkey) internal _capsuleValidatorsByIndex;
-    /// @notice This is a mapping of validatorPubkeyHash to timestamp to whether or not they have proven a withdrawal for that timestamp
+    /// @notice This is a mapping of validatorPubkeyHash to timestamp to whether or not they have proven a withdrawal
+    /// for that timestamp
     mapping(bytes32 => mapping(uint256 => bool)) public provenWithdrawal;
 
     uint256[40] private __gap;
+
 }

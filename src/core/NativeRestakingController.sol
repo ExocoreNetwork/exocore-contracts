@@ -18,11 +18,11 @@ abstract contract NativeRestakingController is
 
     using ValidatorContainer for bytes32[];
 
-    function stake(
-        bytes calldata pubkey,
-        bytes calldata signature,
-        bytes32 depositDataRoot
-    ) external payable whenNotPaused {
+    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot)
+        external
+        payable
+        whenNotPaused
+    {
         require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
 
         IExoCapsule capsule = ownerToCapsule[msg.sender];
@@ -65,7 +65,8 @@ abstract contract NativeRestakingController is
         IExoCapsule.ValidatorContainerProof calldata proof
     ) external payable whenNotPaused {
         IExoCapsule capsule = _getCapsule(msg.sender);
-        // Before verifying deposit proof, we need to activate restaking and withdraw all potential ETH withdrawan to the exocapsule back to the owner. This amount won't be counted as staked balance
+        // Before verifying deposit proof, we need to activate restaking and withdraw all potential ETH withdrawan to
+        // the exocapsule back to the owner. This amount won't be counted as staked balance
         capsule.activateRestaking();
         capsule.verifyDepositProof(validatorContainer, proof);
 
@@ -80,12 +81,8 @@ abstract contract NativeRestakingController is
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
     ) external payable whenNotPaused {
         IExoCapsule capsule = _getCapsule(msg.sender);
-        (bool partialWithdrawal, uint256 withdrawalAmount) = capsule.verifyWithdrawalProof(
-            validatorContainer,
-            validatorProof,
-            withdrawalContainer,
-            withdrawalProof
-        );
+        (bool partialWithdrawal, uint256 withdrawalAmount) =
+            capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
         if (!partialWithdrawal) {
             // request full withdraw
             _processRequest(
@@ -97,4 +94,5 @@ abstract contract NativeRestakingController is
             );
         }
     }
+
 }

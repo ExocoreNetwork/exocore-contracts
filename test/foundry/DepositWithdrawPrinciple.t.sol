@@ -20,10 +20,7 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
 
     event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
     event WithdrawPrincipleResult(
-        bool indexed success,
-        address indexed token,
-        address indexed withdrawer,
-        uint256 amount
+        bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
     );
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
@@ -88,12 +85,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
         lastlyUpdatedPrincipleBalance = depositAmount;
-        bytes memory depositResponsePayload = abi.encodePacked(
-            GatewayStorage.Action.RESPOND,
-            uint64(1),
-            true,
-            lastlyUpdatedPrincipleBalance
-        );
+        bytes memory depositResponsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true, lastlyUpdatedPrincipleBalance);
         uint256 depositResponseNativeFee = exocoreGateway.quote(clientChainId, depositResponsePayload);
         bytes32 depositResponseId = generateUID(1, false);
         emit NewPacket(
@@ -161,8 +154,7 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
             withdrawRequestNativeFee
         );
         clientGateway.withdrawPrincipleFromExocore{value: withdrawRequestNativeFee}(
-            address(restakeToken),
-            withdrawAmount
+            address(restakeToken), withdrawAmount
         );
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
@@ -171,12 +163,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
         lastlyUpdatedPrincipleBalance -= withdrawAmount;
-        bytes memory withdrawResponsePayload = abi.encodePacked(
-            GatewayStorage.Action.RESPOND,
-            uint64(2),
-            true,
-            lastlyUpdatedPrincipleBalance
-        );
+        bytes memory withdrawResponsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(2), true, lastlyUpdatedPrincipleBalance);
         uint256 withdrawResponseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
         bytes32 withdrawResponseId = generateUID(2, false);
         emit NewPacket(
@@ -366,19 +354,11 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
     function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
         if (fromClientChainToExocore) {
             uid = GUID.generate(
-                nonce,
-                clientChainId,
-                address(clientGateway),
-                exocoreChainId,
-                address(exocoreGateway).toBytes32()
+                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
             );
         } else {
             uid = GUID.generate(
-                nonce,
-                exocoreChainId,
-                address(exocoreGateway),
-                clientChainId,
-                address(clientGateway).toBytes32()
+                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
             );
         }
     }
