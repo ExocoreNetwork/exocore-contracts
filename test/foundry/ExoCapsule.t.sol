@@ -363,7 +363,7 @@ contract WithdrawalSetup is Test {
 
     function setUp() public {
         string memory withdrawalInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
-        // string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
+
         _setValidatorContainer(withdrawalInfo);
         _setWithdrawalContainer();
 
@@ -524,9 +524,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
         string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
         _setValidatorContainer(withdrawalInfo);
 
-        vm.warp(mockCurrentBlockTimestamp);
-        validatorProof.beaconBlockTimestamp = mockProofTimestamp;
-
+        // vm.warp(mockCurrentBlockTimestamp);
         vm.mockCall(
             address(beaconOracle),
             abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector),

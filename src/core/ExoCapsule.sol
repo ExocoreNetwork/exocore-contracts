@@ -102,7 +102,6 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         gateway = INativeRestakingController(gateway_);
         beaconOracle = IBeaconChainOracle(beaconOracle_);
         capsuleOwner = capsuleOwner_;
-        hasRestaked = true;
     }
 
     function verifyDepositProof(
