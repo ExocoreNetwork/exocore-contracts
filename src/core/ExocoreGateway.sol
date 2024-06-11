@@ -237,6 +237,8 @@ contract ExocoreGateway is
         // while some of the code from requestDeposit and requestDelegateTo is duplicated here,
         // it is done intentionally to work around Solidity's limitations with regards to
         // function calls, error handling and indexing the return data of memory type.
+        // for example, you cannot index a bytes memory result from the requestDepositTo call,
+        // if you were to modify it to return bytes and then process them here.
 
         (bool success, uint256 updatedBalance) = DEPOSIT_CONTRACT.depositTo(srcChainId, token, depositor, amount);
         if (!success) {
