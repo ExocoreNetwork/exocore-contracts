@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 interface IVault {
+
     function withdraw(address withdrawer, address recipient, uint256 amount) external;
 
     function deposit(address depositor, uint256 amount) external payable;
@@ -13,4 +14,5 @@ interface IVault {
         external;
 
     function getUnderlyingToken() external returns (address);
+
 }

@@ -1,19 +1,20 @@
 pragma solidity ^0.8.19;
 
-import "./ExocoreDeployer.t.sol";
-import "forge-std/Test.sol";
-import "../../src/core/ExocoreGateway.sol";
-import "../../src/storage/GatewayStorage.sol";
 import "../../src/core/ExoCapsule.sol";
 import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
+import "../../src/core/ExocoreGateway.sol";
 import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
+import "../../src/storage/GatewayStorage.sol";
+import "./ExocoreDeployer.t.sol";
+import "forge-std/Test.sol";
 
-import "forge-std/console.sol";
-import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
+import "forge-std/console.sol";
 
 contract DepositWithdrawPrincipleTest is ExocoreDeployer {
+
     using AddressCast for address;
     using stdStorage for StdStorage;
 
@@ -31,20 +32,21 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
     event CapsuleCreated(address owner, address capsule);
     event StakedWithCapsule(address staker, address capsule);
 
-    uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
+    uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
 
     function test_LSTDepositWithdrawByLayerZero() public {
         Player memory depositor = players[0];
         vm.startPrank(exocoreValidatorSet.addr);
-        restakeToken.transfer(depositor.addr, 1000000);
+        restakeToken.transfer(depositor.addr, 1_000_000);
         vm.stopPrank();
 
         // transfer some gas fee to depositor
         deal(depositor.addr, 1e22);
-        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when sending back response
+        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when
+        // sending back response
         deal(address(exocoreGateway), 1e22);
 
-        uint256 depositAmount = 10000;
+        uint256 depositAmount = 10_000;
         uint256 lastlyUpdatedPrincipleBalance;
 
         // -- deposit workflow test --
@@ -80,7 +82,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         emit MessageSent(GatewayStorage.Action.REQUEST_DEPOSIT, depositRequestId, uint64(1), depositRequestNativeFee);
         clientGateway.deposit{value: depositRequestNativeFee}(address(restakeToken), depositAmount);
 
-        // second layerzero relayers should watch the request message packet and relay the message to destination endpoint
+        // second layerzero relayers should watch the request message packet and relay the message to destination
+        // endpoint
 
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
@@ -111,7 +114,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
             bytes("")
         );
 
-        // third layerzero relayers should watch the response message packet and relay the message to source chain endpoint
+        // third layerzero relayers should watch the response message packet and relay the message to source chain
+        // endpoint
 
         // client chain gateway should execute the response hook and emit depositResult event
         vm.expectEmit(true, true, true, true, address(clientGateway));
@@ -161,7 +165,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
             withdrawAmount
         );
 
-        // second layerzero relayers should watch the request message packet and relay the message to destination endpoint
+        // second layerzero relayers should watch the request message packet and relay the message to destination
+        // endpoint
 
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
@@ -192,7 +197,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
             bytes("")
         );
 
-        // third layerzero relayers should watch the response message packet and relay the message to source chain endpoint
+        // third layerzero relayers should watch the response message packet and relay the message to source chain
+        // endpoint
 
         // client chain gateway should execute the response hook and emit depositResult event
         vm.expectEmit(true, true, true, true, address(clientGateway));
@@ -214,13 +220,16 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         deal(depositor.addr, 1e22);
         // transfer some gas fee to relayer for paying for onboarding cross-chain message packet
         deal(relayer.addr, 1e22);
-        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when sending back response
+        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when
+        // sending back response
         deal(address(exocoreGateway), 1e22);
 
         // before native stake and deposit, we simulate proper block environment states to make proof valid
 
-        /// we set the timestamp of proof to be exactly the timestamp that the validator container get activated on beacon chain
-        uint256 activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        /// we set the timestamp of proof to be exactly the timestamp that the validator container get activated on
+        /// beacon chain
+        uint256 activationTimestamp =
+            BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         validatorProof.beaconBlockTimestamp = mockProofTimestamp;
 
@@ -261,11 +270,7 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
 
         /// replace expectedCapsule with capsule
         bytes32 capsuleSlotInGateway = bytes32(
-            stdstore
-            .target(address(clientGatewayLogic))
-            .sig("ownerToCapsule(address)")
-            .with_key(depositor.addr)
-            .find()
+            stdstore.target(address(clientGatewayLogic)).sig("ownerToCapsule(address)").with_key(depositor.addr).find()
         );
         vm.store(address(clientGateway), capsuleSlotInGateway, bytes32(uint256(uint160(address(capsule)))));
         assertEq(address(clientGateway.ownerToCapsule(depositor.addr)), address(capsule));
@@ -273,7 +278,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         /// initialize replaced capsule
         capsule.initialize(address(clientGateway), depositor.addr, address(beaconOracle));
 
-        // 2. next depositor call clientGateway.depositBeaconChainValidator to deposit into Exocore from client chain through layerzero
+        // 2. next depositor call clientGateway.depositBeaconChainValidator to deposit into Exocore from client chain
+        // through layerzero
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
         uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
@@ -304,7 +310,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         clientGateway.depositBeaconChainValidator{value: depositRequestNativeFee}(validatorContainer, validatorProof);
         vm.stopPrank();
 
-        // 3. thirdly layerzero relayers should watch the request message packet and relay the message to destination endpoint
+        // 3. thirdly layerzero relayers should watch the request message packet and relay the message to destination
+        // endpoint
 
         /// exocore gateway should return response message to exocore network layerzero endpoint
         uint256 lastlyUpdatedPrincipleBalance = depositAmount;
@@ -337,7 +344,8 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         );
         vm.stopPrank();
 
-        // At last layerzero relayers should watch the response message packet and relay the message back to source chain endpoint
+        // At last layerzero relayers should watch the response message packet and relay the message back to source
+        // chain endpoint
 
         /// client chain gateway should execute the response hook and emit depositResult event
         vm.expectEmit(true, true, true, true, address(clientGateway));
@@ -374,4 +382,5 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
             );
         }
     }
+
 }

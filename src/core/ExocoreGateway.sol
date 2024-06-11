@@ -1,34 +1,45 @@
 pragma solidity ^0.8.19;
 
-import {ExocoreGatewayStorage} from "../storage/ExocoreGatewayStorage.sol";
 import {IExocoreGateway} from "../interfaces/IExocoreGateway.sol";
-import {
-OAppReceiverUpgradeable,
-OAppUpgradeable,
-Origin,
-MessagingFee,
-MessagingReceipt
-} from "../lzApp/OAppUpgradeable.sol";
 
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {CLAIM_REWARD_CONTRACT, CLAIM_REWARD_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IClaimReward.sol";
+
+import {CLIENT_CHAINS_PRECOMPILE_ADDRESS, IClientChains} from "../interfaces/precompiles/IClientChains.sol";
+import {DELEGATION_CONTRACT, DELEGATION_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IDelegation.sol";
+import {DEPOSIT_CONTRACT} from "../interfaces/precompiles/IDeposit.sol";
+import {WITHDRAW_CONTRACT, WITHDRAW_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IWithdrawPrinciple.sol";
+
+import {
+    MessagingFee,
+    MessagingReceipt,
+    OAppReceiverUpgradeable,
+    OAppUpgradeable,
+    Origin
+} from "../lzApp/OAppUpgradeable.sol";
+import {ExocoreGatewayStorage} from "../storage/ExocoreGatewayStorage.sol";
+
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
-import {IClientChains} from "../interfaces/precompiles/IClientChains.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 contract ExocoreGateway is
-Initializable,
-PausableUpgradeable,
-OwnableUpgradeable,
-IExocoreGateway,
-ExocoreGatewayStorage,
-OAppUpgradeable
+    Initializable,
+    PausableUpgradeable,
+    OwnableUpgradeable,
+    IExocoreGateway,
+    ExocoreGatewayStorage,
+    OAppUpgradeable
 {
+
     using OptionsBuilder for bytes;
 
     modifier onlyCalledFromThis() {
-        require(msg.sender == address(this), "ExocoreGateway: can only be called from this contract itself");
+        require(
+            msg.sender == address(this),
+            "ExocoreGateway: can only be called from this contract itself with a low-level call"
+        );
         _;
     }
 
@@ -53,7 +64,8 @@ OAppUpgradeable
         _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
         _whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
-        _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] = this.requestWithdrawPrinciple.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
+            this.requestWithdrawPrinciple.selector;
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
     }
 
@@ -62,8 +74,8 @@ OAppUpgradeable
     // For manual calls, this function should be called immediately after deployment and
     // then never needs to be called again.
     function markBootstrapOnAllChains() public {
-        (bool success, bytes memory result) = CLIENT_CHAINS_PRECOMPILE_ADDRESS.
-            staticcall(abi.encodeWithSelector(IClientChains.getClientChains.selector));
+        (bool success, bytes memory result) =
+            CLIENT_CHAINS_PRECOMPILE_ADDRESS.staticcall(abi.encodeWithSelector(IClientChains.getClientChains.selector));
         require(success, "ExocoreGateway: failed to get client chain ids");
         // TODO: change to uint32[] when the precompile is upgraded
         (bool ok, uint16[] memory clientChainIds) = abi.decode(result, (bool, uint16[]));
@@ -79,12 +91,18 @@ OAppUpgradeable
     }
 
     function pause() external {
-        require(msg.sender == exocoreValidatorSetAddress, "ExocoreGateway: caller is not Exocore validator set aggregated address");
+        require(
+            msg.sender == exocoreValidatorSetAddress,
+            "ExocoreGateway: caller is not Exocore validator set aggregated address"
+        );
         _pause();
     }
 
     function unpause() external {
-        require(msg.sender == exocoreValidatorSetAddress, "ExocoreGateway: caller is not Exocore validator set aggregated address");
+        require(
+            msg.sender == exocoreValidatorSetAddress,
+            "ExocoreGateway: caller is not Exocore validator set aggregated address"
+        );
         _unpause();
     }
 
@@ -97,70 +115,110 @@ OAppUpgradeable
             revert UnsupportedRequest(act);
         }
 
-        (bool success, bytes memory responseOrReason) = address(this).call(
-            abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, payload[1:]))
-        );
+        (bool success, bytes memory responseOrReason) =
+            address(this).call(abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, payload[1:])));
         if (!success) {
             revert RequestExecuteFailed(act, _origin.nonce, responseOrReason);
         }
     }
 
-    function requestDeposit(uint32 clientChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
-        _handleRequest(clientChainId, lzNonce, payload, DEPOSIT_REQUEST_LENGTH, DEPOSIT_PRECOMPILE_ADDRESS, DEPOSIT_FUNCTION_SELECTOR, Action.REQUEST_DEPOSIT);
-    }
+    function requestDeposit(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+        _validatePayloadLength(payload, DEPOSIT_REQUEST_LENGTH, Action.REQUEST_DEPOSIT);
 
-    function requestWithdrawPrinciple(uint32 clientChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
-        _handleRequest(clientChainId, lzNonce, payload, WITHDRAW_PRINCIPLE_REQUEST_LENGTH, WITHDRAW_PRINCIPLE_PRECOMPILE_ADDRESS, WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR, Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE);
-    }
-
-    function requestWithdrawReward(uint32 clientChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
-        _handleRequest(clientChainId, lzNonce, payload, CLAIM_REWARD_REQUEST_LENGTH, CLAIM_REWARD_PRECOMPILE_ADDRESS, CLAIM_REWARD_FUNCTION_SELECTOR, Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE);
-    }
-
-    function requestDelegateTo(uint32 clientChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
-        _handleRequestWithOperator(clientChainId, lzNonce, payload, DELEGATE_REQUEST_LENGTH, DELEGATION_PRECOMPILE_ADDRESS, DELEGATE_TO_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR, Action.REQUEST_DELEGATE_TO);
-    }
-
-    function requestUndelegateFrom(uint32 clientChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
-        _handleRequestWithOperator(clientChainId, lzNonce, payload, UNDELEGATE_REQUEST_LENGTH, DELEGATION_PRECOMPILE_ADDRESS, UNDELEGATE_FROM_THROUGH_CLIENT_CHAIN_FUNCTION_SELECTOR, Action.REQUEST_UNDELEGATE_FROM);
-    }
-
-    function _handleRequest(uint32 clientChainId, uint64 lzNonce, bytes calldata payload, uint256 expectedLength, address precompileAddress, bytes4 functionSelector, Action action) private {
-        _validatePayloadLength(payload, expectedLength, action);
-        _decodeAndCall(precompileAddress, functionSelector, payload, clientChainId, lzNonce, action);
-    }
-
-    function _handleRequestWithOperator(uint32 clientChainId, uint64 lzNonce, bytes calldata payload, uint256 expectedLength, address precompileAddress, bytes4 functionSelector, Action action) private {
-        _validatePayloadLength(payload, expectedLength, action);
-        _decodeAndCallWithOperator(precompileAddress, functionSelector, payload, clientChainId, lzNonce, action);
-    }
-
-    function _decodeAndCall(address precompileAddress, bytes4 functionSelector, bytes calldata payload, uint32 clientChainId, uint64 lzNonce, Action action) private {
         bytes calldata token = payload[:32];
-        bytes calldata user = payload[32:64];
+        bytes calldata depositor = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
 
-        (bool success, bytes memory responseOrReason) = precompileAddress.call(
-            abi.encodeWithSelector(functionSelector, clientChainId, token, user, amount)
-        );
-
-        uint256 updatedBalance;
-        if (success) {
-            (, updatedBalance) = abi.decode(responseOrReason, (bool, uint256));
+        (bool success, uint256 updatedBalance) = DEPOSIT_CONTRACT.depositTo(srcChainId, token, depositor, amount);
+        if (!success) {
+            revert DepositRequestShouldNotFail(srcChainId, lzNonce);
         }
-        _sendInterchainMsg(clientChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance));
+
+        _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance));
     }
 
-    function _decodeAndCallWithOperator(address precompileAddress, bytes4 functionSelector, bytes calldata payload, uint32 clientChainId, uint64 lzNonce, Action action) private {
+    function requestWithdrawPrinciple(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
+        _validatePayloadLength(
+            payload, WITHDRAW_PRINCIPLE_REQUEST_LENGTH, Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE
+        );
+
         bytes calldata token = payload[:32];
-        bytes calldata user = payload[32:64];
+        bytes calldata withdrawer = payload[32:64];
+        uint256 amount = uint256(bytes32(payload[64:96]));
+
+        try WITHDRAW_CONTRACT.withdrawPrinciple(srcChainId, token, withdrawer, amount) returns (
+            bool success, uint256 updatedBalance
+        ) {
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance));
+        } catch {
+            emit ExocorePrecompileError(WITHDRAW_PRECOMPILE_ADDRESS, lzNonce);
+
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, uint256(0)));
+        }
+    }
+
+    function requestWithdrawReward(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
+        _validatePayloadLength(payload, CLAIM_REWARD_REQUEST_LENGTH, Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE);
+
+        bytes calldata token = payload[:32];
+        bytes calldata withdrawer = payload[32:64];
+        uint256 amount = uint256(bytes32(payload[64:96]));
+
+        try CLAIM_REWARD_CONTRACT.claimReward(srcChainId, token, withdrawer, amount) returns (
+            bool success, uint256 updatedBalance
+        ) {
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance));
+        } catch {
+            emit ExocorePrecompileError(CLAIM_REWARD_PRECOMPILE_ADDRESS, lzNonce);
+
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, uint256(0)));
+        }
+    }
+
+    function requestDelegateTo(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+        _validatePayloadLength(payload, DELEGATE_REQUEST_LENGTH, Action.REQUEST_DELEGATE_TO);
+
+        bytes calldata token = payload[:32];
+        bytes calldata delegator = payload[32:64];
         bytes calldata operator = payload[64:106];
         uint256 amount = uint256(bytes32(payload[106:138]));
 
-        (bool success,) = precompileAddress.call(
-            abi.encodeWithSelector(functionSelector, clientChainId, lzNonce, token, user, operator, amount)
-        );
-        _sendInterchainMsg(clientChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
+        try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, delegator, operator, amount)
+        returns (bool success) {
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
+        } catch {
+            emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
+
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false));
+        }
+    }
+
+    function requestUndelegateFrom(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
+        _validatePayloadLength(payload, UNDELEGATE_REQUEST_LENGTH, Action.REQUEST_UNDELEGATE_FROM);
+
+        bytes memory token = payload[:32];
+        bytes memory delegator = payload[32:64];
+        bytes memory operator = payload[64:106];
+        uint256 amount = uint256(bytes32(payload[106:138]));
+
+        try DELEGATION_CONTRACT.undelegateFromThroughClientChain(
+            srcChainId, lzNonce, token, delegator, operator, amount
+        ) returns (bool success) {
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
+        } catch {
+            emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
+
+            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false));
+        }
     }
 
     function _validatePayloadLength(bytes calldata payload, uint256 expectedLength, Action action) private pure {
@@ -169,31 +227,32 @@ OAppUpgradeable
         }
     }
 
-    function _sendInterchainMsg(uint32 clientChainId, Action act, bytes memory actionArgs) internal whenNotPaused {
+    function _sendInterchainMsg(uint32 srcChainId, Action act, bytes memory actionArgs) internal whenNotPaused {
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        bytes memory options = OptionsBuilder.newOptions()
-            .addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE)
-            .addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(clientChainId, payload, options, false);
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
+        MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
-        MessagingReceipt memory receipt = _lzSend(clientChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, true);
+        MessagingReceipt memory receipt =
+            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, true);
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    function quote(uint32 clientChainId, bytes memory _message) public view returns (uint256 nativeFee) {
-        bytes memory options = OptionsBuilder.newOptions()
-            .addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE)
-            .addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(clientChainId, _message, options, false);
+    function quote(uint32 srcChainid, bytes memory _message) public view returns (uint256 nativeFee) {
+        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
+            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
+        ).addExecutorOrderedExecutionOption();
+        MessagingFee memory fee = _quote(srcChainid, _message, options, false);
         return fee.nativeFee;
     }
 
     function nextNonce(uint32 srcEid, bytes32 sender)
-    public
-    view
-    virtual
-    override(ILayerZeroReceiver, OAppReceiverUpgradeable)
-    returns (uint64)
+        public
+        view
+        virtual
+        override(ILayerZeroReceiver, OAppReceiverUpgradeable)
+        returns (uint64)
     {
         return inboundNonce[srcEid][sender] + 1;
     }
@@ -204,4 +263,5 @@ OAppUpgradeable
             revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
         }
     }
+
 }

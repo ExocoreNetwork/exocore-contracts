@@ -11,7 +11,6 @@ contract ETHPOSDepositMock is IETHPOSDeposit {
         bytes32 deposit_data_root
     ) external payable {}
 
-
     function get_deposit_root() external pure returns (bytes32) {
         bytes32 root;
         return root;
@@ -23,5 +22,5 @@ contract ETHPOSDepositMock is IETHPOSDeposit {
         bytes memory root;
         return root;
     }
-}
 
+}

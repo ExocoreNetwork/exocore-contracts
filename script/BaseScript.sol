@@ -1,18 +1,27 @@
 pragma solidity ^0.8.19;
 
-import "../src/interfaces/IClientChainGateway.sol";
-import "../src/interfaces/IVault.sol";
-import "../src/interfaces/IExocoreGateway.sol";
-import "../src/interfaces/IExoCapsule.sol";
 import "../src/core/BeaconProxyBytecode.sol";
+import "../src/interfaces/IClientChainGateway.sol";
+import "../src/interfaces/IExoCapsule.sol";
+import "../src/interfaces/IExocoreGateway.sol";
+import "../src/interfaces/IVault.sol";
 
-import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import "../src/interfaces/precompiles/IClaimReward.sol";
+import "../src/interfaces/precompiles/IDelegation.sol";
+import "../src/interfaces/precompiles/IDeposit.sol";
+import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
+
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import {
+    ERC20PresetFixedSupply,
+    IERC20
+} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
 contract BaseScript is Script {
+
     struct Player {
         uint256 privateKey;
         address addr;
@@ -51,8 +60,8 @@ contract BaseScript is Script {
     uint256 clientChain;
     uint256 exocore;
 
-    uint16 constant exocoreChainId = 40259;
-    uint16 constant clientChainId = 40161;
+    uint16 constant exocoreChainId = 40_259;
+    uint16 constant clientChainId = 40_161;
 
     address constant sepoliaEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
     address constant exocoreEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
@@ -85,7 +94,7 @@ contract BaseScript is Script {
         useExocorePrecompileMock = vm.envBool("USE_EXOCORE_PRECOMPILE_MOCK");
         console.log("NOTICE: using exocore precompiles mock", useExocorePrecompileMock);
 
-        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
+        clientChainRPCURL = vm.envString("HOLESKY_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
     }
 
@@ -93,13 +102,13 @@ contract BaseScript is Script {
         uint256 GENESIS_BLOCK_TIMESTAMP;
 
         if (block.chainid == 1) {
-            GENESIS_BLOCK_TIMESTAMP = 1606824023;
+            GENESIS_BLOCK_TIMESTAMP = 1_606_824_023;
         } else if (block.chainid == 5) {
-            GENESIS_BLOCK_TIMESTAMP = 1616508000;
-        } else if (block.chainid == 11155111) {
-            GENESIS_BLOCK_TIMESTAMP = 1655733600;
-        } else if (block.chainid == 17000) {
-            GENESIS_BLOCK_TIMESTAMP = 1695902400;
+            GENESIS_BLOCK_TIMESTAMP = 1_616_508_000;
+        } else if (block.chainid == 11_155_111) {
+            GENESIS_BLOCK_TIMESTAMP = 1_655_733_600;
+        } else if (block.chainid == 17_000) {
+            GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
         } else {
             revert("Unsupported chainId.");
         }
@@ -107,4 +116,44 @@ contract BaseScript is Script {
         EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
         return oracle;
     }
+
+    function _bindPrecompileMocks() internal {
+        // bind precompile mock contracts code to constant precompile address so that local simulation could pass
+        bytes memory DepositMockCode = vm.getDeployedCode("DepositWithdrawMock.sol");
+        vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, DepositMockCode);
+
+        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
+        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
+
+        bytes memory WithdrawPrincipleMockCode = vm.getDeployedCode("DepositWithdrawMock.sol");
+        vm.etch(WITHDRAW_PRECOMPILE_ADDRESS, WithdrawPrincipleMockCode);
+
+        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
+        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+    }
+
+    function _topUpPlayer(
+        uint256 chain,
+        address token,
+        Player memory provider,
+        address recipient,
+        uint256 targetBalance
+    ) internal {
+        vm.selectFork(chain);
+        vm.startBroadcast(provider.privateKey);
+
+        if (token == address(0)) {
+            if (recipient.balance < targetBalance) {
+                (bool sent,) = recipient.call{value: targetBalance - recipient.balance}("");
+                require(sent, "Failed to send Ether");
+            }
+        } else {
+            uint256 currentBalance = IERC20(token).balanceOf(recipient);
+            if (currentBalance < targetBalance) {
+                IERC20(token).transfer(recipient, targetBalance - currentBalance);
+            }
+        }
+        vm.stopBroadcast();
+    }
+
 }

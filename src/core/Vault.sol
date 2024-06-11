@@ -1,14 +1,15 @@
 pragma solidity ^0.8.19;
 
-import {VaultStorage} from "../storage/VaultStorage.sol";
-import {IVault} from "../interfaces/IVault.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
+import {IVault} from "../interfaces/IVault.sol";
+import {VaultStorage} from "../storage/VaultStorage.sol";
 
 import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
 contract Vault is Initializable, VaultStorage, IVault {
+
     using SafeERC20 for IERC20;
 
     modifier onlyGateway() {
@@ -22,7 +23,7 @@ contract Vault is Initializable, VaultStorage, IVault {
 
     function initialize(address underlyingToken_, address gateway_) external initializer {
         require(underlyingToken_ != address(0), "Vault: underlying token can not be empty");
-        require(gateway_!= address(0), "VaultStorage: the gateway address should not be empty");
+        require(gateway_ != address(0), "VaultStorage: the gateway address should not be empty");
 
         underlyingToken = IERC20(underlyingToken_);
         gateway = ILSTRestakingController(gateway_);
@@ -85,4 +86,5 @@ contract Vault is Initializable, VaultStorage, IVault {
 
         emit WithdrawableBalanceUpdated(user, unlockPrincipleAmount, unlockRewardAmount);
     }
+
 }

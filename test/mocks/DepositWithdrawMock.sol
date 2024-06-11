@@ -4,6 +4,7 @@ import {IDeposit} from "../../src/interfaces/precompiles/IDeposit.sol";
 import {IWithdraw} from "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 
 contract DepositWithdrawMock is IDeposit, IWithdraw {
+
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principleBalances;
 
     function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
@@ -14,7 +15,7 @@ contract DepositWithdrawMock is IDeposit, IWithdraw {
         require(stakerAddress.length == 32, "invalid staker address");
         principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
 
-        return (success, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);
+        return (true, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
     function withdrawPrinciple(
@@ -28,7 +29,7 @@ contract DepositWithdrawMock is IDeposit, IWithdraw {
         require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
         principleBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
 
-        return (success, principleBalances[clientChainLzId][assetsAddress][withdrawer]);
+        return (true, principleBalances[clientChainLzId][assetsAddress][withdrawer]);
     }
 
     function getPrincipleBalance(uint32 clientChainLzId, address token, address staker) public view returns (uint256) {
@@ -38,4 +39,5 @@ contract DepositWithdrawMock is IDeposit, IWithdraw {
     function _addressToBytes(address addr) internal pure returns (bytes memory) {
         return abi.encodePacked(bytes32(bytes20(addr)));
     }
+
 }

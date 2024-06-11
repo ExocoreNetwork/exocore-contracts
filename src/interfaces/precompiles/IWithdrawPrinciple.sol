@@ -11,6 +11,7 @@ IWithdraw constant WITHDRAW_CONTRACT = IWithdraw(WITHDRAW_PRECOMPILE_ADDRESS);
 /// @dev The interface through which solidity contracts will interact with WITHDRAW
 /// @custom:address 0x0000000000000000000000000000000000000808
 interface IWithdraw {
+
     /// TRANSACTIONS
     /// @dev withdraw To the staker, that will change the state in withdraw module
     /// Note that this address cannot be a module account.
@@ -24,4 +25,5 @@ interface IWithdraw {
         bytes memory withdrawAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
+
 }

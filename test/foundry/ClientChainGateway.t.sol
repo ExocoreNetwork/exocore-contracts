@@ -1,27 +1,32 @@
 pragma solidity ^0.8.19;
 
-import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 import "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import "forge-std/console.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 import "../../src/core/ClientChainGateway.sol";
-import {Vault} from "../../src/core/Vault.sol";
+
 import "../../src/core/ExoCapsule.sol";
 import "../../src/core/ExocoreGateway.sol";
-import {EndpointV2Mock} from "../mocks/EndpointV2Mock.sol";
+import {Vault} from "../../src/core/Vault.sol";
+
+import "../../src/interfaces/IExoCapsule.sol";
+import "../../src/interfaces/IVault.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../../src/interfaces/IVault.sol";
-import "../../src/interfaces/IExoCapsule.sol";
+import {EndpointV2Mock} from "../mocks/EndpointV2Mock.sol";
+
 import "src/core/BeaconProxyBytecode.sol";
 
-contract ClientChainGatewayTest is Test {
+contract SetUp is Test {
+
     Player[] players;
     address[] whitelistTokens;
     Player exocoreValidatorSet;
@@ -77,9 +82,8 @@ contract ClientChainGatewayTest is Test {
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
 
-        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
         beaconProxyBytecode = new BeaconProxyBytecode();
-        
+
         restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e16, exocoreValidatorSet.addr);
         whitelistTokens.push(address(restakeToken));
 
@@ -97,10 +101,7 @@ contract ClientChainGatewayTest is Test {
             payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))
         );
 
-        clientGateway.initialize(
-            payable(exocoreValidatorSet.addr),
-            whitelistTokens
-        );
+        clientGateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens);
 
         vm.stopPrank();
     }
@@ -110,16 +111,16 @@ contract ClientChainGatewayTest is Test {
 
         // mainnet
         if (block.chainid == 1) {
-            GENESIS_BLOCK_TIMESTAMP = 1606824023;
-        // goerli
+            GENESIS_BLOCK_TIMESTAMP = 1_606_824_023;
+            // goerli
         } else if (block.chainid == 5) {
-            GENESIS_BLOCK_TIMESTAMP = 1616508000;
-        // sepolia
-        } else if (block.chainid == 11155111) {
-            GENESIS_BLOCK_TIMESTAMP = 1655733600;
-        // holesky
-        } else if (block.chainid == 17000) {
-            GENESIS_BLOCK_TIMESTAMP = 1695902400;
+            GENESIS_BLOCK_TIMESTAMP = 1_616_508_000;
+            // sepolia
+        } else if (block.chainid == 11_155_111) {
+            GENESIS_BLOCK_TIMESTAMP = 1_655_733_600;
+            // holesky
+        } else if (block.chainid == 17_000) {
+            GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
         } else {
             revert("Unsupported chainId.");
         }
@@ -127,6 +128,10 @@ contract ClientChainGatewayTest is Test {
         EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
         return oracle;
     }
+
+}
+
+contract Pausable is SetUp {
 
     function test_PauseClientChainGateway() public {
         vm.expectEmit(true, true, true, true, address(clientGateway));
@@ -175,4 +180,5 @@ contract ClientChainGatewayTest is Test {
         vm.expectRevert(EnforcedPause.selector);
         clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
     }
+
 }

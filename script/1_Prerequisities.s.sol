@@ -1,16 +1,18 @@
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import {NonShortCircuitEndpointV2Mock} from "test/mocks/NonShortCircuitEndpointV2Mock.sol";
+import "./BaseScript.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "forge-std/Script.sol";
+
 import "test/mocks/ClaimRewardMock.sol";
 import "test/mocks/DelegationMock.sol";
 import "test/mocks/DepositWithdrawMock.sol";
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
-import "./BaseScript.sol";
+import {NonShortCircuitEndpointV2Mock} from "test/mocks/NonShortCircuitEndpointV2Mock.sol";
 
 contract PrerequisitiesScript is BaseScript {
+
     function setUp() public virtual override {
         super.setUp();
 
@@ -18,12 +20,7 @@ contract PrerequisitiesScript is BaseScript {
 
         // transfer some eth to deployer address
         exocore = vm.createSelectFork(exocoreRPCURL);
-        vm.startBroadcast(exocoreGenesis.privateKey);
-        if (deployer.addr.balance < 1 ether) {
-            (bool sent,) = deployer.addr.call{value: 1 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        vm.stopBroadcast();
+        _topUpPlayer(exocore, address(0), exocoreGenesis, deployer.addr, 1 ether);
     }
 
     function run() public {
@@ -79,4 +76,5 @@ contract PrerequisitiesScript is BaseScript {
 
         vm.writeJson(finalJson, "script/prerequisiteContracts.json");
     }
+
 }

@@ -1,9 +1,10 @@
 pragma solidity ^0.8.19;
 
-import {IExoCapsule} from "./IExoCapsule.sol";
 import {IBaseRestakingController} from "./IBaseRestakingController.sol";
+import {IExoCapsule} from "./IExoCapsule.sol";
 
 interface INativeRestakingController is IBaseRestakingController {
+
     /// *** function signatures for staker operations ***
 
     /**
@@ -18,7 +19,8 @@ interface INativeRestakingController is IBaseRestakingController {
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable;
 
     /**
-     * @notice Ethereum native restaker could call this function to create owned ExoCapsule before staking to beacon chain.
+     * @notice Ethereum native restaker could call this function to create owned ExoCapsule before staking to beacon
+     * chain.
      */
     function createExoCapsule() external returns (address capsule);
 
@@ -44,11 +46,13 @@ interface INativeRestakingController is IBaseRestakingController {
      * from beacon chain is done and unlock withdrawn ETH to be claimable for ExoCapsule owner.
      * @param validatorContainer is the data structure included in `BeaconState` of `BeaconBlock` that contains beacon chain validator information,
      * refer to: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#validator
-     * @param validatorProof is the merkle proof needed for verifying that `validatorContainer` is included in some beacon block root.
-     * @param withdrawalContainer is the data structure included in `ExecutionPayload` of `BeaconBlockBody` that contains
-     * withdrawals from beacon chain to execution layer(partial/full), refer to:
+     * @param validatorProof is the merkle proof needed for verifying that `validatorContainer` is included in some
+     * beacon block root.
+     * @param withdrawalContainer is the data structure included in `ExecutionPayload` of `BeaconBlockBody` that
+     * contains withdrawals from beacon chain to execution layer(partial/full), refer to:
      * https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#withdrawal
-     * @param withdrawalProof is the merkle proof needed for verifying that `withdrawalContainer` is included in some beacon block root.
+     * @param withdrawalProof is the merkle proof needed for verifying that `withdrawalContainer` is included in some
+     * beacon block root.
      */
 
     /**
@@ -59,11 +63,13 @@ interface INativeRestakingController is IBaseRestakingController {
      * in response to be cliamable for ExoCapsule owner.
      * @param validatorContainer is the data structure included in `BeaconState` of `BeaconBlock` that contains beacon chain validator information,
      * refer to: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#validator
-     * @param validatorProof is the merkle proof needed for verifying that `validatorContainer` is included in some beacon block root.
-     * @param withdrawalContainer is the data structure included in `ExecutionPayload` of `BeaconBlockBody` that contains
-     * withdrawals from beacon chain to execution layer(partial/full), refer to:
+     * @param validatorProof is the merkle proof needed for verifying that `validatorContainer` is included in some
+     * beacon block root.
+     * @param withdrawalContainer is the data structure included in `ExecutionPayload` of `BeaconBlockBody` that
+     * contains withdrawals from beacon chain to execution layer(partial/full), refer to:
      * https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#withdrawal
-     * @param withdrawalProof is the merkle proof needed for verifying that `withdrawalContainer` is included in some beacon block root.
+     * @param withdrawalProof is the merkle proof needed for verifying that `withdrawalContainer` is included in some
+     * beacon block root.
      */
     function processBeaconChainWithdrawal(
         bytes32[] calldata validatorContainer,

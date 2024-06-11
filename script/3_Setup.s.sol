@@ -1,16 +1,19 @@
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../src/interfaces/IClientChainGateway.sol";
-import "../src/interfaces/IVault.sol";
+
 import "../src/interfaces/IExocoreGateway.sol";
+import "../src/interfaces/IVault.sol";
 import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";
+
+import {BaseScript} from "./BaseScript.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
-import {BaseScript} from "./BaseScript.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "forge-std/Script.sol";
 
 contract SetupScript is BaseScript {
+
     using AddressCast for address;
 
     function setUp() public virtual override {
@@ -39,20 +42,10 @@ contract SetupScript is BaseScript {
 
         // transfer some gas fee to exocore validator set address
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        vm.startBroadcast(deployer.privateKey);
-        if (exocoreValidatorSet.addr.balance < 0.1 ether) {
-            (bool sent,) = exocoreValidatorSet.addr.call{value: 0.1 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        vm.stopBroadcast();
+        _topUpPlayer(clientChain, address(0), deployer, exocoreValidatorSet.addr, 0.2 ether);
 
         exocore = vm.createSelectFork(exocoreRPCURL);
-        vm.startBroadcast(exocoreGenesis.privateKey);
-        if (exocoreValidatorSet.addr.balance < 1 ether) {
-            (bool sent,) = exocoreValidatorSet.addr.call{value: 1 ether}("");
-            require(sent, "Failed to send Ether");
-        }
-        vm.stopBroadcast();
+        _topUpPlayer(exocore, address(0), exocoreGenesis, exocoreValidatorSet.addr, 0.2 ether);
     }
 
     function run() public {
@@ -67,7 +60,8 @@ contract SetupScript is BaseScript {
             );
         }
 
-        // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive messages
+        // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive
+        // messages
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         vm.stopBroadcast();
 
@@ -84,4 +78,5 @@ contract SetupScript is BaseScript {
         exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
         vm.stopBroadcast();
     }
+
 }

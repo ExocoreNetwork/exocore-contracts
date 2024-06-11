@@ -1,14 +1,15 @@
 {
   "clientChain": {
-    "beaconOracle": "0x0000000000000000000000000000000000000000",
+    "beaconOracle": "0xd3D285cd1516038dAED61B8BF7Ae2daD63662492",
+    "beaconProxyBytecode": "0xA15Ce26ba8E50ac21ecDa1791BAa3bf22a95b575",
     "erc20Token": "0x83E6850591425e3C1E263c054f4466838B9Bd9e4",
-    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
+    "lzEndpoint": "0x43B57f4fA1E4445296c133B1C3814655E2d77c35"
   },
   "exocore": {
-    "claimRewardPrecompileMock": "0xF74ebB6772D74C92F39a5ef188166d7E664203fA",
-    "delegationPrecompileMock": "0x8700Cb31b3A29Fd0035F21b26B2F21EfDD9AF8Ab",
-    "depositPrecompileMock": "0x00486175f0E82ef26022C308FfE43753c4045FF3",
-    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
-    "withdrawPrecompileMock": "0x00486175f0E82ef26022C308FfE43753c4045FF3"
+    "claimRewardPrecompileMock": "0xE66204F6BdE875035C63437dbfbf1B497e8CF455",
+    "delegationPrecompileMock": "0x0b63680102cba1F0eD462028e2DBDde4234c1C7B",
+    "depositPrecompileMock": "0x07097210995b2ec23582Feeb0a8c234BB0c50787",
+    "lzEndpoint": "0x90153d62284B67A2D8e9F3473F9CaF2078731da2",
+    "withdrawPrecompileMock": "0x07097210995b2ec23582Feeb0a8c234BB0c50787"
   }
 }

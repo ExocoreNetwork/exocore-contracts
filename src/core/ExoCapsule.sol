@@ -1,13 +1,13 @@
 pragma solidity ^0.8.19;
 
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
-import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
-import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
-import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
+
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
+import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
-import "forge-std/console.sol";
+import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
+
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 
@@ -214,10 +214,9 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         }
     }
 
-    function withdraw(uint256 amount, address recipient) external onlyGateway {
+    function withdraw(uint256 amount, address payable recipient) external onlyGateway {
         require(
-            amount <= withdrawableBalance,
-            "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
+            amount <= withdrawableBalance, "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
         );
 
         withdrawableBalance -= amount;
@@ -397,4 +396,5 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         );
         return uint64((timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH);
     }
+
 }

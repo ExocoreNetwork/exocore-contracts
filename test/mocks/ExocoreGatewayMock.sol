@@ -1,15 +1,24 @@
 pragma solidity ^0.8.19;
 
-import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {OAppUpgradeable, Origin, MessagingFee, MessagingReceipt, OAppReceiverUpgradeable} from "src/lzApp/OAppUpgradeable.sol";
 import {BytesLib} from "@layerzero-contracts/util/BytesLib.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import {IExocoreGateway} from "src/interfaces/IExocoreGateway.sol";
+
 import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
+import {ECDSA} from "@openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol";
+import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+
+import {IExocoreGateway} from "src/interfaces/IExocoreGateway.sol";
 import {IClientChains} from "src/interfaces/precompiles/IClientChains.sol";
+import {
+    MessagingFee,
+    MessagingReceipt,
+    OAppReceiverUpgradeable,
+    OAppUpgradeable,
+    Origin
+} from "src/lzApp/OAppUpgradeable.sol";
 
 contract ExocoreGatewayMock is
     Initializable,
@@ -18,6 +27,7 @@ contract ExocoreGatewayMock is
     IExocoreGateway,
     OAppUpgradeable
 {
+
     using OptionsBuilder for bytes;
 
     enum Action {
@@ -55,7 +65,7 @@ contract ExocoreGatewayMock is
     uint256 constant WITHDRAW_PRINCIPLE_REQUEST_LENGTH = 96;
     uint256 constant CLAIM_REWARD_REQUEST_LENGTH = 96;
 
-    uint128 constant DESTINATION_GAS_LIMIT = 500000;
+    uint128 constant DESTINATION_GAS_LIMIT = 500_000;
     uint128 constant DESTINATION_MSG_VALUE = 0;
 
     mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) inboundNonce;
@@ -133,14 +143,16 @@ contract ExocoreGatewayMock is
 
     function pause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "ExocoreGateway: caller is not Exocore validator set aggregated address"
+            msg.sender == exocoreValidatorSetAddress,
+            "ExocoreGateway: caller is not Exocore validator set aggregated address"
         );
         _pause();
     }
 
     function unpause() external {
         require(
-            msg.sender == exocoreValidatorSetAddress, "ExocoreGateway: caller is not Exocore validator set aggregated address"
+            msg.sender == exocoreValidatorSetAddress,
+            "ExocoreGateway: caller is not Exocore validator set aggregated address"
         );
         _unpause();
     }
@@ -171,13 +183,7 @@ contract ExocoreGatewayMock is
         uint256 amount = uint256(bytes32(payload[64:96]));
 
         (bool success, bytes memory responseOrReason) = DEPOSIT_PRECOMPILE_MOCK_ADDRESS.call(
-            abi.encodeWithSelector(
-                DEPOSIT_FUNCTION_SELECTOR,
-                srcChainId,
-                token,
-                depositor,
-                amount
-            )
+            abi.encodeWithSelector(DEPOSIT_FUNCTION_SELECTOR, srcChainId, token, depositor, amount)
         );
 
         uint256 lastlyUpdatedPrincipleBalance;
@@ -194,7 +200,9 @@ contract ExocoreGatewayMock is
         onlyCalledFromThis
     {
         if (payload.length != WITHDRAW_PRINCIPLE_REQUEST_LENGTH) {
-            revert InvalidRequestLength(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, WITHDRAW_PRINCIPLE_REQUEST_LENGTH, payload.length);
+            revert InvalidRequestLength(
+                Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, WITHDRAW_PRINCIPLE_REQUEST_LENGTH, payload.length
+            );
         }
 
         bytes calldata token = payload[:32];
@@ -202,13 +210,7 @@ contract ExocoreGatewayMock is
         uint256 amount = uint256(bytes32(payload[64:96]));
 
         (bool success, bytes memory responseOrReason) = WITHDRAW_PRINCIPLE_PRECOMPILE_MOCK_ADDRESS.call(
-            abi.encodeWithSelector(
-                WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR,
-                srcChainId,
-                token,
-                withdrawer,
-                amount
-            )
+            abi.encodeWithSelector(WITHDRAW_PRINCIPLE_FUNCTION_SELECTOR, srcChainId, token, withdrawer, amount)
         );
 
         uint256 lastlyUpdatedPrincipleBalance;
@@ -225,7 +227,9 @@ contract ExocoreGatewayMock is
         onlyCalledFromThis
     {
         if (payload.length != CLAIM_REWARD_REQUEST_LENGTH) {
-            revert InvalidRequestLength(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, CLAIM_REWARD_REQUEST_LENGTH, payload.length);
+            revert InvalidRequestLength(
+                Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, CLAIM_REWARD_REQUEST_LENGTH, payload.length
+            );
         }
 
         bytes calldata token = payload[:32];
@@ -233,13 +237,7 @@ contract ExocoreGatewayMock is
         uint256 amount = uint256(bytes32(payload[64:96]));
 
         (bool success, bytes memory responseOrReason) = CLAIM_REWARD_PRECOMPILE_MOCK_ADDRESS.call(
-            abi.encodeWithSelector(
-                CLAIM_REWARD_FUNCTION_SELECTOR,
-                srcChainId,
-                token,
-                withdrawer,
-                amount
-            )
+            abi.encodeWithSelector(CLAIM_REWARD_FUNCTION_SELECTOR, srcChainId, token, withdrawer, amount)
         );
 
         uint256 lastlyUpdatedRewardBalance;
@@ -336,4 +334,5 @@ contract ExocoreGatewayMock is
             revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
         }
     }
+
 }

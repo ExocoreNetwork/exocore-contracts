@@ -2,14 +2,15 @@
 
 pragma solidity ^0.8.20;
 
+import {ILayerZeroEndpointV2, IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {IOAppCore, ILayerZeroEndpointV2} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 
 /**
  * @title OAppCoreUpgradeable
  * @dev Abstract contract implementing the IOAppCore interface with basic OApp configurations.
  */
 abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
+
     // The LayerZero endpoint associated with the given OApp
     ILayerZeroEndpointV2 public immutable endpoint;
 
@@ -32,7 +33,9 @@ abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
      * @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
      */
     function __OAppCore_init(address _delegate) internal onlyInitializing {
-        if (_delegate == address(0)) revert InvalidDelegate();
+        if (_delegate == address(0)) {
+            revert InvalidDelegate();
+        }
         endpoint.setDelegate(_delegate);
         __Ownable_init_unchained(_delegate);
     }
@@ -42,7 +45,9 @@ abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
      * @param _delegate The delegate capable of making OApp configurations inside of the endpoint.
      */
     function __OAppCore_init_unchained(address _delegate) internal onlyInitializing {
-        if (_delegate == address(0)) revert InvalidDelegate();
+        if (_delegate == address(0)) {
+            revert InvalidDelegate();
+        }
         endpoint.setDelegate(_delegate);
     }
 
@@ -69,7 +74,9 @@ abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
      */
     function _getPeerOrRevert(uint32 _eid) internal view virtual returns (bytes32) {
         bytes32 peer = peers[_eid];
-        if (peer == bytes32(0)) revert NoPeer(_eid);
+        if (peer == bytes32(0)) {
+            revert NoPeer(_eid);
+        }
         return peer;
     }
 
@@ -78,9 +85,11 @@ abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
      * @param _delegate The address of the delegate to be set.
      *
      * @dev Only the owner/admin of the OApp can call this function.
-     * @dev Provides the ability for a delegate to set configs, on behalf of the OApp, directly on the Endpoint contract.
+     * @dev Provides the ability for a delegate to set configs, on behalf of the OApp, directly on the Endpoint
+     * contract.
      */
     function setDelegate(address _delegate) public onlyOwner {
         endpoint.setDelegate(_delegate);
     }
+
 }

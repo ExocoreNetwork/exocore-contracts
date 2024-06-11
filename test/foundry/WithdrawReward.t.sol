@@ -1,14 +1,16 @@
 pragma solidity ^0.8.19;
 
-import "./ExocoreDeployer.t.sol";
-import "forge-std/Test.sol";
 import "../../src/core/ExocoreGateway.sol";
 import "../../src/storage/GatewayStorage.sol";
-import "forge-std/console.sol";
-import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import "./ExocoreDeployer.t.sol";
+
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 contract WithdrawRewardTest is ExocoreDeployer {
+
     using AddressCast for address;
 
     event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
@@ -18,7 +20,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
     event NewPacket(uint32, address, bytes32, uint64, bytes);
 
-    uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
+    uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
 
     function test_WithdrawRewardByLayerZero() public {
         Player memory withdrawer = players[0];
@@ -54,7 +56,8 @@ contract WithdrawRewardTest is ExocoreDeployer {
         );
         clientGateway.withdrawRewardFromExocore{value: requestNativeFee}(address(restakeToken), withdrawAmount);
 
-        // second layerzero relayers should watch the request message packet and relay the message to destination endpoint
+        // second layerzero relayers should watch the request message packet and relay the message to destination
+        // endpoint
 
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
@@ -80,7 +83,8 @@ contract WithdrawRewardTest is ExocoreDeployer {
             bytes("")
         );
 
-        // third layerzero relayers should watch the response message packet and relay the message to source chain endpoint
+        // third layerzero relayers should watch the response message packet and relay the message to source chain
+        // endpoint
 
         // client chain gateway should execute the response hook and emit depositResult event
         vm.expectEmit(true, true, true, true, address(clientGateway));
@@ -105,4 +109,5 @@ contract WithdrawRewardTest is ExocoreDeployer {
             );
         }
     }
+
 }

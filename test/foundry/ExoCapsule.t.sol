@@ -1,17 +1,18 @@
 pragma solidity ^0.8.19;
 
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "forge-std/console.sol";
 import "forge-std/Test.sol";
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import "forge-std/console.sol";
 
-import "src/interfaces/IExoCapsule.sol";
 import "src/core/ExoCapsule.sol";
-import {ExoCapsuleStorage} from "src/storage/ExoCapsuleStorage.sol";
+import "src/interfaces/IExoCapsule.sol";
+
 import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
+import {ExoCapsuleStorage} from "src/storage/ExoCapsuleStorage.sol";
 
 contract DepositSetup is Test {
     using stdStorage for StdStorage;
@@ -19,14 +20,14 @@ contract DepositSetup is Test {
 
     bytes32[] validatorContainer;
     /**
-        struct ValidatorContainerProof {
-            uint256 beaconBlockTimestamp;
-            bytes32 stateRoot;
-            bytes32[] stateRootProof;
-            bytes32[] validatorContainerRootProof;
-            uint256 validatorContainerRootIndex;
-        }
-    */
+     * struct ValidatorContainerProof {
+     *         uint256 beaconBlockTimestamp;
+     *         bytes32 stateRoot;
+     *         bytes32[] stateRootProof;
+     *         bytes32[] validatorContainerRootProof;
+     *         uint256 validatorContainerRootIndex;
+     *     }
+     */
     IExoCapsule.ValidatorContainerProof validatorProof;
     bytes32 beaconBlockRoot;
 
@@ -34,7 +35,7 @@ contract DepositSetup is Test {
     IBeaconChainOracle beaconOracle;
     address capsuleOwner;
 
-    uint256 constant BEACON_CHAIN_GENESIS_TIME = 1606824023;
+    uint256 constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
     /// @notice The number of slots each epoch in the beacon chain
     uint64 internal constant SLOTS_PER_EPOCH = 32;
     /// @notice The number of seconds in a slot in the beacon chain
@@ -89,8 +90,6 @@ contract DepositSetup is Test {
         stdstore.target(capsuleAddress).sig("beaconOracle()").checked_write(
             bytes32(uint256(uint160(address(beaconOracle))))
         );
-
-        stdstore.target(capsuleAddress).sig("hasRestaked()").checked_write(true);
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
@@ -116,6 +115,7 @@ contract DepositSetup is Test {
     function _getExitEpoch(bytes32[] storage vc) internal view returns (uint64) {
         return vc[6].fromLittleEndianUint64();
     }
+
 }
 
 contract VerifyDepositProof is DepositSetup {

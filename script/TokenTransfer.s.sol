@@ -1,21 +1,26 @@
 pragma solidity ^0.8.19;
 
-import "forge-std/Script.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "../src/core/ClientChainGateway.sol";
-import {Vault} from "../src/core/Vault.sol";
+
 import "../src/core/ExocoreGateway.sol";
+import {Vault} from "../src/core/Vault.sol";
+
+import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
 import "../src/interfaces/precompiles/IDeposit.sol";
 import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../src/interfaces/precompiles/IClaimReward.sol";
-import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
+
 import "../src/storage/GatewayStorage.sol";
+import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
+import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "forge-std/Script.sol";
+
 contract DeployScript is Script {
+
     Player[] players;
     Player depositor;
     Player clientChainDeployer;
@@ -38,7 +43,7 @@ contract DeployScript is Script {
     uint16 clientChainId = 101;
     uint256 clientChain;
     uint256 exocore;
-    uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200000;
+    uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
     uint256 constant DEPOSIT_AMOUNT = 1e22;
     uint256 constant AIRDEOP_AMOUNT = 1e28;
 
@@ -119,4 +124,5 @@ contract DeployScript is Script {
     }
 
     function run() public {}
+
 }

@@ -3,13 +3,14 @@ pragma solidity ^0.8.19;
 import "../../src/interfaces/precompiles/IDeposit.sol";
 
 contract PrecompileCallerMock {
+
     uint256 public balance;
     bool public lastDepositStatus;
 
     error PrecompileError();
 
     function deposit(uint256 amount) public {
-        (bool success, bytes memory response) = DEPOSIT_PRECOMPILE_ADDRESS.call{gas: 216147}(
+        (bool success, bytes memory response) = DEPOSIT_PRECOMPILE_ADDRESS.call{gas: 216_147}(
             abi.encodeWithSelector(
                 DEPOSIT_CONTRACT.depositTo.selector,
                 uint16(101),
@@ -25,4 +26,5 @@ contract PrecompileCallerMock {
         balance = _balance;
         lastDepositStatus = _status;
     }
+
 }

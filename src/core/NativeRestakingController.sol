@@ -1,10 +1,11 @@
 pragma solidity ^0.8.19;
 
-import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
-import {ExoCapsule} from "./ExoCapsule.sol";
-import {BaseRestakingController} from "./BaseRestakingController.sol";
+import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
+
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
+import {BaseRestakingController} from "./BaseRestakingController.sol";
+import {ExoCapsule} from "./ExoCapsule.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -14,6 +15,7 @@ abstract contract NativeRestakingController is
     INativeRestakingController,
     BaseRestakingController
 {
+
     using ValidatorContainer for bytes32[];
 
     function stake(
@@ -42,10 +44,10 @@ abstract contract NativeRestakingController is
                 0,
                 bytes32(uint256(uint160(msg.sender))),
                 // set the beacon address for beacon proxy
-                abi.encodePacked(beaconProxyBytecode.getBytecode(), abi.encode(address(exoCapsuleBeacon), ""))
+                abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(EXO_CAPSULE_BEACON), ""))
             )
         );
-        capsule.initialize(address(this), msg.sender, beaconOracleAddress);
+        capsule.initialize(address(this), msg.sender, BEACON_ORACLE_ADDRESS);
         ownerToCapsule[msg.sender] = capsule;
 
         emit CapsuleCreated(msg.sender, address(capsule));

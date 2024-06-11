@@ -1,32 +1,39 @@
 pragma solidity ^0.8.19;
 
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
-import "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
-import "forge-std/console.sol";
+
 import "forge-std/Test.sol";
+import "forge-std/console.sol";
 
 import "../../src/core/ClientChainGateway.sol";
-import {Vault} from "../../src/core/Vault.sol";
+
 import "../../src/core/ExoCapsule.sol";
 import "../../src/core/ExocoreGateway.sol";
-import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
+import {Vault} from "../../src/core/Vault.sol";
+
+import {IVault} from "../../src/interfaces/IVault.sol";
+
+import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/interfaces/precompiles/IDeposit.sol";
 import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../../src/interfaces/precompiles/IClaimReward.sol";
-import "test/mocks/ETHPOSDepositMock.sol";
-import "src/libraries/Endian.sol";
-import "src/core/ExoCapsule.sol";
+import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
+
 import "src/core/BeaconProxyBytecode.sol";
+import "src/core/ExoCapsule.sol";
+import "src/libraries/Endian.sol";
+import "test/mocks/ETHPOSDepositMock.sol";
 
 contract ExocoreDeployer is Test {
+
     using AddressCast for address;
     using Endian for bytes32;
 
@@ -51,12 +58,12 @@ contract ExocoreDeployer is Test {
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
 
-    uint256 constant BEACON_CHAIN_GENESIS_TIME = 1606824023;
+    uint256 constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
     /// @notice The number of slots each epoch in the beacon chain
     uint64 internal constant SLOTS_PER_EPOCH = 32;
     /// @notice The number of seconds in a slot in the beacon chain
     uint64 internal constant SECONDS_PER_SLOT = 12;
-    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot 
+    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot
     uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
     uint256 constant GWEI_TO_WEI = 1e9;
@@ -106,9 +113,11 @@ contract ExocoreDeployer is Test {
 
         validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
         require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
-        validatorProof.stateRootProof = stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+        validatorProof.stateRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
         require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
-        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+        validatorProof.validatorContainerRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
@@ -146,7 +155,7 @@ contract ExocoreDeployer is Test {
 
         // deploy and initialize client chain contracts
         whitelistTokens.push(address(restakeToken));
-        
+
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint),
@@ -163,9 +172,7 @@ contract ExocoreDeployer is Test {
                         address(clientGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(
-                            clientGatewayLogic.initialize.selector,
-                            payable(exocoreValidatorSet.addr),
-                            whitelistTokens
+                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr), whitelistTokens
                         )
                     )
                 )
@@ -202,7 +209,8 @@ contract ExocoreDeployer is Test {
         // Exocore validator set should be the owner of gateway contracts and only owner could call these functions.
         vm.startPrank(exocoreValidatorSet.addr);
 
-        // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive messages
+        // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive
+        // messages
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
         vm.stopPrank();
@@ -226,16 +234,16 @@ contract ExocoreDeployer is Test {
 
         // mainnet
         if (block.chainid == 1) {
-            GENESIS_BLOCK_TIMESTAMP = 1606824023;
-        // goerli
+            GENESIS_BLOCK_TIMESTAMP = 1_606_824_023;
+            // goerli
         } else if (block.chainid == 5) {
-            GENESIS_BLOCK_TIMESTAMP = 1616508000;
-        // sepolia
-        } else if (block.chainid == 11155111) {
-            GENESIS_BLOCK_TIMESTAMP = 1655733600;
-        // holesky
-        } else if (block.chainid == 17000) {
-            GENESIS_BLOCK_TIMESTAMP = 1695902400;
+            GENESIS_BLOCK_TIMESTAMP = 1_616_508_000;
+            // sepolia
+        } else if (block.chainid == 11_155_111) {
+            GENESIS_BLOCK_TIMESTAMP = 1_655_733_600;
+            // holesky
+        } else if (block.chainid == 17_000) {
+            GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
         } else {
             revert("Unsupported chainId.");
         }
@@ -267,4 +275,5 @@ contract ExocoreDeployer is Test {
     function _getEffectiveBalance(bytes32[] storage vc) internal view returns (uint64) {
         return vc[2].fromLittleEndianUint64();
     }
+
 }

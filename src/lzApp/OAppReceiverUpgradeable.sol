@@ -2,14 +2,15 @@
 
 pragma solidity ^0.8.20;
 
-import {IOAppReceiver, Origin} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppReceiver.sol";
 import {OAppCoreUpgradeable} from "./OAppCoreUpgradeable.sol";
+import {IOAppReceiver, Origin} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppReceiver.sol";
 
 /**
  * @title OAppReceiverUpgradeable
  * @dev Abstract contract implementing the ILayerZeroReceiver interface and extending OAppCore for OApp receivers.
  */
 abstract contract OAppReceiverUpgradeable is IOAppReceiver, OAppCoreUpgradeable {
+
     // Custom error message for when the caller is not the registered endpoint/
     error OnlyEndpoint(address addr);
 
@@ -24,7 +25,8 @@ abstract contract OAppReceiverUpgradeable is IOAppReceiver, OAppCoreUpgradeable 
      *
      * @dev Providing 0 as the default for OAppSender version. Indicates that the OAppSender is not implemented.
      * ie. this is a RECEIVE only OApp.
-     * @dev If the OApp uses both OAppSender and OAppReceiver, then this needs to be override returning the correct versions.
+     * @dev If the OApp uses both OAppSender and OAppReceiver, then this needs to be override returning the correct
+     * versions.
      */
     function oAppVersion() public view virtual returns (uint64 senderVersion, uint64 receiverVersion) {
         return (0, RECEIVER_VERSION);
@@ -90,10 +92,14 @@ abstract contract OAppReceiverUpgradeable is IOAppReceiver, OAppCoreUpgradeable 
         bytes calldata _extraData
     ) public payable virtual {
         // Ensures that only the endpoint can attempt to lzReceive() messages to this OApp.
-        if (address(endpoint) != msg.sender) revert OnlyEndpoint(msg.sender);
+        if (address(endpoint) != msg.sender) {
+            revert OnlyEndpoint(msg.sender);
+        }
 
         // Ensure that the sender matches the expected peer for the source endpoint.
-        if (_getPeerOrRevert(_origin.srcEid) != _origin.sender) revert OnlyPeer(_origin.srcEid, _origin.sender);
+        if (_getPeerOrRevert(_origin.srcEid) != _origin.sender) {
+            revert OnlyPeer(_origin.srcEid, _origin.sender);
+        }
 
         // Call the internal OApp implementation of lzReceive.
         _lzReceive(_origin, _message);
@@ -103,4 +109,5 @@ abstract contract OAppReceiverUpgradeable is IOAppReceiver, OAppCoreUpgradeable 
      * @dev Internal function to implement lzReceive logic without needing to copy the basic parameter validation.
      */
     function _lzReceive(Origin calldata _origin, bytes calldata _message) internal virtual;
+
 }

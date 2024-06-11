@@ -3,21 +3,22 @@
 pragma solidity ^0.8.19;
 pragma abicoder v2;
 
-import "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
+import "@layerzero-contracts/interfaces/ILayerZeroReceiver.sol";
 import "@layerzero-contracts/libraries/LzLib.sol";
 
 /*
 like a real LayerZero endpoint but can be mocked, which handle message transmission, verification, and receipt.
 - blocking: LayerZero provides ordered delivery of messages from a given sender to a destination chain.
 - non-reentrancy: endpoint has a non-reentrancy guard for both the send() and receive(), respectively.
-- adapter parameters: allows UAs to add arbitrary transaction params in the send() function, like airdrop on destination chain.
+- adapter parameters: allows UAs to add arbitrary transaction params in the send() function, like airdrop on destination
+chain.
 unlike a real LayerZero endpoint, it is
 - no messaging library versioning
 - send() will short circuit to lzReceive()
-- no user application configuration
-*/
+- no user application configuration*/
 contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
+
     uint8 internal constant _NOT_ENTERED = 1;
     uint8 internal constant _ENTERED = 2;
 
@@ -112,7 +113,7 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
         });
         protocolFeeConfig = ProtocolFeeConfig({zroFee: 1e18, nativeBP: 1000}); // BP 0.1
         oracleFee = 1e16;
-        defaultAdapterParams = LzLib.buildDefaultAdapterParams(200000);
+        defaultAdapterParams = LzLib.buildDefaultAdapterParams(200_000);
 
         exocoreValidatorSet = _exocoreValidatorSet;
     }
@@ -191,7 +192,8 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
         // assert and increment the nonce. no message shuffling
         require(_nonce == ++inboundNonce[_srcChainId][_path], "LayerZeroMock: wrong nonce");
 
-        // queue the following msgs inside of a stack to simulate a successful send on src, but not fully delivered on dst
+        // queue the following msgs inside of a stack to simulate a successful send on src, but not fully delivered on
+        // dst
         if (sp.payloadHash != bytes32(0)) {
             QueuedPayload[] storage msgs = msgsToDeliver[_srcChainId][_path];
             QueuedPayload memory newMsg = QueuedPayload(_dstAddress, _nonce, _payload);
@@ -319,12 +321,15 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
         return _receive_entered_state == _ENTERED;
     }
 
-    function getConfig(uint16, /*_version*/ uint16, /*_chainId*/ address, /*_ua*/ uint256 /*_configType*/ )
-        external
-        pure
-        override
-        returns (bytes memory)
-    {
+    function getConfig(
+        uint16,
+        /*_version*/
+        uint16,
+        /*_chainId*/
+        address,
+        /*_ua*/
+        uint256 /*_configType*/
+    ) external pure override returns (bytes memory) {
         return "";
     }
 
@@ -336,10 +341,15 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
         return 1;
     }
 
-    function setConfig(uint16, /*_version*/ uint16, /*_chainId*/ uint256, /*_configType*/ bytes memory /*_config*/ )
-        external
-        override
-    {}
+    function setConfig(
+        uint16,
+        /*_version*/
+        uint16,
+        /*_chainId*/
+        uint256,
+        /*_configType*/
+        bytes memory /*_config*/
+    ) external override {}
 
     function setSendVersion(uint16 /*version*/ ) external override {}
 
@@ -425,7 +435,7 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
         if (_payInZro) {
             return protocolFeeConfig.zroFee;
         } else {
-            return ((_relayerFee + _oracleFee) * protocolFeeConfig.nativeBP) / 10000;
+            return ((_relayerFee + _oracleFee) * protocolFeeConfig.nativeBP) / 10_000;
         }
     }
 
@@ -457,4 +467,5 @@ contract NonShortCircuitLzEndpointMock is ILayerZeroEndpoint {
 
         return basePrice + _payloadSize * pricePerByte;
     }
+
 }

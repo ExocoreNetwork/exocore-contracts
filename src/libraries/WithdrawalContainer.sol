@@ -1,15 +1,16 @@
 pragma solidity ^0.8.19;
 
-import "../libraries/Endian.sol";
+import {Endian} from "../libraries/Endian.sol";
 
 /**
  * class Withdrawal(Container):
-    index: WithdrawalIndex
-    validator_index: ValidatorIndex
-    address: ExecutionAddress
-    amount: Gwei
+ *     index: WithdrawalIndex
+ *     validator_index: ValidatorIndex
+ *     address: ExecutionAddress
+ *     amount: Gwei
  */
 library WithdrawalContainer {
+
     using Endian for bytes32;
 
     uint256 internal constant VALID_LENGTH = 4;
@@ -39,9 +40,9 @@ library WithdrawalContainer {
 
     function merklelizeWithdrawalContainer(bytes32[] calldata withdrawalContainer) internal pure returns (bytes32) {
         bytes32[] memory leaves = withdrawalContainer;
-        for (uint i; i < MERKLE_TREE_HEIGHT; i++) {
+        for (uint256 i; i < MERKLE_TREE_HEIGHT; i++) {
             bytes32[] memory roots = new bytes32[](leaves.length / 2);
-            for (uint j; j < leaves.length / 2; j++) {
+            for (uint256 j; j < leaves.length / 2; j++) {
                 roots[j] = sha256(abi.encodePacked(leaves[2 * j], leaves[2 * j + 1]));
             }
             leaves = roots;
