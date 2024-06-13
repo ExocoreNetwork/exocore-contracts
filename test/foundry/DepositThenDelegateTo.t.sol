@@ -158,8 +158,11 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         uint256 actualDepositAmount = DepositMock(DEPOSIT_PRECOMPILE_ADDRESS).principleBalances(
             clientChainId,
             // weirdly, the address(x).toBytes32() did not work here.
-            // that is because abi.encodePacked tightly packs the input
-            // and removes all zeroes.
+            // for reference, the results are
+            // addressOg = 0x0000000000000000000000000000000000000001
+            // toBytes32 = 0x0000000000000000000000000000000000000000000000000000000000000001
+            // abiEncode = 0x0000000000000000000000000000000000000001000000000000000000000000
+            // so, AddressCast left pads it while abi.encodePacked is right padding it.
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator)))
         );
