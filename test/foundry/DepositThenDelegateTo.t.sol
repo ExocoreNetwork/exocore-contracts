@@ -5,11 +5,13 @@ import "../../src/core/ExocoreGateway.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/storage/GatewayStorage.sol";
 import "../mocks/DelegationMock.sol";
+import {DepositMock} from "../mocks/DepositMock.sol";
 import "./ExocoreDeployer.t.sol";
 
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 import "forge-std/Test.sol";
 
 import "forge-std/console.sol";
@@ -52,6 +54,16 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         uint64 lzNonce = 1;
         uint256 delegateAmount = 10_000;
 
+        // ensure there is enough balance
+        vm.startPrank(exocoreValidatorSet.addr);
+        restakeToken.transfer(delegator, delegateAmount);
+        vm.stopPrank();
+
+        // approve it
+        vm.startPrank(delegator);
+        restakeToken.approve(address(vault), delegateAmount);
+        vm.stopPrank();
+
         (bytes32 requestId, bytes memory requestPayload) =
             _testRequest(delegator, operatorAddress, lzNonce, delegateAmount);
         _testResponse(requestId, requestPayload, delegator, relayer, operatorAddress, lzNonce, delegateAmount);
@@ -61,6 +73,8 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         private
         returns (bytes32 requestId, bytes memory requestPayload)
     {
+        uint256 beforeBalance = restakeToken.balanceOf(delegator);
+
         requestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
@@ -70,6 +84,9 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         );
         uint256 requestNativeFee = clientGateway.quote(requestPayload);
         requestId = generateUID(lzNonce, true);
+
+        vm.expectEmit(address(restakeToken));
+        emit IERC20.Transfer(delegator, address(vault), delegateAmount);
 
         vm.expectEmit(address(clientChainLzEndpoint));
         emit NewPacket(
@@ -84,6 +101,10 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             address(restakeToken), delegateAmount, operatorAddress
         );
         vm.stopPrank();
+
+        // check that the balance changed
+        uint256 afterBalance = restakeToken.balanceOf(delegator);
+        assertEq(afterBalance, beforeBalance - delegateAmount);
     }
 
     // even though this function is called _testResponse, it also tests
@@ -101,15 +122,15 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, responsePayload);
         bytes32 responseId = generateUID(lzNonce, false);
 
-        // vm.expectEmit(DELEGATION_PRECOMPILE_ADDRESS);
-        // emit DelegateRequestProcessed(
-        //     clientChainId,
-        //     lzNonce,
-        //     abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
-        //     abi.encodePacked(bytes32(bytes20(delegator))),
-        //     operatorAddress,
-        //     delegateAmount
-        // );
+        vm.expectEmit(DELEGATION_PRECOMPILE_ADDRESS);
+        emit DelegateRequestProcessed(
+            clientChainId,
+            lzNonce,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            abi.encodePacked(bytes32(bytes20(delegator))),
+            operatorAddress,
+            delegateAmount
+        );
 
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
         // nothing indexed here
@@ -133,6 +154,16 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             bytes("")
         );
         vm.stopPrank();
+
+        uint256 actualDepositAmount = DepositMock(DEPOSIT_PRECOMPILE_ADDRESS).principleBalances(
+            clientChainId,
+            // weirdly, the address(x).toBytes32() did not work here.
+            // that is because abi.encodePacked tightly packs the input
+            // and removes all zeroes.
+            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            abi.encodePacked(bytes32(bytes20(delegator)))
+        );
+        assertEq(actualDepositAmount, delegateAmount);
 
         uint256 actualDelegateAmount = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
             delegator, operatorAddress, clientChainId, address(restakeToken)
