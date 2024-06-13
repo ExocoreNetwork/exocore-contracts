@@ -70,8 +70,9 @@ abstract contract BaseRestakingController is
     ) internal {
         if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
             IVault vault = _getVault(token);
-            if (action == Action.REQUEST_DEPOSIT) {
-                vault.deposit(sender, amount); // Logic specific to the REQUEST_DEPOSIT action.
+            if ((action == Action.REQUEST_DEPOSIT) || (action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO)) {
+                // if there is a deposit, we should transfer the tokens to the vault.
+                vault.deposit(sender, amount);
             }
         }
         outboundNonce++;
