@@ -73,7 +73,8 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         private
         returns (bytes32 requestId, bytes memory requestPayload)
     {
-        uint256 beforeBalance = restakeToken.balanceOf(delegator);
+        uint256 beforeBalanceDelegator = restakeToken.balanceOf(delegator);
+        uint256 beforeBalanceVault = restakeToken.balanceOf(address(vault));
 
         requestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
@@ -103,8 +104,10 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         vm.stopPrank();
 
         // check that the balance changed
-        uint256 afterBalance = restakeToken.balanceOf(delegator);
-        assertEq(afterBalance, beforeBalance - delegateAmount);
+        uint256 afterBalanceDelegator = restakeToken.balanceOf(delegator);
+        assertEq(afterBalanceDelegator, beforeBalanceDelegator - delegateAmount);
+        uint256 afterBalanceVault = restakeToken.balanceOf(address(vault));
+        assertEq(afterBalanceVault, beforeBalanceVault + delegateAmount);
     }
 
     // even though this function is called _testResponse, it also tests
