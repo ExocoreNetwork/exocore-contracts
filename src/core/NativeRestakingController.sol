@@ -5,7 +5,6 @@ import {INativeRestakingController} from "../interfaces/INativeRestakingControll
 
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
-import {ExoCapsule} from "./ExoCapsule.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
