@@ -19,7 +19,7 @@ abstract contract OAppSenderUpgradeable is OAppCoreUpgradeable {
     using SafeERC20 for IERC20;
 
     // Custom error messages
-    error NotExactNative(uint256 msgValue);
+    error NotExactNativeFee(uint256 msgValue);
     error LzTokenUnavailable();
 
     // @dev The version of the OAppSender implementation.
@@ -114,7 +114,7 @@ abstract contract OAppSenderUpgradeable is OAppCoreUpgradeable {
      */
     function _payNative(uint256 _nativeFee, bool byApp) internal virtual returns (uint256 nativeFee) {
         if (!byApp && msg.value != _nativeFee) {
-            revert NotExactNative(msg.value);
+            revert NotExactNativeFee(msg.value);
         }
         return _nativeFee;
     }
