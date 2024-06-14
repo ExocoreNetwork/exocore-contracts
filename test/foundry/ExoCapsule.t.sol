@@ -87,6 +87,8 @@ contract DepositSetup is Test {
         stdstore.target(capsuleAddress).sig("beaconOracle()").checked_write(
             bytes32(uint256(uint160(address(beaconOracle))))
         );
+
+        stdstore.target(capsuleAddress).sig("hasRestaked()").checked_write(true);
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
@@ -399,6 +401,8 @@ contract WithdrawalSetup is Test {
         assertEq(validator.validatorIndex, validatorProof.validatorIndex);
         assertEq(validator.mostRecentBalanceUpdateTimestamp, validatorProof.beaconBlockTimestamp);
         assertEq(validator.restakedBalanceGwei, _getEffectiveBalance(validatorContainer));
+
+        vm.deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
     }
 
     function _setValidatorContainer(string memory withdrawalInfo) internal {
@@ -501,7 +505,20 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
         capsule.withdrawNonBeaconChainETHBalance(recipient, 0.5 ether);
     }
 
+    function test_processFullWithdrawal_success() public setValidatorContainerAndTimestamp {
+        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+    }
+
     function test_processFullWithdrawal_revert_AlreadyProcessed() public setValidatorContainerAndTimestamp {
+        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExoCapsule.WithdrawalAlreadyProven.selector,
+                _getPubkey(validatorContainer),
+                withdrawalProof.beaconBlockTimestamp
+            )
+        );
         capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
     }
 
