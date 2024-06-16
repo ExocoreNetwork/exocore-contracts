@@ -45,12 +45,8 @@ abstract contract BaseRestakingController is
         isValidBech32Address(operator)
         whenNotPaused
     {
-        bytes memory actionArgs = abi.encodePacked(
-            bytes32(bytes20(token)),
-            bytes32(bytes20(msg.sender)), 
-            bytes(operator),  
-            amount
-        );
+        bytes memory actionArgs =
+            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
         _processRequest(Action.REQUEST_DELEGATE_TO, actionArgs, encodedRequest);
     }
@@ -63,12 +59,8 @@ abstract contract BaseRestakingController is
         isValidBech32Address(operator)
         whenNotPaused
     {
-        bytes memory actionArgs = abi.encodePacked(
-            bytes32(bytes20(token)),
-            bytes32(bytes20(msg.sender)), 
-            bytes(operator),  
-            amount
-        );
+        bytes memory actionArgs =
+            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
         _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, encodedRequest);
     }

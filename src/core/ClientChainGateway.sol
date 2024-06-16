@@ -58,10 +58,7 @@ contract ClientChainGateway is
 
     // initialization happens from another contract so it must be external.
     // reinitializer(2) is used so that the ownable and oappcore functions can be called again.
-    function initialize(address payable exocoreValidatorSetAddress_)
-        external
-        reinitializer(2)
-    {
+    function initialize(address payable exocoreValidatorSetAddress_) external reinitializer(2) {
         _clearBootstrapData();
 
         require(
@@ -130,7 +127,7 @@ contract ClientChainGateway is
         require(tokens.length <= type(uint8).max, "ClientChainGateway: tokens length should not execeed 255");
 
         bytes memory actionArgs = abi.encodePacked(uint8(tokens.length));
-        for (uint i; i < tokens.length; i++) {
+        for (uint256 i; i < tokens.length; i++) {
             address token = tokens[i];
             require(token != address(0), "ClientChainGateway: zero token address");
             require(!isWhitelistedToken[token], "ClientChainGateway: token should be not whitelisted before");
@@ -169,4 +166,5 @@ contract ClientChainGateway is
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
     }
+
 }

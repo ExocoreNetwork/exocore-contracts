@@ -86,8 +86,7 @@ contract DeployScript is BaseScript {
                         address(clientGatewayLogic),
                         address(clientChainProxyAdmin),
                         abi.encodeWithSelector(
-                            clientGatewayLogic.initialize.selector, 
-                            payable(exocoreValidatorSet.addr)
+                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
                         )
                     )
                 )
@@ -107,9 +106,8 @@ contract DeployScript is BaseScript {
         ProxyAdmin exocoreProxyAdmin = new ProxyAdmin();
 
         if (useExocorePrecompileMock) {
-            ExocoreGatewayMock exocoreGatewayLogic = new ExocoreGatewayMock(
-                address(exocoreLzEndpoint), assetsMock, claimRewardMock, delegationMock
-            );
+            ExocoreGatewayMock exocoreGatewayLogic =
+                new ExocoreGatewayMock(address(exocoreLzEndpoint), assetsMock, claimRewardMock, delegationMock);
             exocoreGateway = ExocoreGateway(
                 payable(
                     address(
@@ -117,8 +115,7 @@ contract DeployScript is BaseScript {
                             address(exocoreGatewayLogic),
                             address(exocoreProxyAdmin),
                             abi.encodeWithSelector(
-                                exocoreGatewayLogic.initialize.selector, 
-                                payable(exocoreValidatorSet.addr)
+                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
                             )
                         )
                     )
@@ -133,8 +130,7 @@ contract DeployScript is BaseScript {
                             address(exocoreGatewayLogic),
                             address(exocoreProxyAdmin),
                             abi.encodeWithSelector(
-                                exocoreGatewayLogic.initialize.selector, 
-                                payable(exocoreValidatorSet.addr)
+                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
                             )
                         )
                     )

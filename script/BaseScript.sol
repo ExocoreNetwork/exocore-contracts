@@ -6,9 +6,9 @@ import "../src/interfaces/IExoCapsule.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
+import "../src/interfaces/precompiles/IAssets.sol";
 import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
-import "../src/interfaces/precompiles/IAssets.sol";
 
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";

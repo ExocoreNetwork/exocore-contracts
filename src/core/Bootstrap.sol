@@ -15,8 +15,9 @@ import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
-import {IVault} from "../interfaces/IVault.sol";
+
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
+import {IVault} from "../interfaces/IVault.sol";
 
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
@@ -158,7 +159,7 @@ contract Bootstrap is
     }
 
     function _addWhitelistTokens(address[] calldata tokens) internal {
-        for (uint i; i < tokens.length; i++) {
+        for (uint256 i; i < tokens.length; i++) {
             address token = tokens[i];
             require(token != address(0), "Bootstrap: zero token address");
             require(!isWhitelistedToken[token], "Bootstrap: token should be not whitelisted before");
@@ -578,4 +579,5 @@ contract Bootstrap is
             depositAmount: depositsByToken[tokenAddress]
         });
     }
+
 }

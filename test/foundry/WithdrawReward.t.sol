@@ -49,12 +49,19 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // client chain layerzero endpoint should emit the message packet including withdraw payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId, address(clientGateway), address(exocoreGateway).toBytes32(), withdrawRequestNonce, withdrawRequestPayload
+            exocoreChainId,
+            address(clientGateway),
+            address(exocoreGateway).toBytes32(),
+            withdrawRequestNonce,
+            withdrawRequestPayload
         );
         // client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit MessageSent(
-            GatewayStorage.Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, requestId, withdrawRequestNonce, requestNativeFee
+            GatewayStorage.Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE,
+            requestId,
+            withdrawRequestNonce,
+            requestNativeFee
         );
 
         vm.startPrank(withdrawer.addr);

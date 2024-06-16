@@ -363,7 +363,7 @@ contract BootstrapStorage is GatewayStorage {
      */
     event VaultCreated(address underlyingToken, address vault);
 
-        /**
+    /**
      * @dev Emitted when a new token is added to the whitelist.
      * @param _token The address of the token that has been added to the whitelist.
      */
@@ -494,4 +494,5 @@ contract BootstrapStorage is GatewayStorage {
         tokenToVault[underlyingToken] = vault;
         return vault;
     }
+
 }

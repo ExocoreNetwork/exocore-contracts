@@ -54,7 +54,9 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         _testLSTWithdraw(depositor, withdrawAmount, lastlyUpdatedPrincipleBalance);
     }
 
-    function _testLSTDeposit(Player memory depositor, uint256 depositAmount, uint256 lastlyUpdatedPrincipleBalance) internal {
+    function _testLSTDeposit(Player memory depositor, uint256 depositAmount, uint256 lastlyUpdatedPrincipleBalance)
+        internal
+    {
         // -- deposit workflow test --
 
         vm.startPrank(depositor.addr);
@@ -86,7 +88,9 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         );
         // client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit MessageSent(GatewayStorage.Action.REQUEST_DEPOSIT, depositRequestId, depositRequestNonce, depositRequestNativeFee);
+        emit MessageSent(
+            GatewayStorage.Action.REQUEST_DEPOSIT, depositRequestId, depositRequestNonce, depositRequestNativeFee
+        );
         clientGateway.deposit{value: depositRequestNativeFee}(address(restakeToken), depositAmount);
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
@@ -109,7 +113,9 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         );
         // exocore gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, depositResponseId, depositResponseNonce, depositResponseNativeFee);
+        emit MessageSent(
+            GatewayStorage.Action.RESPOND, depositResponseId, depositResponseNonce, depositResponseNativeFee
+        );
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), depositRequestNonce),
             address(exocoreGateway),
@@ -133,7 +139,9 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         );
     }
 
-    function _testLSTWithdraw(Player memory withdrawer, uint256 withdrawAmount, uint256 lastlyUpdatedPrincipleBalance) internal {
+    function _testLSTWithdraw(Player memory withdrawer, uint256 withdrawAmount, uint256 lastlyUpdatedPrincipleBalance)
+        internal
+    {
         // -- withdraw principle workflow --
 
         // first user call client chain gateway to withdraw
@@ -190,7 +198,9 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         );
         // exocore gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, withdrawResponseId, withdrawResponseNonce, withdrawResponseNativeFee);
+        emit MessageSent(
+            GatewayStorage.Action.RESPOND, withdrawResponseId, withdrawResponseNonce, withdrawResponseNativeFee
+        );
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), withdrawRequestNonce),
             address(exocoreGateway),
@@ -234,7 +244,9 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
         _testNativeDeposit(depositor, relayer, lastlyUpdatedPrincipleBalance);
     }
 
-    function _testNativeDeposit(Player memory depositor, Player memory relayer, uint256 lastlyUpdatedPrincipleBalance) internal {
+    function _testNativeDeposit(Player memory depositor, Player memory relayer, uint256 lastlyUpdatedPrincipleBalance)
+        internal
+    {
         // before native stake and deposit, we simulate proper block environment states to make proof valid
         _simulateBlockEnvironment();
 
@@ -298,7 +310,9 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
 
         /// client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit MessageSent(GatewayStorage.Action.REQUEST_DEPOSIT, depositRequestId, depositRequestNonce, depositRequestNativeFee);
+        emit MessageSent(
+            GatewayStorage.Action.REQUEST_DEPOSIT, depositRequestId, depositRequestNonce, depositRequestNativeFee
+        );
 
         /// call depositBeaconChainValidator to see if these events are emitted as expected
         vm.startPrank(depositor.addr);
@@ -327,7 +341,9 @@ contract DepositWithdrawPrincipleTest is ExocoreDeployer {
 
         /// exocore gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, depositResponseId, depositResponseNonce, depositResponseNativeFee);
+        emit MessageSent(
+            GatewayStorage.Action.RESPOND, depositResponseId, depositResponseNonce, depositResponseNativeFee
+        );
 
         /// relayer catches the request message packet by listening to client chain event and feed it to Exocore network
         vm.startPrank(relayer.addr);

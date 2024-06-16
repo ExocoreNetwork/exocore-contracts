@@ -15,12 +15,12 @@ import {
 } from "src/lzApp/OAppUpgradeable.sol";
 import {ExocoreGatewayStorage} from "src/storage/ExocoreGatewayStorage.sol";
 
+import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OAppCoreUpgradeable} from "src/lzApp/OAppCoreUpgradeable.sol";
 
 contract ExocoreGatewayMock is
@@ -41,7 +41,6 @@ contract ExocoreGatewayMock is
     IAssets internal immutable ASSETS_CONTRACT;
     IClaimReward internal immutable CLAIM_REWARD_CONTRACT;
     IDelegation internal immutable DELEGATION_CONTRACT;
-
 
     modifier onlyCalledFromThis() {
         require(
@@ -137,11 +136,11 @@ contract ExocoreGatewayMock is
      * @dev Indicates that the peer is trusted to send LayerZero messages to this OApp.
      * @dev Peer is a bytes32 to accommodate non-evm chains.
      */
-    function setPeer(uint32 clientChainId, bytes32 clientChainGateway) 
-        public 
-        override(IOAppCore, OAppCoreUpgradeable) 
-        onlyOwner 
-        whenNotPaused 
+    function setPeer(uint32 clientChainId, bytes32 clientChainGateway)
+        public
+        override(IOAppCore, OAppCoreUpgradeable)
+        onlyOwner
+        whenNotPaused
     {
         require(clientChainId != uint32(0), "ExocoreGateway: zero value is not invalid endpoint id");
         require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway can not be empty");
@@ -172,13 +171,16 @@ contract ExocoreGatewayMock is
         }
     }
 
-    function requestRegisterTokens(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+    function requestRegisterTokens(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
         uint8 count = uint8(payload[0]);
         uint256 expectedLength = count * ADDRESS_LENGTH + 1;
         _validatePayloadLength(payload, expectedLength, Action.REQUEST_DEPOSIT);
 
         bytes[] memory tokens = new bytes[](count);
-        for (uint i; i < count; i++) {
+        for (uint256 i; i < count; i++) {
             uint256 start = i * ADDRESS_LENGTH + 1;
             uint256 end = start + ADDRESS_LENGTH;
             tokens[i] = payload[start:end];
@@ -334,4 +336,5 @@ contract ExocoreGatewayMock is
             revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
         }
     }
+
 }

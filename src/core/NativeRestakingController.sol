@@ -64,11 +64,8 @@ abstract contract NativeRestakingController is
 
         uint256 depositValue = uint256(validatorContainer.getEffectiveBalance()) * GWEI_TO_WEI;
 
-        bytes memory actionArgs = abi.encodePacked(
-            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), 
-            bytes32(bytes20(msg.sender)), 
-            depositValue
-        );
+        bytes memory actionArgs =
+            abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(msg.sender)), depositValue);
         bytes memory encodedRequest = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue);
         _processRequest(Action.REQUEST_DEPOSIT, actionArgs, encodedRequest);
     }

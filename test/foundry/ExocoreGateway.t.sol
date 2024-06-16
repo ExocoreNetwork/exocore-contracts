@@ -1,8 +1,8 @@
 pragma solidity ^0.8.19;
 
+import "../../src/interfaces/precompiles/IAssets.sol";
 import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
-import "../../src/interfaces/precompiles/IAssets.sol";
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";

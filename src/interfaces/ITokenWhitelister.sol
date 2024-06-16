@@ -4,4 +4,5 @@ interface ITokenWhitelister {
 
     function addWhitelistTokens(address[] calldata tokens) external payable;
     function getWhitelistedTokensCount() external returns (uint256);
+
 }

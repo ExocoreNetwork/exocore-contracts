@@ -48,7 +48,7 @@ contract DelegateTest is ExocoreDeployer {
         uint256 opAmount
     );
 
-    function setUp() override public {
+    function setUp() public override {
         super.setUp();
 
         delegator = players[0];
@@ -58,7 +58,6 @@ contract DelegateTest is ExocoreDeployer {
     }
 
     function test_Delegation() public {
-        
         deal(delegator.addr, 1e22);
         deal(address(exocoreGateway), 1e22);
         uint256 delegateAmount = 10_000;
@@ -70,7 +69,6 @@ contract DelegateTest is ExocoreDeployer {
     }
 
     function test_Undelegation() public {
-
         deal(delegator.addr, 1e22);
         deal(address(exocoreGateway), 1e22);
         uint256 delegateAmount = 10_000;
@@ -83,9 +81,7 @@ contract DelegateTest is ExocoreDeployer {
         _testUndelegate(undelegateAmount);
     }
 
-    function _testDelegate(uint256 delegateAmount)
-        internal
-    {
+    function _testDelegate(uint256 delegateAmount) internal {
         /* ------------------------- delegate workflow test ------------------------- */
 
         // 1. first user call client chain gateway to delegate
@@ -125,7 +121,8 @@ contract DelegateTest is ExocoreDeployer {
         // endpoint
 
         uint64 delegateResponseNonce = 2;
-        bytes memory delegateResponsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, delegateRequestNonce, true);
+        bytes memory delegateResponsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, delegateRequestNonce, true);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, delegateResponsePayload);
         bytes32 responseId = generateUID(delegateResponseNonce, false);
 
@@ -191,9 +188,7 @@ contract DelegateTest is ExocoreDeployer {
         vm.stopPrank();
     }
 
-    function _testUndelegate(uint256 undelegateAmount)
-        internal
-    {
+    function _testUndelegate(uint256 undelegateAmount) internal {
         /* ------------------------- undelegate workflow test ------------------------- */
         uint256 totalDelegate = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getDelegateAmount(
             delegator.addr, operatorAddress, clientChainId, address(restakeToken)
@@ -226,7 +221,9 @@ contract DelegateTest is ExocoreDeployer {
 
         /// clientGateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit MessageSent(GatewayStorage.Action.REQUEST_UNDELEGATE_FROM, requestId, undelegateRequestNonce, requestNativeFee);
+        emit MessageSent(
+            GatewayStorage.Action.REQUEST_UNDELEGATE_FROM, requestId, undelegateRequestNonce, requestNativeFee
+        );
 
         /// delegator call clientGateway to send undelegation request
         vm.startPrank(delegator.addr);
@@ -237,7 +234,8 @@ contract DelegateTest is ExocoreDeployer {
         // endpoint
 
         uint64 undelegateResponseNonce = 3;
-        bytes memory undelegateResponsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, undelegateRequestNonce, true);
+        bytes memory undelegateResponsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, undelegateRequestNonce, true);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, undelegateResponsePayload);
         bytes32 responseId = generateUID(undelegateResponseNonce, false);
 
@@ -301,4 +299,5 @@ contract DelegateTest is ExocoreDeployer {
         );
         vm.stopPrank();
     }
+
 }

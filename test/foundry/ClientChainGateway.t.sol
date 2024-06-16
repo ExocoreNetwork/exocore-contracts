@@ -23,6 +23,7 @@ import {EndpointV2Mock} from "../mocks/EndpointV2Mock.sol";
 import "src/core/BeaconProxyBytecode.sol";
 
 contract SetUp is Test {
+
     using stdStorage for StdStorage;
 
     Player[] players;
@@ -103,13 +104,12 @@ contract SetUp is Test {
 
         vm.stopPrank();
 
-        // we use this hacking way to find the slot of `isWhitelistedToken(address(restakeToken))` and set its value to true
+        // we use this hacking way to find the slot of `isWhitelistedToken(address(restakeToken))` and set its value to
+        // true
         bytes32 whitelistedSlot = bytes32(
-            stdstore
-                .target(address(clientGatewayLogic))
-                .sig("isWhitelistedToken(address)")
-                .with_key(address(restakeToken))
-                .find()
+            stdstore.target(address(clientGatewayLogic)).sig("isWhitelistedToken(address)").with_key(
+                address(restakeToken)
+            ).find()
         );
         vm.store(address(clientGateway), whitelistedSlot, bytes32(uint256(1)));
     }
@@ -140,7 +140,7 @@ contract SetUp is Test {
 }
 
 contract Pausable is SetUp {
-    
+
     function test_PauseClientChainGateway() public {
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit Paused(exocoreValidatorSet.addr);

@@ -153,9 +153,7 @@ contract BootstrapTest is Test {
             address(beaconProxyBytecode)
         );
         // we could also use encodeWithSelector and supply .initialize.selector instead.
-        bytes memory initialization = abi.encodeCall(
-            clientGatewayLogic.initialize, (payable(exocoreValidatorSet))
-        );
+        bytes memory initialization = abi.encodeCall(clientGatewayLogic.initialize, (payable(exocoreValidatorSet)));
         bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
         vm.stopPrank();
     }

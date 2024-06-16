@@ -1,19 +1,23 @@
 pragma solidity ^0.8.19;
 
-import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
-import {IVault} from "../interfaces/IVault.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IVault} from "../interfaces/IVault.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
+import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
+
     error UnsupportedResponse(Action act);
     error UnexpectedResponse(uint64 nonce);
     error DepositShouldNotFailOnExocore(address token, address depositor);
 
     modifier onlyCalledFromThis() {
-        require(msg.sender == address(this), "ClientChainLzReceiver: could only be called from this contract itself with low level call");
+        require(
+            msg.sender == address(this),
+            "ClientChainLzReceiver: could only be called from this contract itself with low level call"
+        );
         _;
     }
 
@@ -187,14 +191,14 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
     function afterReceiveRegisterTokensResponse(bytes calldata requestPayload, bytes calldata responsePayload)
         public
-        onlyCalledFromThis 
+        onlyCalledFromThis
         whenNotPaused
     {
         address[] memory tokens = abi.decode(requestPayload, (address[]));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         if (success) {
-            for (uint i; i < tokens.length; i++) {
+            for (uint256 i; i < tokens.length; i++) {
                 address token = tokens[i];
                 isWhitelistedToken[token] = true;
                 whitelistTokens.push(token);
@@ -210,4 +214,5 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
         emit RegisterAssetsResult(success);
     }
+
 }

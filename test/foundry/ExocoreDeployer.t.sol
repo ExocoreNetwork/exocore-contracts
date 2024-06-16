@@ -23,9 +23,9 @@ import "src/storage/GatewayStorage.sol";
 
 import {IVault} from "../../src/interfaces/IVault.sol";
 
+import "../../src/interfaces/precompiles/IAssets.sol";
 import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
-import "../../src/interfaces/precompiles/IAssets.sol";
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
 
 import "src/core/BeaconProxyBytecode.sol";
@@ -135,9 +135,7 @@ contract ExocoreDeployer is Test {
 
         // estimate l0 relay fee that the user should pay
         bytes memory registerTokensRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_REGISTER_TOKENS,
-            uint8(1),
-            bytes32(bytes20(address(restakeToken)))
+            GatewayStorage.Action.REQUEST_REGISTER_TOKENS, uint8(1), bytes32(bytes20(address(restakeToken)))
         );
         uint256 registerTokensRequestNativeFee = clientGateway.quote(registerTokensRequestPayload);
         bytes32 registerTokensRequestId = generateUID(1, true);
@@ -153,7 +151,12 @@ contract ExocoreDeployer is Test {
         );
         // client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit MessageSent(GatewayStorage.Action.REQUEST_REGISTER_TOKENS, registerTokensRequestId, uint64(1), registerTokensRequestNativeFee);
+        emit MessageSent(
+            GatewayStorage.Action.REQUEST_REGISTER_TOKENS,
+            registerTokensRequestId,
+            uint64(1),
+            registerTokensRequestNativeFee
+        );
         clientGateway.addWhitelistTokens{value: registerTokensRequestNativeFee}(whitelistTokens);
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
@@ -161,8 +164,7 @@ contract ExocoreDeployer is Test {
 
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
-        bytes memory registerTokensResponsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true);
+        bytes memory registerTokensResponsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true);
         uint256 registerTokensResponseNativeFee = exocoreGateway.quote(clientChainId, registerTokensResponsePayload);
         bytes32 registerTokensResponseId = generateUID(1, false);
         emit NewPacket(
@@ -174,7 +176,9 @@ contract ExocoreDeployer is Test {
         );
         // exocore gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, registerTokensResponseId, uint64(1), registerTokensResponseNativeFee);
+        emit MessageSent(
+            GatewayStorage.Action.RESPOND, registerTokensResponseId, uint64(1), registerTokensResponseNativeFee
+        );
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
             address(exocoreGateway),
@@ -208,7 +212,7 @@ contract ExocoreDeployer is Test {
         vault = Vault(address(clientGateway.tokenToVault(address(restakeToken))));
         assertEq(address(vault), expectedVault);
         assertTrue(clientGateway.isWhitelistedToken(address(restakeToken)));
-        
+
         vm.stopPrank();
     }
 
@@ -282,8 +286,7 @@ contract ExocoreDeployer is Test {
                         address(clientGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(
-                            clientGatewayLogic.initialize.selector, 
-                            payable(exocoreValidatorSet.addr)
+                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
                         )
                     )
                 )
