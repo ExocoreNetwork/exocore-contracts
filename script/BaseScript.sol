@@ -8,9 +8,7 @@ import "../src/interfaces/IVault.sol";
 
 import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
-import "../src/interfaces/precompiles/IDeposit.sol";
-import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-import "../src/interfaces/precompiles/IClientChains.sol";
+import "../src/interfaces/precompiles/IAssets.sol";
 
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
@@ -56,8 +54,7 @@ contract BaseScript is Script {
     BeaconProxyBytecode beaconProxyBytecode;
 
     address delegationMock;
-    address depositMock;
-    address withdrawMock;
+    address assetsMock;
     address claimRewardMock;
 
     uint256 clientChain;
@@ -122,20 +119,14 @@ contract BaseScript is Script {
 
     function _bindPrecompileMocks() internal {
         // bind precompile mock contracts code to constant precompile address so that local simulation could pass
-        bytes memory DepositMockCode = vm.getDeployedCode("DepositWithdrawMock.sol");
-        vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, DepositMockCode);
+        bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
+        vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
 
         bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
         vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
 
-        bytes memory WithdrawPrincipleMockCode = vm.getDeployedCode("DepositWithdrawMock.sol");
-        vm.etch(WITHDRAW_PRECOMPILE_ADDRESS, WithdrawPrincipleMockCode);
-
         bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
         vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
-
-        bytes memory ClientChainsMockCode = vm.getDeployedCode("ClientChainsMock.sol");
-        vm.etch(CLIENT_CHAINS_PRECOMPILE_ADDRESS, ClientChainsMockCode);
     }
 
     function _topUpPlayer(

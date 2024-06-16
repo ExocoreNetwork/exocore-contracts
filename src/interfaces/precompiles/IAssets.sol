@@ -45,5 +45,20 @@ interface IAssets {
 /// QUERIES
 /// @dev Returns the chain indices of the client chains.
     function getClientChains() external view returns (bool, uint32[] memory);
+
+/// TRANSACTIONS
+/// @dev register some client chain to allow token registration from that chain, staking 
+/// from that chain, and other operations from that chain.
+/// @param clientChainLzID The LzID of client chain
+    function registerClientChain(uint32 clientChainLzID) external returns (bool success);
+
+/// TRANSACTIONS
+/// @dev register unwhitelisted token addresses to exocore
+/// @param clientChainLzID The LzID of client chain
+/// @param tokens The token addresses that would be registered to exocore
+    function registerTokens(
+        uint32 clientChainLzID,
+        bytes[] memory tokens
+    ) external returns (bool success);
 }
 

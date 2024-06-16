@@ -2,8 +2,7 @@ pragma solidity ^0.8.19;
 
 import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
-import "../../src/interfaces/precompiles/IDeposit.sol";
-import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
+import "../../src/interfaces/precompiles/IAssets.sol";
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
@@ -60,6 +59,16 @@ contract SetUp is Test {
         withdrawer = Player({privateKey: uint256(0xc), addr: vm.addr(uint256(0xb))});
         clientGateway = ClientChainGateway(payable(address(0xd)));
 
+        // bind precompile mock contracts code to constant precompile address
+        bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
+        vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
+
+        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
+        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
+
+        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
+        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+
         _deploy();
     }
 
@@ -88,19 +97,6 @@ contract SetUp is Test {
         // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when
         // sending back response
         deal(address(exocoreGateway), 1e22);
-
-        // bind precompile mock contracts code to constant precompile address
-        bytes memory DepositMockCode = vm.getDeployedCode("DepositMock.sol");
-        vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, DepositMockCode);
-
-        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
-        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
-
-        bytes memory WithdrawPrincipleMockCode = vm.getDeployedCode("WithdrawPrincipleMock.sol");
-        vm.etch(WITHDRAW_PRECOMPILE_ADDRESS, WithdrawPrincipleMockCode);
-
-        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
-        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
     }
 
 }
@@ -169,7 +165,7 @@ contract LzReceive is SetUp {
         bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, payload);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit ExocorePrecompileError(WITHDRAW_PRECOMPILE_ADDRESS, uint64(1));
+        emit ExocorePrecompileError(ASSETS_PRECOMPILE_ADDRESS, uint64(1));
 
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(

@@ -18,14 +18,12 @@ import {Vault} from "../../src/core/Vault.sol";
 
 import "../../src/interfaces/IExoCapsule.sol";
 import "../../src/interfaces/IVault.sol";
-import "../../src/interfaces/precompiles/IDelegation.sol";
-import "../../src/interfaces/precompiles/IDeposit.sol";
-import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import {EndpointV2Mock} from "../mocks/EndpointV2Mock.sol";
 
 import "src/core/BeaconProxyBytecode.sol";
 
 contract SetUp is Test {
+    using stdStorage for StdStorage;
 
     Player[] players;
     address[] whitelistTokens;
@@ -101,9 +99,19 @@ contract SetUp is Test {
             payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))
         );
 
-        clientGateway.initialize(payable(exocoreValidatorSet.addr), whitelistTokens);
+        clientGateway.initialize(payable(exocoreValidatorSet.addr));
 
         vm.stopPrank();
+
+        // we use this hacking way to find the slot of `isWhitelistedToken(address(restakeToken))` and set its value to true
+        bytes32 whitelistedSlot = bytes32(
+            stdstore
+                .target(address(clientGatewayLogic))
+                .sig("isWhitelistedToken(address)")
+                .with_key(address(restakeToken))
+                .find()
+        );
+        vm.store(address(clientGateway), whitelistedSlot, bytes32(uint256(1)));
     }
 
     function _deployBeaconOracle() internal returns (EigenLayerBeaconOracle) {
@@ -132,7 +140,7 @@ contract SetUp is Test {
 }
 
 contract Pausable is SetUp {
-
+    
     function test_PauseClientChainGateway() public {
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit Paused(exocoreValidatorSet.addr);

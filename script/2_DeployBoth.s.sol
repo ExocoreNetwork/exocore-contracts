@@ -5,7 +5,7 @@ import "../src/core/ClientChainGateway.sol";
 import "../src/core/ExoCapsule.sol";
 import "../src/core/ExocoreGateway.sol";
 import {Vault} from "../src/core/Vault.sol";
-import "../test/mocks/ExocoreGatewayMock.sol";
+import {ExocoreGatewayMock} from "../test/mocks/ExocoreGatewayMock.sol";
 
 import {BaseScript} from "./BaseScript.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
@@ -33,11 +33,8 @@ contract DeployScript is BaseScript {
         require(address(exocoreLzEndpoint) != address(0), "exocore l0 endpoint should not be empty");
 
         if (useExocorePrecompileMock) {
-            depositMock = stdJson.readAddress(prerequisities, ".exocore.depositPrecompileMock");
-            require(depositMock != address(0), "depositMock should not be empty");
-
-            withdrawMock = stdJson.readAddress(prerequisities, ".exocore.withdrawPrecompileMock");
-            require(withdrawMock != address(0), "withdrawMock should not be empty");
+            assetsMock = stdJson.readAddress(prerequisities, ".exocore.assetsPrecompileMock");
+            require(assetsMock != address(0), "assetsMock should not be empty");
 
             delegationMock = stdJson.readAddress(prerequisities, ".exocore.delegationPrecompileMock");
             require(delegationMock != address(0), "delegationMock should not be empty");
@@ -72,8 +69,6 @@ contract DeployScript is BaseScript {
         // deploy BeaconProxyBytecode to store BeaconProxyBytecode
         beaconProxyBytecode = new BeaconProxyBytecode();
 
-        whitelistTokens.push(address(restakeToken));
-
         /// deploy client chain gateway
         ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(
@@ -91,7 +86,8 @@ contract DeployScript is BaseScript {
                         address(clientGatewayLogic),
                         address(clientChainProxyAdmin),
                         abi.encodeWithSelector(
-                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr), whitelistTokens
+                            clientGatewayLogic.initialize.selector, 
+                            payable(exocoreValidatorSet.addr)
                         )
                     )
                 )
@@ -112,7 +108,7 @@ contract DeployScript is BaseScript {
 
         if (useExocorePrecompileMock) {
             ExocoreGatewayMock exocoreGatewayLogic = new ExocoreGatewayMock(
-                address(exocoreLzEndpoint), depositMock, withdrawMock, delegationMock, claimRewardMock
+                address(exocoreLzEndpoint), assetsMock, claimRewardMock, delegationMock
             );
             exocoreGateway = ExocoreGateway(
                 payable(
@@ -121,7 +117,8 @@ contract DeployScript is BaseScript {
                             address(exocoreGatewayLogic),
                             address(exocoreProxyAdmin),
                             abi.encodeWithSelector(
-                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
+                                exocoreGatewayLogic.initialize.selector, 
+                                payable(exocoreValidatorSet.addr)
                             )
                         )
                     )
@@ -136,7 +133,8 @@ contract DeployScript is BaseScript {
                             address(exocoreGatewayLogic),
                             address(exocoreProxyAdmin),
                             abi.encodeWithSelector(
-                                exocoreGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
+                                exocoreGatewayLogic.initialize.selector, 
+                                payable(exocoreValidatorSet.addr)
                             )
                         )
                     )
@@ -164,8 +162,7 @@ contract DeployScript is BaseScript {
         vm.serializeAddress(exocoreContracts, "exocoreGateway", address(exocoreGateway));
 
         if (useExocorePrecompileMock) {
-            vm.serializeAddress(exocoreContracts, "depositPrecompileMock", depositMock);
-            vm.serializeAddress(exocoreContracts, "withdrawPrecompileMock", withdrawMock);
+            vm.serializeAddress(exocoreContracts, "assetsPrecompileMock", assetsMock);
             vm.serializeAddress(exocoreContracts, "delegationPrecompileMock", delegationMock);
             vm.serializeAddress(exocoreContracts, "claimRewardPrecompileMock", claimRewardMock);
         }

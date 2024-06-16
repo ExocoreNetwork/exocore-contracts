@@ -154,7 +154,7 @@ contract BootstrapTest is Test {
         );
         // we could also use encodeWithSelector and supply .initialize.selector instead.
         bytes memory initialization = abi.encodeCall(
-            clientGatewayLogic.initialize, (payable(exocoreValidatorSet), appendedWhitelistTokensForUpgrade)
+            clientGatewayLogic.initialize, (payable(exocoreValidatorSet))
         );
         bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
         vm.stopPrank();
@@ -163,7 +163,9 @@ contract BootstrapTest is Test {
     function test01_AddWhitelistToken() public returns (MyToken) {
         vm.startPrank(deployer);
         MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
-        bootstrap.addWhitelistToken(address(myTokenClone));
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(myTokenClone);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         assertTrue(bootstrap.isWhitelistedToken(address(myTokenClone)));
         assertTrue(bootstrap.getWhitelistedTokensCount() == 2);
@@ -172,8 +174,10 @@ contract BootstrapTest is Test {
 
     function test01_AddWhitelistToken_AlreadyExists() public {
         vm.startPrank(deployer);
-        vm.expectRevert("BootstrapStorage: token should be not whitelisted before");
-        bootstrap.addWhitelistToken(address(myToken));
+        vm.expectRevert("Bootstrap: token should be not whitelisted before");
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(myToken);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
     }
 
@@ -298,7 +302,9 @@ contract BootstrapTest is Test {
 
         // now add it to the whitelist
         vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(cloneAddress);
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = cloneAddress;
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
 
         // now try to deposit
@@ -553,7 +559,9 @@ contract BootstrapTest is Test {
         vm.stopPrank();
         // only the owner can add the token to the supported list
         vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(cloneAddress);
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = cloneAddress;
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         // finally, check
         bool isSupported = bootstrap.isWhitelistedToken(cloneAddress);
@@ -562,8 +570,10 @@ contract BootstrapTest is Test {
 
     function test07_AddWhitelistedToken_AlreadyWhitelisted() public {
         vm.startPrank(deployer);
-        vm.expectRevert("BootstrapStorage: token should be not whitelisted before");
-        bootstrap.addWhitelistToken(address(myToken));
+        vm.expectRevert("Bootstrap: token should be not whitelisted before");
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(myToken);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
     }
 
@@ -643,7 +653,9 @@ contract BootstrapTest is Test {
     function test09_DelegateTo_NotEnoughBlance() public {
         test03_RegisterOperator();
         vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(address(0xa));
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(0xa);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         vm.startPrank(addrs[0]);
         vm.expectRevert(bytes("Bootstrap: insufficient withdrawable balance"));
@@ -733,7 +745,9 @@ contract BootstrapTest is Test {
     function test10_UndelegateFrom_NotEnoughBalance() public {
         test03_RegisterOperator();
         vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(address(0xa));
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(0xa);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         vm.startPrank(addrs[0]);
         vm.expectRevert(bytes("Bootstrap: insufficient delegated balance"));
@@ -1163,20 +1177,6 @@ contract BootstrapTest is Test {
         vm.startPrank(deployer);
         vm.expectRevert("Bootstrap: lock time should be in the future");
         bootstrap.setOffsetDuration(offsetDuration + 2);
-    }
-
-    function test18_RemoveWhitelistToken() public {
-        vm.startPrank(deployer);
-        bootstrap.removeWhitelistToken(address(myToken));
-        assertFalse(bootstrap.isWhitelistedToken(address(myToken)));
-        assertTrue(bootstrap.getWhitelistedTokensCount() == 0);
-    }
-
-    function test18_RemoveWhitelistToken_DoesNotExist() public {
-        address fakeToken = address(0xa);
-        vm.startPrank(deployer);
-        vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.removeWhitelistToken(fakeToken);
     }
 
     function test20_WithdrawRewardFromExocore() public {

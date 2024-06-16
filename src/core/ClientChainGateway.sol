@@ -9,8 +9,8 @@ import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.so
 import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
 import {LSTRestakingController} from "./LSTRestakingController.sol";
 import {NativeRestakingController} from "./NativeRestakingController.sol";
-import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 
+import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
@@ -58,7 +58,7 @@ contract ClientChainGateway is
 
     // initialization happens from another contract so it must be external.
     // reinitializer(2) is used so that the ownable and oappcore functions can be called again.
-    function initialize(address payable exocoreValidatorSetAddress_, address[] calldata appendedWhitelistTokens_)
+    function initialize(address payable exocoreValidatorSetAddress_)
         external
         reinitializer(2)
     {
@@ -70,20 +70,6 @@ contract ClientChainGateway is
         );
 
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
-
-        for (uint256 i = 0; i < appendedWhitelistTokens_.length; i++) {
-            address underlyingToken = appendedWhitelistTokens_[i];
-            require(!isWhitelistedToken[underlyingToken], "ClientChainGateway: token should not be whitelisted before");
-
-            whitelistTokens.push(underlyingToken);
-            isWhitelistedToken[underlyingToken] = true;
-            emit WhitelistTokenAdded(underlyingToken);
-
-            // deploy the corresponding vault if not deployed before
-            if (address(tokenToVault[underlyingToken]) == address(0)) {
-                _deployVault(underlyingToken);
-            }
-        }
 
         _registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
         _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
@@ -136,49 +122,29 @@ contract ClientChainGateway is
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistTokens(address[] memory tokens) public beforeLocked onlyOwner whenNotPaused {
-        require(tokens.length <= type(uint8).max, "Bootstrap: tokens length should not execeed 255");
-
-        bytes memory args = abi.encodePacked(uint8(tokens.length));
-        for (uint i; i < tokens.length; i++) {
-            address token = tokens[i];
-            require(token != address(0), "Bootstrap: zero token address");
-            require(!isWhitelistedToken[token], "Bootstrap: token should be not whitelisted before");
-
-            args = abi.encodePacked(args, bytes32(bytes20(token)));
-        }
-
-        _processRequest(Action.REQUEST_REGISTER_ASSET, args);
+    function addWhitelistTokens(address[] calldata tokens) external payable onlyOwner whenNotPaused {
+        _addWhitelistTokens(tokens);
     }
 
-    // implementation of ITokenWhitelister
-    function removeWhitelistTokens(address[] memory tokens) public virtual override {
-        require(tokens.length <= type(uint8).max, "Bootstrap: tokens length should not execeed 255");
+    function _addWhitelistTokens(address[] calldata tokens) internal {
+        require(tokens.length <= type(uint8).max, "ClientChainGateway: tokens length should not execeed 255");
 
-        bytes memory args = abi.encodePacked(uint8(tokens.length));
+        bytes memory actionArgs = abi.encodePacked(uint8(tokens.length));
         for (uint i; i < tokens.length; i++) {
             address token = tokens[i];
-            require(token != address(0), "Bootstrap: zero token address");
-            require(isWhitelistedToken[token], "Bootstrap: token should have been whitelisted before");
+            require(token != address(0), "ClientChainGateway: zero token address");
+            require(!isWhitelistedToken[token], "ClientChainGateway: token should be not whitelisted before");
 
-            isWhitelistedToken[token] = false;
-            emit WhitelistTokenRemoved(token);
-
-            args = abi.encodePacked(args, bytes32(bytes20(token)));
+            actionArgs = abi.encodePacked(actionArgs, bytes32(bytes20(token)));
         }
 
-        _processRequest(Action.REQUEST_DEREGISTER_ASSET, args);
+        bytes memory encodedRequest = abi.encode(tokens);
+        _processRequest(Action.REQUEST_REGISTER_TOKENS, actionArgs, encodedRequest);
     }
 
     // implementation of ITokenWhitelister
     function getWhitelistedTokensCount() external view returns (uint256) {
-        uint count;
-        for (uint i; i < historicalWhitelistedTokens.length; i++) {
-            if (isWhitelistedToken[historicalWhitelistedTokens[i]]) {
-                count += 1;
-            }
-        }
-        return count;
+        return whitelistTokens.length;
     }
 
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {
@@ -203,5 +169,4 @@ contract ClientChainGateway is
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
     }
-
 }

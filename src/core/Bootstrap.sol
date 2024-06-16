@@ -16,6 +16,7 @@ import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {IVault} from "../interfaces/IVault.sol";
+import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
@@ -30,6 +31,7 @@ contract Bootstrap is
     PausableUpgradeable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
+    ITokenWhitelister,
     ILSTRestakingController,
     IOperatorRegistry,
     BootstrapLzReceiver
@@ -65,14 +67,7 @@ contract Bootstrap is
         offsetDuration = offsetDuration_;
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
-        for (uint256 i = 0; i < whitelistTokens_.length; i++) {
-            address underlyingToken = whitelistTokens_[i];
-            historicalWhitelistedTokens.push(underlyingToken);
-            isWhitelistedToken[underlyingToken] = true;
-            emit WhitelistTokenAdded(underlyingToken);
-
-            _deployVault(underlyingToken);
-        }
+        _addWhitelistTokens(whitelistTokens_);
 
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.markBootstrapped.selector;
 
@@ -158,49 +153,31 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistTokens(address[] memory tokens) public beforeLocked onlyOwner whenNotPaused {
-        require(tokens.length <= type(uint8).max, "Bootstrap: tokens length should not execeed 255");
+    function addWhitelistTokens(address[] calldata tokens) external payable beforeLocked onlyOwner whenNotPaused {
+        _addWhitelistTokens(tokens);
+    }
 
-        bytes memory args = abi.encodePacked(uint8(tokens.length));
+    function _addWhitelistTokens(address[] calldata tokens) internal {
         for (uint i; i < tokens.length; i++) {
             address token = tokens[i];
             require(token != address(0), "Bootstrap: zero token address");
             require(!isWhitelistedToken[token], "Bootstrap: token should be not whitelisted before");
 
-            args = abi.encodePacked(args, bytes32(bytes20(token)));
+            whitelistTokens.push(token);
+            isWhitelistedToken[token] = true;
+
+            // deploy the corresponding vault if not deployed before
+            if (address(tokenToVault[token]) == address(0)) {
+                _deployVault(token);
+            }
+
+            emit WhitelistTokenAdded(token);
         }
-
-        _processRequest(Action.REQUEST_REGISTER_ASSET, args, abi.encode(tokens));
-    }
-
-    // implementation of ITokenWhitelister
-    function removeWhitelistTokens(address[] memory tokens) public virtual override {
-        require(tokens.length <= type(uint8).max, "Bootstrap: tokens length should not execeed 255");
-
-        bytes memory args = abi.encodePacked(uint8(tokens.length));
-        for (uint i; i < tokens.length; i++) {
-            address token = tokens[i];
-            require(token != address(0), "Bootstrap: zero token address");
-            require(isWhitelistedToken[token], "Bootstrap: token should have been whitelisted before");
-
-            isWhitelistedToken[token] = false;
-            emit WhitelistTokenRemoved(token);
-
-            args = abi.encodePacked(args, bytes32(bytes20(token)));
-        }
-
-        _processRequest(Action.REQUEST_DEREGISTER_ASSET, args, abi.encode(tokens));
     }
 
     // implementation of ITokenWhitelister
     function getWhitelistedTokensCount() external view returns (uint256) {
-        uint count;
-        for (uint i; i < historicalWhitelistedTokens.length; i++) {
-            if (isWhitelistedToken[historicalWhitelistedTokens[i]]) {
-                count += 1;
-            }
-        }
-        return count;
+        return whitelistTokens.length;
     }
 
     // implementation of IOperatorRegistry
@@ -589,8 +566,8 @@ contract Bootstrap is
      * amount.
      */
     function getWhitelistedTokenAtIndex(uint256 index) public view returns (TokenInfo memory) {
-        require(index < historicalWhitelistedTokens.length, "Index out of bounds");
-        address tokenAddress = historicalWhitelistedTokens[index];
+        require(index < whitelistTokens.length, "Index out of bounds");
+        address tokenAddress = whitelistTokens[index];
         ERC20 token = ERC20(tokenAddress);
         return TokenInfo({
             name: token.name(),
@@ -601,26 +578,4 @@ contract Bootstrap is
             depositAmount: depositsByToken[tokenAddress]
         });
     }
-
-    function _processRequest(Action action, bytes memory actionArgs, bytes memory decodableRequestPayload) internal {
-        outboundNonce++;
-        _registeredRequests[outboundNonce] = decodableRequestPayload;
-        _registeredRequestActions[outboundNonce] = action;
-
-        _sendMsgToExocore(action, args);
-    }
-
-    function _sendMsgToExocore(Action action, bytes memory actionArgs) internal {
-        bytes memory payload = abi.encodePacked(action, actionArgs);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
-            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
-        ).addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(EXOCORE_CHAIN_ID, payload, options, false);
-
-        MessagingReceipt memory receipt = _lzSend(
-            EXOCORE_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, false
-        );
-        emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
-    }
-
 }

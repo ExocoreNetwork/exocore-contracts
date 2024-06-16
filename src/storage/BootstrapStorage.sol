@@ -178,14 +178,12 @@ contract BootstrapStorage is GatewayStorage {
 
     // whitelisted tokens and their vaults, and total deposits of said tokens
     /**
-     * @dev An array containing all the token addresses that are once added to the whitelist.
-     * Being included in the array does not mean the token is whitelisted for now though.
-     * please use mapping `isWhitelistedToken` to check whether a token is whitelisted for now.
-     * @notice Use this array to iterate through all historically whitelisted tokens.
-     * This helps in operations like audits, UI display, and tokens would not be removed
-     * from this array once being added even if some tokens are being set not whitelisted afterwards.
+     * @dev An array containing all the token addresses that have been added to the whitelist.
+     * @notice Use this array to iterate through all whitelisted tokens.
+     * This helps in operations like audits, UI display, or when removing tokens
+     * from the whitelist needs an indexed approach.
      */
-    address[] public historicalWhitelistedTokens;
+    address[] public whitelistTokens;
 
     /**
      * @dev Stores a mapping of whitelisted token addresses to their status.
@@ -365,9 +363,20 @@ contract BootstrapStorage is GatewayStorage {
      */
     event VaultCreated(address underlyingToken, address vault);
 
+        /**
+     * @dev Emitted when a new token is added to the whitelist.
+     * @param _token The address of the token that has been added to the whitelist.
+     */
+    event WhitelistTokenAdded(address _token);
+
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
     /* -------------------------------------------------------------------------- */
+
+    /**
+     * @dev Indicates an operation was attempted with a token that is not authorized.
+     */
+    error UnauthorizedToken();
 
     /**
      * @dev Indicates an operation failed because the specified vault does not exist.

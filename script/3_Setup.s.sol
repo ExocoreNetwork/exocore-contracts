@@ -49,7 +49,7 @@ contract SetupScript is BaseScript {
     }
 
     function run() public {
-        // setup client chain contracts state
+        // 1. setup client chain contracts to make them ready for sending and receiving messages from exocore gateway
         vm.selectFork(clientChain);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -60,12 +60,12 @@ contract SetupScript is BaseScript {
             );
         }
 
-        // as LzReceivers, gateway should set bytes(sourceChainGatewayAddress+thisAddress) as trusted remote to receive
+        // as LzReceivers, gateway should set exocoreGateway as trusted remote to receive
         // messages
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         vm.stopBroadcast();
 
-        // setup Exocore testnet contracts state
+        // 2. setup Exocore testnet contracts to make them ready for sending and receiving messages from client chain gateway
         vm.selectFork(exocore);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -75,7 +75,16 @@ contract SetupScript is BaseScript {
                 address(clientGateway), address(clientChainLzEndpoint)
             );
         }
+        // this would also register clientChainId to Exocore native module
         exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
+        vm.stopBroadcast();
+
+        // 3. we should register whitelist tokens to exocore
+        vm.selectFork(clientChain);
+        // Exocore validator set should be the owner of these contracts and only owner could add whitelist tokens
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        whitelistTokens.push(address(restakeToken));
+        clientGateway.addWhitelistTokens(whitelistTokens);
         vm.stopBroadcast();
     }
 
