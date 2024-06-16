@@ -4,8 +4,9 @@ import "../../src/core/ExocoreGateway.sol";
 
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/storage/GatewayStorage.sol";
-import "../mocks/DelegationMock.sol";
+
 import "../mocks/AssetsMock.sol";
+import "../mocks/DelegationMock.sol";
 import "./ExocoreDeployer.t.sol";
 
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
