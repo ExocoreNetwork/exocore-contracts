@@ -72,8 +72,8 @@ contract AssetsMock is IAssets {
         return true;
     }
 
-    function getPrincipleBalance(uint32 clientChainLzId, address token, address staker) public view returns (uint256) {
-        return principleBalances[clientChainLzId][_addressToBytes(token)][_addressToBytes(staker)];
+    function getPrincipleBalance(uint32 clientChainLzId, bytes memory token, bytes memory staker) public view returns (uint256) {
+        return principleBalances[clientChainLzId][token][staker];
     }
 
     function _addressToBytes(address addr) internal pure returns (bytes memory) {

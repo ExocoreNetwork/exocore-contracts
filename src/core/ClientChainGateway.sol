@@ -77,7 +77,7 @@ contract ClientChainGateway is
             this.afterReceiveWithdrawRewardResponse.selector;
         _registeredResponseHooks[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
             this.afterReceiveDepositThenDelegateToResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_REGISTER_ASSET] = this.afterReceiveRegisterTokenResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_REGISTER_TOKENS] = this.afterReceiveRegisterTokensResponse.selector;
 
         bootstrapped = true;
 

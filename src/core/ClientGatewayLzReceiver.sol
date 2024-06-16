@@ -172,8 +172,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         public
         onlyCalledFromThis
     {
-        (address token, string memory operator, address delegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
+        (address token, address delegator, string memory operator, uint256 amount) =
+            abi.decode(requestPayload, (address, address, string, uint256));
 
         bool delegateSuccess = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:]));

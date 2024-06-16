@@ -292,7 +292,7 @@ contract ExocoreGateway is
         // for example, you cannot index a bytes memory result from the requestDepositTo call,
         // if you were to modify it to return bytes and then process them here.
 
-        (bool success, uint256 updatedBalance) = DEPOSIT_CONTRACT.depositTo(srcChainId, token, depositor, amount);
+        (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositTo(srcChainId, token, depositor, amount);
         if (!success) {
             revert DepositRequestShouldNotFail(srcChainId, lzNonce);
         }

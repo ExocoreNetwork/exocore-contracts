@@ -61,7 +61,13 @@ abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingCo
         isValidBech32Address(operator)
         whenNotPaused
     {
-        _processRequest(token, msg.sender, amount, Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, operator);
+        IVault vault = _getVault(token);
+        vault.deposit(msg.sender, amount);
+
+        bytes memory actionArgs =
+            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
+        bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
+        _processRequest(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, actionArgs, encodedRequest);
     }
 
 }
