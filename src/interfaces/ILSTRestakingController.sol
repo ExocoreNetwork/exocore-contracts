@@ -47,4 +47,18 @@ interface ILSTRestakingController is IBaseRestakingController {
 
     function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
 
+    /**
+     * @notice Client chain users can call this function to deposit and then delegate to specific node operator.
+     * @dev This function should:
+     * 1) lock the @param amount of @param token into vault.
+     * 2) ask Exocore validator set to account for the deposited @param amount of @param token.
+     * 3) ask Exocore validator set to delegate the deposited @param amount of @param token to specific node operator.
+     * Deposit should always be considered successful on Exocore chain side.
+     * Delegate can potentially fail, for example, if the node operator is not registered in Exocore.
+     * @param token - The address of specific token that the user wants to deposit and delegate.
+     * @param amount - The amount of @param token that the user wants to deposit and delegate.
+     * @param operator - The address of a registered node operator that the user wants to delegate to.
+     */
+    function depositThenDelegateTo(address token, uint256 amount, string calldata operator) external payable;
+
 }

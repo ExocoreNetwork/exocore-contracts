@@ -168,4 +168,25 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit UndelegateResult(success, undelegator, operator, token, amount);
     }
 
+    function afterReceiveDepositThenDelegateToResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, string memory operator, address delegator, uint256 amount) =
+            abi.decode(requestPayload, (address, string, address, uint256));
+
+        bool delegateSuccess = (uint8(bytes1(responsePayload[0])) == 1);
+        uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:]));
+
+        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+            IExoCapsule capsule = _getCapsule(delegator);
+            capsule.updatePrincipleBalance(lastlyUpdatedPrincipleBalance);
+        } else {
+            IVault vault = _getVault(token);
+            vault.updatePrincipleBalance(delegator, lastlyUpdatedPrincipleBalance);
+        }
+
+        emit DepositThenDelegateResult(delegateSuccess, delegator, operator, token, amount);
+    }
+
 }

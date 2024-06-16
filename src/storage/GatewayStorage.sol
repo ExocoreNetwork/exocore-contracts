@@ -8,9 +8,10 @@ contract GatewayStorage {
         REQUEST_WITHDRAW_REWARD_FROM_EXOCORE,
         REQUEST_DELEGATE_TO,
         REQUEST_UNDELEGATE_FROM,
+        REQUEST_DEPOSIT_THEN_DELEGATE_TO,
+        REQUEST_MARK_BOOTSTRAP,
         RESPOND,
-        UPDATE_USERS_BALANCES,
-        MARK_BOOTSTRAP
+        UPDATE_USERS_BALANCES
     }
 
     mapping(Action => bytes4) public _whiteListFunctionSelectors;

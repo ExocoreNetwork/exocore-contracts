@@ -36,9 +36,10 @@ contract ExocoreGatewayMock is
         REQUEST_WITHDRAW_REWARD_FROM_EXOCORE,
         REQUEST_DELEGATE_TO,
         REQUEST_UNDELEGATE_FROM,
+        REQUEST_DEPOSIT_THEN_DELEGATE_TO,
+        REQUEST_MARK_BOOTSTRAP,
         RESPOND,
-        UPDATE_USERS_BALANCES,
-        MARK_BOOTSTRAP
+        UPDATE_USERS_BALANCES
     }
 
     mapping(Action => bytes4) public whiteListFunctionSelectors;
@@ -134,7 +135,7 @@ contract ExocoreGatewayMock is
         for (uint256 i = 0; i < clientChainIds.length; i++) {
             uint16 clientChainId = clientChainIds[i];
             if (!chainToBootstrapped[clientChainId]) {
-                _sendInterchainMsg(uint32(clientChainId), Action.MARK_BOOTSTRAP, "");
+                _sendInterchainMsg(uint32(clientChainId), Action.REQUEST_MARK_BOOTSTRAP, "");
                 // TODO: should this be marked only when receiving a response?
                 chainToBootstrapped[clientChainId] = true;
             }

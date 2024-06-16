@@ -414,6 +414,24 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
+    function test04_DepositThenDelegate() public {
+        // since deposit and delegate are already tested, we will just do a simple success
+        // check here to ensure the reentrancy modifier works.
+        test03_RegisterOperator();
+        vm.startPrank(addrs[0]);
+        IVault vault = IVault(bootstrap.tokenToVault(address(myToken)));
+        myToken.approve(address(vault), amounts[0]);
+        bootstrap.depositThenDelegateTo(address(myToken), amounts[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac");
+        vm.stopPrank();
+
+        uint256 deposited = bootstrap.totalDepositAmounts(addrs[0], address(myToken));
+        assertTrue(deposited == amounts[0]);
+
+        uint256 delegated =
+            bootstrap.delegations(addrs[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken));
+        assertTrue(delegated == amounts[0]);
+    }
+
     function test05_ReplaceKey() public {
         IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
         // Register operator
@@ -814,7 +832,7 @@ contract BootstrapTest is Test {
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(1)),
             address(bootstrap),
             generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.MARK_BOOTSTRAP, ""),
+            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             bytes("")
         );
         vm.stopPrank();
@@ -833,7 +851,7 @@ contract BootstrapTest is Test {
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(1)),
             address(bootstrap),
             generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.MARK_BOOTSTRAP, ""),
+            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             bytes("")
         );
         vm.stopPrank();
@@ -844,12 +862,14 @@ contract BootstrapTest is Test {
         test12_MarkBootstrapped();
         vm.startPrank(address(clientChainLzEndpoint));
         vm.expectRevert(
-            abi.encodeWithSelector(GatewayStorage.UnsupportedRequest.selector, GatewayStorage.Action.MARK_BOOTSTRAP)
+            abi.encodeWithSelector(
+                GatewayStorage.UnsupportedRequest.selector, GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP
+            )
         );
         bootstrap.lzReceive(
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(2)),
             generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.MARK_BOOTSTRAP, ""),
+            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             address(0),
             bytes("")
         );
