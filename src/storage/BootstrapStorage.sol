@@ -4,7 +4,6 @@ import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 
-import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
 import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
