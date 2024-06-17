@@ -136,23 +136,24 @@ contract ExocoreGatewayMock is
      * @dev Indicates that the peer is trusted to send LayerZero messages to this OApp.
      * @dev Peer is a bytes32 to accommodate non-evm chains.
      */
-    function setPeer(uint32 clientChainId, bytes32 clientChainGateway)
-        public
-        override(IOAppCore, OAppCoreUpgradeable)
-        onlyOwner
-        whenNotPaused
-    {
-        require(clientChainId != uint32(0), "ExocoreGateway: zero value is not invalid endpoint id");
-        require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway can not be empty");
+    function setPeer(uint32 clientChainId, bytes32 clientChainGateway) public override(IOAppCore, OAppCoreUpgradeable) onlyOwner whenNotPaused {
+        validatePeer(clientChainId, clientChainGateway);
+        registerClientChain(clientChainId);
+        super.setPeer(clientChainId, clientChainGateway);
+    }
 
+    function validatePeer(uint32 clientChainId, bytes32 clientChainGateway) private view {
+        require(clientChainId != uint32(0), "ExocoreGateway: zero value is not invalid endpoint id");
+        require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway cannot be empty");
+    }
+
+    function registerClientChain(uint32 clientChainId) private {
         if (peers[clientChainId] == bytes32(0)) {
             bool success = ASSETS_CONTRACT.registerClientChain(clientChainId);
             if (!success) {
                 revert RegisterClientChainToExocoreFailed(clientChainId);
             }
         }
-
-        super.setPeer(clientChainId, clientChainGateway);
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
