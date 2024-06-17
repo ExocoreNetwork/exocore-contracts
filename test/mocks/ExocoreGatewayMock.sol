@@ -34,9 +34,9 @@ contract ExocoreGatewayMock is
 
     using OptionsBuilder for bytes;
 
-    address internal immutable ASSETS_PRECOMPILE_ADDRESS;
-    address internal immutable CLAIM_REWARD_PRECOMPILE_ADDRESS;
-    address internal immutable DELEGATION_PRECOMPILE_ADDRESS;
+    address public immutable ASSETS_PRECOMPILE_ADDRESS;
+    address public immutable CLAIM_REWARD_PRECOMPILE_ADDRESS;
+    address public immutable DELEGATION_PRECOMPILE_ADDRESS;
 
     IAssets internal immutable ASSETS_CONTRACT;
     IClaimReward internal immutable CLAIM_REWARD_CONTRACT;
