@@ -59,6 +59,7 @@ contract DepositScript is BaseScript {
         vm.stopBroadcast();
 
         // bind precompile mock contracts code to constant precompile address so that local simulation could pass
++       // Ensure that the address constants used here (ASSETS_PRECOMPILE_ADDRESS, etc.) are designated for testing and do not conflict with production addresses.
         bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
         vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
 
