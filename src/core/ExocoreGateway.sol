@@ -123,17 +123,23 @@ contract ExocoreGateway is
         onlyOwner
         whenNotPaused
     {
-        require(clientChainId != uint32(0), "ExocoreGateway: zero value is not invalid endpoint id");
-        require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway can not be empty");
+        _validatePeer(clientChainId, clientChainGateway);
+        _registerClientChain(clientChainId);
+        super.setPeer(clientChainId, clientChainGateway);
+    }
 
+    function _validatePeer(uint32 clientChainId, bytes32 clientChainGateway) internal pure {
+        require(clientChainId != uint32(0), "ExocoreGateway: zero value is not invalid endpoint id");
+        require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway cannot be empty");
+    }
+
+    function _registerClientChain(uint32 clientChainId) internal {
         if (peers[clientChainId] == bytes32(0)) {
             bool success = ASSETS_CONTRACT.registerClientChain(clientChainId);
             if (!success) {
                 revert RegisterClientChainToExocoreFailed(clientChainId);
             }
         }
-
-        super.setPeer(clientChainId, clientChainGateway);
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {

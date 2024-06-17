@@ -136,18 +136,23 @@ contract ExocoreGatewayMock is
      * @dev Indicates that the peer is trusted to send LayerZero messages to this OApp.
      * @dev Peer is a bytes32 to accommodate non-evm chains.
      */
-    function setPeer(uint32 clientChainId, bytes32 clientChainGateway) public override(IOAppCore, OAppCoreUpgradeable) onlyOwner whenNotPaused {
-        validatePeer(clientChainId, clientChainGateway);
-        registerClientChain(clientChainId);
+    function setPeer(uint32 clientChainId, bytes32 clientChainGateway)
+        public
+        override(IOAppCore, OAppCoreUpgradeable)
+        onlyOwner
+        whenNotPaused
+    {
+        _validatePeer(clientChainId, clientChainGateway);
+        _registerClientChain(clientChainId);
         super.setPeer(clientChainId, clientChainGateway);
     }
 
-    function validatePeer(uint32 clientChainId, bytes32 clientChainGateway) private view {
+    function _validatePeer(uint32 clientChainId, bytes32 clientChainGateway) internal pure {
         require(clientChainId != uint32(0), "ExocoreGateway: zero value is not invalid endpoint id");
         require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway cannot be empty");
     }
 
-    function registerClientChain(uint32 clientChainId) private {
+    function _registerClientChain(uint32 clientChainId) internal {
         if (peers[clientChainId] == bytes32(0)) {
             bool success = ASSETS_CONTRACT.registerClientChain(clientChainId);
             if (!success) {
