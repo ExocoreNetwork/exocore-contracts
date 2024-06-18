@@ -373,11 +373,6 @@ contract BootstrapStorage is GatewayStorage {
     /* -------------------------------------------------------------------------- */
 
     /**
-     * @dev Indicates an operation was attempted with a token that is not authorized.
-     */
-    error UnauthorizedToken();
-
-    /**
      * @dev Indicates an operation failed because the specified vault does not exist.
      */
     error VaultNotExist();
