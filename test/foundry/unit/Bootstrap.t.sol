@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Bootstrap} from "../../src/core/Bootstrap.sol";
-import {ClientChainGateway} from "../../src/core/ClientChainGateway.sol";
-import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
-import {Vault} from "../../src/core/Vault.sol";
+import {Bootstrap} from "src/core/Bootstrap.sol";
+import {ClientChainGateway} from "src/core/ClientChainGateway.sol";
+import {CustomProxyAdmin} from "src/core/CustomProxyAdmin.sol";
+import {Vault} from "src/core/Vault.sol";
 
-import {IOperatorRegistry} from "../../src/interfaces/IOperatorRegistry.sol";
+import {IOperatorRegistry} from "src/interfaces/IOperatorRegistry.sol";
 
-import {IVault} from "../../src/interfaces/IVault.sol";
-import {Origin} from "../../src/lzApp/OAppReceiverUpgradeable.sol";
-import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
-import {GatewayStorage} from "../../src/storage/GatewayStorage.sol";
-import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
+import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
 import {MyToken} from "./MyToken.sol";
+import {IVault} from "src/interfaces/IVault.sol";
+import {Origin} from "src/lzApp/OAppReceiverUpgradeable.sol";
+import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
+import {GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 

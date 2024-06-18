@@ -130,7 +130,7 @@ contract ClientChainGateway is
         for (uint256 i; i < tokens.length; i++) {
             address token = tokens[i];
             require(token != address(0), "ClientChainGateway: zero token address");
-            require(!isWhitelistedToken[token], "ClientChainGateway: token should be not whitelisted before");
+            require(!isWhitelistedToken[token], "ClientChainGateway: token should not be whitelisted before");
 
             actionArgs = abi.encodePacked(actionArgs, bytes32(bytes20(token)));
         }

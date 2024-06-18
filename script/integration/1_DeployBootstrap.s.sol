@@ -16,7 +16,7 @@ import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
 import {Vault} from "../../src/core/Vault.sol";
 import {IOperatorRegistry} from "../../src/interfaces/IOperatorRegistry.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
-import {MyToken} from "../../test/foundry/MyToken.sol";
+import {MyToken} from "../../test/foundry/unit/MyToken.sol";
 
 // Technically this is used for testing but it is marked as a script
 // because it is a script that is used to deploy the contracts on Anvil

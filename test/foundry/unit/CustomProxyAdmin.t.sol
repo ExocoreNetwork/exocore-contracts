@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
-import {ICustomProxyAdmin} from "../../src/interfaces/ICustomProxyAdmin.sol";
+import {CustomProxyAdmin} from "src/core/CustomProxyAdmin.sol";
+import {ICustomProxyAdmin} from "src/interfaces/ICustomProxyAdmin.sol";
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
