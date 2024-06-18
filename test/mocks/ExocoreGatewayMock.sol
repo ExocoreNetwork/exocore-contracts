@@ -56,6 +56,11 @@ contract ExocoreGatewayMock is
         address ClaimRewardPrecompileMock,
         address delegationPrecompileMock
     ) OAppUpgradeable(endpoint_) {
+        require(endpoint_ != address(0), "Endpoint address cannot be zero.");
+        require(assetsPrecompileMock != address(0), "Assets precompile address cannot be zero.");
+        require(ClaimRewardPrecompileMock != address(0), "ClaimReward precompile address cannot be zero.");
+        require(delegationPrecompileMock != address(0), "Delegation precompile address cannot be zero.");
+
         ASSETS_PRECOMPILE_ADDRESS = assetsPrecompileMock;
         CLAIM_REWARD_PRECOMPILE_ADDRESS = ClaimRewardPrecompileMock;
         DELEGATION_PRECOMPILE_ADDRESS = delegationPrecompileMock;

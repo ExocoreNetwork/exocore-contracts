@@ -49,7 +49,10 @@ contract ExocoreGateway is
     receive() external payable {}
 
     function initialize(address payable exocoreValidatorSetAddress_) external initializer {
-        require(exocoreValidatorSetAddress_ != address(0), "ExocoreGateway: invalid exocore validator set address");
+        require(
+            exocoreValidatorSetAddress_ != address(0),
+            "ExocoreGateway: validator set address cannot be the zero address"
+        );
 
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
