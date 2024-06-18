@@ -60,12 +60,11 @@ contract SetupScript is BaseScript {
             );
         }
 
-        // as LzReceivers, gateway should set exocoreGateway as trusted remote to receive
-        // messages
+        // as LzReceivers, client chain gateway should set exocoreGateway as trusted remote to receive messages from it
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         vm.stopBroadcast();
 
-        // 2. setup Exocore testnet contracts to make them ready for sending and receiving messages from client chain
+        // 2. setup Exocore contracts to make them ready for sending and receiving messages from client chain
         // gateway
         vm.selectFork(exocore);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
