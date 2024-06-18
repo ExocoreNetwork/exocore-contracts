@@ -1,5 +1,8 @@
 pragma solidity >=0.8.17;
 
+/// TODO: we might remove this precompile contract and merge it into assets precompile
+/// if we decide to handle reward withdrawal request by assets precompile
+
 /// @dev The claimReward contract's address.
 address constant CLAIM_REWARD_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000806;
 
