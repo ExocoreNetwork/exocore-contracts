@@ -316,10 +316,6 @@ contract BootstrapStorage is GatewayStorage {
         bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
     );
 
-    event RegisterAssetsResult(bool indexed success);
-
-    event DeregisterAssetsResult(bool indexed success);
-
     /**
      * @notice Emitted when a deposit + delegation is made.
      * @dev This event is triggered whenever a delegator deposits and then delegates tokens to an operator.

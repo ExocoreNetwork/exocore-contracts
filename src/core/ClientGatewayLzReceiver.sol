@@ -212,7 +212,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             }
         }
 
-        emit RegisterAssetsResult(success);
+        emit RegisterTokensResult(success);
     }
 
 }

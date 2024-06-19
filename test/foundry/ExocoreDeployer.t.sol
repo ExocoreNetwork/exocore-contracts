@@ -89,7 +89,7 @@ contract ExocoreDeployer is Test {
 
     event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
     event NewPacket(uint32, address, bytes32, uint64, bytes);
-    event RegisterAssetsResult(bool indexed success);
+    event RegisterTokensResult(bool indexed success);
     event WhitelistTokenAdded(address _token);
     event VaultCreated(address underlyingToken, address vault);
 
@@ -199,7 +199,7 @@ contract ExocoreDeployer is Test {
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit VaultCreated(address(restakeToken), expectedVault);
         emit WhitelistTokenAdded(address(restakeToken));
-        emit RegisterAssetsResult(true);
+        emit RegisterTokensResult(true);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), uint64(1)),
             address(clientGateway),
