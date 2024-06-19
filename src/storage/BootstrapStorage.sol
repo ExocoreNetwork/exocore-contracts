@@ -286,7 +286,7 @@ contract BootstrapStorage is GatewayStorage {
      * @param withdrawer The address of the withdrawer, on this chain.
      * @param amount The amount of the token available to claim.
      */
-    event WithdrawPrincipleResult(
+    event WithdrawPrincipalResult(
         bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
     );
 

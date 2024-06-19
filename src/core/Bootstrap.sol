@@ -345,15 +345,15 @@ contract Bootstrap is
         withdrawableAmounts[depositor][token] += amount;
         depositsByToken[token] += amount;
 
-        // afterReceiveDepositResponse stores the TotalDepositAmount in the principle.
-        vault.updatePrincipleBalance(depositor, totalDepositAmounts[depositor][token]);
+        // afterReceiveDepositResponse stores the TotalDepositAmount in the principal.
+        vault.updatePrincipalBalance(depositor, totalDepositAmounts[depositor][token]);
 
         emit DepositResult(true, token, depositor, amount);
     }
 
     // implementation of ILSTRestakingController
     // This will allow release of undelegated (free) funds to the user for claiming separately.
-    function withdrawPrincipleFromExocore(address token, uint256 amount)
+    function withdrawPrincipalFromExocore(address token, uint256 amount)
         external
         payable
         override
@@ -380,11 +380,11 @@ contract Bootstrap is
         withdrawableAmounts[user][token] -= amount;
         depositsByToken[token] -= amount;
 
-        // afterReceiveWithdrawPrincipleResponse
-        vault.updatePrincipleBalance(user, totalDepositAmounts[user][token]);
+        // afterReceiveWithdrawPrincipalResponse
+        vault.updatePrincipalBalance(user, totalDepositAmounts[user][token]);
         vault.updateWithdrawableBalance(user, amount, 0);
 
-        emit WithdrawPrincipleResult(true, token, user, amount);
+        emit WithdrawPrincipalResult(true, token, user, amount);
     }
 
     // implementation of ILSTRestakingController

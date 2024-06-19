@@ -11,7 +11,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
     uint256 internal constant UNDELEGATE_REQUEST_LENGTH = 138;
     // bytes32 token + bytes32 withdrawer + uint256 amount
-    uint256 internal constant WITHDRAW_PRINCIPLE_REQUEST_LENGTH = 96;
+    uint256 internal constant WITHDRAW_PRINCIPAL_REQUEST_LENGTH = 96;
     // bytes32 token + bytes32 withdrawer + uint256 amount
     uint256 internal constant CLAIM_REWARD_REQUEST_LENGTH = 96;
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount

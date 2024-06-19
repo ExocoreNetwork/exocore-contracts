@@ -53,7 +53,7 @@ activate ClientChainL0Endpoint
 ClientChainL0Endpoint -> ClientChainLzReceiver: 4.2:lzReceive(response)
 activate ClientChainLzReceiver
 ClientChainLzReceiver -> ClientChainLzReceiver: 4.3:afterReceiveDepositResponse(payload)
-ClientChainLzReceiver -> ExoCapsule: 4.4:updatePrincipleBalance(lastlyUpdatedPrincipleBalance)
+ClientChainLzReceiver -> ExoCapsule: 4.4:updatePrincipalBalance(lastlyUpdatedPrincipalBalance)
 activate ExoCapsule
 ExoCapsule -> ClientChainLzReceiver: 4.5:emit (DepositResult)
 deactivate ExoCapsule

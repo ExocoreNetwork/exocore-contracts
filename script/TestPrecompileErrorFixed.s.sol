@@ -94,7 +94,7 @@ contract DepositScript is BaseScript {
         vm.stopBroadcast();
 
         bytes memory withdrawMsg = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
             uint256(TEST_WITHDRAWAL_AMOUNT)

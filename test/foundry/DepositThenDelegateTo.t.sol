@@ -158,7 +158,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         );
         vm.stopPrank();
 
-        uint256 actualDepositAmount = AssetsMock(ASSETS_PRECOMPILE_ADDRESS).getPrincipleBalance(
+        uint256 actualDepositAmount = AssetsMock(ASSETS_PRECOMPILE_ADDRESS).getPrincipalBalance(
             clientChainId,
             // weirdly, the address(x).toBytes32() did not work here.
             // for reference, the results are
