@@ -129,7 +129,7 @@ contract DelegateTest is ExocoreDeployer {
         /// DelegationMock contract should receive correct message payload
         vm.expectEmit(true, true, true, true, DELEGATION_PRECOMPILE_ADDRESS);
         emit DelegateRequestProcessed(
-            uint16(clientChainId),
+            clientChainId,
             delegateRequestNonce,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
@@ -242,7 +242,7 @@ contract DelegateTest is ExocoreDeployer {
         /// DelegationMock contract should receive correct message payload
         vm.expectEmit(true, true, true, true, DELEGATION_PRECOMPILE_ADDRESS);
         emit UndelegateRequestProcessed(
-            uint16(clientChainId),
+            clientChainId,
             undelegateRequestNonce,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),

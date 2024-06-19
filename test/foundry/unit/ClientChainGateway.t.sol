@@ -50,7 +50,7 @@ contract SetUp is Test {
     uint256 internal constant CLAIM_REWARD_REQUEST_LENGTH = 96;
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
     uint256 internal constant DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH = DELEGATE_REQUEST_LENGTH;
-    uint256 internal constant ADDRESS_LENGTH = 32;
+    uint256 internal constant TOKEN_ADDRESS_BYTES_LENTH = 32;
 
     Player[] players;
     address[] whitelistTokens;
@@ -72,8 +72,8 @@ contract SetUp is Test {
     BeaconProxyBytecode beaconProxyBytecode;
 
     string operatorAddress = "exo1v4s6vtjpmxwu9rlhqms5urzrc3tc2ae2gnuqhc";
-    uint16 exocoreChainId = 2;
-    uint16 clientChainId = 1;
+    uint32 exocoreChainId = 2;
+    uint32 clientChainId = 1;
 
     event Paused(address account);
     event Unpaused(address account);
@@ -297,7 +297,7 @@ contract AddWhitelistTokens is SetUp {
 
     function test_RevertWhen_CallerNotOwner() public {
         address[] memory whitelistTokens = new address[](2);
-        uint256 nativeFee = clientGateway.quote(new bytes(ADDRESS_LENGTH * whitelistTokens.length + 2));
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
 
         vm.startPrank(deployer.addr);
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, deployer.addr));
@@ -309,14 +309,14 @@ contract AddWhitelistTokens is SetUp {
         clientGateway.pause();
 
         address[] memory whitelistTokens = new address[](2);
-        uint256 nativeFee = clientGateway.quote(new bytes(ADDRESS_LENGTH * whitelistTokens.length + 2));
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
         clientGateway.addWhitelistTokens{value: nativeFee}(whitelistTokens);
     }
 
     function test_RevertWhen_TokensListTooLong() public {
         address[] memory whitelistTokens = new address[](256);
-        uint256 nativeFee = clientGateway.quote(new bytes(ADDRESS_LENGTH * whitelistTokens.length + 2));
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
 
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ClientChainGateway: tokens length should not execeed 255");
@@ -326,7 +326,7 @@ contract AddWhitelistTokens is SetUp {
     function test_RevertWhen_HasZeroAddressToken() public {
         address[] memory whitelistTokens = new address[](2);
         whitelistTokens[0] = address(restakeToken);
-        uint256 nativeFee = clientGateway.quote(new bytes(ADDRESS_LENGTH * whitelistTokens.length + 2));
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
 
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ClientChainGateway: zero token address");
@@ -345,7 +345,7 @@ contract AddWhitelistTokens is SetUp {
 
         address[] memory whitelistTokens = new address[](1);
         whitelistTokens[0] = address(restakeToken);
-        uint256 nativeFee = clientGateway.quote(new bytes(ADDRESS_LENGTH * whitelistTokens.length + 2));
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
 
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ClientChainGateway: token should not be whitelisted before");
@@ -355,7 +355,7 @@ contract AddWhitelistTokens is SetUp {
     function test_SendMessage() public {
         address[] memory whitelistTokens = new address[](1);
         whitelistTokens[0] = address(restakeToken);
-        uint256 nativeFee = clientGateway.quote(new bytes(ADDRESS_LENGTH * whitelistTokens.length + 2));
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
 
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectEmit(true, true, true, true, address(clientGateway));

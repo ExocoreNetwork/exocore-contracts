@@ -187,13 +187,13 @@ contract ExocoreGatewayMock is
         onlyCalledFromThis
     {
         uint8 count = uint8(payload[0]);
-        uint256 expectedLength = count * ADDRESS_LENGTH + 1;
+        uint256 expectedLength = count * TOKEN_ADDRESS_BYTES_LENTH + 1;
         _validatePayloadLength(payload, expectedLength, Action.REQUEST_DEPOSIT);
 
         bytes[] memory tokens = new bytes[](count);
         for (uint256 i; i < count; i++) {
-            uint256 start = i * ADDRESS_LENGTH + 1;
-            uint256 end = start + ADDRESS_LENGTH;
+            uint256 start = i * TOKEN_ADDRESS_BYTES_LENTH + 1;
+            uint256 end = start + TOKEN_ADDRESS_BYTES_LENTH;
             tokens[i] = payload[start:end];
         }
 
