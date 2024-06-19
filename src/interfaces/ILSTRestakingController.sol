@@ -13,9 +13,9 @@ interface ILSTRestakingController is IBaseRestakingController {
 
     struct TokenBalanceUpdateInfo {
         address token;
-        uint256 lastlyUpdatedPrincipleBalance;
+        uint256 lastlyUpdatedPrincipalBalance;
         uint256 lastlyUpdatedRewardBalance;
-        uint256 unlockPrincipleAmount;
+        uint256 unlockPrincipalAmount;
         uint256 unlockRewardAmount;
     }
 
@@ -33,17 +33,17 @@ interface ILSTRestakingController is IBaseRestakingController {
     function deposit(address token, uint256 amount) external payable;
 
     /**
-     * @notice Client chain users call to withdraw principle from Exocore to client chain before they are granted to
+     * @notice Client chain users call to withdraw principal from Exocore to client chain before they are granted to
      * withdraw from the vault.
      * @dev This function should ask Exocore validator set for withdrawal grant. If Exocore validator set responds
      * with true or success, the corresponding assets should be unlocked to make them claimable by users themselves.
      * Otherwise these assets should remain locked.
      * @param token - The address of specific token that the user wants to withdraw from Exocore.
-     * @param principleAmount - principle means the assets user deposits into Exocore for delegating and staking.
+     * @param principalAmount - principal means the assets user deposits into Exocore for delegating and staking.
      * we suppose that After deposit, its amount could only remain unchanged or decrease owing to slashing, which means
-     * that direct transfer of principle is not possible.
+     * that direct transfer of principal is not possible.
      */
-    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external payable;
+    function withdrawPrincipalFromExocore(address token, uint256 principalAmount) external payable;
 
     function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
 

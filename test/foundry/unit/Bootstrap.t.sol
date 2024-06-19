@@ -774,7 +774,7 @@ contract BootstrapTest is Test {
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
-    function test11_WithdrawPrincipleFromExocore() public {
+    function test11_WithdrawPrincipalFromExocore() public {
         // delegate and then undelegate
         test10_UndelegateFrom();
         // now, withdraw
@@ -785,7 +785,7 @@ contract BootstrapTest is Test {
             uint256 prevTokenDeposit = bootstrap.depositsByToken(address(myToken));
             uint256 prevVaultWithdrawable =
                 Vault(address(bootstrap.tokenToVault(address(myToken)))).withdrawableBalances(addrs[i]);
-            bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[i]);
+            bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[i]);
             uint256 postDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
             uint256 postWithdrawable = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             uint256 postTokenDeposit = bootstrap.depositsByToken(address(myToken));
@@ -800,40 +800,40 @@ contract BootstrapTest is Test {
         }
     }
 
-    function test11_WithdrawPrincipleFromExocore_TokenNotWhitelisted() public {
+    function test11_WithdrawPrincipalFromExocore_TokenNotWhitelisted() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.withdrawPrincipleFromExocore(address(0xa), amounts[0]);
+        bootstrap.withdrawPrincipalFromExocore(address(0xa), amounts[0]);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipleFromExocore_ZeroAmount() public {
+    function test11_WithdrawPrincipalFromExocore_ZeroAmount() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        bootstrap.withdrawPrincipleFromExocore(address(myToken), 0);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), 0);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipleFromExocore_NoDeposits() public {
+    function test11_WithdrawPrincipalFromExocore_NoDeposits() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient deposited balance");
-        bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[0]);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipleFromExocore_Excess() public {
+    function test11_WithdrawPrincipalFromExocore_Excess() public {
         test10_UndelegateFrom();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient deposited balance");
-        bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[0] + 1);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0] + 1);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipleFromExocore_ExcessFree() public {
+    function test11_WithdrawPrincipalFromExocore_ExcessFree() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient withdrawable balance");
-        bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[0]);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
@@ -1183,7 +1183,7 @@ contract BootstrapTest is Test {
     }
 
     function test22_Claim() public {
-        test11_WithdrawPrincipleFromExocore();
+        test11_WithdrawPrincipalFromExocore();
         for (uint256 i = 0; i < 6; i++) {
             vm.startPrank(addrs[i]);
             uint256 prevBalance = myToken.balanceOf(addrs[i]);
@@ -1207,7 +1207,7 @@ contract BootstrapTest is Test {
     }
 
     function test22_Claim_Excess() public {
-        test11_WithdrawPrincipleFromExocore();
+        test11_WithdrawPrincipalFromExocore();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Vault: withdrawal amount is larger than depositor's withdrawable balance");
         bootstrap.claim(address(myToken), amounts[0] + 5, addrs[0]);

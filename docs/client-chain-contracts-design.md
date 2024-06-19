@@ -205,7 +205,7 @@ interface IVault {
 
     function deposit(address sender, uint256 amount) external;
 
-    function updatePrincipleBalance(address user, uint256 principleBalance) external;
+    function updatePrincipalBalance(address user, uint256 principalBalance) external;
 
     function updateRewardBalance(address user, uint256 rewardBalance) external;
 
@@ -213,7 +213,7 @@ interface IVault {
 }
 ```
 
-`principleBalance` refers to the principle that the user deposits into Exocore chain. This part is separated from the rewarding part of user assets on Exocore, as rewarding assets could be distributed on Exocore chain or on another client chain while the user principle is taken in custody in user’s client chain smart contracts. Besides we assume that the principle balance would only in influenced by slash and it should not be transferrable to another user on Exocore chain, which means that the principle balance would never be greater than the total deposited principle.
+`principalBalance` refers to the principal that the user deposits into Exocore chain. This part is separated from the rewarding part of user assets on Exocore, as rewarding assets could be distributed on Exocore chain or on another client chain while the user principal is taken in custody in user’s client chain smart contracts. Besides we assume that the principal balance would only in influenced by slash and it should not be transferrable to another user on Exocore chain, which means that the principal balance would never be greater than the total deposited principal.
 
 ### `deposit`
 
@@ -229,9 +229,9 @@ The implementation of this function should check against user’s clien chain ba
 
 This function should be only accessible for `Controller` so that this function could only work as part of the process of the whole withdraw workflow and ensure the whole workflow is controlled by `Controller`.
 
-This function could only deduct the clien chain balance, which is updated when each time user calls `Controller.withdrawPrincipleFromExocore` and `UserBalance.withdrawAmount` would be added to user’s client chain token balance.
+This function could only deduct the clien chain balance, which is updated when each time user calls `Controller.withdrawPrincipalFromExocore` and `UserBalance.withdrawAmount` would be added to user’s client chain token balance.
 
-Considering system security, Exocore validator set must return the correct `UserBalance.withdrawAmount` each time responding to `Controller.withdrawPrincipleFromExocore` and the function should check two invariants at the end of the function:
+Considering system security, Exocore validator set must return the correct `UserBalance.withdrawAmount` each time responding to `Controller.withdrawPrincipalFromExocore` and the function should check two invariants at the end of the function:
 
 1. After `withdraw` process finishes, the user’s client chain balance should never increase.
 2. The withdraw amount should never be greater than the `totalDepositedBalance`.
@@ -247,7 +247,7 @@ interface IController {
     // @notice Balance update info for specific user indexed by token
     struct TokenBalanceUpdateInfo {
         address token;
-        uint256 lastlyUpdatedPrincipleBalance;
+        uint256 lastlyUpdatedPrincipalBalance;
         uint256 lastlyUpdatedRewardBalance;
         uint256 unlockAmount;
     }
@@ -286,16 +286,16 @@ interface IController {
     function delegateTo(address operator, address token, uint256 amount) external;
 
     /**
-     * @notice Client chain users call to withdraw principle from Exocore to client chain before they are granted to withdraw from the vault.
+     * @notice Client chain users call to withdraw principal from Exocore to client chain before they are granted to withdraw from the vault.
      * @dev This function should ask Exocore validator set for withdrawal grant. If Exocore validator set responds
      * with true or success, the corresponding assets should be unlocked to make them claimable by users themselves. Otherwise
      * these assets should remain locked.
      * @param token - The address of specific token that the user wants to withdraw from Exocore.
-     * @param principleAmount - principle means the assets user deposits into Exocore for delegating and staking.
+     * @param principalAmount - principal means the assets user deposits into Exocore for delegating and staking.
      * we suppose that After deposit, its amount could only remain unchanged or decrease owing to slashing, which means that direct
-     * transfer of principle is not possible.
+     * transfer of principal is not possible.
      */
-    function withdrawPrincipleFromExocore(address token, uint256 principleAmount) external;
+    function withdrawPrincipalFromExocore(address token, uint256 principalAmount) external;
 
     /**
      * @notice Client chain users call to claim their unlocked assets from the vault.
@@ -314,8 +314,8 @@ interface IController {
      * lastly updated token balance.
      * @dev Only Exocore validato set could indirectly call this function through Gateway contract.
      * @dev This function could be called in two scenaries:
-     * 1) Exocore validator set periodically calls this to update user principle and reward balance.
-     * 2) Exocore validator set sends reponse for the request of withdrawPrincipleFromExocore and unlock part of
+     * 1) Exocore validator set periodically calls this to update user principal and reward balance.
+     * 2) Exocore validator set sends reponse for the request of withdrawPrincipalFromExocore and unlock part of
      * the vault assets and update user's withdrawable balance correspondingly.
      * @param info - The info needed for updating users balance.
      */
@@ -351,20 +351,20 @@ This function should be accessible for any EOA address and contract address.
 
 In aspect of security, this should not change the client chain state especially considering user balance.
 
-### `withdrawPrincipleFromExocore`
+### `withdrawPrincipalFromExocore`
 
-This function is aimed for user withdrawing principle from Exocore chain to client chain. This involves the correct accounting on Exocore chain as well as the correct update of user’s `principleBalance` and claimable balance. If this process is successful, user should be able to claim the corresponding assets on client chain to destination address.
+This function is aimed for user withdrawing principal from Exocore chain to client chain. This involves the correct accounting on Exocore chain as well as the correct update of user’s `principalBalance` and claimable balance. If this process is successful, user should be able to claim the corresponding assets on client chain to destination address.
 
-The principle withdrawal workflow is also separated into two trasactions:
+The principal withdrawal workflow is also separated into two trasactions:
 
-1. client chain transaction by user: call `Gateway.sendInterchainMsg` to send principle withdrawal request to Exocore chain.
-2. client chain transaction by Exocore validator set: call `Gateway.receiveInterchainMsg` to receive the response from Exocore chain, and call `unlock` to update user’s `principleBalance` and claimable balance. If response indicates failure, no user balance should be modified.
+1. client chain transaction by user: call `Gateway.sendInterchainMsg` to send principal withdrawal request to Exocore chain.
+2. client chain transaction by Exocore validator set: call `Gateway.receiveInterchainMsg` to receive the response from Exocore chain, and call `unlock` to update user’s `principalBalance` and claimable balance. If response indicates failure, no user balance should be modified.
 
 This function should be accessible for any EOA address and contract address.
 
 In aspect of security, Exocore chain must have successfully updated user balance on Exocore chain and checked against user’s withdraw-able balance.
 
-The withdraw-able amount of principle is defined as follows:
+The withdraw-able amount of principal is defined as follows:
 
 1. The asset is not staked (delegated) on any operators.
 2. The asset is not frozen/slashed.
@@ -372,24 +372,24 @@ The withdraw-able amount of principle is defined as follows:
 
 ### `claim`
 
-This function is aimed for user claiming the unlocked amount of principle. Before claiming, user must make sure that thre is enogh principle unlocked by calling `withdrawPrincipleFromExocore`. The implementaion of this function should check against user’s claimable balance and transfer tokens to the destination address that user specified.
+This function is aimed for user claiming the unlocked amount of principal. Before claiming, user must make sure that thre is enogh principal unlocked by calling `withdrawPrincipalFromExocore`. The implementaion of this function should check against user’s claimable balance and transfer tokens to the destination address that user specified.
 
 This function should be accessible for any EOA address and contract address.
 
-In aspect of security, we must carefully check against user’s claimable(unlocked) principle balance.
+In aspect of security, we must carefully check against user’s claimable(unlocked) principal balance.
 
 ### `updateUsersBalance`
 
-This function should only be called by Exocore validator set through `Gateway` to update user’s `principleBalance`, `rewardBalance` and `withdrawableBalance`.
+This function should only be called by Exocore validator set through `Gateway` to update user’s `principalBalance`, `rewardBalance` and `withdrawableBalance`.
 
 This function could be called in two scenaries:
 
-1. Exocore validator set periodically calls this to update user principle and reward balance(this should not update user's withdrawable balance).
-2. Exocore validator set sends reponse for the request of withdrawPrincipleFromExocore and unlock part of
-the vault assets and update user's withdrawable balance correspondingly. User's `principleBalance` and `rewardBalance` will be updated either.
+1. Exocore validator set periodically calls this to update user principal and reward balance(this should not update user's withdrawable balance).
+2. Exocore validator set sends reponse for the request of withdrawPrincipalFromExocore and unlock part of
+the vault assets and update user's withdrawable balance correspondingly. User's `principalBalance` and `rewardBalance` will be updated either.
 
 This function should be only accessible for `Gateway` so that this function could only be called by Exocore validator set through `Gateway`.
 
-This function relies on the Exocore set correctly returning the updated `principleBalance`, `rewardBalance` and `unlockAmount`.
+This function relies on the Exocore set correctly returning the updated `principalBalance`, `rewardBalance` and `unlockAmount`.
 
-Everytime the user is trying to withdraw principle and reward from Exocore chain, this function must be called by Exocore validator set via cross-chain message to correctly update user’s Exocore balance and especially correctly update user’s withdrawable amount on client chain.
+Everytime the user is trying to withdraw principal and reward from Exocore chain, this function must be called by Exocore validator set via cross-chain message to correctly update user’s Exocore balance and especially correctly update user’s withdrawable amount on client chain.

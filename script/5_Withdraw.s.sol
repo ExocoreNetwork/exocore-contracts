@@ -57,7 +57,7 @@ contract DepositScript is BaseScript {
 
     function run() public {
         bytes memory msg_ = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
             uint256(WITHDRAW_AMOUNT)
@@ -68,7 +68,7 @@ contract DepositScript is BaseScript {
         uint256 nativeFee = clientGateway.quote(msg_);
         console.log("l0 native fee:", nativeFee);
 
-        clientGateway.withdrawPrincipleFromExocore{value: nativeFee}(address(restakeToken), WITHDRAW_AMOUNT);
+        clientGateway.withdrawPrincipalFromExocore{value: nativeFee}(address(restakeToken), WITHDRAW_AMOUNT);
         vm.stopBroadcast();
 
         if (useEndpointMock) {

@@ -30,7 +30,7 @@ contract ExoCapsuleStorage {
     uint256 public constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
 
-    uint256 public principleBalance;
+    uint256 public principalBalance;
     uint256 public withdrawableBalance;
     address public capsuleOwner;
     INativeRestakingController public gateway;

@@ -162,7 +162,7 @@ contract LzReceive is SetUp {
             abi.encodePacked(bytes32(bytes20(withdrawer.addr))),
             uint256(WITHDRAWAL_AMOUNT)
         );
-        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, payload);
+        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, payload);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit ExocorePrecompileError(ASSETS_PRECOMPILE_ADDRESS, uint64(1));

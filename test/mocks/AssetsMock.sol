@@ -6,7 +6,7 @@ contract AssetsMock is IAssets {
 
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
-    mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principleBalances;
+    mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principalBalances;
 
     uint32[] internal chainIds;
     mapping(uint32 chainId => bool registered) isRegisteredChain;
@@ -22,12 +22,12 @@ contract AssetsMock is IAssets {
             require(isRegisteredToken[clientChainLzId][assetsAddress], "the token is not registered before");
         }
 
-        principleBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
+        principalBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
 
-        return (true, principleBalances[clientChainLzId][assetsAddress][stakerAddress]);
+        return (true, principalBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
-    function withdrawPrinciple(
+    function withdrawPrincipal(
         uint32 clientChainLzId,
         bytes memory assetsAddress,
         bytes memory withdrawer,
@@ -39,11 +39,11 @@ contract AssetsMock is IAssets {
             require(isRegisteredToken[clientChainLzId][assetsAddress], "the token is not registered before");
         }
 
-        require(opAmount <= principleBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
+        require(opAmount <= principalBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
 
-        principleBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
+        principalBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
 
-        return (true, principleBalances[clientChainLzId][assetsAddress][withdrawer]);
+        return (true, principalBalances[clientChainLzId][assetsAddress][withdrawer]);
     }
 
     function getClientChains() external view returns (bool, uint32[] memory) {
@@ -72,12 +72,12 @@ contract AssetsMock is IAssets {
         return true;
     }
 
-    function getPrincipleBalance(uint32 clientChainLzId, bytes memory token, bytes memory staker)
+    function getPrincipalBalance(uint32 clientChainLzId, bytes memory token, bytes memory staker)
         public
         view
         returns (uint256)
     {
-        return principleBalances[clientChainLzId][token][staker];
+        return principalBalances[clientChainLzId][token][staker];
     }
 
     function _addressToBytes(address addr) internal pure returns (bytes memory) {

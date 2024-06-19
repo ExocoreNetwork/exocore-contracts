@@ -69,8 +69,8 @@ contract ClientChainGateway is
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
         _registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE] =
-            this.afterReceiveWithdrawPrincipleResponse.selector;
+        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE] =
+            this.afterReceiveWithdrawPrincipalResponse.selector;
         _registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
         _registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
         _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =

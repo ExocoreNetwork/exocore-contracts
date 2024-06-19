@@ -45,7 +45,7 @@ contract SetUp is Test {
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
     uint256 internal constant UNDELEGATE_REQUEST_LENGTH = 138;
     // bytes32 token + bytes32 withdrawer + uint256 amount
-    uint256 internal constant WITHDRAW_PRINCIPLE_REQUEST_LENGTH = 96;
+    uint256 internal constant WITHDRAW_PRINCIPAL_REQUEST_LENGTH = 96;
     // bytes32 token + bytes32 withdrawer + uint256 amount
     uint256 internal constant CLAIM_REWARD_REQUEST_LENGTH = 96;
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
@@ -234,7 +234,7 @@ contract Pausable is SetUp {
         clientGateway.deposit(address(restakeToken), uint256(1));
 
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
-        clientGateway.withdrawPrincipleFromExocore(address(restakeToken), uint256(1));
+        clientGateway.withdrawPrincipalFromExocore(address(restakeToken), uint256(1));
 
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
         clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));

@@ -25,18 +25,18 @@ abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingCo
         _processRequest(Action.REQUEST_DEPOSIT, actionArgs, encodedRequest);
     }
 
-    function withdrawPrincipleFromExocore(address token, uint256 principleAmount)
+    function withdrawPrincipalFromExocore(address token, uint256 principalAmount)
         external
         payable
         isTokenWhitelisted(token)
-        isValidAmount(principleAmount)
+        isValidAmount(principalAmount)
         whenNotPaused
     {
         bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principleAmount);
-        bytes memory encodedRequest = abi.encode(token, msg.sender, principleAmount);
+            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principalAmount);
+        bytes memory encodedRequest = abi.encode(token, msg.sender, principalAmount);
 
-        _processRequest(Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE, actionArgs, encodedRequest);
+        _processRequest(Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, actionArgs, encodedRequest);
     }
 
     function withdrawRewardFromExocore(address token, uint256 rewardAmount)
