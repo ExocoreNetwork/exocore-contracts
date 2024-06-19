@@ -15,6 +15,8 @@ import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
+
+import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
@@ -30,6 +32,7 @@ contract Bootstrap is
     PausableUpgradeable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
+    ITokenWhitelister,
     ILSTRestakingController,
     IOperatorRegistry,
     BootstrapLzReceiver
@@ -65,14 +68,7 @@ contract Bootstrap is
         offsetDuration = offsetDuration_;
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
-        for (uint256 i = 0; i < whitelistTokens_.length; i++) {
-            address underlyingToken = whitelistTokens_[i];
-            whitelistTokens.push(underlyingToken);
-            isWhitelistedToken[underlyingToken] = true;
-            emit WhitelistTokenAdded(underlyingToken);
-
-            _deployVault(underlyingToken);
-        }
+        _addWhitelistTokens(whitelistTokens_);
 
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.markBootstrapped.selector;
 
@@ -158,20 +154,31 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistToken(address _token) public override beforeLocked onlyOwner whenNotPaused nonReentrant {
-        super.addWhitelistToken(_token);
+    function addWhitelistTokens(address[] calldata tokens) external payable beforeLocked onlyOwner whenNotPaused {
+        _addWhitelistTokens(tokens);
+    }
+
+    function _addWhitelistTokens(address[] calldata tokens) internal {
+        for (uint256 i; i < tokens.length; i++) {
+            address token = tokens[i];
+            require(token != address(0), "Bootstrap: zero token address");
+            require(!isWhitelistedToken[token], "Bootstrap: token should be not whitelisted before");
+
+            whitelistTokens.push(token);
+            isWhitelistedToken[token] = true;
+
+            // deploy the corresponding vault if not deployed before
+            if (address(tokenToVault[token]) == address(0)) {
+                _deployVault(token);
+            }
+
+            emit WhitelistTokenAdded(token);
+        }
     }
 
     // implementation of ITokenWhitelister
-    function removeWhitelistToken(address _token)
-        public
-        override
-        beforeLocked
-        onlyOwner
-        whenNotPaused
-        isTokenWhitelisted(_token)
-    {
-        super.removeWhitelistToken(_token);
+    function getWhitelistedTokensCount() external view returns (uint256) {
+        return whitelistTokens.length;
     }
 
     // implementation of IOperatorRegistry

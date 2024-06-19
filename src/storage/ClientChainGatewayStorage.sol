@@ -43,6 +43,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /* ----------------------------- restaking      ----------------------------- */
     event ClaimSucceeded(address token, address recipient, uint256 amount);
     event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
+    event RegisterTokensResult(bool indexed success);
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */

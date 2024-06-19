@@ -4,7 +4,6 @@ import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 
-import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
 import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
@@ -14,7 +13,7 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 // prior to ClientChainGateway. ClientChainStorage should inherit from
 // BootstrapStorage to ensure overlap of positioning between the
 // members of each contract.
-contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
+contract BootstrapStorage is GatewayStorage {
 
     /* -------------------------------------------------------------------------- */
     /*               state variables exclusively owned by Bootstrap               */
@@ -359,6 +358,12 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
      */
     event VaultCreated(address underlyingToken, address vault);
 
+    /**
+     * @dev Emitted when a new token is added to the whitelist.
+     * @param _token The address of the token that has been added to the whitelist.
+     */
+    event WhitelistTokenAdded(address _token);
+
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
     /* -------------------------------------------------------------------------- */
@@ -478,41 +483,6 @@ contract BootstrapStorage is GatewayStorage, ITokenWhitelister {
 
         tokenToVault[underlyingToken] = vault;
         return vault;
-    }
-
-    // implementation of ITokenWhitelister
-    function addWhitelistToken(address _token) public virtual override {
-        require(!isWhitelistedToken[_token], "BootstrapStorage: token should be not whitelisted before");
-        whitelistTokens.push(_token);
-        isWhitelistedToken[_token] = true;
-
-        // deploy the corresponding vault if not deployed before
-        if (address(tokenToVault[_token]) == address(0)) {
-            _deployVault(_token);
-        }
-
-        emit WhitelistTokenAdded(_token);
-    }
-
-    // implementation of ITokenWhitelister
-    function removeWhitelistToken(address _token) public virtual override {
-        isWhitelistedToken[_token] = false;
-        // the implicit assumption here is that the _token must be included in whitelistTokens
-        // if isWhitelistedToken[_token] is true
-        for (uint256 i = 0; i < whitelistTokens.length; i++) {
-            if (whitelistTokens[i] == _token) {
-                whitelistTokens[i] = whitelistTokens[whitelistTokens.length - 1];
-                whitelistTokens.pop();
-                break;
-            }
-        }
-
-        emit WhitelistTokenRemoved(_token);
-    }
-
-    // implementation of ITokenWhitelister
-    function getWhitelistedTokensCount() external view returns (uint256) {
-        return whitelistTokens.length;
     }
 
 }

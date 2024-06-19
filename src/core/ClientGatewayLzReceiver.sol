@@ -148,8 +148,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         public
         onlyCalledFromThis
     {
-        (address token, string memory operator, address delegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
+        (address token, address delegator, string memory operator, uint256 amount) =
+            abi.decode(requestPayload, (address, address, string, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 
@@ -160,8 +160,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         public
         onlyCalledFromThis
     {
-        (address token, string memory operator, address undelegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
+        (address token, address undelegator, string memory operator, uint256 amount) =
+            abi.decode(requestPayload, (address, address, string, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 
@@ -172,8 +172,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         public
         onlyCalledFromThis
     {
-        (address token, string memory operator, address delegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
+        (address token, address delegator, string memory operator, uint256 amount) =
+            abi.decode(requestPayload, (address, address, string, uint256));
 
         bool delegateSuccess = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:]));
@@ -187,6 +187,32 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         }
 
         emit DepositThenDelegateResult(delegateSuccess, delegator, operator, token, amount);
+    }
+
+    function afterReceiveRegisterTokensResponse(bytes calldata requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+        whenNotPaused
+    {
+        address[] memory tokens = abi.decode(requestPayload, (address[]));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        if (success) {
+            for (uint256 i; i < tokens.length; i++) {
+                address token = tokens[i];
+                isWhitelistedToken[token] = true;
+                whitelistTokens.push(token);
+
+                // deploy the corresponding vault if not deployed before
+                if (address(tokenToVault[token]) == address(0)) {
+                    _deployVault(token);
+                }
+
+                emit WhitelistTokenAdded(token);
+            }
+        }
+
+        emit RegisterTokensResult(success);
     }
 
 }

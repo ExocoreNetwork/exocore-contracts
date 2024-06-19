@@ -3,8 +3,6 @@ pragma solidity ^0.8.19;
 import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ExocoreGateway} from "../src/core/ExocoreGateway.sol";
 
-import {CLIENT_CHAINS_PRECOMPILE_ADDRESS} from "../src/interfaces/precompiles/IClientChains.sol";
-
 import {BaseScript} from "./BaseScript.sol";
 import "forge-std/Script.sol";
 

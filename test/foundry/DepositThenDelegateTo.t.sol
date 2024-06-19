@@ -4,8 +4,9 @@ import "../../src/core/ExocoreGateway.sol";
 
 import "../../src/interfaces/precompiles/IDelegation.sol";
 import "../../src/storage/GatewayStorage.sol";
+
+import "../mocks/AssetsMock.sol";
 import "../mocks/DelegationMock.sol";
-import {DepositMock} from "../mocks/DepositMock.sol";
 import "./ExocoreDeployer.t.sol";
 
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
@@ -19,10 +20,6 @@ import "forge-std/console.sol";
 contract DepositThenDelegateToTest is ExocoreDeployer {
 
     using AddressCast for address;
-
-    // layer zero events
-    event NewPacket(uint32, address, bytes32, uint64, bytes);
-    event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
     // ClientChainGateway emits this when receiving the response
     event DepositThenDelegateResult(
@@ -51,8 +48,11 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         deal(delegator, 1e22);
         deal(address(exocoreGateway), 1e22);
 
-        uint64 lzNonce = 1;
+        uint64 lzNonce = 2;
         uint256 delegateAmount = 10_000;
+
+        // before all operations we should add whitelist tokens
+        test_AddWhitelistTokens();
 
         // ensure there is enough balance
         vm.startPrank(exocoreValidatorSet.addr);
@@ -141,7 +141,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             clientChainId,
             address(exocoreGateway),
             address(clientGateway).toBytes32(),
-            uint64(1), // outbound nonce not inbound, only equals because it's the first tx
+            lzNonce, // outbound nonce not inbound, only equals because it's the first tx
             responsePayload
         );
 
@@ -158,7 +158,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         );
         vm.stopPrank();
 
-        uint256 actualDepositAmount = DepositMock(DEPOSIT_PRECOMPILE_ADDRESS).principleBalances(
+        uint256 actualDepositAmount = AssetsMock(ASSETS_PRECOMPILE_ADDRESS).getPrincipleBalance(
             clientChainId,
             // weirdly, the address(x).toBytes32() did not work here.
             // for reference, the results are

@@ -10,11 +10,11 @@ contract GatewayStorage {
         REQUEST_UNDELEGATE_FROM,
         REQUEST_DEPOSIT_THEN_DELEGATE_TO,
         REQUEST_MARK_BOOTSTRAP,
-        RESPOND,
-        UPDATE_USERS_BALANCES
+        REQUEST_REGISTER_TOKENS,
+        RESPOND
     }
 
-    mapping(Action => bytes4) public _whiteListFunctionSelectors;
+    mapping(Action => bytes4) internal _whiteListFunctionSelectors;
     address payable public exocoreValidatorSetAddress;
 
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
