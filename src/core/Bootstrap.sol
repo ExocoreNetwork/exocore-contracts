@@ -81,6 +81,7 @@ contract Bootstrap is
         // contract controlled by one.
         __Ownable_init_unchained(owner);
         __Pausable_init_unchained();
+        __ReentrancyGuard_init_unchained();
     }
 
     /**

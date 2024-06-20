@@ -22,11 +22,13 @@ import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/IL
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 
 contract ExocoreGateway is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
     IExocoreGateway,
     ExocoreGatewayStorage,
     OAppUpgradeable
@@ -60,6 +62,7 @@ contract ExocoreGateway is
         __Ownable_init_unchained(exocoreValidatorSetAddress);
         __OAppCore_init_unchained(exocoreValidatorSetAddress);
         __Pausable_init_unchained();
+        __ReentrancyGuard_init_unchained();
     }
 
     function _initializeWhitelistFunctionSelectors() private {
@@ -94,7 +97,7 @@ contract ExocoreGateway is
     // setPeer) or be triggered by Golang after the contract is deployed.
     // For manual calls, this function should be called immediately after deployment and
     // then never needs to be called again.
-    function markBootstrapOnAllChains() public whenNotPaused {
+    function markBootstrapOnAllChains() public whenNotPaused nonReentrant {
         (bool success, bytes memory result) =
             ASSETS_PRECOMPILE_ADDRESS.staticcall(abi.encodeWithSelector(ASSETS_CONTRACT.getClientChains.selector));
         require(success, "ExocoreGateway: failed to get client chain ids");
@@ -145,7 +148,7 @@ contract ExocoreGateway is
         }
     }
 
-    function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
+    function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused nonReentrant {
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));

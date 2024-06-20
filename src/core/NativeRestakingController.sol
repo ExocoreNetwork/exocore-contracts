@@ -8,10 +8,12 @@ import {BaseRestakingController} from "./BaseRestakingController.sol";
 import {ExoCapsule} from "./ExoCapsule.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 abstract contract NativeRestakingController is
     PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
     INativeRestakingController,
     BaseRestakingController
 {
@@ -22,6 +24,7 @@ abstract contract NativeRestakingController is
         external
         payable
         whenNotPaused
+        nonReentrant
     {
         require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
 
@@ -58,7 +61,7 @@ abstract contract NativeRestakingController is
     function depositBeaconChainValidator(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata proof
-    ) external payable whenNotPaused {
+    ) external payable whenNotPaused nonReentrant {
         IExoCapsule capsule = _getCapsule(msg.sender);
         capsule.verifyDepositProof(validatorContainer, proof);
 
@@ -75,13 +78,13 @@ abstract contract NativeRestakingController is
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused {}
+    ) external payable whenNotPaused nonReentrant {}
 
     function processBeaconChainFullWithdrawal(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused {}
+    ) external payable whenNotPaused nonReentrant {}
 
 }
