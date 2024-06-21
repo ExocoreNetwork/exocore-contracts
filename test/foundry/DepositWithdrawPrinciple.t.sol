@@ -2,8 +2,9 @@ pragma solidity ^0.8.19;
 
 import "../../src/core/ExoCapsule.sol";
 import "../../src/core/ExocoreGateway.sol";
-import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
+
 import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
+import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
 import "../../src/storage/GatewayStorage.sol";
 import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
