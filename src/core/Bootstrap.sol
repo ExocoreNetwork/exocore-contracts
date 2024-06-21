@@ -7,6 +7,7 @@ import {ITransparentUpgradeableProxy} from
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
@@ -14,6 +15,8 @@ import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
+
+import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
@@ -28,6 +31,8 @@ contract Bootstrap is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    ITokenWhitelister,
     ILSTRestakingController,
     IOperatorRegistry,
     BootstrapLzReceiver
@@ -63,16 +68,9 @@ contract Bootstrap is
         offsetDuration = offsetDuration_;
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
-        for (uint256 i = 0; i < whitelistTokens_.length; i++) {
-            address underlyingToken = whitelistTokens_[i];
-            whitelistTokens.push(underlyingToken);
-            isWhitelistedToken[underlyingToken] = true;
-            emit WhitelistTokenAdded(underlyingToken);
+        _addWhitelistTokens(whitelistTokens_);
 
-            _deployVault(underlyingToken);
-        }
-
-        _whiteListFunctionSelectors[Action.MARK_BOOTSTRAP] = this.markBootstrapped.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.markBootstrapped.selector;
 
         customProxyAdmin = customProxyAdmin_;
         bootstrapped = false;
@@ -156,20 +154,31 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistToken(address _token) public override beforeLocked onlyOwner whenNotPaused {
-        super.addWhitelistToken(_token);
+    function addWhitelistTokens(address[] calldata tokens) external payable beforeLocked onlyOwner whenNotPaused {
+        _addWhitelistTokens(tokens);
+    }
+
+    function _addWhitelistTokens(address[] calldata tokens) internal {
+        for (uint256 i; i < tokens.length; i++) {
+            address token = tokens[i];
+            require(token != address(0), "Bootstrap: zero token address");
+            require(!isWhitelistedToken[token], "Bootstrap: token should be not whitelisted before");
+
+            whitelistTokens.push(token);
+            isWhitelistedToken[token] = true;
+
+            // deploy the corresponding vault if not deployed before
+            if (address(tokenToVault[token]) == address(0)) {
+                _deployVault(token);
+            }
+
+            emit WhitelistTokenAdded(token);
+        }
     }
 
     // implementation of ITokenWhitelister
-    function removeWhitelistToken(address _token)
-        public
-        override
-        beforeLocked
-        onlyOwner
-        whenNotPaused
-        isTokenWhitelisted(_token)
-    {
-        super.removeWhitelistToken(_token);
+    function getWhitelistedTokensCount() external view returns (uint256) {
+        return whitelistTokens.length;
     }
 
     // implementation of IOperatorRegistry
@@ -305,7 +314,7 @@ contract Bootstrap is
         emit OperatorCommissionUpdated(newRate);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     function deposit(address token, uint256 amount)
         external
         payable
@@ -314,31 +323,37 @@ contract Bootstrap is
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
+        nonReentrant // interacts with Vault
     {
-        IVault vault = _getVault(token);
-        vault.deposit(msg.sender, amount);
+        _deposit(msg.sender, token, amount);
+    }
 
-        if (!isDepositor[msg.sender]) {
-            isDepositor[msg.sender] = true;
-            depositors.push(msg.sender);
+    // _deposit is the internal function that does the work
+    function _deposit(address depositor, address token, uint256 amount) internal {
+        IVault vault = _getVault(token);
+        vault.deposit(depositor, amount);
+
+        if (!isDepositor[depositor]) {
+            isDepositor[depositor] = true;
+            depositors.push(depositor);
         }
 
         // staker_asset.go duplicate here. the duplication is required (and not simply inferred
         // from vault) because the vault is not altered by the gateway in response to
         // delegations or undelegations. hence, this is not something we can do either.
-        totalDepositAmounts[msg.sender][token] += amount;
-        withdrawableAmounts[msg.sender][token] += amount;
+        totalDepositAmounts[depositor][token] += amount;
+        withdrawableAmounts[depositor][token] += amount;
         depositsByToken[token] += amount;
 
-        // afterReceiveDepositResponse stores the TotalDepositAmount in the principle.
-        vault.updatePrincipleBalance(msg.sender, totalDepositAmounts[msg.sender][token]);
+        // afterReceiveDepositResponse stores the TotalDepositAmount in the principal.
+        vault.updatePrincipalBalance(depositor, totalDepositAmounts[depositor][token]);
 
-        emit DepositResult(true, token, msg.sender, amount);
+        emit DepositResult(true, token, depositor, amount);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     // This will allow release of undelegated (free) funds to the user for claiming separately.
-    function withdrawPrincipleFromExocore(address token, uint256 amount)
+    function withdrawPrincipalFromExocore(address token, uint256 amount)
         external
         payable
         override
@@ -346,33 +361,39 @@ contract Bootstrap is
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
+        nonReentrant // interacts with Vault
     {
+        _withdraw(msg.sender, token, amount);
+    }
+
+    // _withdraw is the internal function that does the actual work.
+    function _withdraw(address user, address token, uint256 amount) internal {
         IVault vault = _getVault(token);
 
-        uint256 deposited = totalDepositAmounts[msg.sender][token];
+        uint256 deposited = totalDepositAmounts[user][token];
         require(deposited >= amount, "Bootstrap: insufficient deposited balance");
-        uint256 withdrawable = withdrawableAmounts[msg.sender][token];
+        uint256 withdrawable = withdrawableAmounts[user][token];
         require(withdrawable >= amount, "Bootstrap: insufficient withdrawable balance");
 
         // when the withdraw precompile is called, it does these things.
-        totalDepositAmounts[msg.sender][token] -= amount;
-        withdrawableAmounts[msg.sender][token] -= amount;
+        totalDepositAmounts[user][token] -= amount;
+        withdrawableAmounts[user][token] -= amount;
         depositsByToken[token] -= amount;
 
-        // afterReceiveWithdrawPrincipleResponse
-        vault.updatePrincipleBalance(msg.sender, totalDepositAmounts[msg.sender][token]);
-        vault.updateWithdrawableBalance(msg.sender, amount, 0);
+        // afterReceiveWithdrawPrincipalResponse
+        vault.updatePrincipalBalance(user, totalDepositAmounts[user][token]);
+        vault.updateWithdrawableBalance(user, amount, 0);
 
-        emit WithdrawPrincipleResult(true, token, msg.sender, amount);
+        emit WithdrawPrincipalResult(true, token, user, amount);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     // there are no rewards before the network bootstrap, so this function is not supported.
     function withdrawRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
         revert NotYetSupported();
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     function claim(address token, uint256 amount, address recipient)
         external
         override
@@ -380,12 +401,13 @@ contract Bootstrap is
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
+        nonReentrant // because it interacts with vault
     {
         IVault vault = _getVault(token);
         vault.withdraw(msg.sender, recipient, amount);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     function delegateTo(string calldata operator, address token, uint256 amount)
         external
         payable
@@ -395,7 +417,13 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(operator)
+    // does not need a reentrancy guard
     {
+        _delegateTo(msg.sender, operator, token, amount);
+    }
+
+    function _delegateTo(address user, string calldata operator, address token, uint256 amount) internal {
+        require(msg.value == 0, "Bootstrap: no ether required for delegation");
         // check that operator is registered
         require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative
@@ -403,14 +431,14 @@ contract Bootstrap is
         // now check amounts.
         uint256 withdrawable = withdrawableAmounts[msg.sender][token];
         require(withdrawable >= amount, "Bootstrap: insufficient withdrawable balance");
-        delegations[msg.sender][operator][token] += amount;
+        delegations[user][operator][token] += amount;
         delegationsByOperator[operator][token] += amount;
-        withdrawableAmounts[msg.sender][token] -= amount;
+        withdrawableAmounts[user][token] -= amount;
 
-        emit DelegateResult(true, msg.sender, operator, token, amount);
+        emit DelegateResult(true, user, operator, token, amount);
     }
 
-    // implementation of IController
+    // implementation of ILSTRestakingController
     function undelegateFrom(string calldata operator, address token, uint256 amount)
         external
         payable
@@ -420,20 +448,42 @@ contract Bootstrap is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         isValidBech32Address(operator)
+    // does not need a reentrancy guard
     {
+        _undelegateFrom(msg.sender, operator, token, amount);
+    }
+
+    function _undelegateFrom(address user, string calldata operator, address token, uint256 amount) internal {
+        require(msg.value == 0, "Bootstrap: no ether required for undelegation");
         // check that operator is registered
         require(bytes(operators[operator].name).length != 0, "Operator does not exist");
         // operator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
-        uint256 delegated = delegations[msg.sender][operator][token];
+        uint256 delegated = delegations[user][operator][token];
         require(delegated >= amount, "Bootstrap: insufficient delegated balance");
         // the undelegation is released immediately since it is not at stake yet.
-        delegations[msg.sender][operator][token] -= amount;
+        delegations[user][operator][token] -= amount;
         delegationsByOperator[operator][token] -= amount;
-        withdrawableAmounts[msg.sender][token] += amount;
+        withdrawableAmounts[user][token] += amount;
 
-        emit UndelegateResult(true, msg.sender, operator, token, amount);
+        emit UndelegateResult(true, user, operator, token, amount);
+    }
+
+    // implementation of ILSTRestakingController
+    function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
+        external
+        payable
+        override
+        beforeLocked
+        whenNotPaused
+        isTokenWhitelisted(token)
+        isValidAmount(amount)
+        isValidBech32Address(operator)
+        nonReentrant // because it interacts with vault in deposit
+    {
+        _deposit(msg.sender, token, amount);
+        _delegateTo(msg.sender, operator, token, amount);
     }
 
     /**

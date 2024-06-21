@@ -9,6 +9,7 @@ import "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "@openzeppelin/contracts/utils/Create2.sol";
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
@@ -18,13 +19,13 @@ import "../../src/core/ClientChainGateway.sol";
 import "../../src/core/ExoCapsule.sol";
 import "../../src/core/ExocoreGateway.sol";
 import {Vault} from "../../src/core/Vault.sol";
+import "src/storage/GatewayStorage.sol";
 
 import {IVault} from "../../src/interfaces/IVault.sol";
 
+import "../../src/interfaces/precompiles/IAssets.sol";
 import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
-import "../../src/interfaces/precompiles/IDeposit.sol";
-import "../../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
 
 import "src/core/BeaconProxyBytecode.sol";
@@ -86,11 +87,27 @@ contract ExocoreDeployer is Test {
         address addr;
     }
 
+    event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
+    event NewPacket(uint32, address, bytes32, uint64, bytes);
+    event RegisterTokensResult(bool indexed success);
+    event WhitelistTokenAdded(address _token);
+    event VaultCreated(address underlyingToken, address vault);
+
     function setUp() public virtual {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
         players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
         players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
         exocoreValidatorSet = Player({privateKey: uint256(0xa), addr: vm.addr(uint256(0xa))});
+
+        // bind precompile mock contracts code to constant precompile address
+        bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
+        vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
+
+        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
+        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
+
+        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
+        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
 
         // load beacon chain validator container and proof from json file
         _loadValidatorContainer();
@@ -99,6 +116,104 @@ contract ExocoreDeployer is Test {
 
         vm.chainId(clientChainId);
         _deploy();
+    }
+
+    function test_AddWhitelistTokens() public {
+        // transfer some gas fee to exocore validator set
+        deal(exocoreValidatorSet.addr, 1e22);
+        // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when
+        // sending back response
+        deal(address(exocoreGateway), 1e22);
+
+        whitelistTokens.push(address(restakeToken));
+
+        // -- add whitelist tokens workflow test --
+
+        vm.startPrank(exocoreValidatorSet.addr);
+
+        // first user call client chain gateway to add whitelist tokens
+
+        // estimate l0 relay fee that the user should pay
+        bytes memory registerTokensRequestPayload = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_REGISTER_TOKENS, uint8(1), bytes32(bytes20(address(restakeToken)))
+        );
+        uint256 registerTokensRequestNativeFee = clientGateway.quote(registerTokensRequestPayload);
+        bytes32 registerTokensRequestId = generateUID(1, true);
+
+        // client chain layerzero endpoint should emit the message packet including deposit payload.
+        vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
+        emit NewPacket(
+            exocoreChainId,
+            address(clientGateway),
+            address(exocoreGateway).toBytes32(),
+            uint64(1),
+            registerTokensRequestPayload
+        );
+        // client chain gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit MessageSent(
+            GatewayStorage.Action.REQUEST_REGISTER_TOKENS,
+            registerTokensRequestId,
+            uint64(1),
+            registerTokensRequestNativeFee
+        );
+        clientGateway.addWhitelistTokens{value: registerTokensRequestNativeFee}(whitelistTokens);
+
+        // second layerzero relayers should watch the request message packet and relay the message to destination
+        // endpoint
+
+        // exocore gateway should return response message to exocore network layerzero endpoint
+        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
+        bytes memory registerTokensResponsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, uint64(1), true);
+        uint256 registerTokensResponseNativeFee = exocoreGateway.quote(clientChainId, registerTokensResponsePayload);
+        bytes32 registerTokensResponseId = generateUID(1, false);
+        emit NewPacket(
+            clientChainId,
+            address(exocoreGateway),
+            address(clientGateway).toBytes32(),
+            uint64(1),
+            registerTokensResponsePayload
+        );
+        // exocore gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit MessageSent(
+            GatewayStorage.Action.RESPOND, registerTokensResponseId, uint64(1), registerTokensResponseNativeFee
+        );
+        exocoreLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
+            address(exocoreGateway),
+            registerTokensRequestId,
+            registerTokensRequestPayload,
+            bytes("")
+        );
+
+        // third layerzero relayers should watch the response message packet and relay the message to source chain
+        // endpoint
+
+        address expectedVault = Create2.computeAddress(
+            bytes32(uint256(uint160(address(restakeToken)))),
+            keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(vaultBeacon), ""))),
+            address(clientGateway)
+        );
+        // client chain gateway should execute the response hook and emit depositResult event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit VaultCreated(address(restakeToken), expectedVault);
+        emit WhitelistTokenAdded(address(restakeToken));
+        emit RegisterTokensResult(true);
+        clientChainLzEndpoint.lzReceive(
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), uint64(1)),
+            address(clientGateway),
+            registerTokensResponseId,
+            registerTokensResponsePayload,
+            bytes("")
+        );
+
+        // find vault according to uderlying token address
+        vault = Vault(address(clientGateway.tokenToVault(address(restakeToken))));
+        assertEq(address(vault), expectedVault);
+        assertTrue(clientGateway.isWhitelistedToken(address(restakeToken)));
+
+        vm.stopPrank();
     }
 
     function _loadValidatorContainer() internal {
@@ -154,7 +269,6 @@ contract ExocoreDeployer is Test {
         vm.etch(address(ETH_POS), address(ethPOSDepositMock).code);
 
         // deploy and initialize client chain contracts
-        whitelistTokens.push(address(restakeToken));
 
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         clientGatewayLogic = new ClientChainGateway(
@@ -172,15 +286,12 @@ contract ExocoreDeployer is Test {
                         address(clientGatewayLogic),
                         address(proxyAdmin),
                         abi.encodeWithSelector(
-                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr), whitelistTokens
+                            clientGatewayLogic.initialize.selector, payable(exocoreValidatorSet.addr)
                         )
                     )
                 )
             )
         );
-
-        // find vault according to uderlying token address
-        vault = Vault(address(clientGateway.tokenToVault(address(restakeToken))));
 
         // deploy Exocore network contracts
         exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
@@ -214,19 +325,6 @@ contract ExocoreDeployer is Test {
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
         vm.stopPrank();
-
-        // bind precompile mock contracts code to constant precompile address
-        bytes memory DepositMockCode = vm.getDeployedCode("DepositMock.sol");
-        vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, DepositMockCode);
-
-        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
-        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
-
-        bytes memory WithdrawPrincipleMockCode = vm.getDeployedCode("WithdrawPrincipleMock.sol");
-        vm.etch(WITHDRAW_PRECOMPILE_ADDRESS, WithdrawPrincipleMockCode);
-
-        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
-        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
     }
 
     function _deployBeaconOracle() internal returns (EigenLayerBeaconOracle) {
@@ -274,6 +372,18 @@ contract ExocoreDeployer is Test {
 
     function _getEffectiveBalance(bytes32[] storage vc) internal view returns (uint64) {
         return vc[2].fromLittleEndianUint64();
+    }
+
+    function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
+        if (fromClientChainToExocore) {
+            uid = GUID.generate(
+                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+            );
+        } else {
+            uid = GUID.generate(
+                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
+            );
+        }
     }
 
 }

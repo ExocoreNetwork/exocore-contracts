@@ -5,11 +5,6 @@ import "../src/core/ClientChainGateway.sol";
 import "../src/core/ExocoreGateway.sol";
 import {Vault} from "../src/core/Vault.sol";
 
-import "../src/interfaces/precompiles/IClaimReward.sol";
-import "../src/interfaces/precompiles/IDelegation.sol";
-import "../src/interfaces/precompiles/IDeposit.sol";
-import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
-
 import "../src/storage/GatewayStorage.sol";
 import "@layerzero-contracts/interfaces/ILayerZeroEndpoint.sol";
 import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";

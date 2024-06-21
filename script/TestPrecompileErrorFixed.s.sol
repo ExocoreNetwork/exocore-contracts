@@ -5,10 +5,9 @@ import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
+import "../src/interfaces/precompiles/IAssets.sol";
 import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
-import "../src/interfaces/precompiles/IDeposit.sol";
-import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";
@@ -59,15 +58,14 @@ contract DepositScript is BaseScript {
         }
         vm.stopBroadcast();
 
-        // bind precompile mock contracts code to constant precompile address
-        bytes memory DepositMockCode = vm.getDeployedCode("DepositMock.sol");
-        vm.etch(DEPOSIT_PRECOMPILE_ADDRESS, DepositMockCode);
+        // bind precompile mock contracts code to constant precompile address so that local simulation could pass
+        // Ensure that the address constants used here (ASSETS_PRECOMPILE_ADDRESS, etc.) are designated for testing and
+        // do not conflict with production addresses.
+        bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
+        vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
 
         bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
         vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
-
-        bytes memory WithdrawPrincipleMockCode = vm.getDeployedCode("WithdrawPrincipleMock.sol");
-        vm.etch(WITHDRAW_PRECOMPILE_ADDRESS, WithdrawPrincipleMockCode);
 
         bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
         vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
@@ -96,7 +94,7 @@ contract DepositScript is BaseScript {
         vm.stopBroadcast();
 
         bytes memory withdrawMsg = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
             uint256(TEST_WITHDRAWAL_AMOUNT)

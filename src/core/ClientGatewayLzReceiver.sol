@@ -90,7 +90,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         (address token, address depositor, uint256 amount) = abi.decode(requestPayload, (address, address, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
-        uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:]));
+        uint256 lastlyUpdatedPrincipalBalance = uint256(bytes32(responsePayload[1:]));
 
         if (!success) {
             revert DepositShouldNotFailOnExocore(token, depositor);
@@ -98,20 +98,20 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = _getCapsule(depositor);
-            capsule.updatePrincipleBalance(lastlyUpdatedPrincipleBalance);
+            capsule.updatePrincipalBalance(lastlyUpdatedPrincipalBalance);
         } else {
             IVault vault = _getVault(token);
-            vault.updatePrincipleBalance(depositor, lastlyUpdatedPrincipleBalance);
+            vault.updatePrincipalBalance(depositor, lastlyUpdatedPrincipalBalance);
         }
 
         emit DepositResult(success, token, depositor, amount);
     }
 
-    function afterReceiveWithdrawPrincipleResponse(bytes memory requestPayload, bytes calldata responsePayload)
+    function afterReceiveWithdrawPrincipalResponse(bytes memory requestPayload, bytes calldata responsePayload)
         public
         onlyCalledFromThis
     {
-        (address token, address withdrawer, uint256 unlockPrincipleAmount) =
+        (address token, address withdrawer, uint256 unlockPrincipalAmount) =
             abi.decode(requestPayload, (address, address, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
@@ -129,11 +129,11 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         } else {
             IVault vault = _getVault(token);
 
-            vault.updatePrincipleBalance(withdrawer, lastlyUpdatedPrincipleBalance);
-            vault.updateWithdrawableBalance(withdrawer, unlockPrincipleAmount, 0);
+            vault.updatePrincipalBalance(withdrawer, lastlyUpdatedPrincipalBalance);
+            vault.updateWithdrawableBalance(withdrawer, unlockPrincipalAmount, 0);
         }
 
-        emit WithdrawPrincipleResult(success, token, withdrawer, unlockPrincipleAmount);
+        emit WithdrawPrincipalResult(success, token, withdrawer, unlockPrincipalAmount);
     }
 
     function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload)
@@ -159,8 +159,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         public
         onlyCalledFromThis
     {
-        (address token, string memory operator, address delegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
+        (address token, address delegator, string memory operator, uint256 amount) =
+            abi.decode(requestPayload, (address, address, string, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 
@@ -171,12 +171,59 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         public
         onlyCalledFromThis
     {
-        (address token, string memory operator, address undelegator, uint256 amount) =
-            abi.decode(requestPayload, (address, string, address, uint256));
+        (address token, address undelegator, string memory operator, uint256 amount) =
+            abi.decode(requestPayload, (address, address, string, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
 
         emit UndelegateResult(success, undelegator, operator, token, amount);
+    }
+
+    function afterReceiveDepositThenDelegateToResponse(bytes memory requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+    {
+        (address token, address delegator, string memory operator, uint256 amount) =
+            abi.decode(requestPayload, (address, address, string, uint256));
+
+        bool delegateSuccess = (uint8(bytes1(responsePayload[0])) == 1);
+        uint256 lastlyUpdatedPrincipalBalance = uint256(bytes32(responsePayload[1:]));
+
+        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+            IExoCapsule capsule = _getCapsule(delegator);
+            capsule.updatePrincipalBalance(lastlyUpdatedPrincipalBalance);
+        } else {
+            IVault vault = _getVault(token);
+            vault.updatePrincipalBalance(delegator, lastlyUpdatedPrincipalBalance);
+        }
+
+        emit DepositThenDelegateResult(delegateSuccess, delegator, operator, token, amount);
+    }
+
+    function afterReceiveRegisterTokensResponse(bytes calldata requestPayload, bytes calldata responsePayload)
+        public
+        onlyCalledFromThis
+        whenNotPaused
+    {
+        address[] memory tokens = abi.decode(requestPayload, (address[]));
+
+        bool success = (uint8(bytes1(responsePayload[0])) == 1);
+        if (success) {
+            for (uint256 i; i < tokens.length; i++) {
+                address token = tokens[i];
+                isWhitelistedToken[token] = true;
+                whitelistTokens.push(token);
+
+                // deploy the corresponding vault if not deployed before
+                if (address(tokenToVault[token]) == address(0)) {
+                    _deployVault(token);
+                }
+
+                emit WhitelistTokenAdded(token);
+            }
+        }
+
+        emit RegisterTokensResult(success);
     }
 
 }

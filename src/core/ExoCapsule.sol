@@ -17,7 +17,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
 
-    event PrincipleBalanceUpdated(address, uint256);
+    event PrincipalBalanceUpdated(address, uint256);
     event WithdrawableBalanceUpdated(address, uint256);
     event WithdrawalSuccess(address, address, uint256);
     /// @notice Emitted when a partial withdrawal claim is successfully redeemed
@@ -199,13 +199,13 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     function updatePrincipleBalance(uint256 lastlyUpdatedPrincipleBalance) external onlyGateway {
         principleBalance = lastlyUpdatedPrincipleBalance;
 
-        emit PrincipleBalanceUpdated(capsuleOwner, lastlyUpdatedPrincipleBalance);
+        emit PrincipalBalanceUpdated(capsuleOwner, lastlyUpdatedPrincipalBalance);
     }
 
-    function updateWithdrawableBalance(uint256 unlockPrincipleAmount) external onlyGateway {
-        withdrawableBalance += unlockPrincipleAmount;
+    function updateWithdrawableBalance(uint256 unlockPrincipalAmount) external onlyGateway {
+        withdrawableBalance += unlockPrincipalAmount;
 
-        emit WithdrawableBalanceUpdated(capsuleOwner, unlockPrincipleAmount);
+        emit WithdrawableBalanceUpdated(capsuleOwner, unlockPrincipalAmount);
     }
 
     function capsuleWithdrawalCredentials() public view returns (bytes memory) {

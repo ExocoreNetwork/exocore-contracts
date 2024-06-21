@@ -29,14 +29,12 @@ abstract contract BaseRestakingController is
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = _getCapsule(msg.sender);
             capsule.withdraw(amount, payable(recipient));
-
-            emit ClaimSucceeded(token, recipient, amount);
         } else {
             IVault vault = _getVault(token);
             vault.withdraw(msg.sender, recipient, amount);
-
-            emit ClaimSucceeded(token, recipient, amount);
         }
+
+        emit ClaimSucceeded(token, recipient, amount);
     }
 
     function delegateTo(string calldata operator, address token, uint256 amount)
@@ -47,7 +45,10 @@ abstract contract BaseRestakingController is
         isValidBech32Address(operator)
         whenNotPaused
     {
-        _processRequest(token, msg.sender, amount, Action.REQUEST_DELEGATE_TO, operator);
+        bytes memory actionArgs =
+            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
+        bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
+        _processRequest(Action.REQUEST_DELEGATE_TO, actionArgs, encodedRequest);
     }
 
     function undelegateFrom(string calldata operator, address token, uint256 amount)
@@ -58,35 +59,16 @@ abstract contract BaseRestakingController is
         isValidBech32Address(operator)
         whenNotPaused
     {
-        _processRequest(token, msg.sender, amount, Action.REQUEST_UNDELEGATE_FROM, operator);
+        bytes memory actionArgs =
+            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
+        bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
+        _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, encodedRequest);
     }
 
-    function _processRequest(
-        address token,
-        address sender,
-        uint256 amount,
-        Action action,
-        string memory operator // Optional parameter, empty string when not needed.
-    ) internal {
-        if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
-            IVault vault = _getVault(token);
-            if (action == Action.REQUEST_DEPOSIT) {
-                vault.deposit(sender, amount); // Logic specific to the REQUEST_DEPOSIT action.
-            }
-        }
+    function _processRequest(Action action, bytes memory actionArgs, bytes memory encodedRequest) internal {
         outboundNonce++;
-        bool hasOperator = bytes(operator).length > 0;
-
-        // Use a single abi.encode call via ternary operators to handle both cases.
-        _registeredRequests[outboundNonce] =
-            hasOperator ? abi.encode(token, operator, sender, amount) : abi.encode(token, sender, amount);
-
+        _registeredRequests[outboundNonce] = encodedRequest;
         _registeredRequestActions[outboundNonce] = action;
-
-        // Use a single abi.encodePacked call via ternary operators to handle both cases.
-        bytes memory actionArgs = hasOperator
-            ? abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(sender)), bytes(operator), amount)
-            : abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(sender)), amount);
 
         _sendMsgToExocore(action, actionArgs);
     }

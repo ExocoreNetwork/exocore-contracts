@@ -51,13 +51,13 @@ contract Vault is Initializable, VaultStorage, IVault {
 
     function deposit(address depositor, uint256 amount) external payable onlyGateway {
         underlyingToken.safeTransferFrom(depositor, address(this), amount);
-        totalDepositedPrincipleAmount[depositor] += amount;
+        totalDepositedPrincipalAmount[depositor] += amount;
     }
 
-    function updatePrincipleBalance(address user, uint256 lastlyUpdatedPrincipleBalance) external onlyGateway {
-        principleBalances[user] = lastlyUpdatedPrincipleBalance;
+    function updatePrincipalBalance(address user, uint256 lastlyUpdatedPrincipalBalance) external onlyGateway {
+        principalBalances[user] = lastlyUpdatedPrincipalBalance;
 
-        emit PrincipleBalanceUpdated(user, lastlyUpdatedPrincipleBalance);
+        emit PrincipalBalanceUpdated(user, lastlyUpdatedPrincipalBalance);
     }
 
     function updateRewardBalance(address user, uint256 lastlyUpdatedRewardBalance) external onlyGateway {
@@ -66,25 +66,25 @@ contract Vault is Initializable, VaultStorage, IVault {
         emit RewardBalanceUpdated(user, lastlyUpdatedRewardBalance);
     }
 
-    function updateWithdrawableBalance(address user, uint256 unlockPrincipleAmount, uint256 unlockRewardAmount)
+    function updateWithdrawableBalance(address user, uint256 unlockPrincipalAmount, uint256 unlockRewardAmount)
         external
         onlyGateway
     {
-        uint256 totalDeposited = totalDepositedPrincipleAmount[user];
+        uint256 totalDeposited = totalDepositedPrincipalAmount[user];
         require(
-            unlockPrincipleAmount <= totalDeposited,
-            "Vault: principle unlock amount is larger than the total deposited amount"
+            unlockPrincipalAmount <= totalDeposited,
+            "Vault: principal unlock amount is larger than the total deposited amount"
         );
 
-        totalUnlockPrincipleAmount[user] += unlockPrincipleAmount;
+        totalUnlockPrincipalAmount[user] += unlockPrincipalAmount;
         require(
-            totalUnlockPrincipleAmount[user] <= totalDeposited,
-            "Vault: total principle unlock amount is larger than the total deposited amount"
+            totalUnlockPrincipalAmount[user] <= totalDeposited,
+            "Vault: total principal unlock amount is larger than the total deposited amount"
         );
 
-        withdrawableBalances[user] = withdrawableBalances[user] + unlockPrincipleAmount + unlockRewardAmount;
+        withdrawableBalances[user] = withdrawableBalances[user] + unlockPrincipalAmount + unlockRewardAmount;
 
-        emit WithdrawableBalanceUpdated(user, unlockPrincipleAmount, unlockRewardAmount);
+        emit WithdrawableBalanceUpdated(user, unlockPrincipalAmount, unlockRewardAmount);
     }
 
 }

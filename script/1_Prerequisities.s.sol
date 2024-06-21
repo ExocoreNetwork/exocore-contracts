@@ -6,9 +6,9 @@ import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
+import "test/mocks/AssetsMock.sol";
 import "test/mocks/ClaimRewardMock.sol";
 import "test/mocks/DelegationMock.sol";
-import "test/mocks/DepositWithdrawMock.sol";
 import {NonShortCircuitEndpointV2Mock} from "test/mocks/NonShortCircuitEndpointV2Mock.sol";
 
 contract PrerequisitiesScript is BaseScript {
@@ -43,8 +43,7 @@ contract PrerequisitiesScript is BaseScript {
         if (useExocorePrecompileMock) {
             vm.selectFork(exocore);
             vm.startBroadcast(deployer.privateKey);
-            depositMock = address(new DepositWithdrawMock());
-            withdrawMock = depositMock;
+            assetsMock = address(new AssetsMock());
             delegationMock = address(new DelegationMock());
             claimRewardMock = address(new ClaimRewardMock());
             vm.stopBroadcast();
@@ -62,8 +61,7 @@ contract PrerequisitiesScript is BaseScript {
             vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
 
         if (useExocorePrecompileMock) {
-            vm.serializeAddress(exocoreContracts, "depositPrecompileMock", depositMock);
-            vm.serializeAddress(exocoreContracts, "withdrawPrecompileMock", withdrawMock);
+            vm.serializeAddress(exocoreContracts, "assetsPrecompileMock", assetsMock);
             vm.serializeAddress(exocoreContracts, "delegationPrecompileMock", delegationMock);
             vm.serializeAddress(exocoreContracts, "claimRewardPrecompileMock", claimRewardMock);
         }

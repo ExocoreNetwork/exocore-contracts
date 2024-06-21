@@ -5,10 +5,6 @@ import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
-import "../src/interfaces/precompiles/IClaimReward.sol";
-import "../src/interfaces/precompiles/IDelegation.sol";
-import "../src/interfaces/precompiles/IDeposit.sol";
-import "../src/interfaces/precompiles/IWithdrawPrinciple.sol";
 import "../src/storage/GatewayStorage.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";

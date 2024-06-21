@@ -1,19 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {Bootstrap} from "../../src/core/Bootstrap.sol";
-import {ClientChainGateway} from "../../src/core/ClientChainGateway.sol";
-import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
-import {Vault} from "../../src/core/Vault.sol";
+import {Bootstrap} from "src/core/Bootstrap.sol";
+import {ClientChainGateway} from "src/core/ClientChainGateway.sol";
+import {CustomProxyAdmin} from "src/core/CustomProxyAdmin.sol";
+import {Vault} from "src/core/Vault.sol";
 
-import {IOperatorRegistry} from "../../src/interfaces/IOperatorRegistry.sol";
+import {IOperatorRegistry} from "src/interfaces/IOperatorRegistry.sol";
 
-import {IVault} from "../../src/interfaces/IVault.sol";
-import {Origin} from "../../src/lzApp/OAppReceiverUpgradeable.sol";
-import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
-import {GatewayStorage} from "../../src/storage/GatewayStorage.sol";
-import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
+import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
 import {MyToken} from "./MyToken.sol";
+import {IVault} from "src/interfaces/IVault.sol";
+import {Origin} from "src/lzApp/OAppReceiverUpgradeable.sol";
+import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
+import {GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 
@@ -153,9 +153,7 @@ contract BootstrapTest is Test {
             address(beaconProxyBytecode)
         );
         // we could also use encodeWithSelector and supply .initialize.selector instead.
-        bytes memory initialization = abi.encodeCall(
-            clientGatewayLogic.initialize, (payable(exocoreValidatorSet), appendedWhitelistTokensForUpgrade)
-        );
+        bytes memory initialization = abi.encodeCall(clientGatewayLogic.initialize, (payable(exocoreValidatorSet)));
         bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
         vm.stopPrank();
     }
@@ -163,7 +161,9 @@ contract BootstrapTest is Test {
     function test01_AddWhitelistToken() public returns (MyToken) {
         vm.startPrank(deployer);
         MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
-        bootstrap.addWhitelistToken(address(myTokenClone));
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(myTokenClone);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         assertTrue(bootstrap.isWhitelistedToken(address(myTokenClone)));
         assertTrue(bootstrap.getWhitelistedTokensCount() == 2);
@@ -172,8 +172,10 @@ contract BootstrapTest is Test {
 
     function test01_AddWhitelistToken_AlreadyExists() public {
         vm.startPrank(deployer);
-        vm.expectRevert("BootstrapStorage: token should be not whitelisted before");
-        bootstrap.addWhitelistToken(address(myToken));
+        vm.expectRevert("Bootstrap: token should be not whitelisted before");
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(myToken);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
     }
 
@@ -298,7 +300,9 @@ contract BootstrapTest is Test {
 
         // now add it to the whitelist
         vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(cloneAddress);
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = cloneAddress;
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
 
         // now try to deposit
@@ -412,6 +416,24 @@ contract BootstrapTest is Test {
         vm.expectRevert("Name already in use");
         bootstrap.registerOperator(exo, name, commission, pubKey);
         vm.stopPrank();
+    }
+
+    function test04_DepositThenDelegate() public {
+        // since deposit and delegate are already tested, we will just do a simple success
+        // check here to ensure the reentrancy modifier works.
+        test03_RegisterOperator();
+        vm.startPrank(addrs[0]);
+        IVault vault = IVault(bootstrap.tokenToVault(address(myToken)));
+        myToken.approve(address(vault), amounts[0]);
+        bootstrap.depositThenDelegateTo(address(myToken), amounts[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac");
+        vm.stopPrank();
+
+        uint256 deposited = bootstrap.totalDepositAmounts(addrs[0], address(myToken));
+        assertTrue(deposited == amounts[0]);
+
+        uint256 delegated =
+            bootstrap.delegations(addrs[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken));
+        assertTrue(delegated == amounts[0]);
     }
 
     function test05_ReplaceKey() public {
@@ -535,7 +557,9 @@ contract BootstrapTest is Test {
         vm.stopPrank();
         // only the owner can add the token to the supported list
         vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(cloneAddress);
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = cloneAddress;
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         // finally, check
         bool isSupported = bootstrap.isWhitelistedToken(cloneAddress);
@@ -544,8 +568,10 @@ contract BootstrapTest is Test {
 
     function test07_AddWhitelistedToken_AlreadyWhitelisted() public {
         vm.startPrank(deployer);
-        vm.expectRevert("BootstrapStorage: token should be not whitelisted before");
-        bootstrap.addWhitelistToken(address(myToken));
+        vm.expectRevert("Bootstrap: token should be not whitelisted before");
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(myToken);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
     }
 
@@ -625,7 +651,9 @@ contract BootstrapTest is Test {
     function test09_DelegateTo_NotEnoughBlance() public {
         test03_RegisterOperator();
         vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(address(0xa));
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(0xa);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         vm.startPrank(addrs[0]);
         vm.expectRevert(bytes("Bootstrap: insufficient withdrawable balance"));
@@ -715,7 +743,9 @@ contract BootstrapTest is Test {
     function test10_UndelegateFrom_NotEnoughBalance() public {
         test03_RegisterOperator();
         vm.startPrank(deployer);
-        bootstrap.addWhitelistToken(address(0xa));
+        address[] memory addedWhitelistTokens = new address[](1);
+        addedWhitelistTokens[0] = address(0xa);
+        bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         vm.startPrank(addrs[0]);
         vm.expectRevert(bytes("Bootstrap: insufficient delegated balance"));
@@ -744,7 +774,7 @@ contract BootstrapTest is Test {
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
-    function test11_WithdrawPrincipleFromExocore() public {
+    function test11_WithdrawPrincipalFromExocore() public {
         // delegate and then undelegate
         test10_UndelegateFrom();
         // now, withdraw
@@ -755,7 +785,7 @@ contract BootstrapTest is Test {
             uint256 prevTokenDeposit = bootstrap.depositsByToken(address(myToken));
             uint256 prevVaultWithdrawable =
                 Vault(address(bootstrap.tokenToVault(address(myToken)))).withdrawableBalances(addrs[i]);
-            bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[i]);
+            bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[i]);
             uint256 postDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
             uint256 postWithdrawable = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             uint256 postTokenDeposit = bootstrap.depositsByToken(address(myToken));
@@ -770,40 +800,40 @@ contract BootstrapTest is Test {
         }
     }
 
-    function test11_WithdrawPrincipleFromExocore_TokenNotWhitelisted() public {
+    function test11_WithdrawPrincipalFromExocore_TokenNotWhitelisted() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.withdrawPrincipleFromExocore(address(0xa), amounts[0]);
+        bootstrap.withdrawPrincipalFromExocore(address(0xa), amounts[0]);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipleFromExocore_ZeroAmount() public {
+    function test11_WithdrawPrincipalFromExocore_ZeroAmount() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        bootstrap.withdrawPrincipleFromExocore(address(myToken), 0);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), 0);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipleFromExocore_NoDeposits() public {
+    function test11_WithdrawPrincipalFromExocore_NoDeposits() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient deposited balance");
-        bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[0]);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipleFromExocore_Excess() public {
+    function test11_WithdrawPrincipalFromExocore_Excess() public {
         test10_UndelegateFrom();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient deposited balance");
-        bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[0] + 1);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0] + 1);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipleFromExocore_ExcessFree() public {
+    function test11_WithdrawPrincipalFromExocore_ExcessFree() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient withdrawable balance");
-        bootstrap.withdrawPrincipleFromExocore(address(myToken), amounts[0]);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
@@ -814,7 +844,7 @@ contract BootstrapTest is Test {
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(1)),
             address(bootstrap),
             generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.MARK_BOOTSTRAP, ""),
+            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             bytes("")
         );
         vm.stopPrank();
@@ -833,7 +863,7 @@ contract BootstrapTest is Test {
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(1)),
             address(bootstrap),
             generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.MARK_BOOTSTRAP, ""),
+            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             bytes("")
         );
         vm.stopPrank();
@@ -844,12 +874,14 @@ contract BootstrapTest is Test {
         test12_MarkBootstrapped();
         vm.startPrank(address(clientChainLzEndpoint));
         vm.expectRevert(
-            abi.encodeWithSelector(GatewayStorage.UnsupportedRequest.selector, GatewayStorage.Action.MARK_BOOTSTRAP)
+            abi.encodeWithSelector(
+                GatewayStorage.UnsupportedRequest.selector, GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP
+            )
         );
         bootstrap.lzReceive(
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(2)),
             generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.MARK_BOOTSTRAP, ""),
+            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             address(0),
             bytes("")
         );
@@ -1145,27 +1177,13 @@ contract BootstrapTest is Test {
         bootstrap.setOffsetDuration(offsetDuration + 2);
     }
 
-    function test18_RemoveWhitelistToken() public {
-        vm.startPrank(deployer);
-        bootstrap.removeWhitelistToken(address(myToken));
-        assertFalse(bootstrap.isWhitelistedToken(address(myToken)));
-        assertTrue(bootstrap.getWhitelistedTokensCount() == 0);
-    }
-
-    function test18_RemoveWhitelistToken_DoesNotExist() public {
-        address fakeToken = address(0xa);
-        vm.startPrank(deployer);
-        vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.removeWhitelistToken(fakeToken);
-    }
-
     function test20_WithdrawRewardFromExocore() public {
         vm.expectRevert(abi.encodeWithSignature("NotYetSupported()"));
         bootstrap.withdrawRewardFromExocore(address(0x0), 1);
     }
 
     function test22_Claim() public {
-        test11_WithdrawPrincipleFromExocore();
+        test11_WithdrawPrincipalFromExocore();
         for (uint256 i = 0; i < 6; i++) {
             vm.startPrank(addrs[i]);
             uint256 prevBalance = myToken.balanceOf(addrs[i]);
@@ -1189,7 +1207,7 @@ contract BootstrapTest is Test {
     }
 
     function test22_Claim_Excess() public {
-        test11_WithdrawPrincipleFromExocore();
+        test11_WithdrawPrincipalFromExocore();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Vault: withdrawal amount is larger than depositor's withdrawable balance");
         bootstrap.claim(address(myToken), amounts[0] + 5, addrs[0]);
