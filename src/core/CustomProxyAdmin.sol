@@ -4,6 +4,7 @@ import {ProxyAdmin} from "@openzeppelin-contracts/contracts/proxy/transparent/Pr
 import {ITransparentUpgradeableProxy} from
     "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 // This contract is not upgradeable intentionally, since doing so would produce a lot of risk.
 contract CustomProxyAdmin is Initializable, ProxyAdmin {
@@ -19,8 +20,12 @@ contract CustomProxyAdmin is Initializable, ProxyAdmin {
     }
 
     function changeImplementation(address proxy, address implementation, bytes memory data) public virtual {
-        require(msg.sender == bootstrapper, "CustomProxyAdmin: sender must be bootstrapper");
-        require(msg.sender == proxy, "CustomProxyAdmin: sender must be the proxy itself");
+        if (msg.sender != bootstrapper) {
+            revert Errors.CustomProxyAdminOnlyCalledFromBootstrapper();
+        }
+        if (msg.sender != proxy) {
+            revert Errors.CustomProxyAdminOnlyCalledFromProxy();
+        }
         ITransparentUpgradeableProxy(proxy).upgradeToAndCall(implementation, data);
         bootstrapper = address(0);
     }

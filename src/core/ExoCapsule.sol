@@ -10,6 +10,7 @@ import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
 
@@ -69,9 +70,15 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     }
 
     function initialize(address gateway_, address capsuleOwner_, address beaconOracle_) external initializer {
-        require(gateway_ != address(0), "ExoCapsule: gateway address can not be empty");
-        require(capsuleOwner_ != address(0), "ExoCapsule: capsule owner address can not be empty");
-        require(beaconOracle_ != address(0), "ExoCapsule: beacon chain oracle address should not be empty");
+        if (gateway_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (capsuleOwner_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (beaconOracle_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
 
         gateway = INativeRestakingController(gateway_);
         beaconOracle = IBeaconChainOracle(beaconOracle_);
@@ -175,9 +182,9 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     }
 
     function withdraw(uint256 amount, address payable recipient) external onlyGateway {
-        require(
-            amount <= withdrawableBalance, "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
-        );
+        if (amount > withdrawableBalance) {
+            revert Errors.ExoCapsuleWithdrawalAmountExceeds();
+        }
 
         withdrawableBalance -= amount;
         _sendETH(recipient, amount);
@@ -187,10 +194,10 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
 
     /// @notice Called by the capsule owner to withdraw the nonBeaconChainETHBalance
     function withdrawNonBeaconChainETHBalance(address recipient, uint256 amountToWithdraw) external onlyGateway {
-        require(
-            amountToWithdraw <= nonBeaconChainETHBalance,
-            "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
-        );
+        if (amountToWithdraw > nonBeaconChainETHBalance) {
+            revert Errors.ExoCapsuleNonBeaconChainWithdrawalAmountExceeds();
+        }
+
         nonBeaconChainETHBalance -= amountToWithdraw;
         _sendETH(recipient, amountToWithdraw);
         emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
@@ -329,9 +336,9 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
      * reference: https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md
      */
     function _timestampToEpoch(uint256 timestamp) internal pure returns (uint64) {
-        require(
-            timestamp >= BEACON_CHAIN_GENESIS_TIME, "timestamp should be greater than beacon chain genesis timestamp"
-        );
+        if (timestamp < BEACON_CHAIN_GENESIS_TIME) {
+            revert Errors.ExoCapsuleTimestampBeforeGenesis();
+        }
         return uint64((timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH);
     }
 

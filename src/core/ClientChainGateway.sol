@@ -15,6 +15,7 @@ import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuil
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 contract ClientChainGateway is
     Initializable,
@@ -61,10 +62,9 @@ contract ClientChainGateway is
     function initialize(address payable exocoreValidatorSetAddress_) external reinitializer(2) {
         _clearBootstrapData();
 
-        require(
-            exocoreValidatorSetAddress_ != address(0),
-            "ClientChainGateway: exocore validator set address should not be empty"
-        );
+        if (exocoreValidatorSetAddress_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
 
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
@@ -103,18 +103,16 @@ contract ClientChainGateway is
     }
 
     function pause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ClientChainGateway: caller is not Exocore validator set aggregated address"
-        );
+        if (msg.sender != exocoreValidatorSetAddress) {
+            revert Errors.ClientChainGatewayInvalidCaller();
+        }
         _pause();
     }
 
     function unpause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ClientChainGateway: caller is not Exocore validator set aggregated address"
-        );
+        if (msg.sender != exocoreValidatorSetAddress) {
+            revert Errors.ClientChainGatewayInvalidCaller();
+        }
         _unpause();
     }
 
@@ -124,13 +122,19 @@ contract ClientChainGateway is
     }
 
     function _addWhitelistTokens(address[] calldata tokens) internal {
-        require(tokens.length <= type(uint8).max, "ClientChainGateway: tokens length should not execeed 255");
+        if (tokens.length > type(uint8).max) {
+            revert Errors.ClientChainGatewayAddWhitelistTooManyTokens();
+        }
 
         bytes memory actionArgs = abi.encodePacked(uint8(tokens.length));
         for (uint256 i; i < tokens.length; i++) {
             address token = tokens[i];
-            require(token != address(0), "ClientChainGateway: zero token address");
-            require(!isWhitelistedToken[token], "ClientChainGateway: token should not be whitelisted before");
+            if (token == address(0)) {
+                revert Errors.ZeroAddress();
+            }
+            if (isWhitelistedToken[token]) {
+                revert Errors.ClientChainGatewayAlreadyWhitelisted();
+            }
 
             actionArgs = abi.encodePacked(actionArgs, bytes32(bytes20(token)));
         }
