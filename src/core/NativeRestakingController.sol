@@ -80,13 +80,12 @@ abstract contract NativeRestakingController is
             capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
         if (!partialWithdrawal) {
             // request full withdraw
-            _processRequest(
-                VIRTUAL_STAKED_ETH_ADDRESS,
-                msg.sender,
-                withdrawalAmount,
-                Action.REQUEST_WITHDRAW_PRINCIPLE_FROM_EXOCORE,
-                ""
+            bytes memory actionArgs = abi.encodePacked(
+                bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(msg.sender)), withdrawalAmount
             );
+            bytes memory encodedRequest = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, withdrawalAmount);
+
+            _processRequest(Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, actionArgs, encodedRequest);
         }
     }
 

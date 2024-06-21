@@ -196,8 +196,8 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
     }
 
-    function updatePrincipleBalance(uint256 lastlyUpdatedPrincipleBalance) external onlyGateway {
-        principleBalance = lastlyUpdatedPrincipleBalance;
+    function updatePrincipalBalance(uint256 lastlyUpdatedPrincipalBalance) external onlyGateway {
+        principleBalance = lastlyUpdatedPrincipalBalance;
 
         emit PrincipalBalanceUpdated(capsuleOwner, lastlyUpdatedPrincipalBalance);
     }

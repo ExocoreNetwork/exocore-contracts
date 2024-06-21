@@ -115,7 +115,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             abi.decode(requestPayload, (address, address, uint256));
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
-        uint256 lastlyUpdatedPrincipleBalance = uint256(bytes32(responsePayload[1:33]));
+        uint256 lastlyUpdatedPrincipalBalance = uint256(bytes32(responsePayload[1:33]));
 
         if (!success) {
             revert WithdrawShouldNotFailOnExocore(token, withdrawer);
@@ -124,8 +124,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = _getCapsule(withdrawer);
 
-            capsule.updatePrincipleBalance(lastlyUpdatedPrincipleBalance);
-            capsule.updateWithdrawableBalance(unlockPrincipleAmount);
+            capsule.updatePrincipalBalance(lastlyUpdatedPrincipalBalance);
+            capsule.updateWithdrawableBalance(unlockPrincipalAmount);
         } else {
             IVault vault = _getVault(token);
 
