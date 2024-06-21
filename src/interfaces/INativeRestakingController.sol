@@ -25,12 +25,6 @@ interface INativeRestakingController is IBaseRestakingController {
     function createExoCapsule() external returns (address capsule);
 
     /**
-     * @notice Before verifying deposit proof, validator containers can still set withdraw address to the ExoCapsule. In
-     * this case, we need to withdraw current balance, but only if restaking is not enabled yet
-     */
-    function withdrawBeforeRestaking() external;
-
-    /**
      * @notice This is called to deposit ETH that is staked on Ethereum beacon chain to Exocore network to be restaked
      * in future
      * @dev Before deposit, staker should have created the ExoCapsule that it owns and point the validator's withdrawal

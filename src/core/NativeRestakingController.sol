@@ -54,19 +54,11 @@ abstract contract NativeRestakingController is
         return address(capsule);
     }
 
-    function withdrawBeforeRestaking() external whenNotPaused {
-        IExoCapsule capsule = _getCapsule(msg.sender);
-        capsule.withdrawBeforeRestaking();
-    }
-
     function depositBeaconChainValidator(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata proof
     ) external payable whenNotPaused {
         IExoCapsule capsule = _getCapsule(msg.sender);
-        // Before verifying deposit proof, we need to activate restaking and withdraw all potential ETH withdrawan to
-        // the exocapsule back to the owner. This amount won't be counted as staked balance
-        capsule.activateRestaking();
         capsule.verifyDepositProof(validatorContainer, proof);
 
         uint256 depositValue = uint256(validatorContainer.getEffectiveBalance()) * GWEI_TO_WEI;

@@ -59,27 +59,6 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         _;
     }
 
-    modifier hasNeverRestaked() {
-        require(!hasRestaked, "Restaking is enabled");
-        _;
-    }
-
-    /// @notice checks that hasRestaked is set to true by calling activateRestaking()
-    modifier hasEnabledRestaking() {
-        require(hasRestaked, "restaking is not enabled");
-        _;
-    }
-
-    /// @notice Checks that `timestamp` is greater than or equal to the value stored in `mostRecentWithdrawalTimestamp`
-    /// @notice All partial/full withdrawal timestamps should be greater than `mostRecentWithdrawalTimestamp`
-    modifier proofIsForValidTimestamp(uint256 timestamp) {
-        require(
-            timestamp >= mostRecentWithdrawalTimestamp,
-            "proofIsForValidTimestamp: beacon chain proof must be at or after mostRecentWithdrawalTimestamp"
-        );
-        _;
-    }
-
     constructor() {
         _disableInitializers();
     }
@@ -97,14 +76,14 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         gateway = INativeRestakingController(gateway_);
         beaconOracle = IBeaconChainOracle(beaconOracle_);
         capsuleOwner = capsuleOwner_;
+
+        hasRestaked = true;
+        emit RestakingActivated(capsuleOwner);
     }
 
     function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
         external
         onlyGateway
-        proofIsForValidTimestamp(proof.beaconBlockTimestamp)
-        // ensure that caller has previously enabled restaking by calling `activateRestaking()`
-        hasEnabledRestaking
     {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
@@ -145,12 +124,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         WithdrawalContainerProof calldata withdrawalProof
-    )
-        external
-        onlyGateway
-        proofIsForValidTimestamp(withdrawalProof.beaconBlockTimestamp)
-        returns (bool partialWithdrawal, uint256 withdrawalAmount)
-    {
+    ) external onlyGateway returns (bool partialWithdrawal, uint256 withdrawalAmount) {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
         Validator storage validator = _capsuleValidators[validatorPubkey];
@@ -220,23 +194,6 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         nonBeaconChainETHBalance -= amountToWithdraw;
         _sendETH(recipient, amountToWithdraw);
         emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
-    }
-
-    /**
-     * @notice Called by the capsule owner to activate restaking by withdrawing
-     * all existing ETH from the capsule and preventing further withdrawals via
-     * "withdrawBeforeRestaking()"
-     */
-    function activateRestaking() external onlyGateway hasNeverRestaked {
-        hasRestaked = true;
-        _processWithdrawalBeforeRestaking(capsuleOwner);
-
-        emit RestakingActivated(capsuleOwner);
-    }
-
-    /// @notice Called by the capsule owner to withdraw the balance of the capsule when `hasRestaked` is set to false
-    function withdrawBeforeRestaking() external onlyGateway hasNeverRestaked {
-        _processWithdrawalBeforeRestaking(capsuleOwner);
     }
 
     function updatePrincipleBalance(uint256 lastlyUpdatedPrincipleBalance) external onlyGateway {
