@@ -12,7 +12,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     error UnsupportedResponse(Action act);
     error UnexpectedResponse(uint64 nonce);
     error DepositShouldNotFailOnExocore(address token, address depositor);
-    error WithdrawShouldNotFailOnExocore(address token, address withdrawer);
+
+    // Events
+    event WithdrawFailedOnExocore(address indexed token, address indexed withdrawer);
 
     modifier onlyCalledFromThis() {
         require(
@@ -118,22 +120,22 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         uint256 lastlyUpdatedPrincipalBalance = uint256(bytes32(responsePayload[1:33]));
 
         if (!success) {
-            revert WithdrawShouldNotFailOnExocore(token, withdrawer);
-        }
-
-        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
-            IExoCapsule capsule = _getCapsule(withdrawer);
-
-            capsule.updatePrincipalBalance(lastlyUpdatedPrincipalBalance);
-            capsule.updateWithdrawableBalance(unlockPrincipalAmount);
+            emit WithdrawFailedOnExocore(token, withdrawer);
         } else {
-            IVault vault = _getVault(token);
+            if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+                IExoCapsule capsule = _getCapsule(withdrawer);
 
-            vault.updatePrincipalBalance(withdrawer, lastlyUpdatedPrincipalBalance);
-            vault.updateWithdrawableBalance(withdrawer, unlockPrincipalAmount, 0);
+                capsule.updatePrincipalBalance(lastlyUpdatedPrincipalBalance);
+                capsule.updateWithdrawableBalance(unlockPrincipalAmount);
+            } else {
+                IVault vault = _getVault(token);
+
+                vault.updatePrincipalBalance(withdrawer, lastlyUpdatedPrincipalBalance);
+                vault.updateWithdrawableBalance(withdrawer, unlockPrincipalAmount, 0);
+            }
+
+            emit WithdrawPrincipalResult(success, token, withdrawer, unlockPrincipalAmount);
         }
-
-        emit WithdrawPrincipalResult(success, token, withdrawer, unlockPrincipalAmount);
     }
 
     function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload)

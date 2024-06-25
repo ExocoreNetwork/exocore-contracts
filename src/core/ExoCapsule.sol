@@ -308,9 +308,8 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     {
         uint64 atEpoch = _timestampToEpoch(atTimestamp);
         uint64 activationEpoch = validatorContainer.getActivationEpoch();
-        uint64 exitEpoch = validatorContainer.getExitEpoch();
 
-        return (atEpoch >= activationEpoch && atEpoch < exitEpoch);
+        return atEpoch >= activationEpoch;
     }
 
     function _isStaleProof(Validator storage validator, uint256 proofTimestamp) internal view returns (bool) {
