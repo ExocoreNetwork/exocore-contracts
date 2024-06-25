@@ -197,7 +197,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                 whitelistTokens.push(token);
 
                 // deploy the corresponding vault if not deployed before
-                if (address(tokenToVault[token]) == address(0)) {
+                if (token != VIRTUAL_STAKED_ETH_ADDRESS && address(tokenToVault[token]) == address(0)) {
                     _deployVault(token);
                 }
 
