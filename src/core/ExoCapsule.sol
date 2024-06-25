@@ -10,7 +10,6 @@ import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import "forge-std/console.sol";
 
 contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
 
