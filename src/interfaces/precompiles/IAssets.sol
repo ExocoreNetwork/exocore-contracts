@@ -24,8 +24,8 @@ interface IAssets {
     /// @param opAmount The amount to deposit
     function depositTo(
         uint32 clientChainID,
-        bytes memory assetsAddress,
-        bytes memory stakerAddress,
+        bytes32  assetsAddress,
+        bytes32  stakerAddress,
         uint256 opAmount) external
     returns (bool success, uint256 latestAssetState);
 
@@ -40,8 +40,8 @@ interface IAssets {
     /// @param opAmount The withdraw amount
     function withdrawPrincipal(
         uint32 clientChainID,
-        bytes memory assetsAddress,
-        bytes memory withdrawAddress,
+        bytes32 assetsAddress,
+        bytes32 withdrawAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
 
@@ -58,9 +58,9 @@ interface IAssets {
     function registerClientChain(
         uint32 clientChainID,
         uint32 addressLength,
-        string memory name,
-        string memory metaInfo,
-        string memory signatureType
+        string calldata name,
+        string calldata metaInfo,
+        string calldata signatureType
     ) external returns (bool success);
 
     /// TRANSACTIONS
@@ -71,8 +71,10 @@ interface IAssets {
     /// @param tokens The token addresses that would be registered to exocore
     function registerTokens(
         uint32 clientChainID,
-        bytes[] memory tokens,
-        uint8[] memory decimals,
-        uint256[] memory tvlLimit
+        bytes32[] calldata tokens,
+        uint8[] calldata decimals,
+        uint256[] calldata tvlLimits,
+        string[] calldata names,
+        string[] calldata metaData
     ) external returns (bool success);
 }

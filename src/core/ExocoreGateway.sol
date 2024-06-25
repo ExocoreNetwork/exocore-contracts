@@ -131,9 +131,9 @@ contract ExocoreGateway is
         uint32 clientChainId, 
         bytes32 clientChainGateway,
         uint32 addressLength,
-        string memory name,
-        string memory metaInfo,
-        string memory signatureType
+        string calldata name,
+        string calldata metaInfo,
+        string calldata signatureType
     )
         public
         override(IOAppCore, OAppCoreUpgradeable)
@@ -143,12 +143,72 @@ contract ExocoreGateway is
         _validatePeer(clientChainId, clientChainGateway);
         _registerClientChain(
             clientChainId,
-            uint32 addressLength,
-            string memory name,
-            string memory metaInfo,
-            string memory signatureType
+            addressLength,
+            name,
+            metaInfo,
+            signatureType
         );
         super.setPeer(clientChainId, clientChainGateway);
+    }
+
+    function addWhitelistTokens(
+        uint32 clientChainId,
+        bytes32[] calldata tokens,
+        uint8[] calldata decimals,
+        uint256[] calldata tvlLimits,
+        string[] calldata names,
+        string[] calldata metaData
+    ) external payable onlyOwner whenNotPaused {
+        _validateWhitelistTokensInput(
+            clientChainId,
+            tokens,
+            decimals,
+            tvlLimits,
+            names,
+            metadata
+        );
+
+        bool success = ASSETS_CONTRACT.registerTokens(
+            srcChainId, 
+            tokens, 
+            decimals, 
+            tvlLimits,
+            string[] memory names,
+            string[] memory metaData
+        );
+
+        if (!success) {
+            revert AddWhitelistTokensFailed();
+        }
+
+        _sendInterchainMsg(clientChainId, Action.REQUEST_ADD_WHITELIST_TOKENS, abi.encodePacked(uint8(tokens.length), tokens));
+    }
+
+    function _validateWhitelistTokensInput(
+        uint32 clientChainId,
+        bytes32[] calldata tokens,
+        uint8[] calldata decimals,
+        uint256[] calldata tvlLimits,
+        string[] calldata names,
+        string[] calldata metaData
+    ) internal pure {
+        if (peers[clientChainId] != bytes32(0)) {
+            revert ClientChainIDNotRegisteredBefore(clientChainId);
+        }
+
+        uint256 expectedLength = tokens.length;
+        if (expectedLength > type(uint8).max) {
+            revert WhitelistTokensListTooLong();
+        }
+
+        if (
+            decimals.length != expectedLength ||
+            tvlLimits.length != expectedLength ||
+            names.length != expectedLength ||
+            metaData.length != expectedLength 
+        ) {
+            revert InvalidWhitelistTokensInput();
+        }
     }
 
     function _validatePeer(uint32 clientChainId, bytes32 clientChainGateway) internal pure {
@@ -159,17 +219,17 @@ contract ExocoreGateway is
     function _registerClientChain(
         uint32 clientChainID,
         uint32 addressLength,
-        string memory name,
-        string memory metaInfo,
-        string memory signatureType
+        string calldata name,
+        string calldata metaInfo,
+        string calldata signatureType
     ) internal {
         if (peers[clientChainId] == bytes32(0)) {
             bool success = ASSETS_CONTRACT.registerClientChain(
-                uint32 clientChainID,
-                uint32 addressLength,
-                string memory name,
-                string memory metaInfo,
-                string memory signatureType
+                clientChainID,
+                addressLength,
+                name,
+                metaInfo,
+                signatureType
             );
             if (!success) {
                 revert RegisterClientChainToExocoreFailed(clientChainId);
@@ -199,47 +259,11 @@ contract ExocoreGateway is
         }
     }
 
-    function requestRegisterTokens(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
-        public
-        onlyCalledFromThis
-    {
-        uint8 count = uint8(payload[0]);
-        uint256 expectedLength = count * TOKEN_ADDRESS_BYTES_LENTH + 1;
-        _validatePayloadLength(payload, expectedLength, Action.REQUEST_DEPOSIT);
-
-        bytes[] memory tokens = new bytes[](count);
-        uint8[] memory decimals = new uint8[](count);
-        uint256[] memory tvlLimits = new uint256[](count);
-        uint256 start;
-        uint256 end;
-        for (uint256 i; i < count; i++) {
-            start = i * TOKEN_ADDRESS_BYTES_LENTH + 1;
-            end = start + TOKEN_ADDRESS_BYTES_LENTH;
-            tokens[i] = payload[start:end];
-
-            start = count * TOKEN_ADDRESS_BYTES_LENTH + i * UINT8_BYTES_LENGTH + 1;
-            end = start + UINT8_BYTES_LENGTH;
-            decimals[i] = payload[start:end];
-
-            start = count * (TOKEN_ADDRESS_BYTES_LENTH + UINT8_BYTES_LENGTH) + i * UINT256_BYTES_LENGTH + 1;
-            end = start + UINT256_BYTES_LENGTH;
-            tvlLimits[i] = payload[start:end];
-        }
-
-        try ASSETS_CONTRACT.registerTokens(srcChainId, tokens, decimals, tvlLimits) returns (bool success) {
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
-        } catch {
-            emit ExocorePrecompileError(ASSETS_PRECOMPILE_ADDRESS, lzNonce);
-
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false));
-        }
-    }
-
     function requestDeposit(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
         _validatePayloadLength(payload, DEPOSIT_REQUEST_LENGTH, Action.REQUEST_DEPOSIT);
 
-        bytes calldata token = payload[:32];
-        bytes calldata depositor = payload[32:64];
+        bytes32 token = bytes32(payload[:32]);
+        bytes32 depositor = bytes32(payload[32:64]);
         uint256 amount = uint256(bytes32(payload[64:96]));
 
         (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositTo(srcChainId, token, depositor, amount);
@@ -258,8 +282,8 @@ contract ExocoreGateway is
             payload, WITHDRAW_PRINCIPAL_REQUEST_LENGTH, Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE
         );
 
-        bytes calldata token = payload[:32];
-        bytes calldata withdrawer = payload[32:64];
+        bytes32 token = bytes32(payload[:32]);
+        bytes32 withdrawer = bytes32(payload[32:64]);
         uint256 amount = uint256(bytes32(payload[64:96]));
 
         try ASSETS_CONTRACT.withdrawPrincipal(srcChainId, token, withdrawer, amount) returns (
@@ -279,8 +303,8 @@ contract ExocoreGateway is
     {
         _validatePayloadLength(payload, CLAIM_REWARD_REQUEST_LENGTH, Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE);
 
-        bytes calldata token = payload[:32];
-        bytes calldata withdrawer = payload[32:64];
+        bytes32 token = bytes32(payload[:32]);
+        bytes32 withdrawer = bytes32(payload[32:64]);
         uint256 amount = uint256(bytes32(payload[64:96]));
 
         try CLAIM_REWARD_CONTRACT.claimReward(srcChainId, token, withdrawer, amount) returns (
@@ -297,9 +321,9 @@ contract ExocoreGateway is
     function requestDelegateTo(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
         _validatePayloadLength(payload, DELEGATE_REQUEST_LENGTH, Action.REQUEST_DELEGATE_TO);
 
-        bytes calldata token = payload[:32];
-        bytes calldata delegator = payload[32:64];
-        bytes calldata operator = payload[64:106];
+        bytes32 token = bytes32(payload[:32]);
+        bytes32 delegator = bytes32(payload[32:64]);
+        bytes32 operator = bytes32(payload[64:106]);
         uint256 amount = uint256(bytes32(payload[106:138]));
 
         try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, delegator, operator, amount)
@@ -318,9 +342,9 @@ contract ExocoreGateway is
     {
         _validatePayloadLength(payload, UNDELEGATE_REQUEST_LENGTH, Action.REQUEST_UNDELEGATE_FROM);
 
-        bytes memory token = payload[:32];
-        bytes memory delegator = payload[32:64];
-        bytes memory operator = payload[64:106];
+        bytes32 token = bytes32(payload[:32]);
+        bytes32 delegator = bytes32(payload[32:64]);
+        bytes32 operator = bytes32(payload[64:106]);
         uint256 amount = uint256(bytes32(payload[106:138]));
 
         try DELEGATION_CONTRACT.undelegateFromThroughClientChain(
@@ -340,9 +364,9 @@ contract ExocoreGateway is
     {
         _validatePayloadLength(payload, DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH, Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO);
 
-        bytes calldata token = payload[:32];
-        bytes calldata depositor = payload[32:64];
-        bytes calldata operator = payload[64:106];
+        bytes32 token = bytes32(payload[:32]);
+        bytes32 depositor = bytes32(payload[32:64]);
+        bytes32 operator = bytes32(payload[64:106]);
         uint256 amount = uint256(bytes32(payload[106:138]));
 
         // while some of the code from requestDeposit and requestDelegateTo is duplicated here,

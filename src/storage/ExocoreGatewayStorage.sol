@@ -32,6 +32,9 @@ contract ExocoreGatewayStorage is GatewayStorage {
     error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
     error DepositRequestShouldNotFail(uint32 srcChainId, uint64 lzNonce);
     error RegisterClientChainToExocoreFailed(uint32 clientChainId);
+    error AddWhitelistTokensFailed();
+    error InvalidWhitelistTokensInput();
+    error ClientChainIDNotRegisteredBefore(uint32 clientChainId);
 
     uint256[40] private __gap;
 

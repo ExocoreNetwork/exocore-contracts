@@ -12,6 +12,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     error UnsupportedResponse(Action act);
     error UnexpectedResponse(uint64 nonce);
     error DepositShouldNotFailOnExocore(address token, address depositor);
+    error InvalidAddWhitelistTokensRequest(uint256 expectedLength, uint256 actualLength);
 
     modifier onlyCalledFromThis() {
         require(
@@ -182,30 +183,33 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit DepositThenDelegateResult(delegateSuccess, delegator, operator, token, amount);
     }
 
-    function afterReceiveRegisterTokensResponse(bytes calldata requestPayload, bytes calldata responsePayload)
+    function afterReceiveAddWhitelistTokensRequest(bytes calldata requestPayload)
         public
         onlyCalledFromThis
         whenNotPaused
     {
-        address[] memory tokens = abi.decode(requestPayload, (address[]));
+        uint8 count = uint8(requestPayload[0]);
+        uint256 expectedLength = count * TOKEN_ADDRESS_BYTES_LENTH + 1;
+        if (requestPayload.length != expectedLength) {
+            revert InvalidAddWhitelistTokensRequest(expectedLength, requestPayload.length);
+        }
 
-        bool success = (uint8(bytes1(responsePayload[0])) == 1);
-        if (success) {
-            for (uint256 i; i < tokens.length; i++) {
-                address token = tokens[i];
+        for (uint256 i; i < count; i++) {
+            uint256 start = i * TOKEN_ADDRESS_BYTES_LENTH + 1;
+            uint256 end = start + TOKEN_ADDRESS_BYTES_LENTH;
+            address token = address(bytes20(payload[start:end]));
+
+            if (!isWhitelistedToken[token]) {
                 isWhitelistedToken[token] = true;
                 whitelistTokens.push(token);
 
-                // deploy the corresponding vault if not deployed before
-                if (token != VIRTUAL_STAKED_ETH_ADDRESS && address(tokenToVault[token]) == address(0)) {
-                    _deployVault(token);
-                }
-
                 emit WhitelistTokenAdded(token);
             }
+
+            // deploy the corresponding vault if not deployed before
+            if (token != VIRTUAL_STAKED_ETH_ADDRESS && address(tokenToVault[token]) == address(0)) {
+                _deployVault(token);
+            }
         }
-
-        emit RegisterTokensResult(success);
     }
-
 }

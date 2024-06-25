@@ -178,3 +178,89 @@ contract LzReceive is SetUp {
     }
 
 }
+
+contract AddWhitelistTokens is SetUp {
+
+    using stdStorage for StdStorage;
+
+    function test_RevertWhen_CallerNotOwner() public {
+        address[] memory whitelistTokens = new address[](2);
+        uint256[] memory tvlLimits = new uint256[](2);
+        uint messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 nativeFee = clientGateway.quote(new bytes());
+
+        vm.startPrank(deployer.addr);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, deployer.addr));
+        clientGateway.addWhitelistTokens{value: nativeFee}(whitelistTokens);
+    }
+
+    function test_RevertWhen_Paused() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        clientGateway.pause();
+
+        address[] memory whitelistTokens = new address[](2);
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        clientGateway.addWhitelistTokens{value: nativeFee}(whitelistTokens);
+    }
+
+    function test_RevertWhen_TokensListTooLong() public {
+        address[] memory whitelistTokens = new address[](256);
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
+
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectRevert("ClientChainGateway: tokens length should not execeed 255");
+        clientGateway.addWhitelistTokens{value: nativeFee}(whitelistTokens);
+    }
+
+    function test_RevertWhen_LengthNotMatch() public {
+        address[] memory whitelistTokens = new address[](2);
+        uint256[] memory tvlLimits = new uint256[](3);
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
+
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectRevert("ClientChainGateway: tokens length should not execeed 255");
+        clientGateway.addWhitelistTokens{value: nativeFee}(whitelistTokens);
+    }
+
+    function test_RevertWhen_HasZeroAddressToken() public {
+        address[] memory whitelistTokens = new address[](2);
+        whitelistTokens[0] = address(restakeToken);
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
+
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectRevert("ClientChainGateway: zero token address");
+        clientGateway.addWhitelistTokens{value: nativeFee}(whitelistTokens);
+    }
+
+    function test_RevertWhen_HasAlreadyWhitelistedToken() public {
+        // we use this hacking way to find the slot of `isWhitelistedToken(address(restakeToken))` and set its value to
+        // true
+        bytes32 whitelistedSlot = bytes32(
+            stdstore.target(address(clientGatewayLogic)).sig("isWhitelistedToken(address)").with_key(
+                address(restakeToken)
+            ).find()
+        );
+        vm.store(address(clientGateway), whitelistedSlot, bytes32(uint256(1)));
+
+        address[] memory whitelistTokens = new address[](1);
+        whitelistTokens[0] = address(restakeToken);
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
+
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectRevert("ClientChainGateway: token should not be whitelisted before");
+        clientGateway.addWhitelistTokens{value: nativeFee}(whitelistTokens);
+    }
+
+    function test_SendMessage() public {
+        address[] memory whitelistTokens = new address[](1);
+        whitelistTokens[0] = address(restakeToken);
+        uint256 nativeFee = clientGateway.quote(new bytes(TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2));
+
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit MessageSent(GatewayStorage.Action.REQUEST_REGISTER_TOKENS, generateUID(1, true), 1, nativeFee);
+        clientGateway.addWhitelistTokens{value: nativeFee}(whitelistTokens);
+    }
+
+}

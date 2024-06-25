@@ -80,6 +80,8 @@ contract ClientChainGateway is
             this.afterReceiveDepositThenDelegateToResponse.selector;
         _registeredResponseHooks[Action.REQUEST_REGISTER_TOKENS] = this.afterReceiveRegisterTokensResponse.selector;
 
+        _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] = this.afterReceiveAddWhitelistTokensRequest.selector;
+
         bootstrapped = true;
 
         __Ownable_init_unchained(exocoreValidatorSetAddress);
@@ -120,39 +122,8 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    // implementation of ITokenWhitelister
-    function addWhitelistTokens(address[] calldata tokens) external payable onlyOwner whenNotPaused nonReentrant {
-        _addWhitelistTokens(tokens);
-    }
-
-    function _addWhitelistTokens(address[] calldata tokens, uint256[] calldata tvlLimits) internal {
-        require(tokens.length <= type(uint8).max, "ClientChainGateway: tokens length should not execeed 255");
-        require(tokens.length == tvlLimits.length, "ClientChainGateway: tokens length should match the length of tvl limits");
-
-        bytes memory encodedTokens;
-        bytes memory encodedDecimals;
-        bytes memory encodedTVLLimits = abi.encodePacked(tvlLimits);
-        for (uint256 i; i < tokens.length; i++) {
-            address token = tokens[i]; 
-            require(token != address(0), "ClientChainGateway: zero token address");
-            require(!isWhitelistedToken[token], "ClientChainGateway: token should not be whitelisted before");
-
-            encodedTokens = abi.encodePacked(encodedTokens, bytes32(bytes20(token)));
-            encodedDecimals = abi.encodePacked(encodedDecimals, _getDecimals(token));
-        }
-
-        actionArgs = abi.encodePacked(tokens.length, encodedTokens, encodedDecimals, encodedTVLLimits);
-
-        bytes memory encodedRequest = abi.encode(tokens);
-        _processRequest(Action.REQUEST_REGISTER_TOKENS, actionArgs, encodedRequest);
-    }
-
-    function _getDecimals(address token) internal view returns (uint8) {
-        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
-            return ETH_DECIMALS;
-        } else {
-            return ERC20(token).decimals();
-        }
+    function addWhitelistTokens(address[] calldata tokens) external payable {
+        revert("this function is not supported for client chain, please register on Exocore");
     }
 
     // implementation of ITokenWhitelister
