@@ -17,6 +17,11 @@ interface IExoCapsule {
         bytes32 executionPayloadRoot;
         bytes32[] executionPayloadRootProof;
         bytes32[] withdrawalContainerRootProof;
+        uint256 withdrawalIndex;
+    }
+
+    struct HistoricalBlockRootProof {
+        uint256 beaconBlockTimestamp;
         bytes32[] historicalSummaryBlockRootProof;
         uint256 historicalSummaryIndex;
         bytes32 blockRoot;

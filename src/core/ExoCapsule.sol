@@ -77,7 +77,6 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         beaconOracle = IBeaconChainOracle(beaconOracle_);
         capsuleOwner = capsuleOwner_;
 
-        hasRestaked = true;
         emit RestakingActivated(capsuleOwner);
     }
 
@@ -243,12 +242,6 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         }
 
         return validator;
-    }
-
-    function _processWithdrawalBeforeRestaking(address _capsuleOwner) internal {
-        mostRecentWithdrawalTimestamp = block.timestamp;
-        nonBeaconChainETHBalance = 0;
-        _sendETH(_capsuleOwner, address(this).balance);
     }
 
     function _sendETH(address recipient, uint256 amountWei) internal {
