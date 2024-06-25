@@ -273,11 +273,12 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         internal
         view
     {
+        bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
         bytes32 withdrawalContainerRoot = withdrawalContainer.merklelizeWithdrawalContainer();
         bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(
             proof.withdrawalContainerRootProof,
             proof.withdrawalIndex,
-            proof.blockRoot,
+            beaconBlockRoot,
             proof.executionPayloadRoot,
             proof.executionPayloadRootProof,
             proof.beaconBlockTimestamp
@@ -287,7 +288,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         }
         // Verify historical summaries
         bool validHistoricalSummaries = proof.stateRoot.isValidHistoricalSummaryRoot(
-            proof.historicalSummaryBlockRootProof, proof.historicalSummaryIndex, proof.blockRoot, proof.blockRootIndex
+            proof.historicalSummaryBlockRootProof, proof.historicalSummaryIndex, beaconBlockRoot, proof.blockRootIndex
         );
         if (!validHistoricalSummaries) {
             revert InvalidHistoricalSummaries(withdrawalContainer.getValidatorIndex());

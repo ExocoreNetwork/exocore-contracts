@@ -199,13 +199,13 @@ library BeaconChainProofs {
         bytes32 withdrawalContainerRoot,
         bytes32[] calldata withdrawalContainerRootProof,
         uint256 withdrawalIndex,
-        bytes32 blockRoot,
+        bytes32 beaconBlockRoot,
         bytes32 executionPayloadRoot,
         bytes32[] calldata executionPayloadRootProof,
         uint256 beaconBlockTimestamp
     ) internal view returns (bool valid) {
         bool validExecutionPayloadRoot =
-            isValidExecutionPayloadRoot(executionPayloadRoot, blockRoot, executionPayloadRootProof);
+            isValidExecutionPayloadRoot(executionPayloadRoot, beaconBlockRoot, executionPayloadRootProof);
 
         bool validWCRootAgainstExecutionPayloadRoot = isValidWCRootAgainstExecutionPayloadRoot(
             withdrawalContainerRoot,
@@ -222,7 +222,7 @@ library BeaconChainProofs {
 
     function isValidExecutionPayloadRoot(
         bytes32 executionPayloadRoot,
-        bytes32 blockRoot,
+        bytes32 beaconBlockRoot,
         bytes32[] calldata executionPayloadRootProof
     ) internal view returns (bool) {
         require(
@@ -235,7 +235,7 @@ library BeaconChainProofs {
 
         return Merkle.verifyInclusionSha256({
             proof: executionPayloadRootProof,
-            root: blockRoot,
+            root: beaconBlockRoot,
             leaf: executionPayloadRoot,
             index: leafIndex
         });
@@ -271,7 +271,7 @@ library BeaconChainProofs {
         bytes32 beaconStateRoot,
         bytes32[] calldata historicalSummaryBlockRootProof,
         uint256 historicalSummaryIndex,
-        bytes32 blockRoot,
+        bytes32 beaconBlockRoot,
         uint256 blockRootIndex
     ) internal view returns (bool) {
         require(
@@ -294,7 +294,7 @@ library BeaconChainProofs {
         return Merkle.verifyInclusionSha256({
             proof: historicalSummaryBlockRootProof,
             root: beaconStateRoot,
-            leaf: blockRoot,
+            leaf: beaconBlockRoot,
             index: historicalBlockHeaderIndex
         });
     }
