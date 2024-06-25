@@ -118,19 +118,36 @@ contract ExocoreGateway is
      * register the `cientChainId` to Exocore native module if the peer address is first time being set.
      * @param clientChainId The endpoint ID for client chain.
      * @param clientChainGateway The contract address to be associated with the corresponding endpoint.
+     * @param addressLength The bytes length of address type on that client chain
+     * @param name The name of client chain
+     * @param metaInfo The arbitrary metadata for client chain
+     * @param signatureType The cryptographic signature type that client chain supports
      *
      * @dev Only the owner/admin of the OApp can call this function.
      * @dev Indicates that the peer is trusted to send LayerZero messages to this OApp.
      * @dev Peer is a bytes32 to accommodate non-evm chains.
      */
-    function setPeer(uint32 clientChainId, bytes32 clientChainGateway)
+    function setPeer(
+        uint32 clientChainId, 
+        bytes32 clientChainGateway,
+        uint32 addressLength,
+        string memory name,
+        string memory metaInfo,
+        string memory signatureType
+    )
         public
         override(IOAppCore, OAppCoreUpgradeable)
         onlyOwner
         whenNotPaused
     {
         _validatePeer(clientChainId, clientChainGateway);
-        _registerClientChain(clientChainId);
+        _registerClientChain(
+            clientChainId,
+            uint32 addressLength,
+            string memory name,
+            string memory metaInfo,
+            string memory signatureType
+        );
         super.setPeer(clientChainId, clientChainGateway);
     }
 
@@ -139,9 +156,21 @@ contract ExocoreGateway is
         require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway cannot be empty");
     }
 
-    function _registerClientChain(uint32 clientChainId) internal {
+    function _registerClientChain(
+        uint32 clientChainID,
+        uint32 addressLength,
+        string memory name,
+        string memory metaInfo,
+        string memory signatureType
+    ) internal {
         if (peers[clientChainId] == bytes32(0)) {
-            bool success = ASSETS_CONTRACT.registerClientChain(clientChainId);
+            bool success = ASSETS_CONTRACT.registerClientChain(
+                uint32 clientChainID,
+                uint32 addressLength,
+                string memory name,
+                string memory metaInfo,
+                string memory signatureType
+            );
             if (!success) {
                 revert RegisterClientChainToExocoreFailed(clientChainId);
             }
