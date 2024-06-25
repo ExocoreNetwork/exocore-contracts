@@ -208,13 +208,25 @@ contract ExocoreGateway is
         _validatePayloadLength(payload, expectedLength, Action.REQUEST_DEPOSIT);
 
         bytes[] memory tokens = new bytes[](count);
+        uint8[] memory decimals = new uint8[](count);
+        uint256[] memory tvlLimits = new uint256[](count);
+        uint256 start;
+        uint256 end;
         for (uint256 i; i < count; i++) {
-            uint256 start = i * TOKEN_ADDRESS_BYTES_LENTH + 1;
-            uint256 end = start + TOKEN_ADDRESS_BYTES_LENTH;
+            start = i * TOKEN_ADDRESS_BYTES_LENTH + 1;
+            end = start + TOKEN_ADDRESS_BYTES_LENTH;
             tokens[i] = payload[start:end];
+
+            start = count * TOKEN_ADDRESS_BYTES_LENTH + i * UINT8_BYTES_LENGTH + 1;
+            end = start + UINT8_BYTES_LENGTH;
+            decimals[i] = payload[start:end];
+
+            start = count * (TOKEN_ADDRESS_BYTES_LENTH + UINT8_BYTES_LENGTH) + i * UINT256_BYTES_LENGTH + 1;
+            end = start + UINT256_BYTES_LENGTH;
+            tvlLimits[i] = payload[start:end];
         }
 
-        try ASSETS_CONTRACT.registerTokens(srcChainId, tokens) returns (bool success) {
+        try ASSETS_CONTRACT.registerTokens(srcChainId, tokens, decimals, tvlLimits) returns (bool success) {
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success));
         } catch {
             emit ExocorePrecompileError(ASSETS_PRECOMPILE_ADDRESS, lzNonce);

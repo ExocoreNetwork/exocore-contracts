@@ -10,6 +10,7 @@ import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
 import {LSTRestakingController} from "./LSTRestakingController.sol";
 import {NativeRestakingController} from "./NativeRestakingController.sol";
 
+import {ERC20} from "@openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -124,20 +125,34 @@ contract ClientChainGateway is
         _addWhitelistTokens(tokens);
     }
 
-    function _addWhitelistTokens(address[] calldata tokens) internal {
+    function _addWhitelistTokens(address[] calldata tokens, uint256[] calldata tvlLimits) internal {
         require(tokens.length <= type(uint8).max, "ClientChainGateway: tokens length should not execeed 255");
+        require(tokens.length == tvlLimits.length, "ClientChainGateway: tokens length should match the length of tvl limits");
 
-        bytes memory actionArgs = abi.encodePacked(uint8(tokens.length));
+        bytes memory encodedTokens;
+        bytes memory encodedDecimals;
+        bytes memory encodedTVLLimits = abi.encodePacked(tvlLimits);
         for (uint256 i; i < tokens.length; i++) {
-            address token = tokens[i];
+            address token = tokens[i]; 
             require(token != address(0), "ClientChainGateway: zero token address");
             require(!isWhitelistedToken[token], "ClientChainGateway: token should not be whitelisted before");
 
-            actionArgs = abi.encodePacked(actionArgs, bytes32(bytes20(token)));
+            encodedTokens = abi.encodePacked(encodedTokens, bytes32(bytes20(token)));
+            encodedDecimals = abi.encodePacked(encodedDecimals, _getDecimals(token));
         }
+
+        actionArgs = abi.encodePacked(tokens.length, encodedTokens, encodedDecimals, encodedTVLLimits);
 
         bytes memory encodedRequest = abi.encode(tokens);
         _processRequest(Action.REQUEST_REGISTER_TOKENS, actionArgs, encodedRequest);
+    }
+
+    function _getDecimals(address token) internal view returns (uint8) {
+        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+            return ETH_DECIMALS;
+        } else {
+            return ERC20(token).decimals();
+        }
     }
 
     // implementation of ITokenWhitelister
