@@ -1,23 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {IExocoreBtcGateway} from "../interfaces/IExocoreBtcGateway.sol";
 import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
 import {CLAIM_REWARD_CONTRACT} from "../interfaces/precompiles/IClaimReward.sol";
 import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
+import {SignatureVerifier} from "../libraries/SignatureVerifier.sol";
+import {GatewayStorage} from "../storage/GatewayStorage.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {GatewayStorage} from "../storage/ExocoreGatewayStorage.sol";
-contract ExocoreBtcGateway is Initializable, PausableUpgradeable, OwnableUpgradeable,GatewayStorage {
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
+contract ExocoreBtcGateway is
+    IExocoreBtcGateway,
+    Initializable,
+    PausableUpgradeable,
+    OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    GatewayStorage
+{
+    using MessageHashUtils for bytes32;
     uint32 internal CLIENT_CHAIN_ID;
     bytes public constant BTC_TOKEN = bytes("BTC");
-
-    struct TxInfo {
-        bool processed;
-        uint256 timestamp;
-    }
-
     mapping(bytes => TxInfo) public processedBtcTxs;
     mapping(bytes => bytes) public btcToExocoreAddress;
     mapping(bytes => bytes) public exocoreToBtcAddress;
@@ -88,30 +94,53 @@ contract ExocoreBtcGateway is Initializable, PausableUpgradeable, OwnableUpgrade
         CLIENT_CHAIN_ID = clientChainId;
     }
 
-    function deposit(bytes calldata btcTxHash, bytes calldata btcAddress, uint64 nonce, uint256 amount)
+    function _verifySignature(InterchainMsg calldata _msg, bytes memory signature) internal view {
+        // InterchainMsg.
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                _msg.srcChainID,
+                _msg.dstChainID,
+                _msg.srcAddress,
+                _msg.dstAddress,
+                _msg.token,
+                _msg.amount,
+                _msg.nonce,
+                _msg.txHash,
+                _msg.payload
+            )
+        ).toEthSignedMessageHash();
+        SignatureVerifier.verifyMsgSig(exocoreValidatorSetAddress, digest, signature);
+    }
+    function depositTo(InterchainMsg calldata _msg, bytes calldata signature)
         external
+        nonReentrant
         whenNotPaused
+        isTokenWhitelisted(_msg.token)
+        isValidAmount(_msg.amount)
         onlyAuthorizedValidator
     {
+        bytes memory btcTxHash = _msg.txHash;
+        bytes memory btcAddress = _msg.srcAddress;
         if (processedBtcTxs[btcTxHash].processed) {
             revert BtcTxAlreadyProcessed();
         }
         // verify nonce.
-        bytes32 btcAddressBytes32 = _bytesToBytes32(btcAddress);
-        _verifyAndUpdateNonce(CLIENT_CHAIN_ID, btcAddressBytes32, nonce);
+        _verifyAndUpdateBytesNonce(_msg.srcChainID, btcAddress, _msg.nonce);
 
+        //verify signature
+        _verifySignature(_msg, signature);
         bytes memory exocoreAddress = btcToExocoreAddress[btcAddress];
         if (exocoreAddress.length == 0) {
             revert BtcAddressNotRegistered();
         }
-        try ASSETS_CONTRACT.depositTo(0, BTC_TOKEN, exocoreAddress, amount) returns (
+        try ASSETS_CONTRACT.depositTo(0, BTC_TOKEN, exocoreAddress, _msg.amount) returns (
             bool success, uint256 updatedBalance
         ) {
             if (!success) {
                 revert DepositFailed();
             }
             processedBtcTxs[btcTxHash] = TxInfo(true, block.timestamp);
-            emit DepositCompleted(btcTxHash, BTC_TOKEN, exocoreAddress, amount, updatedBalance);
+            emit DepositCompleted(btcTxHash, BTC_TOKEN, exocoreAddress, _msg.amount, updatedBalance);
         } catch {
             emit ExocorePrecompileError(address(ASSETS_CONTRACT));
             revert DepositFailed();
@@ -136,7 +165,9 @@ contract ExocoreBtcGateway is Initializable, PausableUpgradeable, OwnableUpgrade
     }
 
     function withdrawReward(bytes calldata token, bytes calldata withdrawer,uint256 amount) external whenNotPaused {
-        try CLAIM_REWARD_CONTRACT.claimReward(CLIENT_CHAIN_ID,token, withdrawer,amount) returns (bool success, uint256 updatedBalance) {
+        try CLAIM_REWARD_CONTRACT.claimReward(CLIENT_CHAIN_ID, token, withdrawer, amount) returns (
+            bool success, uint256 updatedBalance
+        ) {
             if (!success) {
                 revert WithdrawRewardFailed();
             }
@@ -166,7 +197,9 @@ contract ExocoreBtcGateway is Initializable, PausableUpgradeable, OwnableUpgrade
         external
         whenNotPaused
     {
-        try DELEGATION_CONTRACT.undelegateFrom(CLIENT_CHAIN_ID, token, delegator, operator, amount) returns (bool success) {
+        try DELEGATION_CONTRACT.undelegateFrom(CLIENT_CHAIN_ID, token, delegator, operator, amount) returns (
+            bool success
+        ) {
             if (!success) {
                 revert UndelegationFailed();
             }
@@ -183,13 +216,16 @@ contract ExocoreBtcGateway is Initializable, PausableUpgradeable, OwnableUpgrade
         bytes calldata operator,
         uint256 amount
     ) external whenNotPaused {
-        try ASSETS_CONTRACT.depositTo(CLIENT_CHAIN_ID, token, depositor, amount) returns (bool depositSuccess, uint256 updatedBalance)
-        {
+        try ASSETS_CONTRACT.depositTo(CLIENT_CHAIN_ID, token, depositor, amount) returns (
+            bool depositSuccess, uint256 updatedBalance
+        ) {
             if (!depositSuccess) {
                 revert DepositFailed();
             }
 
-            try DELEGATION_CONTRACT.delegateTo(CLIENT_CHAIN_ID, token, depositor, operator, amount) returns (bool delegateSuccess) {
+            try DELEGATION_CONTRACT.delegateTo(CLIENT_CHAIN_ID, token, depositor, operator, amount) returns (
+                bool delegateSuccess
+            ) {
                 if (!delegateSuccess) {
                     revert DelegationFailed();
                 }
@@ -215,8 +251,9 @@ contract ExocoreBtcGateway is Initializable, PausableUpgradeable, OwnableUpgrade
         return exocoreToBtcAddress[exocoreAddress];
     }
 
-    function getCurrentNonce(uint16 srcChainId, bytes32 srcAddress) external view returns (uint64) {
-        return inboundNonce[srcChainId][srcAddress];
+    function getCurrentNonce(uint32 srcChainId, string calldata btcAddress) external view returns (uint64) {
+        bytes memory bytesBtcAddr = _stringToBytes(btcAddress);
+        return inboundBytesNonce[srcChainId][bytesBtcAddr];
     }
 
     function withdrawEther() external onlyOwner {
@@ -239,13 +276,8 @@ contract ExocoreBtcGateway is Initializable, PausableUpgradeable, OwnableUpgrade
         return validator == exocoreValidatorSetAddress;
     }
 
-    function _bytesToBytes32(bytes memory source) internal pure returns (bytes32 result) {
-        if (source.length == 0) {
-            return 0x0;
-        }
-        assembly {
-            result := mload(add(source, 32))
-        }
+    function _stringToBytes(string memory source) internal pure returns (bytes memory) {
+        return abi.encodePacked(source);
     }
 
 
