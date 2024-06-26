@@ -26,7 +26,8 @@ interface IExoCapsule {
     function initialize(address gateway, address capsuleOwner, address beaconOracle) external;
 
     function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
-        external;
+        external
+        returns (uint256);
 
     function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,

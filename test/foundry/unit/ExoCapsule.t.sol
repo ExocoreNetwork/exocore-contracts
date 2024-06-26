@@ -385,14 +385,14 @@ contract WithdrawalSetup is Test {
             abi.encode(beaconBlockRoot)
         );
 
-        capsule.verifyDepositProof(validatorContainer, validatorProof);
+        uint256 depositAmount = capsule.verifyDepositProof(validatorContainer, validatorProof);
 
         ExoCapsuleStorage.Validator memory validator =
             capsule.getRegisteredValidatorByPubkey(_getPubkey(validatorContainer));
         assertEq(uint8(validator.status), uint8(ExoCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
         assertEq(validator.validatorIndex, validatorProof.validatorIndex);
         assertEq(validator.mostRecentBalanceUpdateTimestamp, validatorProof.beaconBlockTimestamp);
-        assertEq(validator.restakedBalanceGwei, _getEffectiveBalance(validatorContainer));
+        assertEq(validator.restakedBalanceGwei, depositAmount / 1e9);
 
         vm.deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
     }

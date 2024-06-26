@@ -246,7 +246,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         test_AddWhitelistTokens();
 
         _testNativeDeposit(depositor, relayer, lastlyUpdatedPrincipalBalance);
-        lastlyUpdatedPrincipalBalance += uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
+        lastlyUpdatedPrincipalBalance += 32 ether;
         _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);
     }
 
@@ -295,7 +295,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
         uint64 depositRequestNonce = 2;
-        uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
+        uint256 depositAmount = 32 ether;
         bytes memory depositRequestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_DEPOSIT,
             bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),

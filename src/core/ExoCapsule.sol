@@ -83,6 +83,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
         external
         onlyGateway
+        returns (uint256 depositAmount)
     {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
@@ -113,7 +114,14 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         validator.status = VALIDATOR_STATUS.REGISTERED;
         validator.validatorIndex = proof.validatorIndex;
         validator.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
-        validator.restakedBalanceGwei = validatorContainer.getEffectiveBalance();
+        uint64 depositAmountGwei = validatorContainer.getEffectiveBalance();
+        if (depositAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
+            validator.restakedBalanceGwei = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR;
+            depositAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
+        } else {
+            validator.restakedBalanceGwei = depositAmountGwei;
+            depositAmount = depositAmountGwei * GWEI_TO_WEI;
+        }
 
         _capsuleValidatorsByIndex[proof.validatorIndex] = validatorPubkey;
     }

@@ -59,9 +59,7 @@ abstract contract NativeRestakingController is
         IExoCapsule.ValidatorContainerProof calldata proof
     ) external payable whenNotPaused {
         IExoCapsule capsule = _getCapsule(msg.sender);
-        capsule.verifyDepositProof(validatorContainer, proof);
-
-        uint256 depositValue = uint256(validatorContainer.getEffectiveBalance()) * GWEI_TO_WEI;
+        uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
 
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(msg.sender)), depositValue);
