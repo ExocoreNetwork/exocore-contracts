@@ -162,8 +162,11 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
                 validatorPubkey, withdrawalProof.beaconBlockTimestamp, capsuleOwner, withdrawalAmountGwei
             );
             if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-                withdrawalAmount = (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI;
-                _sendETH(capsuleOwner, withdrawalAmount);
+                uint256 amountToSend = (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI;
+                _sendETH(capsuleOwner, amountToSend);
+                withdrawalAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
+            } else {
+                withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
             }
         }
     }

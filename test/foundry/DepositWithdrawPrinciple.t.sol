@@ -5,6 +5,7 @@ import "../../src/core/ExocoreGateway.sol";
 
 import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
 import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
+
 import "../../src/storage/GatewayStorage.sol";
 import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
@@ -29,6 +30,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
     event StakedWithCapsule(address staker, address capsule);
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
+    uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
 
     function test_LSTDepositWithdrawByLayerZero() public {
         Player memory depositor = players[0];
@@ -244,13 +246,15 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         test_AddWhitelistTokens();
 
         _testNativeDeposit(depositor, relayer, lastlyUpdatedPrincipalBalance);
+        lastlyUpdatedPrincipalBalance += uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
+        _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);
     }
 
     function _testNativeDeposit(Player memory depositor, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
         internal
     {
         // before native stake and deposit, we simulate proper block environment states to make proof valid
-        _simulateBlockEnvironment();
+        _simulateBlockEnvironmentForNativeDeposit();
 
         // 1. firstly depositor should stake to beacon chain by depositing 32 ETH to ETHPOS contract
         IExoCapsule expectedCapsule = IExoCapsule(
@@ -377,11 +381,10 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.stopPrank();
     }
 
-    function _simulateBlockEnvironment() internal {
+    function _simulateBlockEnvironmentForNativeDeposit() internal {
         /// we set the timestamp of proof to be exactly the timestamp that the validator container get activated on
         /// beacon chain
-        uint256 activationTimestamp =
-            BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
         mockProofTimestamp = activationTimestamp;
         validatorProof.beaconBlockTimestamp = mockProofTimestamp;
 
@@ -394,6 +397,122 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             address(beaconOracle),
             abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector),
             abi.encode(beaconBlockRoot)
+        );
+    }
+
+    function _testNativeWithdraw(Player memory withdrawer, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
+        internal
+    {
+        // before native withdraw, we simulate proper block environment states to make proof valid
+        _simulateBlockEnvironmentForNativeWithdraw();
+        deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
+
+        // 2. withdrawer will call clientGateway.processBeaconChainWithdrawal to withdraw from Exocore thru layerzero
+
+        /// client chain layerzero endpoint should emit the message packet including deposit payload.
+        uint64 withdrawRequestNonce = 3;
+        uint64 withdrawalAmountGwei = _getWithdrawalAmount(withdrawalContainer);
+        uint256 withdrawalAmount;
+        if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
+            withdrawalAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
+        } else {
+            withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
+        }
+        bytes memory withdrawRequestPayload = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
+            bytes32(bytes20(withdrawer.addr)),
+            withdrawalAmount
+        );
+        uint256 withdrawRequestNativeFee = clientGateway.quote(withdrawRequestPayload);
+        bytes32 withdrawRequestId = generateUID(withdrawRequestNonce, true);
+
+        // client chain layerzero endpoint should emit the message packet including withdraw payload.
+        vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
+        emit NewPacket(
+            exocoreChainId,
+            address(clientGateway),
+            address(exocoreGateway).toBytes32(),
+            withdrawRequestNonce,
+            withdrawRequestPayload
+        );
+        // client chain gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit MessageSent(
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            withdrawRequestId,
+            withdrawRequestNonce,
+            withdrawRequestNativeFee
+        );
+
+        vm.startPrank(withdrawer.addr);
+        clientGateway.processBeaconChainWithdrawal{value: withdrawRequestNativeFee}(
+            validatorContainer, validatorProof, withdrawalContainer, withdrawalProof
+        );
+        vm.stopPrank();
+
+        /// exocore gateway should return response message to exocore network layerzero endpoint
+        uint64 withdrawResponseNonce = 3;
+        lastlyUpdatedPrincipalBalance -= withdrawalAmount;
+        bytes memory withdrawResponsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, withdrawRequestNonce, true, lastlyUpdatedPrincipalBalance);
+        uint256 withdrawResponseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
+        bytes32 withdrawResponseId = generateUID(withdrawResponseNonce, false);
+
+        // exocore gateway should return response message to exocore network layerzero endpoint
+        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
+        emit NewPacket(
+            clientChainId,
+            address(exocoreGateway),
+            address(clientGateway).toBytes32(),
+            withdrawResponseNonce,
+            withdrawResponsePayload
+        );
+        // exocore gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit MessageSent(
+            GatewayStorage.Action.RESPOND, withdrawResponseId, withdrawResponseNonce, withdrawResponseNativeFee
+        );
+        exocoreLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), withdrawRequestNonce),
+            address(exocoreGateway),
+            withdrawRequestId,
+            withdrawRequestPayload,
+            bytes("")
+        );
+
+        // client chain gateway should execute the response hook and emit depositResult event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit WithdrawPrincipalResult(true, address(VIRTUAL_STAKED_ETH_ADDRESS), withdrawer.addr, withdrawalAmount);
+        clientChainLzEndpoint.lzReceive(
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), withdrawResponseNonce),
+            address(clientGateway),
+            withdrawResponseId,
+            withdrawResponsePayload,
+            bytes("")
+        );
+    }
+
+    function _simulateBlockEnvironmentForNativeWithdraw() internal {
+        // load beacon chain validator container and proof from json file
+        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
+        _loadValidatorContainer(withdrawalInfo);
+        // load withdrawal proof
+        _loadWithdrawalContainer(withdrawalInfo);
+
+        withdrawalProof.beaconBlockTimestamp = activationTimestamp + SECONDS_PER_SLOT;
+        validatorProof.beaconBlockTimestamp = withdrawalProof.beaconBlockTimestamp + SECONDS_PER_SLOT;
+        mockCurrentBlockTimestamp = validatorProof.beaconBlockTimestamp + SECONDS_PER_SLOT;
+        vm.warp(mockCurrentBlockTimestamp);
+        vm.mockCall(
+            address(beaconOracle),
+            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, validatorProof.beaconBlockTimestamp),
+            abi.encode(beaconBlockRoot)
+        );
+        vm.mockCall(
+            address(beaconOracle),
+            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, withdrawalProof.beaconBlockTimestamp),
+            abi.encode(withdrawBeaconBlockRoot)
         );
     }
 
