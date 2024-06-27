@@ -6,12 +6,15 @@ import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {MessagingFee, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
 
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+
+import {GatewayStorage} from "../storage/GatewayStorage.sol";
 import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
 import {LSTRestakingController} from "./LSTRestakingController.sol";
 import {NativeRestakingController} from "./NativeRestakingController.sol";
 
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
+import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroReceiver.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
@@ -165,6 +168,16 @@ contract ClientChainGateway is
         returns (uint64 senderVersion, uint64 receiverVersion)
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
+    }
+
+    function nextNonce(uint32 srcEid, bytes32 sender)
+        public
+        view
+        virtual
+        override(ClientGatewayLzReceiver, GatewayStorage, ILayerZeroReceiver)
+        returns (uint64)
+    {
+        return GatewayStorage.nextNonce(srcEid, sender);
     }
 
 }

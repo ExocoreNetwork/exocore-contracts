@@ -35,4 +35,8 @@ contract GatewayStorage {
         inboundNonce[srcChainId][srcAddress] = nonce;
     }
 
+    function nextNonce(uint32 srcEid, bytes32 sender) public view virtual returns (uint64) {
+        return inboundNonce[srcEid][sender] + 1;
+    }
+
 }

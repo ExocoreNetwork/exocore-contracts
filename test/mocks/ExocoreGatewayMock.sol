@@ -13,7 +13,9 @@ import {
     OAppUpgradeable,
     Origin
 } from "src/lzApp/OAppUpgradeable.sol";
+
 import {ExocoreGatewayStorage} from "src/storage/ExocoreGatewayStorage.sol";
+import {GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
@@ -335,10 +337,10 @@ contract ExocoreGatewayMock is
         public
         view
         virtual
-        override(ILayerZeroReceiver, OAppReceiverUpgradeable)
+        override(GatewayStorage, ILayerZeroReceiver, OAppReceiverUpgradeable)
         returns (uint64)
     {
-        return inboundNonce[srcEid][sender] + 1;
+        return GatewayStorage.nextNonce(srcEid, sender);
     }
 
 }

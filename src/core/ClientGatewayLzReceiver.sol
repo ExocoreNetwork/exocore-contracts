@@ -3,7 +3,9 @@ pragma solidity ^0.8.19;
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
+
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+import {GatewayStorage} from "../storage/GatewayStorage.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
@@ -69,10 +71,10 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         public
         view
         virtual
-        override(OAppReceiverUpgradeable)
+        override(GatewayStorage, OAppReceiverUpgradeable)
         returns (uint64)
     {
-        return inboundNonce[srcEid][sender] + 1;
+        return GatewayStorage.nextNonce(srcEid, sender);
     }
 
     function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)
