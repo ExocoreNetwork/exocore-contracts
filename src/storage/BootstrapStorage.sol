@@ -214,14 +214,6 @@ contract BootstrapStorage is GatewayStorage {
      */
     mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
 
-    // TSS information.
-    /**
-     * @dev The message nonce from the last TSS message processed by the contract.
-     * @notice This nonce is used to track the last message processed by the contract to
-     * prevent replay attacks.
-     */
-    uint256 public lastMessageNonce;
-
     // the beacon that stores the Vault implementation contract address for proxy
     /**
      * @notice this stores the Vault implementation contract address for proxy, and it is
