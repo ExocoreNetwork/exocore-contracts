@@ -40,4 +40,5 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
     {
         return inboundNonce[srcEid][sender] + 1;
     }
+
 }
