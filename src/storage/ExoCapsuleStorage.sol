@@ -32,7 +32,7 @@ contract ExoCapsuleStorage {
     uint256 public constant GWEI_TO_WEI = 1e9;
     uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
 
-    uint256 public principleBalance;
+    uint256 public principalBalance;
     /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon
     /// Chain but not from Exocore)
     uint256 public withdrawableBalance;

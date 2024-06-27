@@ -202,7 +202,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     }
 
     function updatePrincipalBalance(uint256 lastlyUpdatedPrincipalBalance) external onlyGateway {
-        principleBalance = lastlyUpdatedPrincipalBalance;
+        principalBalance = lastlyUpdatedPrincipalBalance;
 
         emit PrincipalBalanceUpdated(capsuleOwner, lastlyUpdatedPrincipalBalance);
     }
