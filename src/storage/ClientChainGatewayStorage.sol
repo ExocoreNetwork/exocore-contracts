@@ -13,7 +13,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /*       state variables exclusively owned by ClientChainGateway              */
     /* -------------------------------------------------------------------------- */
 
-    uint64 public outboundNonce;
+    uint64 public outboundNonce; // the only contract that has outgoing messages
     mapping(address => IExoCapsule) public ownerToCapsule;
     mapping(uint64 => bytes) internal _registeredRequests;
     mapping(uint64 => Action) internal _registeredRequestActions;

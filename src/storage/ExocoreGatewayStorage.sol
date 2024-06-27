@@ -21,7 +21,6 @@ contract ExocoreGatewayStorage is GatewayStorage {
     uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
     uint128 internal constant DESTINATION_MSG_VALUE = 0;
 
-    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
     mapping(uint32 id => bool) public chainToBootstrapped;
 
     event ExocorePrecompileError(address indexed precompile, uint64 nonce);
