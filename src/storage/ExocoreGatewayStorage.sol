@@ -23,18 +23,26 @@ contract ExocoreGatewayStorage is GatewayStorage {
     uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
     uint128 internal constant DESTINATION_MSG_VALUE = 0;
 
-    mapping(uint32 id => bool) public chainToBootstrapped;
+    mapping(uint32 clienChainId => bool) public chainToBootstrapped;
+    mapping(uint32 clienChainId => bool registered) public isRegisteredClientChain;
+    mapping(bytes32 token => bool whitelisted) public isWhitelistedToken;
 
     event ExocorePrecompileError(address indexed precompile, uint64 nonce);
+    event ClientChainRegistered(uint32 clientChainId);
+    event ClientChainUpdated(uint32 clientChainId);
+    event WhitelistTokenAdded(uint32 clientChainId, bytes32 token);
+    event WhitelistTokenUpdated(uint32 clientChainId, bytes32 token);
 
     error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
     error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
     error DepositRequestShouldNotFail(uint32 srcChainId, uint64 lzNonce);
     error RegisterClientChainToExocoreFailed(uint32 clientChainId);
-    error AddWhitelistTokensFailed();
+    error AddWhitelistTokenFailed(bytes32 token);
+    error UpdateWhitelistTokenFailed(bytes32 token);
     error InvalidWhitelistTokensInput();
     error ClientChainIDNotRegisteredBefore(uint32 clientChainId);
+    error WhitelistTokensListTooLong();
 
     uint256[40] private __gap;
 

@@ -16,32 +16,25 @@ interface IAssets {
     /// @dev deposit the client chain assets for the staker,
     /// that will change the state in deposit module
     /// Note that this address cannot be a module account.
-    /// @param clientChainID is the layerZero chainID if it is supported.
-    //  It might be allocated by Exocore when the client chain isn't supported
-    //  by layerZero
+    /// @param clientChainLzID The LzID of client chain
     /// @param assetsAddress The client chain asset address
     /// @param stakerAddress The staker address
     /// @param opAmount The amount to deposit
-    function depositTo(
-        uint32 clientChainID,
-        bytes32  assetsAddress,
-        bytes32  stakerAddress,
-        uint256 opAmount) external
-    returns (bool success, uint256 latestAssetState);
+    function depositTo(uint32 clientChainLzID, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
+        external
+        returns (bool success, uint256 latestAssetState);
 
     /// TRANSACTIONS
     /// @dev withdraw To the staker, that will change the state in withdraw module
     /// Note that this address cannot be a module account.
-    /// @param clientChainID is the layerZero chainID if it is supported.
-    //  It might be allocated by Exocore when the client chain isn't supported
-    //  by layerZero
+    /// @param clientChainLzID The LzID of client chain
     /// @param assetsAddress The client chain asset Address
     /// @param withdrawAddress The withdraw address
     /// @param opAmount The withdraw amount
     function withdrawPrincipal(
-        uint32 clientChainID,
-        bytes32 assetsAddress,
-        bytes32 withdrawAddress,
+        uint32 clientChainLzID,
+        bytes memory assetsAddress,
+        bytes memory withdrawAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
 
@@ -57,24 +50,24 @@ interface IAssets {
     //  by layerZero
     function registerClientChain(
         uint32 clientChainID,
-        uint32 addressLength,
+        uint8 addressLength,
         string calldata name,
         string calldata metaInfo,
         string calldata signatureType
     ) external returns (bool success);
 
     /// TRANSACTIONS
-    /// @dev register unwhitelisted token addresses to exocore
+    /// @dev register unwhitelisted token address to exocore assets module
     /// @param clientChainID is the layerZero chainID if it is supported.
     //  It might be allocated by Exocore when the client chain isn't supported
     //  by layerZero
-    /// @param tokens The token addresses that would be registered to exocore
-    function registerTokens(
+    /// @param token The token address that would be registered to exocore
+    function registerToken(
         uint32 clientChainID,
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData
+        bytes calldata token,
+        uint8 decimals,
+        uint256 tvlLimit,
+        string calldata name,
+        string calldata metaData
     ) external returns (bool success);
 }

@@ -65,7 +65,7 @@ contract SetupScript is BaseScript {
         vm.stopBroadcast();
 
         // 2. setup Exocore contracts to make them ready for sending and receiving messages from client chain
-        // gateway
+        // gateway, and register client chain meta data as well as well as adding tokens to whtielist to enable restaking
         vm.selectFork(exocore);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -75,16 +75,45 @@ contract SetupScript is BaseScript {
                 address(clientGateway), address(clientChainLzEndpoint)
             );
         }
-        // this would also register clientChainId to Exocore native module
-        exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
-        vm.stopBroadcast();
+        // first register clientChainId to Exocore native module and set peer for client chain gateway to be ready for messaging
+        exocoreGateway.registerOrUpdateClientChain(
+            clientChainId, 
+            address(clientGateway).toBytes32(),
+            20,
+            "clientChain",
+            "",
+            "secp256k1"
+        );
+        // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking, 
+        // and this would also add token addresses to client chain gateway's whitelist
+        bytes32[] memory whitelistTokensBytes32 = new bytes32[](2);
+        uint8[] memory decimals = new uint8[](2);
+        uint256[] memory tvlLimits = new uint256[](2);
+        string[] memory names = new string[](2);
+        string[] memory metaData = new string[](2);
 
-        // 3. we should register whitelist tokens to exocore
-        vm.selectFork(clientChain);
-        // Exocore validator set should be the owner of these contracts and only owner could add whitelist tokens
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        whitelistTokens.push(address(restakeToken));
-        clientGateway.addWhitelistTokens(whitelistTokens);
+        whitelistTokensBytes32[0] = bytes32(bytes20(address(restakeToken)));
+        decimals[0] = restakeToken.decimals();
+        tvlLimits[0] = 1e10 ether;
+        names[0] = "RestakeToken";
+        metaData[0] = "";
+
+        whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        decimals[1] = 18;
+        tvlLimits[1] = 1e8 ether;
+        names[1] = "RestakeToken";
+        metaData[1] = "";
+
+        uint messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokensBytes32.length + 2;
+        uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
+        exocoreGateway.addWhitelistTokens{value: nativeFee}(
+            clientChainId,
+            whitelistTokensBytes32,
+            decimals,
+            tvlLimits,
+            names,
+            metaData
+        );
         vm.stopBroadcast();
     }
 

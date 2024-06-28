@@ -155,7 +155,7 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistTokens(address[] calldata tokens) external payable beforeLocked onlyOwner whenNotPaused {
+    function addWhitelistTokens(address[] calldata tokens) external beforeLocked onlyOwner whenNotPaused {
         _addWhitelistTokens(tokens);
     }
 

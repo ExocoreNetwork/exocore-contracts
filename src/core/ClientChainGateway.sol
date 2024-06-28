@@ -78,7 +78,6 @@ contract ClientChainGateway is
             this.afterReceiveWithdrawRewardResponse.selector;
         _registeredResponseHooks[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
             this.afterReceiveDepositThenDelegateToResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_REGISTER_TOKENS] = this.afterReceiveRegisterTokensResponse.selector;
 
         _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] = this.afterReceiveAddWhitelistTokensRequest.selector;
 
@@ -122,7 +121,7 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    function addWhitelistTokens(address[] calldata tokens) external payable {
+    function addWhitelistTokens(address[] calldata tokens) external onlyOwner whenNotPaused {
         revert("this function is not supported for client chain, please register on Exocore");
     }
 

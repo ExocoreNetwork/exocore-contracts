@@ -197,18 +197,18 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         for (uint256 i; i < count; i++) {
             uint256 start = i * TOKEN_ADDRESS_BYTES_LENTH + 1;
             uint256 end = start + TOKEN_ADDRESS_BYTES_LENTH;
-            address token = address(bytes20(payload[start:end]));
+            address token = address(bytes20(requestPayload[start:end]));
 
             if (!isWhitelistedToken[token]) {
                 isWhitelistedToken[token] = true;
                 whitelistTokens.push(token);
 
-                emit WhitelistTokenAdded(token);
-            }
+                // deploy the corresponding vault if not deployed before
+                if (token != VIRTUAL_STAKED_ETH_ADDRESS && address(tokenToVault[token]) == address(0)) {
+                    _deployVault(token);
+                }
 
-            // deploy the corresponding vault if not deployed before
-            if (token != VIRTUAL_STAKED_ETH_ADDRESS && address(tokenToVault[token]) == address(0)) {
-                _deployVault(token);
+                emit WhitelistTokenAdded(token);
             }
         }
     }

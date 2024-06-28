@@ -26,9 +26,9 @@ interface IDelegation {
     function delegateToThroughClientChain(
         uint32 clientChainLzId,
         uint64 lzNonce,
-        bytes32 assetsAddress,
-        bytes32 stakerAddress,
-        bytes32 operatorAddr,
+        bytes memory assetsAddress,
+        bytes memory stakerAddress,
+        bytes memory operatorAddr,
         uint256 opAmount
     ) external returns (bool success);
 
@@ -45,9 +45,9 @@ interface IDelegation {
     function undelegateFromThroughClientChain(
         uint32 clientChainLzId,
         uint64 lzNonce,
-        bytes32 assetsAddress,
-        bytes32 stakerAddress,
-        bytes32 operatorAddr,
+        bytes memory assetsAddress,
+        bytes memory stakerAddress,
+        bytes memory operatorAddr,
         uint256 opAmount
     ) external returns (bool success);
 

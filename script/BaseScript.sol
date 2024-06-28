@@ -69,6 +69,8 @@ contract BaseScript is Script {
 
     uint256 constant DEPOSIT_AMOUNT = 1 ether;
     uint256 constant WITHDRAW_AMOUNT = 1 ether;
+    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    uint256 internal constant TOKEN_ADDRESS_BYTES_LENTH = 32;
 
     bool useExocorePrecompileMock;
     bool useEndpointMock;

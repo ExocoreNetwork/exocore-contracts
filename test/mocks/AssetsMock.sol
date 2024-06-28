@@ -50,24 +50,33 @@ contract AssetsMock is IAssets {
         return (true, chainIds);
     }
 
-    function registerClientChain(uint32 chainId) external returns (bool) {
-        require(!isRegisteredChain[chainId], "has already been registered");
-
-        isRegisteredChain[chainId] = true;
-        chainIds.push(chainId);
+    function registerClientChain(
+        uint32 clientChainId,
+        uint8 addressLength,
+        string calldata name,
+        string calldata metaInfo,
+        string calldata signatureType
+    ) external returns (bool) {
+        if (!isRegisteredChain[clientChainId]) {
+            isRegisteredChain[clientChainId] = true;
+            chainIds.push(clientChainId);
+        }
         return true;
     }
 
-    function registerTokens(uint32 chainId, bytes[] memory tokens) external returns (bool) {
-        require(isRegisteredChain[chainId], "the chain is not registered before");
+    function registerToken(
+        uint32 clientChainId,
+        bytes calldata token,
+        uint8 decimals,
+        uint256 tvlLimit,
+        string calldata name,
+        string calldata metaData
+    ) external returns (bool) {
+        require(isRegisteredChain[clientChainId], "the chain is not registered before");
 
-        for (uint256 i; i < tokens.length; i++) {
-            bytes memory token = tokens[i];
-            require(token.length == 32, "token address with invalid length");
-            require(!isRegisteredToken[chainId][token], "already registered token");
-
-            isRegisteredToken[chainId][token] = true;
-        }
+        if (!isRegisteredToken[clientChainId][token]) {
+            isRegisteredToken[clientChainId][token] = true;
+        } 
 
         return true;
     }
