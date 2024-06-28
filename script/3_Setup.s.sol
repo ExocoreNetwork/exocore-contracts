@@ -65,7 +65,8 @@ contract SetupScript is BaseScript {
         vm.stopBroadcast();
 
         // 2. setup Exocore contracts to make them ready for sending and receiving messages from client chain
-        // gateway, and register client chain meta data as well as well as adding tokens to whtielist to enable restaking
+        // gateway, and register client chain meta data as well as well as adding tokens to whtielist to enable
+        // restaking
         vm.selectFork(exocore);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -75,16 +76,12 @@ contract SetupScript is BaseScript {
                 address(clientGateway), address(clientChainLzEndpoint)
             );
         }
-        // first register clientChainId to Exocore native module and set peer for client chain gateway to be ready for messaging
+        // first register clientChainId to Exocore native module and set peer for client chain gateway to be ready for
+        // messaging
         exocoreGateway.registerOrUpdateClientChain(
-            clientChainId, 
-            address(clientGateway).toBytes32(),
-            20,
-            "clientChain",
-            "",
-            "secp256k1"
+            clientChainId, address(clientGateway).toBytes32(), 20, "clientChain", "", "secp256k1"
         );
-        // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking, 
+        // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking,
         // and this would also add token addresses to client chain gateway's whitelist
         bytes32[] memory whitelistTokensBytes32 = new bytes32[](2);
         uint8[] memory decimals = new uint8[](2);
@@ -104,15 +101,10 @@ contract SetupScript is BaseScript {
         names[1] = "RestakeToken";
         metaData[1] = "";
 
-        uint messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokensBytes32.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokensBytes32.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
         exocoreGateway.addWhitelistTokens{value: nativeFee}(
-            clientChainId,
-            whitelistTokensBytes32,
-            decimals,
-            tvlLimits,
-            names,
-            metaData
+            clientChainId, whitelistTokensBytes32, decimals, tvlLimits, names, metaData
         );
         vm.stopBroadcast();
     }

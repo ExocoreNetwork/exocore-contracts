@@ -76,7 +76,7 @@ contract AssetsMock is IAssets {
 
         if (!isRegisteredToken[clientChainId][token]) {
             isRegisteredToken[clientChainId][token] = true;
-        } 
+        }
 
         return true;
     }

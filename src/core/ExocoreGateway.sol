@@ -127,25 +127,15 @@ contract ExocoreGateway is
      * @dev Peer is a bytes32 to accommodate non-evm chains.
      */
     function registerOrUpdateClientChain(
-        uint32 clientChainId, 
+        uint32 clientChainId,
         bytes32 clientChainGateway,
         uint8 addressLength,
         string calldata name,
         string calldata metaInfo,
         string calldata signatureType
-    )
-        public
-        onlyOwner
-        whenNotPaused
-    {
+    ) public onlyOwner whenNotPaused {
         _validatePeer(clientChainId, clientChainGateway);
-        _registerClientChain(
-            clientChainId,
-            addressLength,
-            name,
-            metaInfo,
-            signatureType
-        );
+        _registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
         super.setPeer(clientChainId, clientChainGateway);
 
         if (!isRegisteredClientChain[clientChainId]) {
@@ -162,7 +152,10 @@ contract ExocoreGateway is
         onlyOwner
         whenNotPaused
     {
-        require(isRegisteredClientChain[clientChainId], "ExocoreGateway: client chain should be registered before setting peer to change peer address");
+        require(
+            isRegisteredClientChain[clientChainId],
+            "ExocoreGateway: client chain should be registered before setting peer to change peer address"
+        );
 
         super.setPeer(clientChainId, clientChainGateway);
     }
@@ -175,27 +168,15 @@ contract ExocoreGateway is
         string[] calldata names,
         string[] calldata metaData
     ) external payable onlyOwner whenNotPaused {
-        _validateWhitelistTokensInput(
-            clientChainId,
-            tokens,
-            decimals,
-            tvlLimits,
-            names,
-            metaData
-        );
+        _validateWhitelistTokensInput(clientChainId, tokens, decimals, tvlLimits, names, metaData);
 
-        for (uint i; i < tokens.length; i++) {
+        for (uint256 i; i < tokens.length; i++) {
             require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
             require(!isWhitelistedToken[tokens[i]], "ExocoreGateway: token has already been added to whitelist before");
-            require(tvlLimits[i] >0, "ExocoreGateway: tvl limit should not be zero");
+            require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
 
             bool success = ASSETS_CONTRACT.registerToken(
-                clientChainId, 
-                abi.encodePacked(tokens[i]), 
-                decimals[i], 
-                tvlLimits[i],
-                names[i],
-                metaData[i]
+                clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
             );
 
             if (success) {
@@ -207,7 +188,9 @@ contract ExocoreGateway is
             emit WhitelistTokenAdded(clientChainId, tokens[i]);
         }
 
-        _sendInterchainMsg(clientChainId, Action.REQUEST_ADD_WHITELIST_TOKENS, abi.encodePacked(uint8(tokens.length), tokens), false);
+        _sendInterchainMsg(
+            clientChainId, Action.REQUEST_ADD_WHITELIST_TOKENS, abi.encodePacked(uint8(tokens.length), tokens), false
+        );
     }
 
     function updateWhitelistedTokens(
@@ -218,27 +201,15 @@ contract ExocoreGateway is
         string[] calldata names,
         string[] calldata metaData
     ) external onlyOwner whenNotPaused {
-        _validateWhitelistTokensInput(
-            clientChainId,
-            tokens,
-            decimals,
-            tvlLimits,
-            names,
-            metaData
-        );
+        _validateWhitelistTokensInput(clientChainId, tokens, decimals, tvlLimits, names, metaData);
 
-        for (uint i; i < tokens.length; i++) {
+        for (uint256 i; i < tokens.length; i++) {
             require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
             require(isWhitelistedToken[tokens[i]], "ExocoreGateway: token has not been added to whitelist before");
-            require(tvlLimits[i] >0, "ExocoreGateway: tvl limit should not be zero");
+            require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
 
             bool success = ASSETS_CONTRACT.registerToken(
-                clientChainId, 
-                abi.encodePacked(tokens[i]), 
-                decimals[i], 
-                tvlLimits[i],
-                names[i],
-                metaData[i]
+                clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
             );
 
             if (!success) {
@@ -267,10 +238,8 @@ contract ExocoreGateway is
         }
 
         if (
-            decimals.length != expectedLength ||
-            tvlLimits.length != expectedLength ||
-            names.length != expectedLength ||
-            metaData.length != expectedLength 
+            decimals.length != expectedLength || tvlLimits.length != expectedLength || names.length != expectedLength
+                || metaData.length != expectedLength
         ) {
             revert InvalidWhitelistTokensInput();
         }
@@ -289,13 +258,8 @@ contract ExocoreGateway is
         string calldata signatureType
     ) internal {
         if (peers[clientChainId] == bytes32(0)) {
-            bool success = ASSETS_CONTRACT.registerClientChain(
-                clientChainId,
-                addressLength,
-                name,
-                metaInfo,
-                signatureType
-            );
+            bool success =
+                ASSETS_CONTRACT.registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
             if (!success) {
                 revert RegisterClientChainToExocoreFailed(clientChainId);
             }
@@ -446,7 +410,9 @@ contract ExocoreGateway is
         }
         try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, depositor, operator, amount)
         returns (bool delegateSuccess) {
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, delegateSuccess, updatedBalance), true);
+            _sendInterchainMsg(
+                srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, delegateSuccess, updatedBalance), true
+            );
         } catch {
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, updatedBalance), true);
@@ -459,7 +425,10 @@ contract ExocoreGateway is
         }
     }
 
-    function _sendInterchainMsg(uint32 srcChainId, Action act, bytes memory actionArgs, bool payByApp) internal whenNotPaused {
+    function _sendInterchainMsg(uint32 srcChainId, Action act, bytes memory actionArgs, bool payByApp)
+        internal
+        whenNotPaused
+    {
         bytes memory payload = abi.encodePacked(act, actionArgs);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE

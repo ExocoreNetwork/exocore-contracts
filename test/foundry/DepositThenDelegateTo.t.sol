@@ -67,7 +67,16 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
         (bytes32 requestId, bytes memory requestPayload) =
             _testRequest(delegator, operatorAddress, requestLzNonce, delegateAmount);
-        _testResponse(requestId, requestPayload, delegator, relayer, operatorAddress, requestLzNonce, responseLzNonce, delegateAmount);
+        _testResponse(
+            requestId,
+            requestPayload,
+            delegator,
+            relayer,
+            operatorAddress,
+            requestLzNonce,
+            responseLzNonce,
+            delegateAmount
+        );
     }
 
     function _testRequest(address delegator, string memory operatorAddress, uint64 lzNonce, uint256 delegateAmount)
@@ -123,7 +132,8 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         uint64 responseLzNonce,
         uint256 delegateAmount
     ) private {
-        bytes memory responsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, requestLzNonce, true, delegateAmount);
+        bytes memory responsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, requestLzNonce, true, delegateAmount);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, responsePayload);
         bytes32 responseId = generateUID(responseLzNonce, false);
 

@@ -147,8 +147,8 @@ contract ExocoreDeployer is Test {
 
         // estimate l0 relay fee that the user should pay
         bytes memory registerTokensRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKENS, 
-            uint8(whitelistTokens.length), 
+            GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKENS,
+            uint8(whitelistTokens.length),
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))
         );
@@ -173,12 +173,7 @@ contract ExocoreDeployer is Test {
             registerTokensRequestNativeFee
         );
         exocoreGateway.addWhitelistTokens{value: registerTokensRequestNativeFee}(
-            clientChainId,
-            whitelistTokens,
-            decimals,
-            tvlLimits,
-            names,
-            metaData
+            clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData
         );
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
@@ -318,12 +313,7 @@ contract ExocoreDeployer is Test {
         // messages. On Exocore side, this is done by calling registerClientChain
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         exocoreGateway.registerOrUpdateClientChain(
-            clientChainId, 
-            address(clientGateway).toBytes32(),
-            20,
-            "clientChain",
-            "",
-            "secp256k1"
+            clientChainId, address(clientGateway).toBytes32(), 20, "clientChain", "", "secp256k1"
         );
         vm.stopPrank();
     }

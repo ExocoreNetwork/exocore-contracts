@@ -8,7 +8,7 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
     function quote(uint32 srcChainid, bytes memory _message) external view returns (uint256 nativeFee);
 
     function registerOrUpdateClientChain(
-        uint32 clientChainId, 
+        uint32 clientChainId,
         bytes32 clientChainGateway,
         uint8 addressLength,
         string calldata name,
@@ -24,4 +24,5 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
         string[] calldata names,
         string[] calldata metaData
     ) external payable;
+
 }

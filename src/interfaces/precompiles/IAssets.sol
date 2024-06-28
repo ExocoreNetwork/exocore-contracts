@@ -70,4 +70,5 @@ interface IAssets {
         string calldata name,
         string calldata metaData
     ) external returns (bool success);
+
 }

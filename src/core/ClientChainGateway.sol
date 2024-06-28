@@ -10,7 +10,6 @@ import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
 import {LSTRestakingController} from "./LSTRestakingController.sol";
 import {NativeRestakingController} from "./NativeRestakingController.sol";
 
-import {ERC20} from "@openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
@@ -79,7 +78,8 @@ contract ClientChainGateway is
         _registeredResponseHooks[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
             this.afterReceiveDepositThenDelegateToResponse.selector;
 
-        _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] = this.afterReceiveAddWhitelistTokensRequest.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] =
+            this.afterReceiveAddWhitelistTokensRequest.selector;
 
         bootstrapped = true;
 
@@ -121,7 +121,7 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    function addWhitelistTokens(address[] calldata tokens) external onlyOwner whenNotPaused {
+    function addWhitelistTokens(address[] calldata) external onlyOwner whenNotPaused {
         revert("this function is not supported for client chain, please register on Exocore");
     }
 

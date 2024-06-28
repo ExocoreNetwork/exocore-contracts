@@ -21,7 +21,9 @@ abstract contract NativeRestakingController is
     using ValidatorContainer for bytes32[];
 
     modifier nativeRestakingEnabled() {
-        require(isWhitelistedToken[VIRTUAL_STAKED_ETH_ADDRESS], "NativeRestakingController: native restaking is not enabled");
+        require(
+            isWhitelistedToken[VIRTUAL_STAKED_ETH_ADDRESS], "NativeRestakingController: native restaking is not enabled"
+        );
         _;
     }
 
