@@ -13,9 +13,7 @@ import {
     OAppUpgradeable,
     Origin
 } from "../lzApp/OAppUpgradeable.sol";
-
 import {ExocoreGatewayStorage} from "../storage/ExocoreGatewayStorage.sol";
-import {GatewayStorage} from "../storage/GatewayStorage.sol";
 
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
@@ -346,12 +344,10 @@ contract ExocoreGateway is
         public
         view
         virtual
-        // since there are 3 contracts with this function, it must be defined so that
-        // the compiler knows which one to call
-        override(GatewayStorage, ILayerZeroReceiver, OAppReceiverUpgradeable)
+        override(ILayerZeroReceiver, OAppReceiverUpgradeable)
         returns (uint64)
     {
-        return GatewayStorage.nextNonce(srcEid, sender);
+        return inboundNonce[srcEid][sender] + 1;
     }
 
 }

@@ -1,9 +1,7 @@
 pragma solidity ^0.8.19;
 
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
-
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
-import {GatewayStorage} from "../storage/GatewayStorage.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 
 abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, BootstrapStorage {
@@ -37,10 +35,10 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
         public
         view
         virtual
-        override(GatewayStorage, OAppReceiverUpgradeable)
+        override(OAppReceiverUpgradeable)
         returns (uint64)
     {
-        return GatewayStorage.nextNonce(srcEid, sender);
+        return inboundNonce[srcEid][sender] + 1;
     }
 
 }
