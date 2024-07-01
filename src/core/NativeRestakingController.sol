@@ -8,6 +8,7 @@ import {BaseRestakingController} from "./BaseRestakingController.sol";
 
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 abstract contract NativeRestakingController is
     PausableUpgradeable,
@@ -22,7 +23,9 @@ abstract contract NativeRestakingController is
         payable
         whenNotPaused
     {
-        require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
+        if (msg.value != 32 ether) {
+            revert Errors.NativeRestakingControllerInvalidStakeValue();
+        }
 
         IExoCapsule capsule = ownerToCapsule[msg.sender];
         if (address(capsule) == address(0)) {
@@ -34,10 +37,9 @@ abstract contract NativeRestakingController is
     }
 
     function createExoCapsule() public whenNotPaused returns (address) {
-        require(
-            address(ownerToCapsule[msg.sender]) == address(0),
-            "NativeRestakingController: message sender has already created the capsule"
-        );
+        if (address(ownerToCapsule[msg.sender]) != address(0)) {
+            revert Errors.NativeRestakingControllerCapsuleAlreadyCreated();
+        }
         IExoCapsule capsule = IExoCapsule(
             Create2.deploy(
                 0,

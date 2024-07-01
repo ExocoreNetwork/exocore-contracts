@@ -22,6 +22,7 @@ import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/IL
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 contract ExocoreGateway is
     Initializable,
@@ -35,10 +36,9 @@ contract ExocoreGateway is
     using OptionsBuilder for bytes;
 
     modifier onlyCalledFromThis() {
-        require(
-            msg.sender == address(this),
-            "ExocoreGateway: can only be called from this contract itself with a low-level call"
-        );
+        if (msg.sender != address(this)) {
+            revert Errors.ExocoreGatewayOnlyCalledFromThis();
+        }
         _;
     }
 
@@ -49,10 +49,9 @@ contract ExocoreGateway is
     receive() external payable {}
 
     function initialize(address payable exocoreValidatorSetAddress_) external initializer {
-        require(
-            exocoreValidatorSetAddress_ != address(0),
-            "ExocoreGateway: validator set address cannot be the zero address"
-        );
+        if (exocoreValidatorSetAddress_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
 
         exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
@@ -75,18 +74,16 @@ contract ExocoreGateway is
     }
 
     function pause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ExocoreGateway: caller is not Exocore validator set aggregated address"
-        );
+        if (msg.sender != exocoreValidatorSetAddress) {
+            revert Errors.ExocoreGatewayInvalidCaller();
+        }
         _pause();
     }
 
     function unpause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ExocoreGateway: caller is not Exocore validator set aggregated address"
-        );
+        if (msg.sender != exocoreValidatorSetAddress) {
+            revert Errors.ExocoreGatewayInvalidCaller();
+        }
         _unpause();
     }
 
@@ -97,9 +94,13 @@ contract ExocoreGateway is
     function markBootstrapOnAllChains() public whenNotPaused {
         (bool success, bytes memory result) =
             ASSETS_PRECOMPILE_ADDRESS.staticcall(abi.encodeWithSelector(ASSETS_CONTRACT.getClientChains.selector));
-        require(success, "ExocoreGateway: failed to get client chain ids");
+        if (!success) {
+            revert Errors.ExocoreGatewayFailedToGetClientChainIds();
+        }
         (bool ok, uint32[] memory clientChainIds) = abi.decode(result, (bool, uint32[]));
-        require(ok, "ExocoreGateway: failed to decode client chain ids");
+        if (!ok) {
+            revert Errors.ExocoreGatewayFailedToDecodeClientChainIds();
+        }
         for (uint256 i = 0; i < clientChainIds.length; i++) {
             uint32 clientChainId = clientChainIds[i];
             if (!chainToBootstrapped[clientChainId]) {
@@ -132,8 +133,12 @@ contract ExocoreGateway is
     }
 
     function _validatePeer(uint32 clientChainId, bytes32 clientChainGateway) internal pure {
-        require(clientChainId != uint32(0), "ExocoreGateway: zero value is not invalid endpoint id");
-        require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway cannot be empty");
+        if (clientChainId == uint32(0)) {
+            revert Errors.ZeroValue();
+        }
+        if (clientChainGateway == bytes32(0)) {
+            revert Errors.ZeroValue();
+        }
     }
 
     function _registerClientChain(uint32 clientChainId) internal {
