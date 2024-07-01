@@ -167,7 +167,7 @@ contract ExocoreGateway is
         uint256[] calldata tvlLimits,
         string[] calldata names,
         string[] calldata metaData
-    ) external payable onlyOwner whenNotPaused {
+    ) external payable onlyOwner whenNotPaused nonReentrant {
         _validateWhitelistTokensInput(clientChainId, tokens, decimals, tvlLimits, names, metaData);
 
         for (uint256 i; i < tokens.length; i++) {
