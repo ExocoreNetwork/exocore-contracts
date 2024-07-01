@@ -84,6 +84,7 @@ contract ClientChainGateway is
         __Ownable_init_unchained(exocoreValidatorSetAddress);
         __OAppCore_init_unchained(exocoreValidatorSetAddress);
         __Pausable_init_unchained();
+        __ReentrancyGuard_init_unchained();
     }
 
     function _clearBootstrapData() internal {
@@ -119,7 +120,7 @@ contract ClientChainGateway is
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistTokens(address[] calldata tokens) external payable onlyOwner whenNotPaused {
+    function addWhitelistTokens(address[] calldata tokens) external payable onlyOwner whenNotPaused nonReentrant {
         _addWhitelistTokens(tokens);
     }
 

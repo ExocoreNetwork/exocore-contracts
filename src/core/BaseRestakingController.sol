@@ -8,9 +8,11 @@ import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.so
 
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 
 abstract contract BaseRestakingController is
     PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
     OAppSenderUpgradeable,
     IBaseRestakingController,
     ClientChainGatewayStorage
@@ -25,6 +27,7 @@ abstract contract BaseRestakingController is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         whenNotPaused
+        nonReentrant
     {
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = _getCapsule(msg.sender);
@@ -44,6 +47,7 @@ abstract contract BaseRestakingController is
         isValidAmount(amount)
         isValidBech32Address(operator)
         whenNotPaused
+        nonReentrant
     {
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
@@ -58,6 +62,7 @@ abstract contract BaseRestakingController is
         isValidAmount(amount)
         isValidBech32Address(operator)
         whenNotPaused
+        nonReentrant
     {
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
