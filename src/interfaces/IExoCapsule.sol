@@ -13,28 +13,28 @@ interface IExoCapsule {
 
     struct WithdrawalContainerProof {
         uint256 beaconBlockTimestamp;
+        bytes32 stateRoot;
         bytes32 executionPayloadRoot;
         bytes32[] executionPayloadRootProof;
         bytes32[] withdrawalContainerRootProof;
+        bytes32[] historicalSummaryBlockRootProof;
+        uint256 historicalSummaryIndex;
+        uint256 blockRootIndex;
         uint256 withdrawalIndex;
     }
 
+    function initialize(address gateway, address capsuleOwner, address beaconOracle) external;
+
     function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
-        external;
+        external
+        returns (uint256);
 
-    function verifyPartialWithdrawalProof(
+    function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         WithdrawalContainerProof calldata withdrawalProof
-    ) external;
-
-    function verifyFullWithdrawalProof(
-        bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata validatorProof,
-        bytes32[] calldata withdrawalContainer,
-        WithdrawalContainerProof calldata withdrawalProof
-    ) external;
+    ) external returns (bool partialWithdrawal, uint256 withdrawalAmount);
 
     function withdraw(uint256 amount, address payable recipient) external;
 

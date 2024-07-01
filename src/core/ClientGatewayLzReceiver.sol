@@ -13,6 +13,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     error UnexpectedResponse(uint64 nonce);
     error DepositShouldNotFailOnExocore(address token, address depositor);
 
+    // Events
+    event WithdrawFailedOnExocore(address indexed token, address indexed withdrawer);
+
     modifier onlyCalledFromThis() {
         require(
             msg.sender == address(this),
@@ -108,14 +111,24 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
         bool success = (uint8(bytes1(responsePayload[0])) == 1);
         uint256 lastlyUpdatedPrincipalBalance = uint256(bytes32(responsePayload[1:33]));
-        if (success) {
-            IVault vault = _getVault(token);
 
-            vault.updatePrincipalBalance(withdrawer, lastlyUpdatedPrincipalBalance);
-            vault.updateWithdrawableBalance(withdrawer, unlockPrincipalAmount, 0);
+        if (!success) {
+            emit WithdrawFailedOnExocore(token, withdrawer);
+        } else {
+            if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+                IExoCapsule capsule = _getCapsule(withdrawer);
+
+                capsule.updatePrincipalBalance(lastlyUpdatedPrincipalBalance);
+                capsule.updateWithdrawableBalance(unlockPrincipalAmount);
+            } else {
+                IVault vault = _getVault(token);
+
+                vault.updatePrincipalBalance(withdrawer, lastlyUpdatedPrincipalBalance);
+                vault.updateWithdrawableBalance(withdrawer, unlockPrincipalAmount, 0);
+            }
+
+            emit WithdrawPrincipalResult(success, token, withdrawer, unlockPrincipalAmount);
         }
-
-        emit WithdrawPrincipalResult(success, token, withdrawer, unlockPrincipalAmount);
     }
 
     function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload)
