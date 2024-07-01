@@ -148,7 +148,13 @@ contract ExocoreGateway is
         }
     }
 
-    function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused nonReentrant {
+    function _lzReceive(Origin calldata _origin, bytes calldata payload)
+        internal
+        virtual
+        override
+        whenNotPaused
+        nonReentrant
+    {
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));
