@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
-import {BootstrapStorage} from "./BootstrapStorage.sol";
 
 import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
 
@@ -13,7 +12,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /*       state variables exclusively owned by ClientChainGateway              */
     /* -------------------------------------------------------------------------- */
 
-    uint64 public outboundNonce;
+    uint64 public outboundNonce; // the only contract that has outgoing messages
     mapping(address => IExoCapsule) public ownerToCapsule;
     mapping(uint64 => bytes) internal _registeredRequests;
     mapping(uint64 => Action) internal _registeredRequestActions;

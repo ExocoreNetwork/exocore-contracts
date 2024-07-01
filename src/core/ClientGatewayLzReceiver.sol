@@ -26,7 +26,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             revert UnexpectedSourceChain(_origin.srcEid);
         }
 
-        _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
+        _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));
         if (act == Action.RESPOND) {
@@ -73,13 +73,6 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         returns (uint64)
     {
         return inboundNonce[srcEid][sender] + 1;
-    }
-
-    function _consumeInboundNonce(uint32 srcEid, bytes32 sender, uint64 nonce) internal {
-        inboundNonce[srcEid][sender] += 1;
-        if (nonce != inboundNonce[srcEid][sender]) {
-            revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
-        }
     }
 
     function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)

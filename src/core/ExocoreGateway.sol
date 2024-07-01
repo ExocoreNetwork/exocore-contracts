@@ -146,7 +146,7 @@ contract ExocoreGateway is
     }
 
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
-        _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
+        _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));
         bytes4 selector_ = _whiteListFunctionSelectors[act];
@@ -348,13 +348,6 @@ contract ExocoreGateway is
         returns (uint64)
     {
         return inboundNonce[srcEid][sender] + 1;
-    }
-
-    function _consumeInboundNonce(uint32 srcEid, bytes32 sender, uint64 nonce) internal {
-        inboundNonce[srcEid][sender] += 1;
-        if (nonce != inboundNonce[srcEid][sender]) {
-            revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
-        }
     }
 
 }

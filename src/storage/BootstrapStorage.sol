@@ -206,22 +206,6 @@ contract BootstrapStorage is GatewayStorage {
      */
     uint32 public immutable EXOCORE_CHAIN_ID;
 
-    /**
-     * @dev A mapping of source chain id to source sender to the nonce of the last inbound
-     * message processed from that sender, over LayerZero.
-     * @notice This mapping is used to track the last message processed from each sender on
-     * each source chain to prevent replay attacks.
-     */
-    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
-
-    // TSS information.
-    /**
-     * @dev The message nonce from the last TSS message processed by the contract.
-     * @notice This nonce is used to track the last message processed by the contract to
-     * prevent replay attacks.
-     */
-    uint256 public lastMessageNonce;
-
     // the beacon that stores the Vault implementation contract address for proxy
     /**
      * @notice this stores the Vault implementation contract address for proxy, and it is
