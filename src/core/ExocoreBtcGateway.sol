@@ -37,7 +37,7 @@ contract ExocoreBtcGateway is
     event DelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
     event UndelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
     event DepositAndDelegationCompleted(
-        address token, bytes depositor, bytes operator, uint256 amount, uint256 updatedBalance
+         address token, bytes depositor, bytes operator, uint256 amount, uint256 updatedBalance
     );
     event AddressRegistered(bytes btcAddress, bytes exocoreAddress);
     event ExocorePrecompileError(address precompileAddress);
@@ -61,9 +61,28 @@ contract ExocoreBtcGateway is
         _;
     }
 
+    function pause() external onlyAuthorizedValidator {
+        _pause();
+    }
+
+    function unpause() external onlyAuthorizedValidator {
+        _unpause();
+    }
+
     constructor(uint32 clientChainId) {
         _registerClientChain(clientChainId);
         _disableInitializers();
+    }
+
+    function initialize(address payable exocoreValidatorSetAddress_) external initializer {
+        if (exocoreValidatorSetAddress_ == address(0)) {
+            revert ZeroAddressNotAllowed();
+        }
+
+        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
+
+        __Ownable_init_unchained(exocoreValidatorSetAddress);
+        __Pausable_init_unchained();
     }
 
     // TODO: this registerClientChain should implement in ExocoreGateway.
@@ -138,8 +157,7 @@ contract ExocoreBtcGateway is
         isValidAmount(_msg.amount)
         onlyAuthorizedValidator
     {
-        (bytes memory btcTxHash, bytes memory btcAddress, ) =
-            _processAndVerify(_msg, signature);
+        (bytes memory btcTxHash, bytes memory btcAddress,) = _processAndVerify(_msg, signature);
         try ASSETS_CONTRACT.depositTo(0, BTC_TOKEN, btcAddress, _msg.amount) returns (
             bool success, uint256 updatedBalance
         ) {
@@ -249,14 +267,14 @@ contract ExocoreBtcGateway is
     // TODO: this is user interface called by btc-restaker with exochain address.
     // this progress is able to integrate with depositTo function.
     function depositThenDelegateTo(InterchainMsg calldata _msg, bytes calldata operator, bytes calldata signature)
-    external
-    nonReentrant
-    whenNotPaused
-    isTokenWhitelisted(BTC_ADDR)
-    isValidAmount(_msg.amount)
-    onlyAuthorizedValidator
+        external
+        nonReentrant
+        whenNotPaused
+        isTokenWhitelisted(BTC_ADDR)
+        isValidAmount(_msg.amount)
+        onlyAuthorizedValidator
     {
-        (bytes memory btcTxHash, bytes memory btcAddress, ) = _processAndVerify(_msg, signature);
+        (bytes memory btcTxHash, bytes memory btcAddress,) = _processAndVerify(_msg, signature);
         _depositToAssetContract(CLIENT_CHAIN_ID, BTC_TOKEN, btcAddress, _msg.amount, btcTxHash, operator);
     }
 
@@ -275,7 +293,7 @@ contract ExocoreBtcGateway is
                 revert DepositFailed(btcTxHash);
             }
             processedBtcTxs[btcTxHash] = TxInfo(true, block.timestamp);
-            _delegateToDelegationContract(clientChainId, btcToken, btcAddress, operator, amount, updatedBalance );
+            _delegateToDelegationContract(clientChainId, btcToken, btcAddress, operator, amount, updatedBalance);
         } catch {
             emit ExocorePrecompileError(address(ASSETS_CONTRACT));
             revert DepositFailed(btcTxHash);
@@ -290,7 +308,9 @@ contract ExocoreBtcGateway is
         uint256 amount,
         uint256 updatedBalance
     ) internal {
-        try DELEGATION_CONTRACT.delegateTo(clientChainId, btcToken, btcAddress, operator, amount) returns (bool delegateSuccess) {
+        try DELEGATION_CONTRACT.delegateTo(clientChainId, btcToken, btcAddress, operator, amount) returns (
+            bool delegateSuccess
+        ) {
             if (!delegateSuccess) {
                 revert DelegationFailed();
             }
@@ -300,7 +320,6 @@ contract ExocoreBtcGateway is
             revert DelegationFailed();
         }
     }
-
 
     function getBtcAddress(bytes calldata exocoreAddress) external view returns (bytes memory) {
         return exocoreToBtcAddress[exocoreAddress];
