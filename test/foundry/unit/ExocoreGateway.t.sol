@@ -191,7 +191,7 @@ contract AddWhitelistTokens is SetUp {
     using stdStorage for StdStorage;
     using AddressCast for address;
 
-    uint256 internal constant TOKEN_ADDRESS_BYTES_LENTH = 32;
+    uint256 internal constant TOKEN_ADDRESS_BYTES_LENGTH = 32;
 
     event WhitelistTokenAdded(uint32 clientChainId, bytes32 token);
 
@@ -204,7 +204,7 @@ contract AddWhitelistTokens is SetUp {
     function test_RevertWhen_CallerNotOwner() public {
         _prepareInputs(2);
 
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
 
         vm.startPrank(deployer.addr);
@@ -220,7 +220,7 @@ contract AddWhitelistTokens is SetUp {
 
         _prepareInputs(2);
 
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
         vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
         exocoreGateway.addWhitelistTokens{value: nativeFee}(
@@ -232,7 +232,7 @@ contract AddWhitelistTokens is SetUp {
         uint32 anotherClientChain = 3;
         _prepareInputs(2);
 
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
 
         vm.startPrank(exocoreValidatorSet.addr);
@@ -247,7 +247,7 @@ contract AddWhitelistTokens is SetUp {
     function test_RevertWhen_TokensListTooLong() public {
         _prepareInputs(256);
 
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
 
         vm.startPrank(exocoreValidatorSet.addr);
@@ -261,7 +261,7 @@ contract AddWhitelistTokens is SetUp {
         _prepareInputs(2);
         decimals.push(18);
 
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
 
         vm.startPrank(exocoreValidatorSet.addr);
@@ -277,7 +277,7 @@ contract AddWhitelistTokens is SetUp {
         tvlLimits[0] = 1e8 ether;
         tvlLimits[1] = 1e8 ether;
 
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
 
         vm.startPrank(exocoreValidatorSet.addr);
@@ -291,7 +291,7 @@ contract AddWhitelistTokens is SetUp {
         _prepareInputs(1);
         whitelistTokens[0] = bytes32(bytes20(address(restakeToken)));
 
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
 
         vm.startPrank(exocoreValidatorSet.addr);
@@ -309,7 +309,7 @@ contract AddWhitelistTokens is SetUp {
         names[0] = "RestakeToken";
         metaData[0] = "";
 
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
 
         vm.startPrank(exocoreValidatorSet.addr);
@@ -347,7 +347,7 @@ contract UpdateWhitelistTokens is SetUp {
 
     using AddressCast for address;
 
-    uint256 internal constant TOKEN_ADDRESS_BYTES_LENTH = 32;
+    uint256 internal constant TOKEN_ADDRESS_BYTES_LENGTH = 32;
 
     event WhitelistTokenUpdated(uint32 clientChainId, bytes32 token);
 
@@ -489,7 +489,7 @@ contract UpdateWhitelistTokens is SetUp {
         string[] memory metaData_
     ) internal {
         vm.startPrank(exocoreValidatorSet.addr);
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokens.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
         exocoreGateway.addWhitelistTokens{value: nativeFee}(
             clientChainId_, whitelistTokens_, decimals_, tvlLimits_, names_, metaData_

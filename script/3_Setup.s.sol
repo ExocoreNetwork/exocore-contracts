@@ -101,7 +101,7 @@ contract SetupScript is BaseScript {
         names[1] = "RestakeToken";
         metaData[1] = "";
 
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENTH * whitelistTokensBytes32.length + 2;
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokensBytes32.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
         exocoreGateway.addWhitelistTokens{value: nativeFee}(
             clientChainId, whitelistTokensBytes32, decimals, tvlLimits, names, metaData
