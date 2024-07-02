@@ -1,6 +1,6 @@
 # Contract Owner's Manual
 
-Currently almost all contracts are ownable contracts including `Bootstrap`, `ClientChainGateway`, `Vault`, `ExocoreGateway`. The owner of these contracts is a privileged account in many aspects including upgrading contract by changing implementation, registering some client chain to Exocore before enabling restaking from that client chain, adding token info to whitelist and even pausing/unpausing contracts in case of emergencies.
+Currently, almost all contracts are ownable contracts including `Bootstrap`, `ClientChainGateway`, `Vault`, `ExocoreGateway`. The owner of these contracts is a privileged account in many aspects including upgrading contract by changing implementation, registering some client chain to Exocore before enabling restaking from that client chain, adding token info to whitelist and even pausing/unpausing contracts in case of emergencies.
 
 ## Owner Only Functionalities
 
