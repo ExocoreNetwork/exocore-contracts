@@ -19,7 +19,7 @@ After all contracts are deployed, before the protocol starts to work, there are 
 
 ## add tokens to whitelist
 
-Another important task before restaking being activated is to adding tokens to whitelist to mark them as stake-able on both Exocore and client chain. This is done by contract owner calling `ExocoreGateway.addWhitelistTokens` to write token addresses, decimals, TVL limits and other metadata to Exocore, as well as sending a cross-chain message through layerzero to client chain to add these token addresses to the whitelist of `ClientChainGateway`. 
+Another important task before restaking being activated is to add tokens to whitelist to mark them as stake-able on both Exocore and client chain. This is done by contract owner calling `ExocoreGateway.addWhitelistTokens` to write token addresses, decimals, TVL limits and other metadata to Exocore, as well as sending a cross-chain message through layerzero to client chain to add these token addresses to the whitelist of `ClientChainGateway`. 
 
 Notice: contract owner must make sure the token data is correct like address, decimals and TVL limit, more importantly contract owner must ensure that for the same index, the data in different arrays like `tokens`, `decimals`, `tvlLimits` must point to the same token to be composed as complete token data.
 
