@@ -20,11 +20,19 @@ abstract contract NativeRestakingController is
 
     using ValidatorContainer for bytes32[];
 
+    modifier nativeRestakingEnabled() {
+        require(
+            isWhitelistedToken[VIRTUAL_STAKED_ETH_ADDRESS], "NativeRestakingController: native restaking is not enabled"
+        );
+        _;
+    }
+
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot)
         external
         payable
         whenNotPaused
         nonReentrant
+        nativeRestakingEnabled
     {
         require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
 
@@ -37,7 +45,7 @@ abstract contract NativeRestakingController is
         emit StakedWithCapsule(msg.sender, address(capsule));
     }
 
-    function createExoCapsule() public whenNotPaused returns (address) {
+    function createExoCapsule() public whenNotPaused nativeRestakingEnabled returns (address) {
         require(
             address(ownerToCapsule[msg.sender]) == address(0),
             "NativeRestakingController: message sender has already created the capsule"
@@ -61,7 +69,7 @@ abstract contract NativeRestakingController is
     function depositBeaconChainValidator(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata proof
-    ) external payable whenNotPaused nonReentrant {
+    ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
         IExoCapsule capsule = _getCapsule(msg.sender);
         capsule.verifyDepositProof(validatorContainer, proof);
 
@@ -78,13 +86,13 @@ abstract contract NativeRestakingController is
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused nonReentrant {}
+    ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {}
 
     function processBeaconChainFullWithdrawal(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused nonReentrant {}
+    ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {}
 
 }

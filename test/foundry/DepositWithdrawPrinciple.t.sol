@@ -65,7 +65,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // first user call client chain gateway to deposit
 
         // estimate l0 relay fee that the user should pay
-        uint64 depositRequestNonce = 2;
+        uint64 depositRequestNonce = 1;
         bytes memory depositRequestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_DEPOSIT,
             bytes32(bytes20(address(restakeToken))),
@@ -147,7 +147,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // first user call client chain gateway to withdraw
 
         // estimate l0 relay fee that the user should pay
-        uint64 withdrawRequestNonce = 3;
+        uint64 withdrawRequestNonce = 2;
         bytes memory withdrawRequestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
             bytes32(bytes20(address(restakeToken))),
@@ -288,7 +288,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // through layerzero
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
-        uint64 depositRequestNonce = 2;
+        uint64 depositRequestNonce = 1;
         uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
         bytes memory depositRequestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_DEPOSIT,

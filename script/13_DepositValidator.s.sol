@@ -28,7 +28,6 @@ contract DepositScript is BaseScript {
 
     uint256 internal constant GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
     uint256 internal constant SECONDS_PER_SLOT = 12;
-    address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     uint256 constant GWEI_TO_WEI = 1e9;
 
     function setUp() public virtual override {
