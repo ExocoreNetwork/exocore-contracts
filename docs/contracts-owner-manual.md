@@ -6,7 +6,7 @@ Currently almost all contracts are ownable contracts including `Bootstrap`, `Cli
 
 ## `pause`/`unpause`
 
-In case of emergencies where some unexpected errors happened to the protocol, contract owner could pause the contract to disable all user-facing functions and re-enable these functions after successfully recovering from emergencies. Currently pauseable contracts include `Bootstrap`, `ClientChainGateway`, `ExocoreGateway`. For `Vault` and `ExoCapsule`, as all the functions are limited to be called by their management contract(`ClientChainGateway`, `Bootstrap`), their functionalities are also paused when their management contract get paused.
+In case of emergencies where some unexpected errors happened to the protocol, contract owner could pause the contract to disable all user-facing functions and re-enable these functions after successfully recovering from emergencies. Currently, pauseable contracts include `Bootstrap`, `ClientChainGateway`, `ExocoreGateway`. For `Vault` and `ExoCapsule`, as all the functions are limited to be called by their management contract(`ClientChainGateway`, `Bootstrap`), their functionalities are also paused when their management contract get paused.
 
 ## upgrade to new implementation
 
