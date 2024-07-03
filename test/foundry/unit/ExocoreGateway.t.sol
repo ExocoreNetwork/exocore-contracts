@@ -97,7 +97,7 @@ contract SetUp is Test {
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreLzEndpoint.setDestLzEndpoint(address(clientGateway), address(clientLzEndpoint));
         exocoreGateway.registerOrUpdateClientChain(
-            clientChainId, address(clientGateway).toBytes32(), 20, "clientChain", "", "secp256k1"
+            clientChainId, address(clientGateway).toBytes32(), 20, "clientChain", "EVM compatible client chain", "secp256k1"
         );
         vm.stopPrank();
 
@@ -276,6 +276,10 @@ contract AddWhitelistTokens is SetUp {
         whitelistTokens[0] = bytes32(bytes20(address(restakeToken)));
         tvlLimits[0] = 1e8 ether;
         tvlLimits[1] = 1e8 ether;
+        names[0] = "LST-1";
+        names[1] = "LST-2";
+        metaData[0] = "LST token";
+        metaData[1] = "LST token";
 
         uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
@@ -307,7 +311,7 @@ contract AddWhitelistTokens is SetUp {
         decimals[0] = 18;
         tvlLimits[0] = 1e8 ether;
         names[0] = "RestakeToken";
-        metaData[0] = "";
+        metaData[0] = "ERC20 LST token";
 
         uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
@@ -411,13 +415,17 @@ contract UpdateWhitelistTokens is SetUp {
         decimals[0] = 18;
         tvlLimits[0] = 1e8 ether;
         names[0] = "RestakeToken";
-        metaData[0] = "";
+        metaData[0] = "ERC20 LST token";
         _addWhitelistTokens(clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData);
 
         _prepareInputs(2);
         whitelistTokens[0] = bytes32(bytes20(address(restakeToken)));
         tvlLimits[0] = 1e8 ether;
         tvlLimits[1] = 1e8 ether;
+        names[0] = "LST-1";
+        names[1] = "LST-2";
+        metaData[0] = "LST token";
+        metaData[1] = "LST token";
 
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ExocoreGateway: token cannot be zero address");
@@ -430,7 +438,7 @@ contract UpdateWhitelistTokens is SetUp {
         decimals[0] = 18;
         tvlLimits[0] = 1e8 ether;
         names[0] = "RestakeToken";
-        metaData[0] = "";
+        metaData[0] = "ERC20 LST token";
         _addWhitelistTokens(clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData);
 
         tvlLimits[0] = 0;
@@ -446,7 +454,7 @@ contract UpdateWhitelistTokens is SetUp {
         decimals[0] = 18;
         tvlLimits[0] = 1e10 ether;
         names[0] = "RestakeToken";
-        metaData[0] = "";
+        metaData[0] = "ERC20 LST token";
 
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ExocoreGateway: token has not been added to whitelist before");
@@ -459,7 +467,7 @@ contract UpdateWhitelistTokens is SetUp {
         decimals[0] = 18;
         tvlLimits[0] = 1e8 ether;
         names[0] = "RestakeToken";
-        metaData[0] = "";
+        metaData[0] = "ERC20 LST token";
 
         // add token to whitelist first
         _addWhitelistTokens(clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData);

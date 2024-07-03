@@ -134,7 +134,13 @@ contract ExocoreGateway is
         string calldata metaInfo,
         string calldata signatureType
     ) public onlyOwner whenNotPaused {
-        _validatePeer(clientChainId, clientChainGateway);
+        require(clientChainId != uint32(0), "ExocoreGateway: endpoint id cannot be zero");
+        require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway cannot be empty");
+        require(addressLength != 0, "ExocoreGateway: address length cannot be zero");
+        require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
+        require(bytes(metaInfo).length != 0, "ExocoreGateway: meta data cannot be empty");
+        // signature type could be left as empty for current implementation
+
         _registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
         super.setPeer(clientChainId, clientChainGateway);
 
@@ -174,6 +180,8 @@ contract ExocoreGateway is
             require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
             require(!isWhitelistedToken[tokens[i]], "ExocoreGateway: token has already been added to whitelist before");
             require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
+            require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
+            require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
 
             bool success = ASSETS_CONTRACT.registerToken(
                 clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
@@ -207,6 +215,8 @@ contract ExocoreGateway is
             require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
             require(isWhitelistedToken[tokens[i]], "ExocoreGateway: token has not been added to whitelist before");
             require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
+            require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
+            require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
 
             bool success = ASSETS_CONTRACT.registerToken(
                 clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
@@ -243,11 +253,6 @@ contract ExocoreGateway is
         ) {
             revert InvalidWhitelistTokensInput();
         }
-    }
-
-    function _validatePeer(uint32 clientChainId, bytes32 clientChainGateway) internal pure {
-        require(clientChainId != uint32(0), "ExocoreGateway: zero value is not invalid endpoint id");
-        require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway cannot be empty");
     }
 
     function _registerClientChain(

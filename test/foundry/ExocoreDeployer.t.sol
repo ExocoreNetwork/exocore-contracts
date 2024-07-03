@@ -130,13 +130,13 @@ contract ExocoreDeployer is Test {
         decimals[0] = 18;
         tvlLimits[0] = 1e8 ether;
         names[0] = "RestakeToken";
-        metaData[0] = "";
+        metaData[0] = "ERC20 LST token";
 
         whitelistTokens.push(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
         decimals[1] = 18;
         tvlLimits[1] = 1e8 ether;
         names[1] = "NativeStakedETH";
-        metaData[1] = "";
+        metaData[1] = "natively staked ETH on Ethereum";
 
         // -- add whitelist tokens workflow test --
 
@@ -312,7 +312,7 @@ contract ExocoreDeployer is Test {
         // messages. On Exocore side, this is done by calling registerClientChain
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         exocoreGateway.registerOrUpdateClientChain(
-            clientChainId, address(clientGateway).toBytes32(), 20, "clientChain", "", "secp256k1"
+            clientChainId, address(clientGateway).toBytes32(), 20, "clientChain", "EVM compatible client chain", "secp256k1"
         );
         vm.stopPrank();
     }
