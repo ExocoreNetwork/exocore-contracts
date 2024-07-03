@@ -54,6 +54,7 @@ contract SetupScript is BaseScript {
 
     function run() public {
         // 1. setup client chain contracts to make them ready for sending and receiving messages from exocore gateway
+        
         vm.selectFork(clientChain);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -69,8 +70,8 @@ contract SetupScript is BaseScript {
         vm.stopBroadcast();
 
         // 2. setup Exocore contracts to make them ready for sending and receiving messages from client chain
-        // gateway, and register client chain meta data as well as well as adding tokens to whtielist to enable
-        // restaking
+        // gateway, and register client chain meta data to Exocore native module
+
         vm.selectFork(exocore);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -80,31 +81,41 @@ contract SetupScript is BaseScript {
                 address(clientGateway), address(clientChainLzEndpoint)
             );
         }
-        // first register clientChainId to Exocore native module and set peer for client chain gateway to be ready for
+        // register clientChainId to Exocore native module and set peer for client chain gateway to be ready for
         // messaging
         exocoreGateway.registerOrUpdateClientChain(
-            clientChainId, address(clientGateway).toBytes32(), 20, "clientChain", "", "secp256k1"
+            clientChainId, address(clientGateway).toBytes32(), 20, "ClientChain", "EVM compatible network", "secp256k1"
         );
-        // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking,
-        // and this would also add token addresses to client chain gateway's whitelist
+        vm.stopBroadcast();
+
+        // 3. adding tokens to the whtielist of both Exocore and client chain gateway to enable restaking
+
+        // first we read decimals from client chain ERC20 token contract to prepare for token data
+        vm.selectFork(clientChain);
         bytes32[] memory whitelistTokensBytes32 = new bytes32[](2);
         uint8[] memory decimals = new uint8[](2);
         uint256[] memory tvlLimits = new uint256[](2);
         string[] memory names = new string[](2);
         string[] memory metaData = new string[](2);
 
+        // this stands for LST restaking for restakeToken
         whitelistTokensBytes32[0] = bytes32(bytes20(address(restakeToken)));
         decimals[0] = restakeToken.decimals();
         tvlLimits[0] = 1e10 ether;
         names[0] = "RestakeToken";
-        metaData[0] = "";
+        metaData[0] = "ERC20 LST token";
 
+        // this stands for Native Restaking for ETH 
         whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         decimals[1] = 18;
         tvlLimits[1] = 1e8 ether;
         names[1] = "StakedETH";
-        metaData[1] = "";
+        metaData[1] = "natively staked ETH on Ethereum";
+        vm.stopBroadcast();
 
+        // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking,
+        // and this would also add token addresses to client chain gateway's whitelist
+        vm.selectFork(exocore);
         uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokensBytes32.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
         exocoreGateway.addWhitelistTokens{value: nativeFee}(
