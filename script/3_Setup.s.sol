@@ -40,6 +40,10 @@ contract SetupScript is BaseScript {
         exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
         require(address(exocoreLzEndpoint) != address(0), "exocoreLzEndpoint address should not be empty");
 
+        if (!useExocorePrecompileMock) {
+            _bindPrecompileMocks();
+        }
+
         // transfer some gas fee to exocore validator set address
         clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, exocoreValidatorSet.addr, 0.2 ether);
@@ -98,7 +102,7 @@ contract SetupScript is BaseScript {
         whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         decimals[1] = 18;
         tvlLimits[1] = 1e8 ether;
-        names[1] = "RestakeToken";
+        names[1] = "StakedETH";
         metaData[1] = "";
 
         uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokensBytes32.length + 2;

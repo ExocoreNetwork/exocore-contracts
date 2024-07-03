@@ -89,7 +89,6 @@ contract ExocoreDeployer is Test {
 
     event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
     event NewPacket(uint32, address, bytes32, uint64, bytes);
-    event RegisterTokensResult(bool indexed success);
     event WhitelistTokenAdded(address _token);
     event VaultCreated(address underlyingToken, address vault);
 
