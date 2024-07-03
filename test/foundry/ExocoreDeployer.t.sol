@@ -312,7 +312,12 @@ contract ExocoreDeployer is Test {
         // messages. On Exocore side, this is done by calling registerClientChain
         clientGateway.setPeer(exocoreChainId, address(exocoreGateway).toBytes32());
         exocoreGateway.registerOrUpdateClientChain(
-            clientChainId, address(clientGateway).toBytes32(), 20, "clientChain", "EVM compatible client chain", "secp256k1"
+            clientChainId,
+            address(clientGateway).toBytes32(),
+            20,
+            "clientChain",
+            "EVM compatible client chain",
+            "secp256k1"
         );
         vm.stopPrank();
     }

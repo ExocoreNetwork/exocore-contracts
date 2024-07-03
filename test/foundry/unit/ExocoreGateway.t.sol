@@ -97,7 +97,12 @@ contract SetUp is Test {
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreLzEndpoint.setDestLzEndpoint(address(clientGateway), address(clientLzEndpoint));
         exocoreGateway.registerOrUpdateClientChain(
-            clientChainId, address(clientGateway).toBytes32(), 20, "clientChain", "EVM compatible client chain", "secp256k1"
+            clientChainId,
+            address(clientGateway).toBytes32(),
+            20,
+            "clientChain",
+            "EVM compatible client chain",
+            "secp256k1"
         );
         vm.stopPrank();
 

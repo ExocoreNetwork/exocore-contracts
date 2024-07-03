@@ -54,7 +54,7 @@ contract SetupScript is BaseScript {
 
     function run() public {
         // 1. setup client chain contracts to make them ready for sending and receiving messages from exocore gateway
-        
+
         vm.selectFork(clientChain);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -105,7 +105,7 @@ contract SetupScript is BaseScript {
         names[0] = "RestakeToken";
         metaData[0] = "ERC20 LST token";
 
-        // this stands for Native Restaking for ETH 
+        // this stands for Native Restaking for ETH
         whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         decimals[1] = 18;
         tvlLimits[1] = 1e8 ether;
