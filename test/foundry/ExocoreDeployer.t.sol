@@ -26,6 +26,10 @@ import {IVault} from "../../src/interfaces/IVault.sol";
 import "../../src/interfaces/precompiles/IAssets.sol";
 import "../../src/interfaces/precompiles/IClaimReward.sol";
 import "../../src/interfaces/precompiles/IDelegation.sol";
+
+import "../mocks/AssetsMock.sol";
+import "../mocks/ClaimRewardMock.sol";
+import "../mocks/DelegationMock.sol";
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
 
 import "src/core/BeaconProxyBytecode.sol";
