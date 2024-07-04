@@ -9,7 +9,7 @@ import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
 

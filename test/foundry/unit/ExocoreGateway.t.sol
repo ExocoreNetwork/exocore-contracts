@@ -7,9 +7,9 @@ import "src/interfaces/precompiles/IDelegation.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "src/core/ClientChainGateway.sol";
@@ -48,9 +48,6 @@ contract SetUp is Test {
     event Unpaused(address account);
     event ExocorePrecompileError(address indexed precompile, uint64 nonce);
     event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
-
-    error EnforcedPause();
-    error ExpectedPause();
 
     function setUp() public virtual {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
@@ -150,7 +147,7 @@ contract Pausable is SetUp {
         exocoreGateway.pause();
 
         vm.prank(address(exocoreLzEndpoint));
-        vm.expectRevert(EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         exocoreGateway.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
             bytes32(0),
@@ -234,7 +231,7 @@ contract RegisterOrUpdateClientChain is SetUp {
         _prepareClientChainData();
 
         vm.startPrank(deployer.addr);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, deployer.addr));
+        vm.expectRevert("Ownable: caller is not the owner");
         exocoreGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
         );
@@ -246,7 +243,7 @@ contract RegisterOrUpdateClientChain is SetUp {
 
         _prepareClientChainData();
 
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
@@ -352,7 +349,7 @@ contract SetPeer is SetUp {
         vm.stopPrank();
 
         vm.startPrank(deployer.addr);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, deployer.addr));
+        vm.expectRevert("Ownable: caller is not the owner");
         exocoreGateway.setPeer(anotherClientChain, newPeer);
     }
 
@@ -386,7 +383,7 @@ contract AddWhitelistTokens is SetUp {
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
 
         vm.startPrank(deployer.addr);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, deployer.addr));
+        vm.expectRevert("Ownable: caller is not the owner");
         exocoreGateway.addWhitelistTokens{value: nativeFee}(
             clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData
         );
@@ -400,7 +397,7 @@ contract AddWhitelistTokens is SetUp {
 
         uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokens.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         exocoreGateway.addWhitelistTokens{value: nativeFee}(
             clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData
         );
@@ -543,7 +540,7 @@ contract UpdateWhitelistTokens is SetUp {
         _prepareInputs(2);
 
         vm.startPrank(deployer.addr);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, deployer.addr));
+        vm.expectRevert("Ownable: caller is not the owner");
         exocoreGateway.updateWhitelistedTokens(clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData);
     }
 
@@ -553,7 +550,7 @@ contract UpdateWhitelistTokens is SetUp {
 
         _prepareInputs(2);
 
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         exocoreGateway.updateWhitelistedTokens(clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData);
     }
 

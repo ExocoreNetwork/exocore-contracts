@@ -4,9 +4,9 @@ import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol
 import {IVault} from "../interfaces/IVault.sol";
 import {VaultStorage} from "../storage/VaultStorage.sol";
 
-import {IERC20} from "@openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 contract Vault is Initializable, VaultStorage, IVault {
 

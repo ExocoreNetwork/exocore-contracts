@@ -7,8 +7,8 @@ import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 import {ExoCapsule} from "./ExoCapsule.sol";
 
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 abstract contract NativeRestakingController is

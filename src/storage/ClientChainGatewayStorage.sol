@@ -4,7 +4,7 @@ import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 
-import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 
 contract ClientChainGatewayStorage is BootstrapStorage {
 

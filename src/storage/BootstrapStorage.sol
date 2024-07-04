@@ -6,7 +6,7 @@ import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
-import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 // BootstrapStorage should inherit from GatewayStorage since it exists
