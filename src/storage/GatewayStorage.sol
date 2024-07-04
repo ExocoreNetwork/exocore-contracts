@@ -10,9 +10,14 @@ contract GatewayStorage {
         REQUEST_UNDELEGATE_FROM,
         REQUEST_DEPOSIT_THEN_DELEGATE_TO,
         REQUEST_MARK_BOOTSTRAP,
-        REQUEST_REGISTER_TOKENS,
+        REQUEST_ADD_WHITELIST_TOKENS,
         RESPOND
     }
+
+    /* ----------------- constants used for layerzero messaging ----------------- */
+    uint256 internal constant TOKEN_ADDRESS_BYTES_LENGTH = 32;
+    uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
+    uint128 internal constant DESTINATION_MSG_VALUE = 0;
 
     mapping(Action => bytes4) internal _whiteListFunctionSelectors;
     address payable public exocoreValidatorSetAddress;

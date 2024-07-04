@@ -23,8 +23,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     IBeacon public immutable EXO_CAPSULE_BEACON;
 
     // constant state variables
-    uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
-    uint128 internal constant DESTINATION_MSG_VALUE = 0;
     uint256 internal constant GWEI_TO_WEI = 1e9;
     address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     IETHPOSDeposit internal constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
@@ -42,7 +40,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /* ----------------------------- restaking      ----------------------------- */
     event ClaimSucceeded(address token, address recipient, uint256 amount);
     event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
-    event RegisterTokensResult(bool indexed success);
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */

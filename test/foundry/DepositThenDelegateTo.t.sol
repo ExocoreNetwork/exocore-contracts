@@ -48,7 +48,8 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         deal(delegator, 1e22);
         deal(address(exocoreGateway), 1e22);
 
-        uint64 lzNonce = 2;
+        uint64 requestLzNonce = 1;
+        uint64 responseLzNonce = 2;
         uint256 delegateAmount = 10_000;
 
         // before all operations we should add whitelist tokens
@@ -65,8 +66,17 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         vm.stopPrank();
 
         (bytes32 requestId, bytes memory requestPayload) =
-            _testRequest(delegator, operatorAddress, lzNonce, delegateAmount);
-        _testResponse(requestId, requestPayload, delegator, relayer, operatorAddress, lzNonce, delegateAmount);
+            _testRequest(delegator, operatorAddress, requestLzNonce, delegateAmount);
+        _testResponse(
+            requestId,
+            requestPayload,
+            delegator,
+            relayer,
+            operatorAddress,
+            requestLzNonce,
+            responseLzNonce,
+            delegateAmount
+        );
     }
 
     function _testRequest(address delegator, string memory operatorAddress, uint64 lzNonce, uint256 delegateAmount)
@@ -118,17 +128,19 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         address delegator,
         address relayer,
         string memory operatorAddress,
-        uint64 lzNonce,
+        uint64 requestLzNonce,
+        uint64 responseLzNonce,
         uint256 delegateAmount
     ) private {
-        bytes memory responsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, lzNonce, true, delegateAmount);
+        bytes memory responsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, requestLzNonce, true, delegateAmount);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, responsePayload);
-        bytes32 responseId = generateUID(lzNonce, false);
+        bytes32 responseId = generateUID(responseLzNonce, false);
 
         vm.expectEmit(DELEGATION_PRECOMPILE_ADDRESS);
         emit DelegateRequestProcessed(
             clientChainId,
-            lzNonce,
+            requestLzNonce,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator))),
             operatorAddress,
@@ -141,16 +153,16 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             clientChainId,
             address(exocoreGateway),
             address(clientGateway).toBytes32(),
-            lzNonce, // outbound nonce not inbound, only equals because it's the first tx
+            responseLzNonce, // outbound nonce not inbound, only equals because it's the first tx
             responsePayload
         );
 
         vm.expectEmit(address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, lzNonce, responseNativeFee);
+        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, responseLzNonce, responseNativeFee);
 
         vm.startPrank(relayer);
         exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), lzNonce),
+            Origin(clientChainId, address(clientGateway).toBytes32(), requestLzNonce),
             address(exocoreGateway),
             requestId,
             requestPayload,
@@ -181,7 +193,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
         vm.startPrank(relayer);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), lzNonce),
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), responseLzNonce),
             address(clientGateway),
             responseId,
             responsePayload,

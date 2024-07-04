@@ -77,7 +77,9 @@ contract ClientChainGateway is
             this.afterReceiveWithdrawRewardResponse.selector;
         _registeredResponseHooks[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
             this.afterReceiveDepositThenDelegateToResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_REGISTER_TOKENS] = this.afterReceiveRegisterTokensResponse.selector;
+
+        _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] =
+            this.afterReceiveAddWhitelistTokensRequest.selector;
 
         bootstrapped = true;
 
@@ -119,25 +121,8 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    // implementation of ITokenWhitelister
-    function addWhitelistTokens(address[] calldata tokens) external payable onlyOwner whenNotPaused nonReentrant {
-        _addWhitelistTokens(tokens);
-    }
-
-    function _addWhitelistTokens(address[] calldata tokens) internal {
-        require(tokens.length <= type(uint8).max, "ClientChainGateway: tokens length should not execeed 255");
-
-        bytes memory actionArgs = abi.encodePacked(uint8(tokens.length));
-        for (uint256 i; i < tokens.length; i++) {
-            address token = tokens[i];
-            require(token != address(0), "ClientChainGateway: zero token address");
-            require(!isWhitelistedToken[token], "ClientChainGateway: token should not be whitelisted before");
-
-            actionArgs = abi.encodePacked(actionArgs, bytes32(bytes20(token)));
-        }
-
-        bytes memory encodedRequest = abi.encode(tokens);
-        _processRequest(Action.REQUEST_REGISTER_TOKENS, actionArgs, encodedRequest);
+    function addWhitelistTokens(address[] calldata) external onlyOwner whenNotPaused {
+        revert("this function is not supported for client chain, please register on Exocore");
     }
 
     // implementation of ITokenWhitelister

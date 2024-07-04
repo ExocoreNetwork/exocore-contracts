@@ -87,7 +87,7 @@ contract DelegateTest is ExocoreDeployer {
         // 1. first user call client chain gateway to delegate
 
         /// estimate the messaging fee that would be charged from user
-        uint64 delegateRequestNonce = 2;
+        uint64 delegateRequestNonce = 1;
         bytes memory delegateRequestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_DELEGATE_TO,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
@@ -198,7 +198,7 @@ contract DelegateTest is ExocoreDeployer {
         // 1. first user call client chain gateway to undelegate
 
         /// estimate the messaging fee that would be charged from user
-        uint64 undelegateRequestNonce = 3;
+        uint64 undelegateRequestNonce = 2;
         bytes memory undelegateRequestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_UNDELEGATE_FROM,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
