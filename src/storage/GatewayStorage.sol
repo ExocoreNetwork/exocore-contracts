@@ -14,6 +14,11 @@ contract GatewayStorage {
         RESPOND
     }
 
+    /* ----------------- constants used for layerzero messaging ----------------- */
+    uint256 internal constant TOKEN_ADDRESS_BYTES_LENGTH = 32;
+    uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
+    uint128 internal constant DESTINATION_MSG_VALUE = 0;
+
     mapping(Action => bytes4) internal _whiteListFunctionSelectors;
     address payable public exocoreValidatorSetAddress;
 
