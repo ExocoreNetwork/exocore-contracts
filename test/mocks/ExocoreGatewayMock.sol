@@ -21,12 +21,14 @@ import {ILayerZeroReceiver} from "@layerzero-v2/protocol/contracts/interfaces/IL
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {OAppCoreUpgradeable} from "src/lzApp/OAppCoreUpgradeable.sol";
 
 contract ExocoreGatewayMock is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
+    ReentrancyGuardUpgradeable,
     IExocoreGateway,
     ExocoreGatewayStorage,
     OAppUpgradeable
@@ -114,7 +116,7 @@ contract ExocoreGatewayMock is
     // setPeer) or be triggered by Golang after the contract is deployed.
     // For manual calls, this function should be called immediately after deployment and
     // then never needs to be called again.
-    function markBootstrapOnAllChains() public whenNotPaused {
+    function markBootstrapOnAllChains() public whenNotPaused nonReentrant {
         (bool success, bytes memory result) =
             ASSETS_PRECOMPILE_ADDRESS.staticcall(abi.encodeWithSelector(ASSETS_CONTRACT.getClientChains.selector));
         require(success, "ExocoreGateway: failed to get client chain ids");
@@ -131,10 +133,13 @@ contract ExocoreGatewayMock is
     }
 
     /**
-     * @notice Sets the peer address (OApp instance) for a corresponding endpoint. This would also
-     * register the `cientChainId` to Exocore native module if the peer address is first time being set.
+     * @notice Register the `cientChainId` and othe meta data to Exocore native module or update clien chain's meta data
+     * according to the `clinetChainId`.
+     * And set trusted remote peer to enable layerzero messaging or other bridge messaging.
      * @param clientChainId The endpoint ID for client chain.
-     * @param clientChainGateway The contract address to be associated with the corresponding endpoint.
+     * @param peer The trusted remote contract address to be associated with the corresponding endpoint or some
+     * authorized signer that would be trusted for
+     * sending messages from/to source chain to/from this contract
      * @param addressLength The bytes length of address type on that client chain
      * @param name The name of client chain
      * @param metaInfo The arbitrary metadata for client chain
@@ -146,15 +151,21 @@ contract ExocoreGatewayMock is
      */
     function registerOrUpdateClientChain(
         uint32 clientChainId,
-        bytes32 clientChainGateway,
+        bytes32 peer,
         uint8 addressLength,
         string calldata name,
         string calldata metaInfo,
         string calldata signatureType
     ) public onlyOwner whenNotPaused {
-        _validatePeer(clientChainId, clientChainGateway);
+        require(clientChainId != uint32(0), "ExocoreGateway: client chain id cannot be zero or empty");
+        require(peer != bytes32(0), "ExocoreGateway: peer address cannot be zero or empty");
+        require(addressLength != 0, "ExocoreGateway: address length cannot be zero or empty");
+        require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
+        require(bytes(metaInfo).length != 0, "ExocoreGateway: meta data cannot be empty");
+        // signature type could be left as empty for current implementation
+
         _registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
-        super.setPeer(clientChainId, clientChainGateway);
+        super.setPeer(clientChainId, peer);
 
         if (!isRegisteredClientChain[clientChainId]) {
             isRegisteredClientChain[clientChainId] = true;
@@ -185,13 +196,15 @@ contract ExocoreGatewayMock is
         uint256[] calldata tvlLimits,
         string[] calldata names,
         string[] calldata metaData
-    ) external payable onlyOwner whenNotPaused {
+    ) external payable onlyOwner whenNotPaused nonReentrant {
         _validateWhitelistTokensInput(clientChainId, tokens, decimals, tvlLimits, names, metaData);
 
         for (uint256 i; i < tokens.length; i++) {
             require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
             require(!isWhitelistedToken[tokens[i]], "ExocoreGateway: token has already been added to whitelist before");
             require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
+            require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
+            require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
 
             bool success = ASSETS_CONTRACT.registerToken(
                 clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
@@ -225,6 +238,8 @@ contract ExocoreGatewayMock is
             require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
             require(isWhitelistedToken[tokens[i]], "ExocoreGateway: token has not been added to whitelist before");
             require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
+            require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
+            require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
 
             bool success = ASSETS_CONTRACT.registerToken(
                 clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
@@ -263,11 +278,6 @@ contract ExocoreGatewayMock is
         }
     }
 
-    function _validatePeer(uint32 clientChainId, bytes32 clientChainGateway) internal pure {
-        require(clientChainId != uint32(0), "ExocoreGateway: zero value is not invalid endpoint id");
-        require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway cannot be empty");
-    }
-
     function _registerClientChain(
         uint32 clientChainId,
         uint8 addressLength,
@@ -275,16 +285,19 @@ contract ExocoreGatewayMock is
         string calldata metaInfo,
         string calldata signatureType
     ) internal {
-        if (peers[clientChainId] == bytes32(0)) {
-            bool success =
-                ASSETS_CONTRACT.registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
-            if (!success) {
-                revert RegisterClientChainToExocoreFailed(clientChainId);
-            }
+        bool success = ASSETS_CONTRACT.registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
+        if (!success) {
+            revert RegisterClientChainToExocoreFailed(clientChainId);
         }
     }
 
-    function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
+    function _lzReceive(Origin calldata _origin, bytes calldata payload)
+        internal
+        virtual
+        override
+        whenNotPaused
+        nonReentrant
+    {
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));

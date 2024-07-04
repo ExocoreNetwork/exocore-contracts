@@ -191,6 +191,179 @@ contract LzReceive is SetUp {
 
 }
 
+contract RegisterOrUpdateClientChain is SetUp {
+
+    using AddressCast for address;
+
+    event ClientChainRegistered(uint32 clientChainId);
+    event ClientChainUpdated(uint32 clientChainId);
+
+    uint32 anotherClientChain;
+    bytes32 peer;
+    uint8 addressLength;
+    string name;
+    string metaInfo;
+    string signatureType;
+
+    function test_Success_RegisterClientChain() public {
+        _prepareClientChainData();
+
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit ClientChainRegistered(anotherClientChain);
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+    function test_Success_UpdateClientChain() public {
+        test_Success_RegisterClientChain();
+
+        peer = bytes32(uint256(321));
+        metaInfo = "Testnet";
+
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit ClientChainUpdated(anotherClientChain);
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+    function test_RevertWhen_CallerNotOwner() public {
+        _prepareClientChainData();
+
+        vm.startPrank(deployer.addr);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, deployer.addr));
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+    function test_RevertWhen_Paused() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.pause();
+
+        _prepareClientChainData();
+
+        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+    function test_RevertWhen_ZeroOrEmptyClientChain() public {
+        _prepareClientChainData();
+        anotherClientChain = 0;
+
+        vm.expectRevert("ExocoreGateway: client chain id cannot be zero or empty");
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+    function test_RevertWhen_ZeroOrEmptyPeer() public {
+        _prepareClientChainData();
+        peer = bytes32(0);
+
+        vm.expectRevert("ExocoreGateway: peer address cannot be zero or empty");
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+    function test_RevertWhen_ZeroOrEmptyAddressLength() public {
+        _prepareClientChainData();
+        addressLength = 0;
+
+        vm.expectRevert("ExocoreGateway: address length cannot be zero or empty");
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+    function test_RevertWhen_EmptyName() public {
+        _prepareClientChainData();
+        name = "";
+
+        vm.expectRevert("ExocoreGateway: name cannot be empty");
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+    function test_RevertWhen_EmptyMetaInfo() public {
+        _prepareClientChainData();
+        metaInfo = "";
+
+        vm.expectRevert("ExocoreGateway: meta data cannot be empty");
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+    function _prepareClientChainData() internal {
+        anotherClientChain = clientChainId + 1;
+        peer = bytes32(uint256(123));
+        addressLength = 20;
+        name = "AnotherClientChain";
+        metaInfo = "EVM compatible client chain";
+        signatureType = "secp256k1";
+    }
+
+}
+
+contract SetPeer is SetUp {
+
+    ExocoreGateway gateway;
+
+    uint32 anotherClientChain = clientChainId + 1;
+    bytes32 anotherPeer = bytes32("0xabcdef");
+    bytes32 newPeer = bytes32("0x123");
+
+    event PeerSet(uint32 eid, bytes32 peer);
+
+    function test_Success_SetPeer() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit PeerSet(anotherClientChain, anotherPeer);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, anotherPeer, 20, "Test Chain", "Test Meta", "ECDSA"
+        );
+
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit PeerSet(anotherClientChain, newPeer);
+        exocoreGateway.setPeer(anotherClientChain, newPeer);
+    }
+
+    function test_RevertWhen_CallerNotOwner() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit PeerSet(anotherClientChain, anotherPeer);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChain, anotherPeer, 20, "Test Chain", "Test Meta", "ECDSA"
+        );
+        vm.stopPrank();
+
+        vm.startPrank(deployer.addr);
+        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, deployer.addr));
+        exocoreGateway.setPeer(anotherClientChain, newPeer);
+    }
+
+    function test_RevertWhen_ClientChainNotRegistered() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectRevert("ExocoreGateway: client chain should be registered before setting peer to change peer address");
+        exocoreGateway.setPeer(anotherClientChain, newPeer);
+    }
+
+}
+
 contract AddWhitelistTokens is SetUp {
 
     using stdStorage for StdStorage;

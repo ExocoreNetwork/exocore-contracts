@@ -113,10 +113,13 @@ contract ExocoreGateway is
     }
 
     /**
-     * @notice Sets the peer address (OApp instance) for a corresponding endpoint. This would also
-     * register the `cientChainId` to Exocore native module if the peer address is first time being set.
+     * @notice Register the `cientChainId` and othe meta data to Exocore native module or update clien chain's meta data
+     * according to the `clinetChainId`.
+     * And set trusted remote peer to enable layerzero messaging or other bridge messaging.
      * @param clientChainId The endpoint ID for client chain.
-     * @param clientChainGateway The contract address to be associated with the corresponding endpoint.
+     * @param peer The trusted remote contract address to be associated with the corresponding endpoint or some
+     * authorized signer that would be trusted for
+     * sending messages from/to source chain to/from this contract
      * @param addressLength The bytes length of address type on that client chain
      * @param name The name of client chain
      * @param metaInfo The arbitrary metadata for client chain
@@ -128,21 +131,21 @@ contract ExocoreGateway is
      */
     function registerOrUpdateClientChain(
         uint32 clientChainId,
-        bytes32 clientChainGateway,
+        bytes32 peer,
         uint8 addressLength,
         string calldata name,
         string calldata metaInfo,
         string calldata signatureType
     ) public onlyOwner whenNotPaused {
-        require(clientChainId != uint32(0), "ExocoreGateway: endpoint id cannot be zero");
-        require(clientChainGateway != bytes32(0), "ExocoreGateway: client chain gateway cannot be empty");
-        require(addressLength != 0, "ExocoreGateway: address length cannot be zero");
+        require(clientChainId != uint32(0), "ExocoreGateway: client chain id cannot be zero or empty");
+        require(peer != bytes32(0), "ExocoreGateway: peer address cannot be zero or empty");
+        require(addressLength != 0, "ExocoreGateway: address length cannot be zero or empty");
         require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
         require(bytes(metaInfo).length != 0, "ExocoreGateway: meta data cannot be empty");
         // signature type could be left as empty for current implementation
 
         _registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
-        super.setPeer(clientChainId, clientChainGateway);
+        super.setPeer(clientChainId, peer);
 
         if (!isRegisteredClientChain[clientChainId]) {
             isRegisteredClientChain[clientChainId] = true;
@@ -262,12 +265,9 @@ contract ExocoreGateway is
         string calldata metaInfo,
         string calldata signatureType
     ) internal {
-        if (peers[clientChainId] == bytes32(0)) {
-            bool success =
-                ASSETS_CONTRACT.registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
-            if (!success) {
-                revert RegisterClientChainToExocoreFailed(clientChainId);
-            }
+        bool success = ASSETS_CONTRACT.registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
+        if (!success) {
+            revert RegisterClientChainToExocoreFailed(clientChainId);
         }
     }
 
