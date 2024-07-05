@@ -452,6 +452,7 @@ contract BootstrapStorage is GatewayStorage {
         return true;
     }
 
+    // slither-disable-next-line encode-packed-collision
     function _deployVault(address underlyingToken) internal returns (IVault) {
         Vault vault = Vault(
             Create2.deploy(
