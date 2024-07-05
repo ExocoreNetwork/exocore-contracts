@@ -14,6 +14,7 @@ contract CustomProxyAdmin is Initializable, ProxyAdmin {
     constructor() ProxyAdmin() {}
 
     function initialize(address newBootstrapper) external initializer onlyOwner {
+        require(newBootstrapper != address(0), "CustomProxyAdmin: newBootstrapper cannot be zero or empty address");
         bootstrapper = newBootstrapper;
     }
 

@@ -49,6 +49,7 @@ contract Vault is Initializable, VaultStorage, IVault {
         emit WithdrawalSuccess(withdrawer, recipient, amount);
     }
 
+    // slither-disable-next-line arbitrary-send-erc20
     function deposit(address depositor, uint256 amount) external payable onlyGateway {
         underlyingToken.safeTransferFrom(depositor, address(this), amount);
         totalDepositedPrincipalAmount[depositor] += amount;

@@ -153,8 +153,9 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
     }
 
     function withdraw(uint256 amount, address payable recipient) external onlyGateway {
+        require(recipient != address(0), "ExoCapsule: recipient address cannot be zero or empty");
         require(
-            amount <= withdrawableBalance, "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
+            amount >0 && amount <= withdrawableBalance, "ExoCapsule: invalid withdrawal amount"
         );
 
         withdrawableBalance -= amount;
