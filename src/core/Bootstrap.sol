@@ -228,7 +228,8 @@ contract Bootstrap is
      */
     function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
         require(newKey != bytes32(0), "Consensus public key cannot be zero");
-        for (uint256 i = 0; i < registeredOperators.length; i++) {
+        uint256 arrayLength = registeredOperators.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address ethAddress = registeredOperators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
             if (operators[exoAddress].consensusPublicKey == newKey) {
@@ -274,7 +275,8 @@ contract Bootstrap is
      * safely used for a new operator.
      */
     function nameInUse(string memory newName) public view returns (bool) {
-        for (uint256 i = 0; i < registeredOperators.length; i++) {
+        uint256 arrayLength = registeredOperators.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address ethAddress = registeredOperators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
             if (keccak256(abi.encodePacked(operators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
