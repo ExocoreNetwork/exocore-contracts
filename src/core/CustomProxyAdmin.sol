@@ -18,6 +18,7 @@ contract CustomProxyAdmin is Initializable, ProxyAdmin {
         bootstrapper = newBootstrapper;
     }
 
+    // slither-disable-next-line reentrancy-no-eth
     function changeImplementation(address proxy, address implementation, bytes memory data) public virtual {
         require(msg.sender == bootstrapper, "CustomProxyAdmin: sender must be bootstrapper");
         require(msg.sender == proxy, "CustomProxyAdmin: sender must be the proxy itself");

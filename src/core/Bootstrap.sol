@@ -158,6 +158,7 @@ contract Bootstrap is
         _addWhitelistTokens(tokens);
     }
 
+    // slither-disable-next-line reentrancy-no-eth
     function _addWhitelistTokens(address[] calldata tokens) internal {
         for (uint256 i; i < tokens.length; i++) {
             address token = tokens[i];
@@ -473,6 +474,7 @@ contract Bootstrap is
     }
 
     // implementation of ILSTRestakingController
+    // slither-disable-next-line reentrancy-no-eth
     function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
         external
         payable

@@ -46,6 +46,7 @@ abstract contract NativeRestakingController is
     }
 
     // slither-disable-next-line encode-packed-collision
+    // slither-disable-next-line reentrancy-no-eth
     function createExoCapsule() public whenNotPaused nativeRestakingEnabled returns (address) {
         require(
             address(ownerToCapsule[msg.sender]) == address(0),

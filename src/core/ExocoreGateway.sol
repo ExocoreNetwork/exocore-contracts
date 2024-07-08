@@ -169,6 +169,7 @@ contract ExocoreGateway is
         super.setPeer(clientChainId, clientChainGateway);
     }
 
+    // slither-disable-next-line reentrancy-no-eth
     function addWhitelistTokens(
         uint32 clientChainId,
         bytes32[] calldata tokens,

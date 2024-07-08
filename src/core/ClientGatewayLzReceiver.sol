@@ -22,6 +22,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         _;
     }
 
+    // slither-disable-next-line reentrancy-no-eth
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
         if (_origin.srcEid != EXOCORE_CHAIN_ID) {
             revert UnexpectedSourceChain(_origin.srcEid);
@@ -183,6 +184,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit DepositThenDelegateResult(delegateSuccess, delegator, operator, token, amount);
     }
 
+    // slither-disable-next-line reentrancy-no-eth
     function afterReceiveAddWhitelistTokensRequest(bytes calldata requestPayload)
         public
         onlyCalledFromThis
