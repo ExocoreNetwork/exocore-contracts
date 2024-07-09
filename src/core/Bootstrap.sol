@@ -158,6 +158,9 @@ contract Bootstrap is
         _addWhitelistTokens(tokens);
     }
 
+    // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
+    // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
+    // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
     function _addWhitelistTokens(address[] calldata tokens) internal {
         for (uint256 i; i < tokens.length; i++) {
@@ -474,6 +477,10 @@ contract Bootstrap is
     }
 
     // implementation of ILSTRestakingController
+    // Though `_deposit` would make external call to `Vault` and some state variables would be written in the following
+    // `_delegateTo`,
+    // `Vault` contract belongs to Exocore and we could make sure it's implementation does not have dangerous behavior
+    // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
     function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
         external

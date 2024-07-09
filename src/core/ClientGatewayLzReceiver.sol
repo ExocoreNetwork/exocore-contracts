@@ -22,6 +22,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         _;
     }
 
+    // This function would call other functions inside this contract through low-level-call
     // slither-disable-next-line reentrancy-no-eth
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
         if (_origin.srcEid != EXOCORE_CHAIN_ID) {
@@ -184,6 +185,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit DepositThenDelegateResult(delegateSuccess, delegator, operator, token, amount);
     }
 
+    // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
+    // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
+    // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
     function afterReceiveAddWhitelistTokensRequest(bytes calldata requestPayload)
         public

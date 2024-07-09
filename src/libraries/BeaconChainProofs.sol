@@ -48,6 +48,7 @@ library BeaconChainProofs {
     uint64 internal constant SECONDS_PER_SLOT = 12;
 
     /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot
+    /// @dev This constant would be used by other contracts that import this library
     // slither-disable-next-line unused-state
     uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
 

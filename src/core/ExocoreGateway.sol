@@ -169,6 +169,8 @@ contract ExocoreGateway is
         super.setPeer(clientChainId, clientChainGateway);
     }
 
+    // Though this function would call precompiled contract, all precompiled contracts belong to Exocore
+    // and we could make sure its implementation does not have dangerous behavior like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
     function addWhitelistTokens(
         uint32 clientChainId,
