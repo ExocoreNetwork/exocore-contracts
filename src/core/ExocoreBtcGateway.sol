@@ -37,7 +37,7 @@ contract ExocoreBtcGateway is
     event DelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
     event UndelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
     event DepositAndDelegationCompleted(
-         address token, bytes depositor, bytes operator, uint256 amount, uint256 updatedBalance
+        address token, bytes depositor, bytes operator, uint256 amount, uint256 updatedBalance
     );
     event AddressRegistered(bytes btcAddress, bytes exocoreAddress);
     event ExocorePrecompileError(address precompileAddress);
@@ -61,19 +61,33 @@ contract ExocoreBtcGateway is
         _;
     }
 
+    /**
+     * @notice Pauses the contract. Can only be called by an authorized validator.
+     */
     function pause() external onlyAuthorizedValidator {
         _pause();
     }
 
+    /**
+     * @notice Unpauses the contract. Can only be called by an authorized validator.
+     */
     function unpause() external onlyAuthorizedValidator {
         _unpause();
     }
 
+    /**
+     * @notice Constructor to initialize the contract with the client chain ID.
+     * @param clientChainId The ID of the client chain.
+     */
     constructor(uint32 clientChainId) {
         _registerClientChain(clientChainId);
         _disableInitializers();
     }
 
+    /**
+     * @notice Initializes the contract with the Exocore validator set address.
+     * @param exocoreValidatorSetAddress_ The address of the Exocore validator set.
+     */
     function initialize(address payable exocoreValidatorSetAddress_) external initializer {
         if (exocoreValidatorSetAddress_ == address(0)) {
             revert ZeroAddressNotAllowed();
@@ -85,8 +99,11 @@ contract ExocoreBtcGateway is
         __Pausable_init_unchained();
     }
 
-    // TODO: this registerClientChain should implement in ExocoreGateway.
-    // this will removed and register from ExocoreGateway.
+    /**
+     * @notice Registers the client chain ID with the Exocore system.
+     * @param clientChainId The ID of the client chain.
+     * @dev This function should be implemented in ExocoreGateway.
+     */
     function _registerClientChain(uint32 clientChainId) internal {
         if (clientChainId == 0) {
             revert ZeroAddressNotAllowed();
@@ -97,13 +114,26 @@ contract ExocoreBtcGateway is
         CLIENT_CHAIN_ID = clientChainId;
     }
 
-    function registerAddress(bytes calldata btcAddress, bytes calldata exocoreAddress) external {
+    /**
+     * @notice Registers a BTC address with an Exocore address.
+     * @param btcAddress The BTC address to register.
+     * @param exocoreAddress The corresponding Exocore address.
+     */
+    function registerAddress(bytes calldata btcAddress, bytes calldata exocoreAddress)
+        external
+        onlyAuthorizedValidator
+    {
         require(btcAddress.length > 0 && exocoreAddress.length > 0, "Invalid address");
         btcToExocoreAddress[btcAddress] = exocoreAddress;
         exocoreToBtcAddress[exocoreAddress] = btcAddress;
         emit AddressRegistered(btcAddress, exocoreAddress);
     }
 
+    /**
+     * @notice Verifies the signature of an interchain message.
+     * @param _msg The interchain message.
+     * @param signature The signature to verify.
+     */
     function _verifySignature(InterchainMsg calldata _msg, bytes memory signature) internal view {
         // InterchainMsg, EIP721 is preferred next step.
         bytes32 digest = keccak256(
@@ -123,6 +153,14 @@ contract ExocoreBtcGateway is
         SignatureVerifier.verifyMsgSig(exocoreValidatorSetAddress, digest, signature);
     }
 
+    /**
+     * @notice Processes and verifies an interchain message.
+     * @param _msg The interchain message.
+     * @param signature The signature to verify.
+     * @return btcTxHash The BTC transaction hash.
+     * @return btcAddress The BTC address.
+     * @return exocoreAddress The Exocore address.
+     */
     function _processAndVerify(InterchainMsg calldata _msg, bytes calldata signature)
         internal
         returns (bytes memory btcTxHash, bytes memory btcAddress, bytes memory exocoreAddress)
@@ -146,9 +184,11 @@ contract ExocoreBtcGateway is
         }
     }
 
-    // this is called by btc-bridge service and signed offline by exocoreValidatorSetAddress.
-    // nonce and signature with corresponding _msg verification.
-    // btc trnasaction re-orgnized handleing and error handling.
+    /**
+     * @notice Deposits BTC to the Exocore system.
+     * @param _msg The interchain message containing the deposit details.
+     * @param signature The signature to verify.
+     */
     function depositTo(InterchainMsg calldata _msg, bytes calldata signature)
         external
         nonReentrant
@@ -172,8 +212,13 @@ contract ExocoreBtcGateway is
         }
     }
 
-    // this is user interface called by btc-restaker with exochain address.
-    // nonce verification.
+    /**
+     * @notice Delegates BTC to an operator.
+     * @param token The token address.
+     * @param delegator The delegator's address.
+     * @param operator The operator's address.
+     * @param amount The amount to delegate.
+     */
     function delegateTo(address token, bytes calldata delegator, bytes calldata operator, uint256 amount)
         external
         nonReentrant
@@ -195,8 +240,13 @@ contract ExocoreBtcGateway is
         }
     }
 
-    // this is user interface called by btc-restaker with exochain address.
-    // nonce verification.
+    /**
+     * @notice Undelegates BTC from an operator.
+     * @param token The token address.
+     * @param delegator The delegator's address.
+     * @param operator The operator's address.
+     * @param amount The amount to undelegate.
+     */
     function undelegateFrom(address token, bytes calldata delegator, bytes calldata operator, uint256 amount)
         external
         nonReentrant
@@ -218,8 +268,12 @@ contract ExocoreBtcGateway is
         }
     }
 
-    // this is user interface called by btc-restaker with exochain address.
-    // nonce verification.
+    /**
+     * @notice Withdraws the principal BTC.
+     * @param token The token address.
+     * @param withdrawer The withdrawer's address.
+     * @param amount The amount to withdraw.
+     */
     function withdrawPrincipal(address token, bytes calldata withdrawer, uint256 amount)
         external
         nonReentrant
@@ -241,8 +295,12 @@ contract ExocoreBtcGateway is
         }
     }
 
-    // this is user interface called by btc-restaker with exochain address.
-    // nonce verification.
+    /**
+     * @notice Withdraws the reward BTC.
+     * @param token The token address.
+     * @param withdrawer The withdrawer's address.
+     * @param amount The amount to withdraw.
+     */
     function withdrawReward(address token, bytes calldata withdrawer, uint256 amount)
         external
         nonReentrant
@@ -264,8 +322,12 @@ contract ExocoreBtcGateway is
         }
     }
 
-    // TODO: this is user interface called by btc-restaker with exochain address.
-    // this progress is able to integrate with depositTo function.
+    /**
+     * @notice Deposits BTC and then delegates it to an operator.
+     * @param _msg The interchain message containing the deposit details.
+     * @param operator The operator's address.
+     * @param signature The signature to verify.
+     */
     function depositThenDelegateTo(InterchainMsg calldata _msg, bytes calldata operator, bytes calldata signature)
         external
         nonReentrant
@@ -278,6 +340,15 @@ contract ExocoreBtcGateway is
         _depositToAssetContract(CLIENT_CHAIN_ID, BTC_TOKEN, btcAddress, _msg.amount, btcTxHash, operator);
     }
 
+    /**
+     * @notice Internal function to deposit BTC to the asset contract.
+     * @param clientChainId The client chain ID.
+     * @param btcToken The BTC token.
+     * @param btcAddress The BTC address.
+     * @param amount The amount to deposit.
+     * @param btcTxHash The BTC transaction hash.
+     * @param operator The operator's address.
+     */
     function _depositToAssetContract(
         uint32 clientChainId,
         bytes memory btcToken,
@@ -300,6 +371,15 @@ contract ExocoreBtcGateway is
         }
     }
 
+    /**
+     * @notice Internal function to delegate BTC to the delegation contract.
+     * @param clientChainId The client chain ID.
+     * @param btcToken The BTC token.
+     * @param btcAddress The BTC address.
+     * @param operator The operator's address.
+     * @param amount The amount to delegate.
+     * @param updatedBalance The updated balance after delegation.
+     */
     function _delegateToDelegationContract(
         uint32 clientChainId,
         bytes memory btcToken,
@@ -321,26 +401,51 @@ contract ExocoreBtcGateway is
         }
     }
 
+    /**
+     * @notice Gets the BTC address corresponding to an Exocore address.
+     * @param exocoreAddress The Exocore address.
+     * @return The corresponding BTC address.
+     */
     function getBtcAddress(bytes calldata exocoreAddress) external view returns (bytes memory) {
         return exocoreToBtcAddress[exocoreAddress];
     }
 
+    /**
+     * @notice Gets the current nonce for a given BTC address.
+     * @param srcChainId The source chain ID.
+     * @param btcAddress The BTC address as a string.
+     * @return The current nonce.
+     */
     function getCurrentNonce(uint32 srcChainId, string calldata btcAddress) external view returns (uint64) {
         bytes memory bytesBtcAddr = _stringToBytes(btcAddress);
         return inboundBytesNonce[srcChainId][bytesBtcAddr];
     }
 
+    /**
+     * @notice Converts an address to bytes.
+     * @param addr The address to convert.
+     * @return The address as bytes.
+     */
     function _addressToBytes(address addr) internal pure returns (bytes memory) {
         return abi.encodePacked(addr);
     }
 
-    // this srcAddress is exocorechain address, it need convert to btc address.
+    /**
+     * @notice Increments and gets the next nonce for a given source address.
+     * @param srcChainId The source chain ID.
+     * @param srcAddress The source address.
+     * @return The next nonce.
+     */
     function _nextNonce(uint32 srcChainId, bytes calldata srcAddress) internal returns (uint64) {
         bytes memory btcAddress = exocoreToBtcAddress[srcAddress];
         return inboundBytesNonce[srcChainId][btcAddress]++;
     }
 
-    // This function needs to be implemented
+    /**
+     * @notice Checks if a validator is authorized.
+     * @param validator The validator address.
+     * @return True if the validator is authorized, false otherwise.
+     */
     function _isAuthorizedValidator(address validator) internal view returns (bool) {
         // Implementation depends on how you determine if a validator is authorized
         // For example, you might check against a list of authorized validators
@@ -348,6 +453,11 @@ contract ExocoreBtcGateway is
         return validator == exocoreValidatorSetAddress;
     }
 
+    /**
+     * @notice Converts a string to bytes.
+     * @param source The string to convert.
+     * @return The string as bytes.
+     */
     function _stringToBytes(string memory source) internal pure returns (bytes memory) {
         return abi.encodePacked(source);
     }
