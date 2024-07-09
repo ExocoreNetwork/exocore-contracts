@@ -29,6 +29,7 @@ abstract contract BaseRestakingController is
         whenNotPaused
         nonReentrant
     {
+        require(recipient != address(0), "BaseRestakingController: recipient address cannot be empty or zero address");
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = _getCapsule(msg.sender);
             capsule.withdraw(amount, payable(recipient));

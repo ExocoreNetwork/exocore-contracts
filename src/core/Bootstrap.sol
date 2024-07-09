@@ -158,6 +158,10 @@ contract Bootstrap is
         _addWhitelistTokens(tokens);
     }
 
+    // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
+    // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
+    // like reentrancy.
+    // slither-disable-next-line reentrancy-no-eth
     function _addWhitelistTokens(address[] calldata tokens) internal {
         for (uint256 i; i < tokens.length; i++) {
             address token = tokens[i];
@@ -228,7 +232,8 @@ contract Bootstrap is
      */
     function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
         require(newKey != bytes32(0), "Consensus public key cannot be zero");
-        for (uint256 i = 0; i < registeredOperators.length; i++) {
+        uint256 arrayLength = registeredOperators.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address ethAddress = registeredOperators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
             if (operators[exoAddress].consensusPublicKey == newKey) {
@@ -274,7 +279,8 @@ contract Bootstrap is
      * safely used for a new operator.
      */
     function nameInUse(string memory newName) public view returns (bool) {
-        for (uint256 i = 0; i < registeredOperators.length; i++) {
+        uint256 arrayLength = registeredOperators.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address ethAddress = registeredOperators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
             if (keccak256(abi.encodePacked(operators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
@@ -471,6 +477,11 @@ contract Bootstrap is
     }
 
     // implementation of ILSTRestakingController
+    // Though `_deposit` would make external call to `Vault` and some state variables would be written in the following
+    // `_delegateTo`,
+    // `Vault` contract belongs to Exocore and we could make sure it's implementation does not have dangerous behavior
+    // like reentrancy.
+    // slither-disable-next-line reentrancy-no-eth
     function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
         external
         payable

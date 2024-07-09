@@ -45,6 +45,9 @@ abstract contract NativeRestakingController is
         emit StakedWithCapsule(msg.sender, address(capsule));
     }
 
+    // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
+    // array, so it would not cause collision for encodePacked
+    // slither-disable-next-line encode-packed-collision
     function createExoCapsule() public whenNotPaused nativeRestakingEnabled returns (address) {
         require(
             address(ownerToCapsule[msg.sender]) == address(0),
@@ -58,8 +61,10 @@ abstract contract NativeRestakingController is
                 abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(EXO_CAPSULE_BEACON), ""))
             )
         );
-        capsule.initialize(address(this), msg.sender, BEACON_ORACLE_ADDRESS);
+
+        // we follow check-effects-interactions pattern to write state before external call
         ownerToCapsule[msg.sender] = capsule;
+        capsule.initialize(address(this), msg.sender, BEACON_ORACLE_ADDRESS);
 
         emit CapsuleCreated(msg.sender, address(capsule));
 

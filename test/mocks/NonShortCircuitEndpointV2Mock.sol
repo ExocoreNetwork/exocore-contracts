@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: UNLICENSED
-pragma solidity 0.8.22;
+pragma solidity ^0.8.20;
 
 import {WorkerOptions} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/SendLibBase.sol";
 import {IExecutorFeeLib} from "@layerzerolabs/lz-evm-messagelib-v2/contracts/interfaces/IExecutorFeeLib.sol";
