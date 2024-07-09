@@ -5,13 +5,14 @@ import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
-import "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
-import "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/ProxyAdmin.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
-import "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+
+import "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
+import "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
@@ -210,19 +211,19 @@ contract Pausable is SetUp {
         vm.startPrank(exocoreValidatorSet.addr);
         clientGateway.pause();
 
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         clientGateway.claim(address(restakeToken), uint256(1), deployer.addr);
 
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         clientGateway.delegateTo(operatorAddress, address(restakeToken), uint256(1));
 
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         clientGateway.deposit(address(restakeToken), uint256(1));
 
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         clientGateway.withdrawPrincipalFromExocore(address(restakeToken), uint256(1));
 
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
     }
 
@@ -285,7 +286,7 @@ contract AddWhitelistTokens is SetUp {
         address[] memory whitelistTokens = new address[](2);
 
         vm.startPrank(deployer.addr);
-        vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, deployer.addr));
+        vm.expectRevert("Ownable: caller is not the owner");
         clientGateway.addWhitelistTokens(whitelistTokens);
     }
 
@@ -294,7 +295,7 @@ contract AddWhitelistTokens is SetUp {
         clientGateway.pause();
 
         address[] memory whitelistTokens = new address[](2);
-        vm.expectRevert(PausableUpgradeable.EnforcedPause.selector);
+        vm.expectRevert("Pausable: paused");
         clientGateway.addWhitelistTokens(whitelistTokens);
     }
 

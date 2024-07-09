@@ -5,8 +5,8 @@ import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol
 import {IVault} from "../interfaces/IVault.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 abstract contract LSTRestakingController is
     PausableUpgradeable,

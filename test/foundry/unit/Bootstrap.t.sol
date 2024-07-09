@@ -17,9 +17,9 @@ import {GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 
-import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "@openzeppelin/contracts/utils/Create2.sol";
 import "forge-std/Test.sol";
