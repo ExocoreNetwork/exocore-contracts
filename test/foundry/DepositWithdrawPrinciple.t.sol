@@ -500,7 +500,6 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // load withdrawal proof
         _loadWithdrawalContainer(withdrawalInfo);
 
-        withdrawalProof.beaconBlockTimestamp = activationTimestamp + SECONDS_PER_SLOT;
         validatorProof.beaconBlockTimestamp = withdrawalProof.beaconBlockTimestamp + SECONDS_PER_SLOT;
         mockCurrentBlockTimestamp = validatorProof.beaconBlockTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);

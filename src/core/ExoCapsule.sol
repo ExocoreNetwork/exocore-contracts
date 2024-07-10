@@ -4,6 +4,7 @@ import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
+import {Endian} from "../libraries/Endian.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
@@ -14,6 +15,7 @@ import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Ini
 contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
 
     using BeaconChainProofs for bytes32;
+    using Endian for bytes32;
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
 
@@ -130,7 +132,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
-        WithdrawalContainerProof calldata withdrawalProof
+        BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external onlyGateway returns (bool partialWithdrawal, uint256 withdrawalAmount) {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
@@ -144,11 +146,13 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
             revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
         }
 
-        if (provenWithdrawal[validatorPubkey][withdrawalProof.beaconBlockTimestamp]) {
-            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalProof.beaconBlockTimestamp);
+        uint256 withdrawalTimestamp = withdrawalProof.timestampRoot.fromLittleEndianUint64();
+
+        if (provenWithdrawal[validatorPubkey][withdrawalTimestamp]) {
+            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalTimestamp);
         }
 
-        provenWithdrawal[validatorPubkey][withdrawalProof.beaconBlockTimestamp] = true;
+        provenWithdrawal[validatorPubkey][withdrawalTimestamp] = true;
 
         _verifyValidatorContainer(validatorContainer, validatorProof);
         _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
@@ -157,18 +161,14 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
 
         if (partialWithdrawal) {
             // Immediately send ETH without sending request to Exocore side
-            emit PartialWithdrawalRedeemed(
-                validatorPubkey, withdrawalProof.beaconBlockTimestamp, capsuleOwner, withdrawalAmountGwei
-            );
+            emit PartialWithdrawalRedeemed(validatorPubkey, withdrawalTimestamp, capsuleOwner, withdrawalAmountGwei);
             _sendETH(capsuleOwner, withdrawalAmountGwei * GWEI_TO_WEI);
         } else {
             // Full withdrawal
             validator.status = VALIDATOR_STATUS.WITHDRAWN;
             validator.restakedBalanceGwei = 0;
             // If over MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32 * 1e9, then send remaining amount immediately
-            emit FullWithdrawalRedeemed(
-                validatorPubkey, withdrawalProof.beaconBlockTimestamp, capsuleOwner, withdrawalAmountGwei
-            );
+            emit FullWithdrawalRedeemed(validatorPubkey, withdrawalTimestamp, capsuleOwner, withdrawalAmountGwei);
             if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
                 uint256 amountToSend = (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI;
                 _sendETH(capsuleOwner, amountToSend);
@@ -275,29 +275,17 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         }
     }
 
-    function _verifyWithdrawalContainer(bytes32[] calldata withdrawalContainer, WithdrawalContainerProof calldata proof)
-        internal
-        view
-    {
-        bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
+    function _verifyWithdrawalContainer(
+        bytes32[] calldata withdrawalContainer,
+        BeaconChainProofs.WithdrawalProof calldata proof
+    ) internal view {
+        // To-do check withdrawalContainer length is valid
+        // Get withdrawal timestamp from timestamp root
+        uint256 withdrawalTimestamp = proof.timestampRoot.fromLittleEndianUint64();
         bytes32 withdrawalContainerRoot = withdrawalContainer.merklelizeWithdrawalContainer();
-        bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(
-            proof.withdrawalContainerRootProof,
-            proof.withdrawalIndex,
-            beaconBlockRoot,
-            proof.executionPayloadRoot,
-            proof.executionPayloadRootProof,
-            proof.beaconBlockTimestamp
-        );
+        bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(proof);
         if (!valid) {
             revert InvalidWithdrawalContainer(withdrawalContainer.getValidatorIndex());
-        }
-        // Verify historical summaries
-        bool validHistoricalSummaries = proof.stateRoot.isValidHistoricalSummaryRoot(
-            proof.historicalSummaryBlockRootProof, proof.historicalSummaryIndex, beaconBlockRoot, proof.blockRootIndex
-        );
-        if (!validHistoricalSummaries) {
-            revert InvalidHistoricalSummaries(withdrawalContainer.getValidatorIndex());
         }
     }
 

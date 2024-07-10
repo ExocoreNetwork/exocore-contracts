@@ -1,7 +1,7 @@
 pragma solidity ^0.8.0;
 
+import {Endian} from "../libraries/Endian.sol";
 import {Merkle} from "./Merkle.sol";
-
 // Utility library for parsing and PHASE0 beacon chain block headers
 // SSZ
 // Spec: https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md#merkleization
@@ -9,10 +9,12 @@ import {Merkle} from "./Merkle.sol";
 // Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconblockheader
 // BeaconState
 // Spec: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconstate
+
 library BeaconChainProofs {
 
     // constants are the number of fields and the heights of the different merkle trees used in merkleizing
     // beacon chain containers
+
     uint256 internal constant NUM_BEACON_BLOCK_HEADER_FIELDS = 5;
     uint256 internal constant BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT = 3;
 
@@ -122,18 +124,19 @@ library BeaconChainProofs {
 
     /// @notice This struct contains the merkle proofs and leaves needed to verify a partial/full withdrawal
     struct WithdrawalProof {
-        bytes withdrawalProof;
-        bytes slotProof;
-        bytes executionPayloadProof;
-        bytes timestampProof;
-        bytes historicalSummaryBlockRootProof;
-        uint64 blockRootIndex;
-        uint64 historicalSummaryIndex;
-        uint64 withdrawalIndex;
+        bytes32[] withdrawalContainerRootProof;
+        bytes32[] slotProof;
+        bytes32[] executionPayloadRootProof;
+        bytes32[] timestampProof;
+        bytes32[] historicalSummaryBlockRootProof;
+        uint256 blockRootIndex;
+        uint256 historicalSummaryIndex;
+        uint256 withdrawalIndex;
         bytes32 blockRoot;
         bytes32 slotRoot;
         bytes32 timestampRoot;
         bytes32 executionPayloadRoot;
+        bytes32 stateRoot;
     }
 
     /// @notice This struct contains the root and proof for verifying the state root against the oracle block root
@@ -195,108 +198,139 @@ library BeaconChainProofs {
         });
     }
 
-    function isValidWithdrawalContainerRoot(
-        bytes32 withdrawalContainerRoot,
-        bytes32[] calldata withdrawalContainerRootProof,
-        uint256 withdrawalIndex,
-        bytes32 beaconBlockRoot,
-        bytes32 executionPayloadRoot,
-        bytes32[] calldata executionPayloadRootProof,
-        uint256 beaconBlockTimestamp
-    ) internal view returns (bool valid) {
-        bool validExecutionPayloadRoot =
-            isValidExecutionPayloadRoot(executionPayloadRoot, beaconBlockRoot, executionPayloadRootProof);
-
-        bool validWCRootAgainstExecutionPayloadRoot = isValidWCRootAgainstExecutionPayloadRoot(
-            withdrawalContainerRoot,
-            executionPayloadRoot,
-            withdrawalContainerRootProof,
-            withdrawalIndex,
-            beaconBlockTimestamp
+    function isValidWithdrawalContainerRoot(bytes32 withdrawalContainerRoot, WithdrawalProof calldata proof)
+        internal
+        view
+        returns (bool valid)
+    {
+        require(proof.blockRootIndex < 2 ** BLOCK_ROOTS_TREE_HEIGHT, "blockRootIndex too large");
+        require(proof.withdrawalIndex < 2 ** WITHDRAWALS_TREE_HEIGHT, "withdrawalIndex too large");
+        require(
+            proof.historicalSummaryIndex < 2 ** HISTORICAL_SUMMARIES_TREE_HEIGHT, "historicalSummaryIndex too large"
         );
+        uint256 withdrawalTimestamp = getWithdrawalTimestamp(proof);
+        bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(proof);
 
-        if (validExecutionPayloadRoot && validWCRootAgainstExecutionPayloadRoot) {
+        bool validHistoricalSummary = isValidHistoricalSummaryRoot(proof);
+
+        bool validWCRootAgainstExecutionPayloadRoot =
+            isValidWCRootAgainstExecutionPayloadRoot(proof, withdrawalContainerRoot);
+
+        if (validExecutionPayloadRoot && validHistoricalSummary && validWCRootAgainstExecutionPayloadRoot) {
             valid = true;
         }
     }
 
-    function isValidExecutionPayloadRoot(
-        bytes32 executionPayloadRoot,
-        bytes32 beaconBlockRoot,
-        bytes32[] calldata executionPayloadRootProof
-    ) internal view returns (bool) {
+    function isValidExecutionPayloadRoot(WithdrawalProof calldata withdrawalProof) internal view returns (bool) {
+        uint256 withdrawalTimestamp = getWithdrawalTimestamp(withdrawalProof);
+        // Post deneb hard fork, executionPayloadHeader fields increased
+        uint256 executionPayloadHeaderFieldTreeHeight = withdrawalTimestamp < DENEB_FORK_TIMESTAMP
+            ? EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA
+            : EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB;
         require(
-            executionPayloadRootProof.length
-                == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT + BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT,
-            "state root proof should have 3 nodes"
+            withdrawalProof.withdrawalContainerRootProof.length
+                == executionPayloadHeaderFieldTreeHeight + WITHDRAWALS_TREE_HEIGHT + 1,
+            "wcRootProof has incorrect length"
         );
-
-        uint256 leafIndex = (BODY_ROOT_INDEX << (BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT)) | EXECUTION_PAYLOAD_INDEX;
-
-        return Merkle.verifyInclusionSha256({
-            proof: executionPayloadRootProof,
-            root: beaconBlockRoot,
-            leaf: executionPayloadRoot,
-            index: leafIndex
-        });
+        require(
+            withdrawalProof.executionPayloadRootProof.length
+                == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT + BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT,
+            "executionPayloadRootProof has incorrect length"
+        );
+        require(
+            withdrawalProof.slotProof.length == BEACON_BLOCK_HEADER_FIELD_TREE_HEIGHT, "slotProof has incorrect length"
+        );
+        require(
+            withdrawalProof.timestampProof.length == executionPayloadHeaderFieldTreeHeight,
+            "timestampProof has incorrect length"
+        );
     }
 
     function isValidWCRootAgainstExecutionPayloadRoot(
-        bytes32 withdrawalContainerRoot,
-        bytes32 executionPayloadRoot,
-        bytes32[] calldata withdrawalContainerRootProof,
-        uint256 withdrawalIndex,
-        uint256 beaconBlockTimestamp
+        WithdrawalProof calldata withdrawalProof,
+        bytes32 withdrawalContainerRoot
     ) internal view returns (bool) {
-        uint256 executionPayloadHeaderFieldTreeHeight = (beaconBlockTimestamp < DENEB_FORK_TIMESTAMP)
-            ? EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA
-            : EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB;
-
+        //Next we verify the slot against the blockRoot
         require(
-            withdrawalContainerRootProof.length == (executionPayloadHeaderFieldTreeHeight + WITHDRAWALS_TREE_HEIGHT + 1),
-            "withdrawalProof has incorrect length"
+            Merkle.verifyInclusionSha256({
+                proof: withdrawalProof.slotProof,
+                root: withdrawalProof.blockRoot,
+                leaf: withdrawalProof.slotRoot,
+                index: SLOT_INDEX
+            }),
+            "Invalid slot merkle proof"
         );
 
-        uint256 leafIndex = (WITHDRAWALS_INDEX << (WITHDRAWALS_TREE_HEIGHT + 1)) | uint256(withdrawalIndex);
+        // Verify the executionPayloadRoot against the blockRoot
+        uint256 executionPayloadIndex =
+            (BODY_ROOT_INDEX << (BEACON_BLOCK_BODY_FIELD_TREE_HEIGHT)) | EXECUTION_PAYLOAD_INDEX;
+        require(
+            Merkle.verifyInclusionSha256({
+                proof: withdrawalProof.executionPayloadRootProof,
+                root: withdrawalProof.blockRoot,
+                leaf: withdrawalProof.executionPayloadRoot,
+                index: executionPayloadIndex
+            }),
+            "Invalid executionPayload proof"
+        );
+
+        // Verify the timestampRoot against the executionPayload root
+        require(
+            Merkle.verifyInclusionSha256({
+                proof: withdrawalProof.timestampProof,
+                root: withdrawalProof.executionPayloadRoot,
+                leaf: withdrawalProof.timestampRoot,
+                index: TIMESTAMP_INDEX
+            }),
+            "Invalid timestamp proof"
+        );
+
+        /**
+         * Next we verify the withdrawal fields against the executionPayloadRoot:
+         * First we compute the withdrawal_index, then we merkleize the
+         * withdrawalFields container to calculate the withdrawalRoot.
+         *
+         * Note: Merkleization of the withdrawals root tree uses MerkleizeWithMixin, i.e., the length of the array
+         * is hashed with the root of
+         * the array.  Thus we shift the WITHDRAWALS_INDEX over by WITHDRAWALS_TREE_HEIGHT + 1 and not just
+         * WITHDRAWALS_TREE_HEIGHT.
+         */
+        uint256 withdrawalIndex =
+            (WITHDRAWALS_INDEX << (WITHDRAWALS_TREE_HEIGHT + 1)) | uint256(withdrawalProof.withdrawalIndex);
 
         return Merkle.verifyInclusionSha256({
-            proof: withdrawalContainerRootProof,
-            root: executionPayloadRoot,
+            proof: withdrawalProof.withdrawalContainerRootProof,
+            root: withdrawalProof.executionPayloadRoot,
             leaf: withdrawalContainerRoot,
-            index: leafIndex
+            index: withdrawalIndex
         });
     }
 
-    function isValidHistoricalSummaryRoot(
-        bytes32 beaconStateRoot,
-        bytes32[] calldata historicalSummaryBlockRootProof,
-        uint256 historicalSummaryIndex,
-        bytes32 beaconBlockRoot,
-        uint256 blockRootIndex
-    ) internal view returns (bool) {
+    function isValidHistoricalSummaryRoot(WithdrawalProof calldata withdrawalProof) internal view returns (bool) {
         require(
-            historicalSummaryBlockRootProof.length
-                == (BEACON_STATE_FIELD_TREE_HEIGHT + (HISTORICAL_SUMMARIES_TREE_HEIGHT + 1) + 1 + (BLOCK_ROOTS_TREE_HEIGHT)),
+            withdrawalProof.historicalSummaryBlockRootProof.length
+                == BEACON_STATE_FIELD_TREE_HEIGHT + (HISTORICAL_SUMMARIES_TREE_HEIGHT + 1) + 1 + (BLOCK_ROOTS_TREE_HEIGHT),
             "historicalSummaryBlockRootProof has incorrect length"
         );
-        /**
-         * Note: Here, the "1" in "1 + (BLOCK_ROOTS_TREE_HEIGHT)" signifies that extra step of choosing the
-         * "block_root_summary" within the individual
-         * "historical_summary". Everywhere else it signifies merkelize_with_mixin, where the length of an array is
-         * hashed with the root of the array,
-         * but not here.
-         */
+
         uint256 historicalBlockHeaderIndex = (
             HISTORICAL_SUMMARIES_INDEX << ((HISTORICAL_SUMMARIES_TREE_HEIGHT + 1) + 1 + (BLOCK_ROOTS_TREE_HEIGHT))
-        ) | (historicalSummaryIndex << (1 + (BLOCK_ROOTS_TREE_HEIGHT)))
-            | (BLOCK_SUMMARY_ROOT_INDEX << (BLOCK_ROOTS_TREE_HEIGHT)) | blockRootIndex;
+        ) | (withdrawalProof.historicalSummaryIndex << (1 + (BLOCK_ROOTS_TREE_HEIGHT)))
+            | (BLOCK_SUMMARY_ROOT_INDEX << (BLOCK_ROOTS_TREE_HEIGHT)) | withdrawalProof.blockRootIndex;
 
         return Merkle.verifyInclusionSha256({
-            proof: historicalSummaryBlockRootProof,
-            root: beaconStateRoot,
-            leaf: beaconBlockRoot,
+            proof: withdrawalProof.historicalSummaryBlockRootProof,
+            root: withdrawalProof.stateRoot,
+            leaf: withdrawalProof.blockRoot,
             index: historicalBlockHeaderIndex
         });
+    }
+    /**
+     * @dev Retrieve the withdrawal timestamp
+     */
+
+    function getWithdrawalTimestamp(WithdrawalProof calldata withdrawalProof) internal pure returns (uint64) {
+        return Endian.fromLittleEndianUint64(withdrawalProof.timestampRoot);
     }
 
 }

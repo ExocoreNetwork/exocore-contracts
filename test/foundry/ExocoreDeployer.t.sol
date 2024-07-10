@@ -30,6 +30,8 @@ import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2M
 
 import "src/core/BeaconProxyBytecode.sol";
 import "src/core/ExoCapsule.sol";
+
+import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
 import "test/mocks/ETHPOSDepositMock.sol";
 
@@ -78,7 +80,7 @@ contract ExocoreDeployer is Test {
     IExoCapsule.ValidatorContainerProof validatorProof;
 
     bytes32[] withdrawalContainer;
-    IExoCapsule.WithdrawalContainerProof withdrawalProof;
+    BeaconChainProofs.WithdrawalProof withdrawalProof;
     bytes32 withdrawBeaconBlockRoot; // block root for withdrawal proof
 
     uint256 mockProofTimestamp;

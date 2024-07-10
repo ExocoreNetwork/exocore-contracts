@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
-
+import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
@@ -71,7 +71,7 @@ abstract contract NativeRestakingController is
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
-        IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
+        BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external payable whenNotPaused {
         IExoCapsule capsule = _getCapsule(msg.sender);
         (bool partialWithdrawal, uint256 withdrawalAmount) =

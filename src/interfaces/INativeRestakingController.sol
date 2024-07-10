@@ -1,5 +1,6 @@
 pragma solidity ^0.8.19;
 
+import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {IBaseRestakingController} from "./IBaseRestakingController.sol";
 import {IExoCapsule} from "./IExoCapsule.sol";
 
@@ -81,7 +82,7 @@ interface INativeRestakingController is IBaseRestakingController {
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
-        IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
+        BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external payable;
 
 }
