@@ -76,14 +76,12 @@ contract ExocoreGatewayMock is
 
     receive() external payable {}
 
-    function initialize(address payable exocoreValidatorSetAddress_) external initializer {
-        require(exocoreValidatorSetAddress_ != address(0), "ExocoreGateway: invalid exocore validator set address");
-
-        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
+    function initialize(address owner_) external initializer {
+        require(owner_ != address(0), "ExocoreGateway: owner can not be zero address");
 
         _initializeWhitelistFunctionSelectors();
-        _transferOwnership(exocoreValidatorSetAddress);
-        __OAppCore_init_unchained(exocoreValidatorSetAddress);
+        _transferOwnership(owner_);
+        __OAppCore_init_unchained(owner_);
         __Pausable_init_unchained();
     }
 
@@ -96,19 +94,11 @@ contract ExocoreGatewayMock is
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
     }
 
-    function pause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ExocoreGateway: caller is not Exocore validator set aggregated address"
-        );
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ExocoreGateway: caller is not Exocore validator set aggregated address"
-        );
+    function unpause() external onlyOwner {
         _unpause();
     }
 
@@ -189,6 +179,9 @@ contract ExocoreGatewayMock is
         super.setPeer(clientChainId, clientChainGateway);
     }
 
+    // Though this function would call precompiled contract, all precompiled contracts belong to Exocore
+    // and we could make sure its implementation does not have dangerous behavior like reentrancy.
+    // slither-disable-next-line reentrancy-no-eth
     function addWhitelistTokens(
         uint32 clientChainId,
         bytes32[] calldata tokens,
@@ -461,7 +454,7 @@ contract ExocoreGatewayMock is
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
         MessagingReceipt memory receipt =
-            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, payByApp);
+            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), msg.sender, payByApp);
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 

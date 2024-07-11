@@ -129,7 +129,6 @@ contract DeployContracts is Script {
                                 vm.addr(contractDeployer),
                                 block.timestamp + 3 minutes,
                                 1 seconds,
-                                payable(exocoreValidatorSet),
                                 whitelistTokens,
                                 address(proxyAdmin)
                             )

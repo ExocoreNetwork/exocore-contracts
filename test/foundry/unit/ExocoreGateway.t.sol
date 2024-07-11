@@ -137,7 +137,7 @@ contract Pausable is SetUp {
     }
 
     function test_RevertWhen_UnauthorizedPauser() public {
-        vm.expectRevert(bytes("ExocoreGateway: caller is not Exocore validator set aggregated address"));
+        vm.expectRevert(bytes("Ownable: caller is not the owner"));
         vm.startPrank(deployer.addr);
         exocoreGateway.pause();
     }
