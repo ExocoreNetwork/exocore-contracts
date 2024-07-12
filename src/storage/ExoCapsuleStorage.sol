@@ -44,8 +44,7 @@ contract ExoCapsuleStorage {
 
     mapping(bytes32 pubkey => Validator validator) internal _capsuleValidators;
     mapping(uint256 index => bytes32 pubkey) internal _capsuleValidatorsByIndex;
-    /// @notice This is a mapping of validatorPubkeyHash to timestamp to whether or not they have proven a withdrawal
-    /// for that timestamp
+    /// @notice This is a mapping of validatorPubkeyHash to withdrawal index to whether or not they have proven a withdrawal
     mapping(bytes32 => mapping(uint256 => bool)) public provenWithdrawal;
 
     uint256[40] private __gap;

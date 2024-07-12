@@ -146,13 +146,11 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
             revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
         }
 
-        uint256 withdrawalTimestamp = withdrawalProof.timestampRoot.fromLittleEndianUint64();
-
-        if (provenWithdrawal[validatorPubkey][withdrawalTimestamp]) {
-            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalTimestamp);
+        if (provenWithdrawal[validatorPubkey][withdrawalProof.withdrawalIndex]) {
+            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalProof.withdrawalIndex);
         }
 
-        provenWithdrawal[validatorPubkey][withdrawalTimestamp] = true;
+        provenWithdrawal[validatorPubkey][withdrawalProof.withdrawalIndex] = true;
 
         _verifyValidatorContainer(validatorContainer, validatorProof);
         _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
