@@ -29,7 +29,7 @@ interface INativeRestakingController is IBaseRestakingController {
      * @notice This is called to deposit ETH that is staked on Ethereum beacon chain to Exocore network to be restaked
      * in future
      * @dev Before deposit, staker should have created the ExoCapsule that it owns and point the validator's withdrawal
-     * crendentials
+     * credentials
      * to the ExoCapsule owned by staker. The effective balance of `validatorContainer` would be credited as deposited
      * value by Exocore network.
      * @ param
