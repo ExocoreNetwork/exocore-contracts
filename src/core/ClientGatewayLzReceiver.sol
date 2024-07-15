@@ -5,13 +5,14 @@ import {IVault} from "../interfaces/IVault.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
 
     error UnsupportedResponse(Action act);
     error UnexpectedResponse(uint64 nonce);
     error DepositShouldNotFailOnExocore(address token, address depositor);
+    error InvalidAddWhitelistTokensRequest(uint256 expectedLength, uint256 actualLength);
 
     // Events
     event WithdrawFailedOnExocore(address indexed token, address indexed withdrawer);
@@ -24,12 +25,14 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         _;
     }
 
+    // This function would call other functions inside this contract through low-level-call
+    // slither-disable-next-line reentrancy-no-eth
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
         if (_origin.srcEid != EXOCORE_CHAIN_ID) {
             revert UnexpectedSourceChain(_origin.srcEid);
         }
 
-        _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
+        _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));
         if (act == Action.RESPOND) {
@@ -76,13 +79,6 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         returns (uint64)
     {
         return inboundNonce[srcEid][sender] + 1;
-    }
-
-    function _consumeInboundNonce(uint32 srcEid, bytes32 sender, uint64 nonce) internal {
-        inboundNonce[srcEid][sender] += 1;
-        if (nonce != inboundNonce[srcEid][sender]) {
-            revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
-        }
     }
 
     function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)
@@ -202,30 +198,38 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit DepositThenDelegateResult(delegateSuccess, delegator, operator, token, amount);
     }
 
-    function afterReceiveRegisterTokensResponse(bytes calldata requestPayload, bytes calldata responsePayload)
+    // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
+    // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
+    // like reentrancy.
+    // slither-disable-next-line reentrancy-no-eth
+    function afterReceiveAddWhitelistTokensRequest(bytes calldata requestPayload)
         public
         onlyCalledFromThis
         whenNotPaused
     {
-        address[] memory tokens = abi.decode(requestPayload, (address[]));
+        uint8 count = uint8(requestPayload[0]);
+        uint256 expectedLength = count * TOKEN_ADDRESS_BYTES_LENGTH + 1;
+        if (requestPayload.length != expectedLength) {
+            revert InvalidAddWhitelistTokensRequest(expectedLength, requestPayload.length);
+        }
 
-        bool success = (uint8(bytes1(responsePayload[0])) == 1);
-        if (success) {
-            for (uint256 i; i < tokens.length; i++) {
-                address token = tokens[i];
+        for (uint256 i; i < count; i++) {
+            uint256 start = i * TOKEN_ADDRESS_BYTES_LENGTH + 1;
+            uint256 end = start + TOKEN_ADDRESS_BYTES_LENGTH;
+            address token = address(bytes20(requestPayload[start:end]));
+
+            if (!isWhitelistedToken[token]) {
                 isWhitelistedToken[token] = true;
                 whitelistTokens.push(token);
 
                 // deploy the corresponding vault if not deployed before
-                if (address(tokenToVault[token]) == address(0)) {
+                if (token != VIRTUAL_STAKED_ETH_ADDRESS && address(tokenToVault[token]) == address(0)) {
                     _deployVault(token);
                 }
 
                 emit WhitelistTokenAdded(token);
             }
         }
-
-        emit RegisterTokensResult(success);
     }
 
 }

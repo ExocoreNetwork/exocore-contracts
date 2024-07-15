@@ -1,0 +1,19 @@
+{
+    "detectors_to_exclude": "pragma,assembly,solc-version,naming-convention,timestamp,low-level-calls,too-many-digits,similar-names,calls-loop,reentrancy-benign,reentrancy-events,dead-code",
+    "filter_paths": "lib/|test/|mocks/|BytesLib|script/",
+    "solc_remaps": [
+        "forge-std/=lib/forge-std/src/",
+        "ds-test/=lib/forge-std/lib/ds-test/src/",
+        "@layerzero-contracts/=lib/solidity-examples/contracts/",
+        "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/",
+        "@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/",
+        "@layerzero-v2/=lib/LayerZero-v2/",
+        "@layerzerolabs/lz-evm-protocol-v2=lib/LayerZero-v2/protocol/",
+        "@layerzerolabs/lz-evm-oapp-v2=lib/LayerZero-v2/oapp/",
+        "@layerzerolabs/lz-evm-oapp-v2=lib/LayerZero-v2/oapp/",
+        "@layerzerolabs/lz-evm-messagelib-v2=lib/LayerZero-v2/messagelib/",
+        "@beacon-oracle=lib/eigenlayer-beacon-oracle/",
+        "solidity-bytes-utils/=lib/solidity-bytes-utils/"
+    ],
+    "compile_force_framework": "foundry"
+}

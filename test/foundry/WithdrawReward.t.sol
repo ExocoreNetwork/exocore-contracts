@@ -37,7 +37,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // first user call client chain gateway to withdraw
 
         // estimate l0 relay fee that the user should pay
-        uint64 withdrawRequestNonce = 2;
+        uint64 withdrawRequestNonce = 1;
         bytes memory withdrawRequestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE,
             bytes32(bytes20(address(restakeToken))),

@@ -6,7 +6,7 @@ import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
-import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
+import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 // BootstrapStorage should inherit from GatewayStorage since it exists
@@ -205,22 +205,6 @@ contract BootstrapStorage is GatewayStorage {
      * cross-chain functionalities.
      */
     uint32 public immutable EXOCORE_CHAIN_ID;
-
-    /**
-     * @dev A mapping of source chain id to source sender to the nonce of the last inbound
-     * message processed from that sender, over LayerZero.
-     * @notice This mapping is used to track the last message processed from each sender on
-     * each source chain to prevent replay attacks.
-     */
-    mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
-
-    // TSS information.
-    /**
-     * @dev The message nonce from the last TSS message processed by the contract.
-     * @notice This nonce is used to track the last message processed by the contract to
-     * prevent replay attacks.
-     */
-    uint256 public lastMessageNonce;
 
     // the beacon that stores the Vault implementation contract address for proxy
     /**
@@ -468,6 +452,9 @@ contract BootstrapStorage is GatewayStorage {
         return true;
     }
 
+    // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
+    // array, so it would not cause collision for encodePacked
+    // slither-disable-next-line encode-packed-collision
     function _deployVault(address underlyingToken) internal returns (IVault) {
         Vault vault = Vault(
             Create2.deploy(

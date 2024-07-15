@@ -3,7 +3,7 @@
 pragma solidity ^0.8.20;
 
 import {ILayerZeroEndpointV2, IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**
  * @title OAppCoreUpgradeable
@@ -37,7 +37,7 @@ abstract contract OAppCoreUpgradeable is IOAppCore, OwnableUpgradeable {
             revert InvalidDelegate();
         }
         endpoint.setDelegate(_delegate);
-        __Ownable_init_unchained(_delegate);
+        _transferOwnership(_delegate);
     }
 
     /**

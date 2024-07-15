@@ -4,7 +4,7 @@ import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {Vault} from "../src/core/Vault.sol";
 import {IOperatorRegistry} from "../src/interfaces/IOperatorRegistry.sol";
 
-import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
 import "forge-std/Script.sol";
 

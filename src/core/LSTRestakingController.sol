@@ -5,9 +5,15 @@ import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol
 import {IVault} from "../interfaces/IVault.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingController, BaseRestakingController {
+abstract contract LSTRestakingController is
+    PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
+    ILSTRestakingController,
+    BaseRestakingController
+{
 
     function deposit(address token, uint256 amount)
         external
@@ -15,6 +21,7 @@ abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingCo
         isTokenWhitelisted(token)
         isValidAmount(amount)
         whenNotPaused
+        nonReentrant
     {
         IVault vault = _getVault(token);
         vault.deposit(msg.sender, amount);
@@ -31,6 +38,7 @@ abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingCo
         isTokenWhitelisted(token)
         isValidAmount(principalAmount)
         whenNotPaused
+        nonReentrant
     {
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principalAmount);
@@ -45,6 +53,7 @@ abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingCo
         isTokenWhitelisted(token)
         isValidAmount(rewardAmount)
         whenNotPaused
+        nonReentrant
     {
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), rewardAmount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, rewardAmount);
@@ -60,6 +69,7 @@ abstract contract LSTRestakingController is PausableUpgradeable, ILSTRestakingCo
         isValidAmount(amount)
         isValidBech32Address(operator)
         whenNotPaused
+        nonReentrant
     {
         IVault vault = _getVault(token);
         vault.deposit(msg.sender, amount);

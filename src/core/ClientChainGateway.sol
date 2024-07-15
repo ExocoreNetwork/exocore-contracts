@@ -12,9 +12,9 @@ import {NativeRestakingController} from "./NativeRestakingController.sol";
 
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 contract ClientChainGateway is
     Initializable,
@@ -77,13 +77,16 @@ contract ClientChainGateway is
             this.afterReceiveWithdrawRewardResponse.selector;
         _registeredResponseHooks[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
             this.afterReceiveDepositThenDelegateToResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_REGISTER_TOKENS] = this.afterReceiveRegisterTokensResponse.selector;
+
+        _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] =
+            this.afterReceiveAddWhitelistTokensRequest.selector;
 
         bootstrapped = true;
 
-        __Ownable_init_unchained(exocoreValidatorSetAddress);
+        _transferOwnership(exocoreValidatorSetAddress);
         __OAppCore_init_unchained(exocoreValidatorSetAddress);
         __Pausable_init_unchained();
+        __ReentrancyGuard_init_unchained();
     }
 
     function _clearBootstrapData() internal {
@@ -118,25 +121,8 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    // implementation of ITokenWhitelister
-    function addWhitelistTokens(address[] calldata tokens) external payable onlyOwner whenNotPaused {
-        _addWhitelistTokens(tokens);
-    }
-
-    function _addWhitelistTokens(address[] calldata tokens) internal {
-        require(tokens.length <= type(uint8).max, "ClientChainGateway: tokens length should not execeed 255");
-
-        bytes memory actionArgs = abi.encodePacked(uint8(tokens.length));
-        for (uint256 i; i < tokens.length; i++) {
-            address token = tokens[i];
-            require(token != address(0), "ClientChainGateway: zero token address");
-            require(!isWhitelistedToken[token], "ClientChainGateway: token should not be whitelisted before");
-
-            actionArgs = abi.encodePacked(actionArgs, bytes32(bytes20(token)));
-        }
-
-        bytes memory encodedRequest = abi.encode(tokens);
-        _processRequest(Action.REQUEST_REGISTER_TOKENS, actionArgs, encodedRequest);
+    function addWhitelistTokens(address[] calldata) external onlyOwner whenNotPaused {
+        revert("this function is not supported for client chain, please register on Exocore");
     }
 
     // implementation of ITokenWhitelister

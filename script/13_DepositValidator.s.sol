@@ -10,7 +10,7 @@ import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
-import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
 import "src/libraries/Endian.sol";
@@ -28,7 +28,6 @@ contract DepositScript is BaseScript {
 
     uint256 internal constant GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
     uint256 internal constant SECONDS_PER_SLOT = 12;
-    address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     uint256 constant GWEI_TO_WEI = 1e9;
 
     function setUp() public virtual override {

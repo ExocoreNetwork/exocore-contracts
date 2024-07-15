@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, BootstrapStorage {
 
@@ -18,7 +18,7 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
         if (_origin.srcEid != EXOCORE_CHAIN_ID) {
             revert UnexpectedSourceChain(_origin.srcEid);
         }
-        _consumeInboundNonce(_origin.srcEid, _origin.sender, _origin.nonce);
+        _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
         Action act = Action(uint8(payload[0]));
         require(act != Action.RESPOND, "BootstrapLzReceiver: invalid action");
         bytes4 selector_ = _whiteListFunctionSelectors[act];
@@ -39,13 +39,6 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
         returns (uint64)
     {
         return inboundNonce[srcEid][sender] + 1;
-    }
-
-    function _consumeInboundNonce(uint32 srcEid, bytes32 sender, uint64 nonce) internal {
-        inboundNonce[srcEid][sender] += 1;
-        if (nonce != inboundNonce[srcEid][sender]) {
-            revert UnexpectedInboundNonce(inboundNonce[srcEid][sender], nonce);
-        }
     }
 
 }

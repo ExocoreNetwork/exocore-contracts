@@ -9,7 +9,7 @@ import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpoi
 import {BaseScript} from "./BaseScript.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
-import {ERC20PresetFixedSupply} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
 contract SetupScript is BaseScript {
@@ -40,6 +40,10 @@ contract SetupScript is BaseScript {
         exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
         require(address(exocoreLzEndpoint) != address(0), "exocoreLzEndpoint address should not be empty");
 
+        if (!useExocorePrecompileMock) {
+            _bindPrecompileMocks();
+        }
+
         // transfer some gas fee to exocore validator set address
         clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, exocoreValidatorSet.addr, 0.2 ether);
@@ -50,6 +54,7 @@ contract SetupScript is BaseScript {
 
     function run() public {
         // 1. setup client chain contracts to make them ready for sending and receiving messages from exocore gateway
+
         vm.selectFork(clientChain);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -65,7 +70,8 @@ contract SetupScript is BaseScript {
         vm.stopBroadcast();
 
         // 2. setup Exocore contracts to make them ready for sending and receiving messages from client chain
-        // gateway
+        // gateway, and register client chain meta data to Exocore native module
+
         vm.selectFork(exocore);
         // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -75,16 +81,46 @@ contract SetupScript is BaseScript {
                 address(clientGateway), address(clientChainLzEndpoint)
             );
         }
-        // this would also register clientChainId to Exocore native module
-        exocoreGateway.setPeer(clientChainId, address(clientGateway).toBytes32());
+        // register clientChainId to Exocore native module and set peer for client chain gateway to be ready for
+        // messaging
+        exocoreGateway.registerOrUpdateClientChain(
+            clientChainId, address(clientGateway).toBytes32(), 20, "ClientChain", "EVM compatible network", "secp256k1"
+        );
         vm.stopBroadcast();
 
-        // 3. we should register whitelist tokens to exocore
+        // 3. adding tokens to the whtielist of both Exocore and client chain gateway to enable restaking
+
+        // first we read decimals from client chain ERC20 token contract to prepare for token data
         vm.selectFork(clientChain);
-        // Exocore validator set should be the owner of these contracts and only owner could add whitelist tokens
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        whitelistTokens.push(address(restakeToken));
-        clientGateway.addWhitelistTokens(whitelistTokens);
+        bytes32[] memory whitelistTokensBytes32 = new bytes32[](2);
+        uint8[] memory decimals = new uint8[](2);
+        uint256[] memory tvlLimits = new uint256[](2);
+        string[] memory names = new string[](2);
+        string[] memory metaData = new string[](2);
+
+        // this stands for LST restaking for restakeToken
+        whitelistTokensBytes32[0] = bytes32(bytes20(address(restakeToken)));
+        decimals[0] = restakeToken.decimals();
+        tvlLimits[0] = 1e10 ether;
+        names[0] = "RestakeToken";
+        metaData[0] = "ERC20 LST token";
+
+        // this stands for Native Restaking for ETH
+        whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        decimals[1] = 18;
+        tvlLimits[1] = 1e8 ether;
+        names[1] = "StakedETH";
+        metaData[1] = "natively staked ETH on Ethereum";
+        vm.stopBroadcast();
+
+        // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking,
+        // and this would also add token addresses to client chain gateway's whitelist
+        vm.selectFork(exocore);
+        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokensBytes32.length + 2;
+        uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
+        exocoreGateway.addWhitelistTokens{value: nativeFee}(
+            clientChainId, whitelistTokensBytes32, decimals, tvlLimits, names, metaData
+        );
         vm.stopBroadcast();
     }
 

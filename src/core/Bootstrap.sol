@@ -2,12 +2,11 @@ pragma solidity ^0.8.19;
 
 // Do not use IERC20 because it does not expose the decimals() function.
 
-import {ITransparentUpgradeableProxy} from
-    "@openzeppelin-contracts/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
@@ -79,8 +78,9 @@ contract Bootstrap is
         // cannot be used here. we must require a separate owner. since the Exocore validator
         // set can not sign without the chain, the owner is likely to be an EOA or a
         // contract controlled by one.
-        __Ownable_init_unchained(owner);
+        _transferOwnership(owner);
         __Pausable_init_unchained();
+        __ReentrancyGuard_init_unchained();
     }
 
     /**
@@ -154,10 +154,14 @@ contract Bootstrap is
     }
 
     // implementation of ITokenWhitelister
-    function addWhitelistTokens(address[] calldata tokens) external payable beforeLocked onlyOwner whenNotPaused {
+    function addWhitelistTokens(address[] calldata tokens) external beforeLocked onlyOwner whenNotPaused {
         _addWhitelistTokens(tokens);
     }
 
+    // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
+    // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
+    // like reentrancy.
+    // slither-disable-next-line reentrancy-no-eth
     function _addWhitelistTokens(address[] calldata tokens) internal {
         for (uint256 i; i < tokens.length; i++) {
             address token = tokens[i];
@@ -228,7 +232,8 @@ contract Bootstrap is
      */
     function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
         require(newKey != bytes32(0), "Consensus public key cannot be zero");
-        for (uint256 i = 0; i < registeredOperators.length; i++) {
+        uint256 arrayLength = registeredOperators.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address ethAddress = registeredOperators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
             if (operators[exoAddress].consensusPublicKey == newKey) {
@@ -274,7 +279,8 @@ contract Bootstrap is
      * safely used for a new operator.
      */
     function nameInUse(string memory newName) public view returns (bool) {
-        for (uint256 i = 0; i < registeredOperators.length; i++) {
+        uint256 arrayLength = registeredOperators.length;
+        for (uint256 i = 0; i < arrayLength; i++) {
             address ethAddress = registeredOperators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
             if (keccak256(abi.encodePacked(operators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
@@ -471,6 +477,11 @@ contract Bootstrap is
     }
 
     // implementation of ILSTRestakingController
+    // Though `_deposit` would make external call to `Vault` and some state variables would be written in the following
+    // `_delegateTo`,
+    // `Vault` contract belongs to Exocore and we could make sure it's implementation does not have dangerous behavior
+    // like reentrancy.
+    // slither-disable-next-line reentrancy-no-eth
     function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
         external
         payable

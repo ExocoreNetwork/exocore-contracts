@@ -8,7 +8,7 @@ import {
     MessagingParams,
     MessagingReceipt
 } from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import {IERC20, SafeERC20} from "@openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20, SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title OAppSenderUpgradeable

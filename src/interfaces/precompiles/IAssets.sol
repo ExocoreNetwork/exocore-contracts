@@ -45,13 +45,30 @@ interface IAssets {
     /// TRANSACTIONS
     /// @dev register some client chain to allow token registration from that chain, staking
     /// from that chain, and other operations from that chain.
-    /// @param clientChainLzID The LzID of client chain
-    function registerClientChain(uint32 clientChainLzID) external returns (bool success);
+    /// @param clientChainID is the layerZero chainID if it is supported.
+    //  It might be allocated by Exocore when the client chain isn't supported
+    //  by layerZero
+    function registerClientChain(
+        uint32 clientChainID,
+        uint8 addressLength,
+        string calldata name,
+        string calldata metaInfo,
+        string calldata signatureType
+    ) external returns (bool success);
 
     /// TRANSACTIONS
-    /// @dev register unwhitelisted token addresses to exocore
-    /// @param clientChainLzID The LzID of client chain
-    /// @param tokens The token addresses that would be registered to exocore
-    function registerTokens(uint32 clientChainLzID, bytes[] memory tokens) external returns (bool success);
+    /// @dev register unwhitelisted token address to exocore assets module
+    /// @param clientChainID is the layerZero chainID if it is supported.
+    //  It might be allocated by Exocore when the client chain isn't supported
+    //  by layerZero
+    /// @param token The token address that would be registered to exocore
+    function registerToken(
+        uint32 clientChainID,
+        bytes calldata token,
+        uint8 decimals,
+        uint256 tvlLimit,
+        string calldata name,
+        string calldata metaData
+    ) external returns (bool success);
 
 }

@@ -178,10 +178,8 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     function withdraw(uint256 amount, address payable recipient) external onlyGateway {
-        require(
-            amount <= withdrawableBalance, "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
-        );
-        require(recipient != address(0), "Zero Address");
+        require(recipient != address(0), "ExoCapsule: recipient address cannot be zero or empty");
+        require(amount > 0 && amount <= withdrawableBalance, "ExoCapsule: invalid withdrawal amount");
 
         withdrawableBalance -= amount;
         _sendETH(recipient, amount);

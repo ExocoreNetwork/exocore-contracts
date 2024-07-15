@@ -1,8 +1,8 @@
 ds-test/=lib/forge-std/lib/ds-test/src/
 forge-std/=lib/forge-std/src/
 @layerzero-contracts/=lib/solidity-examples/contracts/
-@openzeppelin-upgradeable/=lib/openzeppelin-contracts-upgradeable/
-@openzeppelin-contracts/=lib/openzeppelin-contracts/
+@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
+@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
 @layerzero-v2/=lib/LayerZero-v2/
 @layerzerolabs/lz-evm-protocol-v2=lib/LayerZero-v2/protocol/
 @layerzerolabs/lz-evm-oapp-v2=lib/LayerZero-v2/oapp/

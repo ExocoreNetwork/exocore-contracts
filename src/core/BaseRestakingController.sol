@@ -7,10 +7,12 @@ import {MessagingFee, MessagingReceipt, OAppSenderUpgradeable} from "../lzApp/OA
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 abstract contract BaseRestakingController is
     PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
     OAppSenderUpgradeable,
     IBaseRestakingController,
     ClientChainGatewayStorage
@@ -25,7 +27,9 @@ abstract contract BaseRestakingController is
         isTokenWhitelisted(token)
         isValidAmount(amount)
         whenNotPaused
+        nonReentrant
     {
+        require(recipient != address(0), "BaseRestakingController: recipient address cannot be empty or zero address");
         if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
             IExoCapsule capsule = _getCapsule(msg.sender);
             capsule.withdraw(amount, payable(recipient));
@@ -44,6 +48,7 @@ abstract contract BaseRestakingController is
         isValidAmount(amount)
         isValidBech32Address(operator)
         whenNotPaused
+        nonReentrant
     {
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
@@ -58,6 +63,7 @@ abstract contract BaseRestakingController is
         isValidAmount(amount)
         isValidBech32Address(operator)
         whenNotPaused
+        nonReentrant
     {
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);

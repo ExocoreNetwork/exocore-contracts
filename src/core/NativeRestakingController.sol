@@ -6,21 +6,32 @@ import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 abstract contract NativeRestakingController is
     PausableUpgradeable,
+    ReentrancyGuardUpgradeable,
     INativeRestakingController,
     BaseRestakingController
 {
 
     using ValidatorContainer for bytes32[];
 
+    modifier nativeRestakingEnabled() {
+        require(
+            isWhitelistedToken[VIRTUAL_STAKED_ETH_ADDRESS], "NativeRestakingController: native restaking is not enabled"
+        );
+        _;
+    }
+
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot)
         external
         payable
         whenNotPaused
+        nonReentrant
+        nativeRestakingEnabled
     {
         require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
 
@@ -33,7 +44,10 @@ abstract contract NativeRestakingController is
         emit StakedWithCapsule(msg.sender, address(capsule));
     }
 
-    function createExoCapsule() public whenNotPaused returns (address) {
+    // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
+    // array, so it would not cause collision for encodePacked
+    // slither-disable-next-line encode-packed-collision
+    function createExoCapsule() public whenNotPaused nativeRestakingEnabled returns (address) {
         require(
             address(ownerToCapsule[msg.sender]) == address(0),
             "NativeRestakingController: message sender has already created the capsule"
@@ -46,8 +60,10 @@ abstract contract NativeRestakingController is
                 abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(EXO_CAPSULE_BEACON), ""))
             )
         );
-        capsule.initialize(address(this), msg.sender, BEACON_ORACLE_ADDRESS);
+
+        // we follow check-effects-interactions pattern to write state before external call
         ownerToCapsule[msg.sender] = capsule;
+        capsule.initialize(address(this), msg.sender, BEACON_ORACLE_ADDRESS);
 
         emit CapsuleCreated(msg.sender, address(capsule));
 
@@ -57,7 +73,7 @@ abstract contract NativeRestakingController is
     function depositBeaconChainValidator(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata proof
-    ) external payable whenNotPaused {
+    ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
         IExoCapsule capsule = _getCapsule(msg.sender);
         uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
 

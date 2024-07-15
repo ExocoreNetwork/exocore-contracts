@@ -12,11 +12,8 @@ import "../src/interfaces/precompiles/IDelegation.sol";
 
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import {IBeacon} from "@openzeppelin-contracts/contracts/proxy/beacon/IBeacon.sol";
-import {
-    ERC20PresetFixedSupply,
-    IERC20
-} from "@openzeppelin-contracts/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
+import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
+import {ERC20PresetFixedSupply, IERC20} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
 contract BaseScript is Script {
@@ -69,6 +66,8 @@ contract BaseScript is Script {
 
     uint256 constant DEPOSIT_AMOUNT = 1 ether;
     uint256 constant WITHDRAW_AMOUNT = 1 ether;
+    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    uint256 internal constant TOKEN_ADDRESS_BYTES_LENGTH = 32;
 
     bool useExocorePrecompileMock;
     bool useEndpointMock;
