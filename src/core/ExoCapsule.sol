@@ -10,7 +10,7 @@ import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsule {
 
