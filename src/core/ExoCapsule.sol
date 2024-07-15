@@ -24,11 +24,11 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     event WithdrawalSuccess(address, address, uint256);
     /// @notice Emitted when a partial withdrawal claim is successfully redeemed
     event PartialWithdrawalRedeemed(
-        bytes32 pubkey, uint256 withdrawalTimestamp, address indexed recipient, uint64 partialWithdrawalAmountGwei
+        bytes32 pubkey, uint256 withdrawalEpoch, address indexed recipient, uint64 partialWithdrawalAmountGwei
     );
     /// @notice Emitted when an ETH validator is prove to have fully withdrawn from the beacon chain
     event FullWithdrawalRedeemed(
-        bytes32 pubkey, uint256 withdrawalTimestamp, address indexed recipient, uint64 withdrawalAmountGwei
+        bytes32 pubkey, uint64 withdrawalEpoch, address indexed recipient, uint64 withdrawalAmountGwei
     );
     /// @notice Emitted when capsuleOwner enables restaking
     event RestakingActivated(address indexed capsuleOwner);
@@ -136,7 +136,8 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     ) external onlyGateway returns (bool partialWithdrawal, uint256 withdrawalAmount) {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         Validator storage validator = _capsuleValidators[validatorPubkey];
-        partialWithdrawal = withdrawalProof.slotRoot.getWithdrawalEpoch() < validatorContainer.getWithdrawableEpoch();
+        uint64 withdrawalEpoch = withdrawalProof.slotRoot.getWithdrawalEpoch();
+        partialWithdrawal = withdrawalEpoch < validatorContainer.getWithdrawableEpoch();
 
         if (!validatorContainer.verifyValidatorContainerBasic()) {
             revert InvalidValidatorContainer(validatorPubkey);
@@ -158,14 +159,14 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
 
         if (partialWithdrawal) {
             // Immediately send ETH without sending request to Exocore side
-            emit PartialWithdrawalRedeemed(validatorPubkey, withdrawalTimestamp, capsuleOwner, withdrawalAmountGwei);
+            emit PartialWithdrawalRedeemed(validatorPubkey, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
             _sendETH(capsuleOwner, withdrawalAmountGwei * GWEI_TO_WEI);
         } else {
             // Full withdrawal
             validator.status = VALIDATOR_STATUS.WITHDRAWN;
             validator.restakedBalanceGwei = 0;
             // If over MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32 * 1e9, then send remaining amount immediately
-            emit FullWithdrawalRedeemed(validatorPubkey, withdrawalTimestamp, capsuleOwner, withdrawalAmountGwei);
+            emit FullWithdrawalRedeemed(validatorPubkey, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
             if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
                 uint256 amountToSend = (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI;
                 _sendETH(capsuleOwner, amountToSend);
@@ -278,8 +279,6 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         BeaconChainProofs.WithdrawalProof calldata proof
     ) internal view {
         // To-do check withdrawalContainer length is valid
-        // Get withdrawal timestamp from timestamp root
-        uint256 withdrawalTimestamp = proof.timestampRoot.fromLittleEndianUint64();
         bytes32 withdrawalContainerRoot = withdrawalContainer.merklelizeWithdrawalContainer();
         bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(proof);
         if (!valid) {

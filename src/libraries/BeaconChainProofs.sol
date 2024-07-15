@@ -20,6 +20,19 @@ library BeaconChainProofs {
 
     uint256 internal constant BEACON_STATE_FIELD_TREE_HEIGHT = 5;
 
+    uint256 internal constant DENEB_FORK_TIMESTAMP = 1_710_338_135;
+    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA = 4;
+    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB = 5; // After deneb hard fork, it's
+
+    // increased from 4 to 5
+    // SLOTS_PER_HISTORICAL_ROOT = 2**13, so tree height is 13
+    uint256 internal constant BLOCK_ROOTS_TREE_HEIGHT = 13;
+
+    //Index of block_summary_root in historical_summary container
+    uint256 internal constant BLOCK_SUMMARY_ROOT_INDEX = 0;
+    //HISTORICAL_ROOTS_LIMIT = 2**24, so tree height is 24
+    uint256 internal constant HISTORICAL_SUMMARIES_TREE_HEIGHT = 24;
+
     uint256 internal constant VALIDATOR_TREE_HEIGHT = 40;
 
     // MAX_WITHDRAWALS_PER_PAYLOAD = 2**4, making tree height = 4
@@ -29,6 +42,7 @@ library BeaconChainProofs {
     // https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconblockbody
     uint256 internal constant EXECUTION_PAYLOAD_INDEX = 9;
 
+    uint256 internal constant SLOT_INDEX = 0;
     // in beacon block header
     // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconblockheader
     uint256 internal constant STATE_ROOT_INDEX = 3;
@@ -36,7 +50,10 @@ library BeaconChainProofs {
     // in beacon state
     // https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconstate
     uint256 internal constant VALIDATOR_TREE_ROOT_INDEX = 11;
+    uint256 internal constant HISTORICAL_SUMMARIES_INDEX = 27;
 
+    // in execution payload header
+    uint256 internal constant TIMESTAMP_INDEX = 9;
     //in execution payload
     uint256 internal constant WITHDRAWALS_INDEX = 14;
 
