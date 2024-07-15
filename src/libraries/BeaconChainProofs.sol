@@ -264,4 +264,11 @@ library BeaconChainProofs {
         return Endian.fromLittleEndianUint64(withdrawalProof.timestampRoot);
     }
 
+    /**
+     * @dev Converts the withdrawal's slot to an epoch
+     */
+    function getWithdrawalEpoch(bytes32 slotRoot) internal pure returns (uint64) {
+        return Endian.fromLittleEndianUint64(slotRoot) / SLOTS_PER_EPOCH;
+    }
+
 }

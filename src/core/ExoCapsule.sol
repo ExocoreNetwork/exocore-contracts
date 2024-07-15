@@ -135,9 +135,8 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external onlyGateway returns (bool partialWithdrawal, uint256 withdrawalAmount) {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
-        uint64 withdrawableEpoch = validatorContainer.getWithdrawableEpoch();
         Validator storage validator = _capsuleValidators[validatorPubkey];
-        partialWithdrawal = _timestampToEpoch(validatorProof.beaconBlockTimestamp) < withdrawableEpoch;
+        partialWithdrawal = withdrawalProof.slotRoot.getWithdrawalEpoch() < validatorContainer.getWithdrawableEpoch();
 
         if (!validatorContainer.verifyValidatorContainerBasic()) {
             revert InvalidValidatorContainer(validatorPubkey);
