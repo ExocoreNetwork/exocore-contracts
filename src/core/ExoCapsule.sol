@@ -10,9 +10,9 @@ import {WithdrawalContainer} from "../libraries/WithdrawalContainer.sol";
 import {ExoCapsuleStorage} from "../storage/ExoCapsuleStorage.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 
-contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
+contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsule {
 
     using BeaconChainProofs for bytes32;
     using Endian for bytes32;
@@ -181,6 +181,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         require(
             amount <= withdrawableBalance, "ExoCapsule: withdrawal amount is larger than staker's withdrawable balance"
         );
+        require(recipient != address(0), "Zero Address");
 
         withdrawableBalance -= amount;
         _sendETH(recipient, amount);
@@ -194,6 +195,8 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
             amountToWithdraw <= nonBeaconChainETHBalance,
             "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
         );
+        require(recipient != address(0), "Zero Address");
+
         nonBeaconChainETHBalance -= amountToWithdraw;
         _sendETH(recipient, amountToWithdraw);
         emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
@@ -248,7 +251,7 @@ contract ExoCapsule is Initializable, ExoCapsuleStorage, IExoCapsule {
         return validator;
     }
 
-    function _sendETH(address recipient, uint256 amountWei) internal {
+    function _sendETH(address recipient, uint256 amountWei) internal nonReentrant {
         (bool sent,) = recipient.call{value: amountWei}("");
         if (!sent) {
             revert WithdrawalFailure(capsuleOwner, recipient, amountWei);
