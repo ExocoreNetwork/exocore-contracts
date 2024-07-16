@@ -249,6 +249,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         return validator;
     }
 
+    // slither-disable-next-line arbitrary-send-eth
     function _sendETH(address recipient, uint256 amountWei) internal nonReentrant {
         (bool sent,) = recipient.call{value: amountWei}("");
         if (!sent) {
