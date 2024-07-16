@@ -2,6 +2,7 @@ pragma solidity ^0.8.0;
 
 import {Endian} from "../libraries/Endian.sol";
 import {Merkle} from "./Merkle.sol";
+
 // Utility library for parsing and PHASE0 beacon chain block headers
 // SSZ
 // Spec: https://github.com/ethereum/consensus-specs/blob/dev/ssz/simple-serialize.md#merkleization
@@ -156,20 +157,16 @@ library BeaconChainProofs {
         require(
             proof.historicalSummaryIndex < 2 ** HISTORICAL_SUMMARIES_TREE_HEIGHT, "historicalSummaryIndex too large"
         );
-        uint256 withdrawalTimestamp = getWithdrawalTimestamp(proof);
         bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(proof);
-
         bool validHistoricalSummary = isValidHistoricalSummaryRoot(proof);
-
         bool validWCRootAgainstExecutionPayloadRoot =
             isValidWCRootAgainstExecutionPayloadRoot(proof, withdrawalContainerRoot);
-
         if (validExecutionPayloadRoot && validHistoricalSummary && validWCRootAgainstExecutionPayloadRoot) {
             valid = true;
         }
     }
 
-    function isValidExecutionPayloadRoot(WithdrawalProof calldata withdrawalProof) internal view returns (bool) {
+    function isValidExecutionPayloadRoot(WithdrawalProof calldata withdrawalProof) internal pure returns (bool) {
         uint256 withdrawalTimestamp = getWithdrawalTimestamp(withdrawalProof);
         // Post deneb hard fork, executionPayloadHeader fields increased
         uint256 executionPayloadHeaderFieldTreeHeight = withdrawalTimestamp < DENEB_FORK_TIMESTAMP
@@ -192,6 +189,7 @@ library BeaconChainProofs {
             withdrawalProof.timestampProof.length == executionPayloadHeaderFieldTreeHeight,
             "timestampProof has incorrect length"
         );
+        return true;
     }
 
     function isValidWCRootAgainstExecutionPayloadRoot(

@@ -314,22 +314,8 @@ contract WithdrawalSetup is Test {
     IExoCapsule.ValidatorContainerProof validatorProof;
 
     bytes32[] withdrawalContainer;
-    /**
-     * struct WithdrawalContainerProof {
-     *     uint256 beaconBlockTimestamp;
-     *     bytes32 executionPayloadRoot;
-     *     bytes32[] executionPayloadRootProof;
-     *     bytes32[] withdrawalContainerRootProof;
-     *     bytes32[] historicalSummaryBlockRootProof;
-     *     uint256 historicalSummaryIndex;
-     *     bytes32 blockRoot;
-     *     uint256 blockRootIndex;
-     *     uint256 withdrawalIndex;
-     * }
-     */
-    IExoCapsule.WithdrawalContainerProof withdrawalProof;
+    BeaconChainProofs.WithdrawalProof withdrawalProof;
     bytes32 beaconBlockRoot; // latest beacon block root
-    bytes32 withdrawBeaconBlockRoot; // block root for withdrawal proof
 
     ExoCapsule capsule;
     IBeaconChainOracle beaconOracle;
@@ -420,41 +406,40 @@ contract WithdrawalSetup is Test {
         withdrawalContainer = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalFields");
         require(withdrawalContainer.length > 0, "validator container should not be empty");
 
-        withdrawalProof.stateRoot = stdJson.readBytes32(withdrawalInfo, ".beaconStateRoot");
-        require(withdrawalProof.stateRoot != bytes32(0), "state root should not be empty");
+        // bytes32 array proof data
+        withdrawalProof.withdrawalContainerRootProof = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalProof");
+        withdrawalProof.slotProof = stdJson.readBytes32Array(withdrawalInfo, ".SlotProof");
+        withdrawalProof.executionPayloadRootProof = stdJson.readBytes32Array(withdrawalInfo, ".ExecutionPayloadProof");
+        withdrawalProof.timestampProof = stdJson.readBytes32Array(withdrawalInfo, ".TimestampProof");
+        withdrawalProof.historicalSummaryBlockRootProof =
+            stdJson.readBytes32Array(withdrawalInfo, ".HistoricalSummaryProof");
 
+        // Index data
         withdrawalProof.blockRootIndex = stdJson.readUint(withdrawalInfo, ".blockHeaderRootIndex");
         require(withdrawalProof.blockRootIndex != 0, "block header root index should not be 0");
-
-        withdrawalProof.withdrawalIndex = stdJson.readUint(withdrawalInfo, ".withdrawalIndex");
 
         withdrawalProof.historicalSummaryIndex = stdJson.readUint(withdrawalInfo, ".historicalSummaryIndex");
         require(withdrawalProof.historicalSummaryIndex != 0, "historical summary index should not be 0");
 
-        withdrawalProof.historicalSummaryBlockRootProof =
-            stdJson.readBytes32Array(withdrawalInfo, ".HistoricalSummaryProof");
-        withdrawalProof.withdrawalContainerRootProof = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalProof");
-        withdrawalProof.executionPayloadRoot = stdJson.readBytes32(withdrawalInfo, ".executionPayloadRoot");
-        withdrawalProof.executionPayloadRootProof = stdJson.readBytes32Array(withdrawalInfo, ".ExecutionPayloadProof");
+        withdrawalProof.withdrawalIndex = stdJson.readUint(withdrawalInfo, ".withdrawalIndex");
 
-        withdrawBeaconBlockRoot = stdJson.readBytes32(withdrawalInfo, ".blockHeaderRoot");
-        require(withdrawBeaconBlockRoot != bytes32(0), "beacon block root should not be empty");
+        // Root data
+        withdrawalProof.blockRoot = stdJson.readBytes32(withdrawalInfo, ".blockHeaderRoot");
+        withdrawalProof.slotRoot = stdJson.readBytes32(withdrawalInfo, ".slotRoot");
+        withdrawalProof.timestampRoot = stdJson.readBytes32(withdrawalInfo, ".timestampRoot");
+        withdrawalProof.executionPayloadRoot = stdJson.readBytes32(withdrawalInfo, ".executionPayloadRoot");
+        withdrawalProof.stateRoot = stdJson.readBytes32(withdrawalInfo, ".beaconStateRoot");
+        require(withdrawalProof.stateRoot != bytes32(0), "state root should not be empty");
     }
 
     function _setTimeStamp() internal {
-        withdrawalProof.beaconBlockTimestamp = activationTimestamp + SECONDS_PER_SLOT;
-        validatorProof.beaconBlockTimestamp = withdrawalProof.beaconBlockTimestamp + SECONDS_PER_SLOT;
+        validatorProof.beaconBlockTimestamp = activationTimestamp + SECONDS_PER_SLOT;
         mockCurrentBlockTimestamp = validatorProof.beaconBlockTimestamp + SECONDS_PER_SLOT;
         vm.warp(mockCurrentBlockTimestamp);
         vm.mockCall(
             address(beaconOracle),
             abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, validatorProof.beaconBlockTimestamp),
             abi.encode(beaconBlockRoot)
-        );
-        vm.mockCall(
-            address(beaconOracle),
-            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, withdrawalProof.beaconBlockTimestamp),
-            abi.encode(withdrawBeaconBlockRoot)
         );
     }
 
@@ -526,7 +511,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
             abi.encodeWithSelector(
                 ExoCapsule.WithdrawalAlreadyProven.selector,
                 _getPubkey(validatorContainer),
-                withdrawalProof.beaconBlockTimestamp
+                withdrawalProof.withdrawalIndex
             )
         );
         capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);

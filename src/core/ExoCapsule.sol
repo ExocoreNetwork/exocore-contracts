@@ -193,7 +193,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
             amountToWithdraw <= nonBeaconChainETHBalance,
             "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
         );
-        require(recipient != address(0), "Zero Address");
+        require(recipient != address(0), "ExoCapsule: recipient address cannot be zero or empty");
 
         nonBeaconChainETHBalance -= amountToWithdraw;
         _sendETH(recipient, amountToWithdraw);
