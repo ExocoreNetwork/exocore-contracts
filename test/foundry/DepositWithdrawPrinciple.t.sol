@@ -13,7 +13,6 @@ import "forge-std/Test.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
-import "forge-std/console.sol";
 
 contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
@@ -247,7 +246,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         _testNativeDeposit(depositor, relayer, lastlyUpdatedPrincipalBalance);
         lastlyUpdatedPrincipalBalance += 32 ether;
-        // _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);
+        _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);
     }
 
     function _testNativeDeposit(Player memory depositor, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
@@ -296,6 +295,11 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
         uint64 depositRequestNonce = 1;
         uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
+        // Cap to 32 ether
+        if (depositAmount >= 32 ether) {
+            depositAmount = 32 ether;
+        }
+
         bytes memory depositRequestPayload = abi.encodePacked(
             GatewayStorage.Action.REQUEST_DEPOSIT,
             bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
@@ -349,7 +353,6 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit MessageSent(
             GatewayStorage.Action.RESPOND, depositResponseId, depositResponseNonce, depositResponseNativeFee
         );
-        console.log("--> received");
         /// relayer catches the request message packet by listening to client chain event and feed it to Exocore network
         vm.startPrank(relayer.addr);
         exocoreLzEndpoint.lzReceive(
@@ -399,122 +402,119 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         );
     }
 
-    // function _testNativeWithdraw(Player memory withdrawer, Player memory relayer, uint256
-    // lastlyUpdatedPrincipalBalance)
-    //     internal
-    // {
-    //     // before native withdraw, we simulate proper block environment states to make proof valid
-    //     _simulateBlockEnvironmentForNativeWithdraw();
-    //     deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
+    function _testNativeWithdraw(Player memory withdrawer, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
+        internal
+    {
+        // before native withdraw, we simulate proper block environment states to make proof valid
+        _simulateBlockEnvironmentForNativeWithdraw();
+        deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
 
-    //     // 2. withdrawer will call clientGateway.processBeaconChainWithdrawal to withdraw from Exocore thru layerzero
+        // 2. withdrawer will call clientGateway.processBeaconChainWithdrawal to withdraw from Exocore thru layerzero
 
-    //     /// client chain layerzero endpoint should emit the message packet including deposit payload.
-    //     uint64 withdrawRequestNonce = 3;
-    //     uint64 withdrawalAmountGwei = _getWithdrawalAmount(withdrawalContainer);
-    //     uint256 withdrawalAmount;
-    //     if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-    //         withdrawalAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
-    //     } else {
-    //         withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
-    //     }
-    //     bytes memory withdrawRequestPayload = abi.encodePacked(
-    //         GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
-    //         bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
-    //         bytes32(bytes20(withdrawer.addr)),
-    //         withdrawalAmount
-    //     );
-    //     uint256 withdrawRequestNativeFee = clientGateway.quote(withdrawRequestPayload);
-    //     bytes32 withdrawRequestId = generateUID(withdrawRequestNonce, true);
+        /// client chain layerzero endpoint should emit the message packet including deposit payload.
+        uint64 withdrawRequestNonce = 2;
+        uint64 withdrawalAmountGwei = _getWithdrawalAmount(withdrawalContainer);
+        uint256 withdrawalAmount;
+        if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
+            withdrawalAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
+        } else {
+            withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
+        }
+        bytes memory withdrawRequestPayload = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
+            bytes32(bytes20(withdrawer.addr)),
+            withdrawalAmount
+        );
+        uint256 withdrawRequestNativeFee = clientGateway.quote(withdrawRequestPayload);
+        bytes32 withdrawRequestId = generateUID(withdrawRequestNonce, true);
 
-    //     // client chain layerzero endpoint should emit the message packet including withdraw payload.
-    //     vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
-    //     emit NewPacket(
-    //         exocoreChainId,
-    //         address(clientGateway),
-    //         address(exocoreGateway).toBytes32(),
-    //         withdrawRequestNonce,
-    //         withdrawRequestPayload
-    //     );
-    //     // client chain gateway should emit MessageSent event
-    //     vm.expectEmit(true, true, true, true, address(clientGateway));
-    //     emit MessageSent(
-    //         GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
-    //         withdrawRequestId,
-    //         withdrawRequestNonce,
-    //         withdrawRequestNativeFee
-    //     );
+        // client chain layerzero endpoint should emit the message packet including withdraw payload.
+        vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
+        emit NewPacket(
+            exocoreChainId,
+            address(clientGateway),
+            address(exocoreGateway).toBytes32(),
+            withdrawRequestNonce,
+            withdrawRequestPayload
+        );
+        // client chain gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit MessageSent(
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            withdrawRequestId,
+            withdrawRequestNonce,
+            withdrawRequestNativeFee
+        );
 
-    //     vm.startPrank(withdrawer.addr);
-    //     clientGateway.processBeaconChainWithdrawal{value: withdrawRequestNativeFee}(
-    //         validatorContainer, validatorProof, withdrawalContainer, withdrawalProof
-    //     );
-    //     vm.stopPrank();
+        vm.startPrank(withdrawer.addr);
+        clientGateway.processBeaconChainWithdrawal{value: withdrawRequestNativeFee}(
+            validatorContainer, validatorProof, withdrawalContainer, withdrawalProof
+        );
+        vm.stopPrank();
 
-    //     /// exocore gateway should return response message to exocore network layerzero endpoint
-    //     uint64 withdrawResponseNonce = 3;
-    //     lastlyUpdatedPrincipalBalance -= withdrawalAmount;
-    //     bytes memory withdrawResponsePayload =
-    //         abi.encodePacked(GatewayStorage.Action.RESPOND, withdrawRequestNonce, true,
-    // lastlyUpdatedPrincipalBalance);
-    //     uint256 withdrawResponseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
-    //     bytes32 withdrawResponseId = generateUID(withdrawResponseNonce, false);
+        /// exocore gateway should return response message to exocore network layerzero endpoint
+        uint64 withdrawResponseNonce = 3;
+        lastlyUpdatedPrincipalBalance -= withdrawalAmount;
+        bytes memory withdrawResponsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, withdrawRequestNonce, true, lastlyUpdatedPrincipalBalance);
+        uint256 withdrawResponseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
+        bytes32 withdrawResponseId = generateUID(withdrawResponseNonce, false);
 
-    //     // exocore gateway should return response message to exocore network layerzero endpoint
-    //     vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
-    //     emit NewPacket(
-    //         clientChainId,
-    //         address(exocoreGateway),
-    //         address(clientGateway).toBytes32(),
-    //         withdrawResponseNonce,
-    //         withdrawResponsePayload
-    //     );
-    //     // exocore gateway should emit MessageSent event
-    //     vm.expectEmit(true, true, true, true, address(exocoreGateway));
-    //     emit MessageSent(
-    //         GatewayStorage.Action.RESPOND, withdrawResponseId, withdrawResponseNonce, withdrawResponseNativeFee
-    //     );
-    //     exocoreLzEndpoint.lzReceive(
-    //         Origin(clientChainId, address(clientGateway).toBytes32(), withdrawRequestNonce),
-    //         address(exocoreGateway),
-    //         withdrawRequestId,
-    //         withdrawRequestPayload,
-    //         bytes("")
-    //     );
+        // exocore gateway should return response message to exocore network layerzero endpoint
+        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
+        emit NewPacket(
+            clientChainId,
+            address(exocoreGateway),
+            address(clientGateway).toBytes32(),
+            withdrawResponseNonce,
+            withdrawResponsePayload
+        );
+        // exocore gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit MessageSent(
+            GatewayStorage.Action.RESPOND, withdrawResponseId, withdrawResponseNonce, withdrawResponseNativeFee
+        );
+        exocoreLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), withdrawRequestNonce),
+            address(exocoreGateway),
+            withdrawRequestId,
+            withdrawRequestPayload,
+            bytes("")
+        );
 
-    //     // client chain gateway should execute the response hook and emit depositResult event
-    //     vm.expectEmit(true, true, true, true, address(clientGateway));
-    //     emit WithdrawPrincipalResult(true, address(VIRTUAL_STAKED_ETH_ADDRESS), withdrawer.addr, withdrawalAmount);
-    //     clientChainLzEndpoint.lzReceive(
-    //         Origin(exocoreChainId, address(exocoreGateway).toBytes32(), withdrawResponseNonce),
-    //         address(clientGateway),
-    //         withdrawResponseId,
-    //         withdrawResponsePayload,
-    //         bytes("")
-    //     );
-    // }
+        // client chain gateway should execute the response hook and emit depositResult event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit WithdrawPrincipalResult(true, address(VIRTUAL_STAKED_ETH_ADDRESS), withdrawer.addr, withdrawalAmount);
+        clientChainLzEndpoint.lzReceive(
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), withdrawResponseNonce),
+            address(clientGateway),
+            withdrawResponseId,
+            withdrawResponsePayload,
+            bytes("")
+        );
+    }
 
-    // function _simulateBlockEnvironmentForNativeWithdraw() internal {
-    //     // load beacon chain validator container and proof from json file
-    //     string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
-    //     _loadValidatorContainer(withdrawalInfo);
-    //     // load withdrawal proof
-    //     _loadWithdrawalContainer(withdrawalInfo);
+    function _simulateBlockEnvironmentForNativeWithdraw() internal {
+        // load beacon chain validator container and proof from json file
+        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
+        _loadValidatorContainer(withdrawalInfo);
+        // load withdrawal proof
+        _loadWithdrawalContainer(withdrawalInfo);
 
-    //     activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) *
-    // SECONDS_PER_EPOCH;
-    //     mockProofTimestamp = activationTimestamp;
-    //     validatorProof.beaconBlockTimestamp = mockProofTimestamp;
+        activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        mockProofTimestamp = activationTimestamp;
+        validatorProof.beaconBlockTimestamp = mockProofTimestamp;
 
-    //     /// we set current block timestamp to be exactly one slot after the proof generation timestamp
-    //     mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
-    //     vm.warp(mockCurrentBlockTimestamp);
+        /// we set current block timestamp to be exactly one slot after the proof generation timestamp
+        mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
+        vm.warp(mockCurrentBlockTimestamp);
 
-    //     vm.mockCall(
-    //         address(beaconOracle),
-    //         abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, validatorProof.beaconBlockTimestamp),
-    //         abi.encode(beaconBlockRoot)
-    //     );
-    // }
+        vm.mockCall(
+            address(beaconOracle),
+            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, validatorProof.beaconBlockTimestamp),
+            abi.encode(beaconBlockRoot)
+        );
+    }
 
 }
