@@ -13,7 +13,7 @@ import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 
 import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
-import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
+import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
 
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
@@ -21,11 +21,6 @@ import {IVault} from "../interfaces/IVault.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 
-// ClientChainGateway differences:
-// replace IClientChainGateway with ITokenWhitelister (excludes only quote function).
-// add a new interface for operator registration.
-// replace ClientGatewayLzReceiver with BootstrapLzReceiver, which handles only incoming calls
-// and not responses.
 contract Bootstrap is
     Initializable,
     PausableUpgradeable,
@@ -33,7 +28,7 @@ contract Bootstrap is
     ReentrancyGuardUpgradeable,
     ITokenWhitelister,
     ILSTRestakingController,
-    IOperatorRegistry,
+    IValidatorRegistry,
     BootstrapLzReceiver
 {
 
@@ -185,19 +180,19 @@ contract Bootstrap is
         return whitelistTokens.length;
     }
 
-    // implementation of IOperatorRegistry
-    function registerOperator(
-        string calldata operatorExocoreAddress,
+    // implementation of IValidatorRegistry
+    function registerValidator(
+        string calldata validatorAddress,
         string calldata name,
         Commission memory commission,
         bytes32 consensusPublicKey
-    ) external beforeLocked whenNotPaused isValidBech32Address(operatorExocoreAddress) {
-        // ensure that there is only one operator per ethereum address
-        require(bytes(ethToExocoreAddress[msg.sender]).length == 0, "Ethereum address already linked to an operator");
-        // check if operator with the same exocore address already exists
+    ) external beforeLocked whenNotPaused isValidBech32Address(validatorAddress) {
+        // ensure that there is only one validator per ethereum address
+        require(bytes(ethToExocoreAddress[msg.sender]).length == 0, "Ethereum address already linked to a validator");
+        // check if validator with the same exocore address already exists
         require(
-            bytes(operators[operatorExocoreAddress].name).length == 0,
-            "Operator with this Exocore address is already registered"
+            bytes(validators[validatorAddress].name).length == 0,
+            "Validator with this Exocore address is already registered"
         );
         // check that the consensus key is unique.
         require(!consensusPublicKeyInUse(consensusPublicKey), "Consensus public key already in use");
@@ -205,20 +200,20 @@ contract Bootstrap is
         require(!nameInUse(name), "Name already in use");
         // check that the commission is valid.
         require(isCommissionValid(commission), "invalid commission");
-        ethToExocoreAddress[msg.sender] = operatorExocoreAddress;
-        operators[operatorExocoreAddress] =
-            IOperatorRegistry.Operator({name: name, commission: commission, consensusPublicKey: consensusPublicKey});
-        registeredOperators.push(msg.sender);
-        emit OperatorRegistered(msg.sender, operatorExocoreAddress, name, commission, consensusPublicKey);
+        ethToExocoreAddress[msg.sender] = validatorAddress;
+        validators[validatorAddress] =
+            IValidatorRegistry.Validator({name: name, commission: commission, consensusPublicKey: consensusPublicKey});
+        registeredValidators.push(msg.sender);
+        emit ValidatorRegistered(msg.sender, validatorAddress, name, commission, consensusPublicKey);
     }
 
     /**
-     * @dev Checks if a given consensus public key is already in use by any registered operator.
+     * @dev Checks if a given consensus public key is already in use by any registered validator.
      *
-     * This function iterates over all registered operators stored in the contract's state
-     * to determine if the provided consensus public key matches any existing operator's
+     * This function iterates over all registered validators stored in the contract's state
+     * to determine if the provided consensus public key matches any existing validator's
      * public key. It is designed to ensure the uniqueness of consensus public keys among
-     * operators, as each operator must have a distinct consensus public key to maintain
+     * validators, as each validator must have a distinct consensus public key to maintain
      * integrity and avoid potential conflicts or security issues.
      *
      * @param newKey The consensus public key to check for uniqueness. This key is expected
@@ -226,17 +221,17 @@ contract Bootstrap is
      * storing and handling public keys in Ethereum smart contracts.
      *
      * @return bool Returns `true` if the consensus public key is already in use by an
-     * existing operator, indicating that the key is not unique. Returns `false` if the
-     * public key is not found among the registered operators, indicating that the key
-     * is unique and can be safely used for a new or updating operator.
+     * existing validator, indicating that the key is not unique. Returns `false` if the
+     * public key is not found among the registered validators, indicating that the key
+     * is unique and can be safely used for a new or updating validator.
      */
     function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
         require(newKey != bytes32(0), "Consensus public key cannot be zero");
-        uint256 arrayLength = registeredOperators.length;
+        uint256 arrayLength = registeredValidators.length;
         for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredOperators[i];
+            address ethAddress = registeredValidators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (operators[exoAddress].consensusPublicKey == newKey) {
+            if (validators[exoAddress].consensusPublicKey == newKey) {
                 return true;
             }
         }
@@ -263,61 +258,61 @@ contract Bootstrap is
     }
 
     /**
-     * @dev Checks if a given name is already in use by any registered operator.
+     * @dev Checks if a given name is already in use by any registered validator.
      *
-     * This function iterates over all registered operators stored in the contract's state
-     * to determine if the provided name matches any existing operator's name. It is
-     * designed to ensure the uniqueness of name (identity) among operators, as each
-     * operator must have a distinct name to maintain integrity and avoid potential
+     * This function iterates over all registered validators stored in the contract's state
+     * to determine if the provided name matches any existing validator's name. It is
+     * designed to ensure the uniqueness of name (identity) among validators, as each
+     * validator must have a distinct name to maintain integrity and avoid potential
      * conflicts or security issues.
      *
      * @param newName The name to check for uniqueness, as a string.
      *
-     * @return bool Returns `true` if the name is already in use by an existing operator,
+     * @return bool Returns `true` if the name is already in use by an existing validator,
      * indicating that the name is not unique. Returns `false` if the name is not found
-     * among the registered operators, indicating that the name is unique and can be
-     * safely used for a new operator.
+     * among the registered validators, indicating that the name is unique and can be
+     * safely used for a new validator.
      */
     function nameInUse(string memory newName) public view returns (bool) {
-        uint256 arrayLength = registeredOperators.length;
+        uint256 arrayLength = registeredValidators.length;
         for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredOperators[i];
+            address ethAddress = registeredValidators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (keccak256(abi.encodePacked(operators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
+            if (keccak256(abi.encodePacked(validators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
                 return true;
             }
         }
         return false;
     }
 
-    // implementation of IOperatorRegistry
+    // implementation of IValidatorRegistry
     function replaceKey(bytes32 newKey) external beforeLocked whenNotPaused {
-        require(bytes(ethToExocoreAddress[msg.sender]).length != 0, "no such operator exists");
+        require(bytes(ethToExocoreAddress[msg.sender]).length != 0, "no such validator exists");
         require(!consensusPublicKeyInUse(newKey), "Consensus public key already in use");
-        operators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
-        emit OperatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
+        validators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
+        emit ValidatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
     }
 
-    // implementation of IOperatorRegistry
+    // implementation of IValidatorRegistry
     function updateRate(uint256 newRate) external beforeLocked whenNotPaused {
-        string memory operatorAddress = ethToExocoreAddress[msg.sender];
-        require(bytes(operatorAddress).length != 0, "no such operator exists");
+        string memory validatorAddress = ethToExocoreAddress[msg.sender];
+        require(bytes(validatorAddress).length != 0, "no such validator exists");
         // across the lifetime of this contract before network bootstrap,
         // allow the editing of commission only once.
-        require(!commissionEdited[operatorAddress], "Commission already edited once");
-        Commission memory commission = operators[operatorAddress].commission;
+        require(!commissionEdited[validatorAddress], "Commission already edited once");
+        Commission memory commission = validators[validatorAddress].commission;
         uint256 rate = commission.rate;
         uint256 maxRate = commission.maxRate;
         uint256 maxChangeRate = commission.maxChangeRate;
         // newRate <= maxRate <= 1e18
         require(newRate <= maxRate, "Rate exceeds max rate");
-        // to prevent operators from blindsiding users by first registering at low rate and
+        // to prevent validators from blindsiding users by first registering at low rate and
         // subsequently increasing it, we should also check that the change is within the
         // allowed rate change.
         require(newRate <= rate + maxChangeRate, "Rate change exceeds max change rate");
-        operators[operatorAddress].commission.rate = newRate;
-        commissionEdited[operatorAddress] = true;
-        emit OperatorCommissionUpdated(newRate);
+        validators[validatorAddress].commission.rate = newRate;
+        commissionEdited[validatorAddress] = true;
+        emit ValidatorCommissionUpdated(newRate);
     }
 
     // implementation of ILSTRestakingController
@@ -414,7 +409,7 @@ contract Bootstrap is
     }
 
     // implementation of ILSTRestakingController
-    function delegateTo(string calldata operator, address token, uint256 amount)
+    function delegateTo(string calldata validator, address token, uint256 amount)
         external
         payable
         override
@@ -422,30 +417,30 @@ contract Bootstrap is
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
-        isValidBech32Address(operator)
+        isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
-        _delegateTo(msg.sender, operator, token, amount);
+        _delegateTo(msg.sender, validator, token, amount);
     }
 
-    function _delegateTo(address user, string calldata operator, address token, uint256 amount) internal {
+    function _delegateTo(address user, string calldata validator, address token, uint256 amount) internal {
         require(msg.value == 0, "Bootstrap: no ether required for delegation");
-        // check that operator is registered
-        require(bytes(operators[operator].name).length != 0, "Operator does not exist");
-        // operator can't be frozen and amount can't be negative
+        // check that validator is registered
+        require(bytes(validators[validator].name).length != 0, "Validator does not exist");
+        // validator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
         uint256 withdrawable = withdrawableAmounts[msg.sender][token];
         require(withdrawable >= amount, "Bootstrap: insufficient withdrawable balance");
-        delegations[user][operator][token] += amount;
-        delegationsByOperator[operator][token] += amount;
+        delegations[user][validator][token] += amount;
+        delegationsByValidator[validator][token] += amount;
         withdrawableAmounts[user][token] -= amount;
 
-        emit DelegateResult(true, user, operator, token, amount);
+        emit DelegateResult(true, user, validator, token, amount);
     }
 
     // implementation of ILSTRestakingController
-    function undelegateFrom(string calldata operator, address token, uint256 amount)
+    function undelegateFrom(string calldata validator, address token, uint256 amount)
         external
         payable
         override
@@ -453,27 +448,27 @@ contract Bootstrap is
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
-        isValidBech32Address(operator)
+        isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
-        _undelegateFrom(msg.sender, operator, token, amount);
+        _undelegateFrom(msg.sender, validator, token, amount);
     }
 
-    function _undelegateFrom(address user, string calldata operator, address token, uint256 amount) internal {
+    function _undelegateFrom(address user, string calldata validator, address token, uint256 amount) internal {
         require(msg.value == 0, "Bootstrap: no ether required for undelegation");
-        // check that operator is registered
-        require(bytes(operators[operator].name).length != 0, "Operator does not exist");
-        // operator can't be frozen and amount can't be negative
+        // check that validator is registered
+        require(bytes(validators[validator].name).length != 0, "Validator does not exist");
+        // validator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
-        uint256 delegated = delegations[user][operator][token];
+        uint256 delegated = delegations[user][validator][token];
         require(delegated >= amount, "Bootstrap: insufficient delegated balance");
         // the undelegation is released immediately since it is not at stake yet.
-        delegations[user][operator][token] -= amount;
-        delegationsByOperator[operator][token] -= amount;
+        delegations[user][validator][token] -= amount;
+        delegationsByValidator[validator][token] -= amount;
         withdrawableAmounts[user][token] += amount;
 
-        emit UndelegateResult(true, user, operator, token, amount);
+        emit UndelegateResult(true, user, validator, token, amount);
     }
 
     // implementation of ILSTRestakingController
@@ -482,7 +477,7 @@ contract Bootstrap is
     // `Vault` contract belongs to Exocore and we could make sure it's implementation does not have dangerous behavior
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
-    function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
+    function depositThenDelegateTo(address token, uint256 amount, string calldata validator)
         external
         payable
         override
@@ -490,11 +485,11 @@ contract Bootstrap is
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
-        isValidBech32Address(operator)
+        isValidBech32Address(validator)
         nonReentrant // because it interacts with vault in deposit
     {
         _deposit(msg.sender, token, amount);
-        _delegateTo(msg.sender, operator, token, amount);
+        _delegateTo(msg.sender, validator, token, amount);
     }
 
     /**
@@ -551,12 +546,12 @@ contract Bootstrap is
     }
 
     /**
-     * @dev Gets the count of registered operators.
-     * @return The number of registered operators.
-     * @notice This function returns the total number of registered operators in the contract.
+     * @dev Gets the count of registered validators.
+     * @return The number of registered validators.
+     * @notice This function returns the total number of registered validators in the contract.
      */
-    function getOperatorsCount() external view returns (uint256) {
-        return registeredOperators.length;
+    function getValidatorsCount() external view returns (uint256) {
+        return registeredValidators.length;
     }
 
     /**

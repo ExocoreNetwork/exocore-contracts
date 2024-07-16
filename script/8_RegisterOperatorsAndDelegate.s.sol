@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {Vault} from "../src/core/Vault.sol";
-import {IOperatorRegistry} from "../src/interfaces/IOperatorRegistry.sol";
+import {IValidatorRegistry} from "../src/interfaces/IValidatorRegistry.sol";
 
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
@@ -10,11 +10,11 @@ import "forge-std/Script.sol";
 
 // This script does not intentionally inherit from BaseScript, since
 // that script has boilerplate that is not needed here.
-contract RegisterOperatorsAndDelegate is Script {
+contract RegisterValidatorsAndDelegate is Script {
 
     uint256 primaryKey;
-    // registration data for operators
-    uint256[] operatorKeys;
+    // registration data for validators
+    uint256[] validatorKeys;
     string[] exoAddresses;
     string[] names;
     bytes32[] consKeys;
@@ -34,7 +34,7 @@ contract RegisterOperatorsAndDelegate is Script {
 
     function setUp() public {
         primaryKey = vm.envUint("TEST_ACCOUNT_THREE_PRIVATE_KEY");
-        operatorKeys = vm.envUint("OPERATOR_KEYS", ",");
+        validatorKeys = vm.envUint("VALIDATOR_KEYS", ",");
         exoAddresses = vm.envString("EXO_ADDRESSES", ",");
         names = vm.envString("NAMES", ",");
         consKeys = vm.envBytes32("CONS_KEYS", ",");
@@ -43,9 +43,9 @@ contract RegisterOperatorsAndDelegate is Script {
         clientChain = vm.createSelectFork(clientChainRPCURL);
 
         require(
-            operatorKeys.length == exoAddresses.length && operatorKeys.length == names.length
-                && operatorKeys.length == consKeys.length,
-            "Operator registration data length mismatch"
+            validatorKeys.length == exoAddresses.length && validatorKeys.length == names.length
+                && validatorKeys.length == consKeys.length,
+            "Validator registration data length mismatch"
         );
 
         string memory deployedContracts = vm.readFile("script/deployedBootstrapOnly.json");
@@ -57,20 +57,20 @@ contract RegisterOperatorsAndDelegate is Script {
 
     function run() public {
         vm.selectFork(clientChain);
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         Bootstrap bootstrap = Bootstrap(bootstrapAddr);
         ERC20PresetFixedSupply token = ERC20PresetFixedSupply(tokenAddr);
         address vaultAddr = address(bootstrap.tokenToVault(tokenAddr));
-        for (uint256 i = 0; i < operatorKeys.length; i++) {
-            uint256 pk = operatorKeys[i];
+        for (uint256 i = 0; i < validatorKeys.length; i++) {
+            uint256 pk = validatorKeys[i];
             address addr = vm.addr(pk);
             console.log(i, addr);
             string memory exoAddr = exoAddresses[i];
             string memory name = names[i];
             bytes32 consKey = consKeys[i];
             vm.startBroadcast(pk);
-            // register operator
-            bootstrap.registerOperator(exoAddr, name, commission, consKey);
+            // register validator
+            bootstrap.registerValidator(exoAddr, name, commission, consKey);
             vm.stopBroadcast();
             // give them the balance
             vm.startBroadcast(primaryKey);
@@ -89,15 +89,15 @@ contract RegisterOperatorsAndDelegate is Script {
             bootstrap.deposit(tokenAddr, depositAmount);
             vm.stopBroadcast();
         }
-        for (uint256 i = 0; i < operatorKeys.length; i++) {
-            uint256 pk = operatorKeys[i];
+        for (uint256 i = 0; i < validatorKeys.length; i++) {
+            uint256 pk = validatorKeys[i];
             vm.startBroadcast(pk);
-            for (uint256 j = 0; j < operatorKeys.length; j++) {
+            for (uint256 j = 0; j < validatorKeys.length; j++) {
                 uint256 amount = amounts[i][j];
                 if (amount == 0) {
                     continue;
                 }
-                // i is the transaction sender and j is the operator
+                // i is the transaction sender and j is the validator
                 string memory exoAddr = exoAddresses[j];
                 bootstrap.delegateTo(exoAddr, tokenAddr, amount);
             }

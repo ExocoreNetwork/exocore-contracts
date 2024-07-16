@@ -14,7 +14,7 @@ import "../../src/core/BeaconProxyBytecode.sol";
 import {Bootstrap} from "../../src/core/Bootstrap.sol";
 import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
 import {Vault} from "../../src/core/Vault.sol";
-import {IOperatorRegistry} from "../../src/interfaces/IOperatorRegistry.sol";
+import {IValidatorRegistry} from "../../src/interfaces/IValidatorRegistry.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
 import {MyToken} from "../../test/foundry/unit/MyToken.sol";
 
@@ -31,8 +31,8 @@ contract DeployContracts is Script {
     uint16 exocoreChainId = 1;
     uint16 clientChainId = 2;
     address exocoreValidatorSet = vm.addr(uint256(0x8));
-    // assumes 3 operators, to add more - change registerOperators and delegate.
-    uint256[] operators;
+    // assumes 3 validators, to add more - change registerValidators and delegate.
+    uint256[] validators;
     uint256[] stakers;
     uint256 contractDeployer;
     Bootstrap bootstrap;
@@ -55,10 +55,10 @@ contract DeployContracts is Script {
 
     function setUp() private {
         // these are default values for Anvil's usual mnemonic.
-        uint256[] memory ANVIL_OPERATORS = new uint256[](3);
-        ANVIL_OPERATORS[0] = uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
-        ANVIL_OPERATORS[1] = uint256(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d);
-        ANVIL_OPERATORS[2] = uint256(0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a);
+        uint256[] memory ANVIL_VALIDATORS = new uint256[](3);
+        ANVIL_VALIDATORS[0] = uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
+        ANVIL_VALIDATORS[1] = uint256(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d);
+        ANVIL_VALIDATORS[2] = uint256(0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a);
 
         uint256[] memory ANVIL_STAKERS = new uint256[](7);
         ANVIL_STAKERS[0] = uint256(0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6);
@@ -75,22 +75,22 @@ contract DeployContracts is Script {
 
         uint256 CONTRACT_DEPLOYER = uint256(0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897);
 
-        operators = vm.envOr("KEY_OPERATORS", ",", ANVIL_OPERATORS);
-        stakers = vm.envOr("KEY_STAKERS", ",", ANVIL_STAKERS);
-        tokenDeployers = vm.envOr("KEY_TOKEN_DEPLOYERS", ",", ANVIL_TOKEN_DEPLOYERS);
-        contractDeployer = vm.envOr("KEY_DEPLOYER", CONTRACT_DEPLOYER);
+        validators = vm.envOr("ANVIL_VALIDATORS", ",", ANVIL_VALIDATORS);
+        stakers = vm.envOr("ANVIL_STAKERS", ",", ANVIL_STAKERS);
+        tokenDeployers = vm.envOr("ANVIL_TOKEN_DEPLOYERS", ",", ANVIL_TOKEN_DEPLOYERS);
+        contractDeployer = vm.envOr("CONTRACT_DEPLOYER", CONTRACT_DEPLOYER);
     }
 
     function deployTokens() private {
         string[2] memory names = ["MyToken1", "MyToken2"];
         string[2] memory symbols = ["MT1", "MT2"];
         uint256[2] memory initialBalances = [2000 * 10 ** decimals[0], 5000 * 10 ** decimals[1]];
-        address[] memory initialAddresses = new address[](operators.length + stakers.length);
-        for (uint256 i = 0; i < operators.length; i++) {
-            initialAddresses[i] = vm.addr(operators[i]);
+        address[] memory initialAddresses = new address[](validators.length + stakers.length);
+        for (uint256 i = 0; i < validators.length; i++) {
+            initialAddresses[i] = vm.addr(validators[i]);
         }
         for (uint256 i = 0; i < stakers.length; i++) {
-            initialAddresses[operators.length + i] = vm.addr(stakers[i]);
+            initialAddresses[validators.length + i] = vm.addr(stakers[i]);
         }
         for (uint256 i = 0; i < tokenDeployers.length; i++) {
             vm.startBroadcast(tokenDeployers[i]);
@@ -143,15 +143,15 @@ contract DeployContracts is Script {
     }
 
     function approveAndDeposit() private {
-        // amounts deposited by each operator, for the tokens 1 and 2.
-        uint256[2] memory operatorAmounts = [1500 * 10 ** decimals[0], 2000 * 10 ** decimals[1]];
+        // amounts deposited by each validators, for the tokens 1 and 2.
+        uint256[2] memory validatorAmounts = [1500 * 10 ** decimals[0], 2000 * 10 ** decimals[1]];
         // stakerAmounts - keep divisible by 3 for delegate
         uint256[2] memory stakerAmounts = [300 * 10 ** decimals[0], 600 * 10 ** decimals[1]];
         for (uint256 i = 0; i < whitelistTokens.length; i++) {
-            for (uint256 j = 0; j < operators.length; j++) {
-                vm.startBroadcast(operators[j]);
+            for (uint256 j = 0; j < validators.length; j++) {
+                vm.startBroadcast(validators[j]);
                 MyToken(whitelistTokens[i]).approve(address(vaults[i]), type(uint256).max);
-                bootstrap.deposit(whitelistTokens[i], operatorAmounts[i]);
+                bootstrap.deposit(whitelistTokens[i], validatorAmounts[i]);
                 vm.stopBroadcast();
             }
         }
@@ -165,7 +165,7 @@ contract DeployContracts is Script {
         }
     }
 
-    function registerOperators() private {
+    function registerValidators() private {
         // the mnemonics corresponding to the consensus public keys are given here. to recover,
         // echo "${MNEMONIC}" | exocored init localnet --chain-id exocorelocal_233-1 --recover
         // the value in this script is this one
@@ -177,7 +177,7 @@ contract DeployContracts is Script {
             "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2",
             "exo1rtg0cgw94ep744epyvanc0wdd5kedwql73vlmr"
         ];
-        string[3] memory names = ["operator1", "operator2", "operator3"];
+        string[3] memory names = ["validator1", "validator2", "validator3"];
         bytes32[3] memory pubKeys = [
             // wonder quality resource ketchup occur stadium vicious output situate plug second
             // monkey harbor vanish then myself primary feed earth story real soccer shove like
@@ -189,20 +189,20 @@ contract DeployContracts is Script {
             // wise sister language work muscle parade dad angry across emerge trade
             bytes32(0x4C9DE94E1F3225906602AE812E30F1BE56427126D60F2F6CB661B7F4FDA638DC)
         ];
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
-        for (uint256 i = 0; i < operators.length; i++) {
-            vm.startBroadcast(operators[i]);
-            bootstrap.registerOperator(exos[i], names[i], commission, pubKeys[i]);
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        for (uint256 i = 0; i < validators.length; i++) {
+            vm.startBroadcast(validators[i]);
+            bootstrap.registerValidator(exos[i], names[i], commission, pubKeys[i]);
             vm.stopBroadcast();
         }
     }
 
     function delegate() private {
-        // operator delegations. i used these values so that we have a mix of operators
-        // delegating amongst themselves and to other operators. i also set it up such that
+        // validator delegations. i used these values so that we have a mix of validators
+        // delegating amongst themselves and to other validators. i also set it up such that
         // the amount for each self delegation is non zero, although that is not validated
         // in the contract.
-        uint256[3][3][2] memory operatorDelegations = [
+        uint256[3][3][2] memory validatorDelegations = [
             [
                 [200 * 10 ** decimals[0], 50 * 10 ** decimals[0], 50 * 10 ** decimals[0]],
                 [0 * 10 ** decimals[0], 300 * 10 ** decimals[0], 0 * 10 ** decimals[0]],
@@ -215,24 +215,24 @@ contract DeployContracts is Script {
             ]
         ];
         for (uint256 i = 0; i < whitelistTokens.length; i++) {
-            for (uint256 j = 0; j < operators.length; j++) {
-                uint256 delegator = operators[j];
-                for (uint256 k = 0; k < operators.length; k++) {
-                    uint256 amount = operatorDelegations[i][j][k];
-                    address operator = vm.addr(operators[k]);
-                    string memory operatorExo = bootstrap.ethToExocoreAddress(operator);
+            for (uint256 j = 0; j < validators.length; j++) {
+                uint256 delegator = validators[j];
+                for (uint256 k = 0; k < validators.length; k++) {
+                    uint256 amount = validatorDelegations[i][j][k];
+                    address validator = vm.addr(validators[k]);
+                    string memory validatorExo = bootstrap.ethToExocoreAddress(validator);
                     vm.startBroadcast(delegator);
                     if (amount != 0) {
-                        bootstrap.delegateTo(operatorExo, whitelistTokens[i], amount);
+                        bootstrap.delegateTo(validatorExo, whitelistTokens[i], amount);
                     }
                     vm.stopBroadcast();
                 }
             }
         }
-        // now i have N stakers, with N operators and 2 tokens.
+        // now i have N stakers, with N validators and 2 tokens.
         // i will take 1/3 and 2/3 of the deposit amounts for each token for each staker
         // respectively
-        // find a random number for those amounts for each operators
+        // find a random number for those amounts for each validators
         // op1 = random1, op2 = random2, op3 = 1/3 - random1 - random2
         for (uint256 i = 0; i < whitelistTokens.length; i++) {
             for (uint256 j = 0; j < stakers.length; j++) {
@@ -240,15 +240,15 @@ contract DeployContracts is Script {
                 address delegatorAddress = vm.addr(delegator);
                 uint256 deposit = bootstrap.totalDepositAmounts(delegatorAddress, whitelistTokens[i]);
                 uint256 stakerDelegationToDo = (deposit * (i + 1)) / 3;
-                for (uint256 k = 0; k < operators.length; k++) {
+                for (uint256 k = 0; k < validators.length; k++) {
                     uint256 amount;
-                    if (k == operators.length - 1) {
+                    if (k == validators.length - 1) {
                         amount = stakerDelegationToDo;
                     } else {
                         amount = random(stakerDelegationToDo);
                     }
-                    address operator = vm.addr(operators[k]);
-                    string memory exo = bootstrap.ethToExocoreAddress(operator);
+                    address validator = vm.addr(validators[k]);
+                    string memory exo = bootstrap.ethToExocoreAddress(validator);
                     vm.startBroadcast(delegator);
                     bootstrap.delegateTo(exo, whitelistTokens[i], amount);
                     stakerDelegationToDo -= amount;
@@ -268,8 +268,8 @@ contract DeployContracts is Script {
         console.log("Contract deployed");
         approveAndDeposit();
         console.log("Approved and deposited");
-        registerOperators();
-        console.log("Operators registered");
+        registerValidators();
+        console.log("Validators registered");
         delegate();
         console.log("[Delegated]; done!");
 

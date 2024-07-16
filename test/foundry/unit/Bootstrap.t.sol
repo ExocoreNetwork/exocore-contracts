@@ -6,7 +6,7 @@ import {ClientChainGateway} from "src/core/ClientChainGateway.sol";
 import {CustomProxyAdmin} from "src/core/CustomProxyAdmin.sol";
 import {Vault} from "src/core/Vault.sol";
 
-import {IOperatorRegistry} from "src/interfaces/IOperatorRegistry.sol";
+import {IValidatorRegistry} from "src/interfaces/IValidatorRegistry.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
 import {MyToken} from "./MyToken.sol";
@@ -66,9 +66,9 @@ contract BootstrapTest is Test {
         hex"608060405260405161090e38038061090e83398101604081905261002291610460565b61002e82826000610035565b505061058a565b61003e83610100565b6040516001600160a01b038416907f1cf3b03a6cf19fa2baba4df148e9dcabedea7f8a5c07840e207e5c089be95d3e90600090a260008251118061007f5750805b156100fb576100f9836001600160a01b0316635c60da1b6040518163ffffffff1660e01b8152600401602060405180830381865afa1580156100c5573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906100e99190610520565b836102a360201b6100291760201c565b505b505050565b610113816102cf60201b6100551760201c565b6101725760405162461bcd60e51b815260206004820152602560248201527f455243313936373a206e657720626561636f6e206973206e6f74206120636f6e6044820152641d1c9858dd60da1b60648201526084015b60405180910390fd5b6101e6816001600160a01b0316635c60da1b6040518163ffffffff1660e01b8152600401602060405180830381865afa1580156101b3573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906101d79190610520565b6102cf60201b6100551760201c565b61024b5760405162461bcd60e51b815260206004820152603060248201527f455243313936373a20626561636f6e20696d706c656d656e746174696f6e206960448201526f1cc81b9bdd08184818dbdb9d1c9858dd60821b6064820152608401610169565b806102827fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d5060001b6102de60201b6100641760201c565b80546001600160a01b0319166001600160a01b039290921691909117905550565b60606102c883836040518060600160405280602781526020016108e7602791396102e1565b9392505050565b6001600160a01b03163b151590565b90565b6060600080856001600160a01b0316856040516102fe919061053b565b600060405180830381855af49150503d8060008114610339576040519150601f19603f3d011682016040523d82523d6000602084013e61033e565b606091505b5090925090506103508683838761035a565b9695505050505050565b606083156103c65782516103bf576001600160a01b0385163b6103bf5760405162461bcd60e51b815260206004820152601d60248201527f416464726573733a2063616c6c20746f206e6f6e2d636f6e74726163740000006044820152606401610169565b50816103d0565b6103d083836103d8565b949350505050565b8151156103e85781518083602001fd5b8060405162461bcd60e51b81526004016101699190610557565b80516001600160a01b038116811461041957600080fd5b919050565b634e487b7160e01b600052604160045260246000fd5b60005b8381101561044f578181015183820152602001610437565b838111156100f95750506000910152565b6000806040838503121561047357600080fd5b61047c83610402565b60208401519092506001600160401b038082111561049957600080fd5b818501915085601f8301126104ad57600080fd5b8151818111156104bf576104bf61041e565b604051601f8201601f19908116603f011681019083821181831017156104e7576104e761041e565b8160405282815288602084870101111561050057600080fd5b610511836020830160208801610434565b80955050505050509250929050565b60006020828403121561053257600080fd5b6102c882610402565b6000825161054d818460208701610434565b9190910192915050565b6020815260008251806020840152610576816040850160208701610434565b601f01601f19169190910160400192915050565b61034e806105996000396000f3fe60806040523661001357610011610017565b005b6100115b610027610022610067565b610100565b565b606061004e83836040518060600160405280602781526020016102f260279139610124565b9392505050565b6001600160a01b03163b151590565b90565b600061009a7fa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50546001600160a01b031690565b6001600160a01b0316635c60da1b6040518163ffffffff1660e01b8152600401602060405180830381865afa1580156100d7573d6000803e3d6000fd5b505050506040513d601f19601f820116820180604052508101906100fb9190610249565b905090565b3660008037600080366000845af43d6000803e80801561011f573d6000f35b3d6000fd5b6060600080856001600160a01b03168560405161014191906102a2565b600060405180830381855af49150503d806000811461017c576040519150601f19603f3d011682016040523d82523d6000602084013e610181565b606091505b50915091506101928683838761019c565b9695505050505050565b6060831561020d578251610206576001600160a01b0385163b6102065760405162461bcd60e51b815260206004820152601d60248201527f416464726573733a2063616c6c20746f206e6f6e2d636f6e747261637400000060448201526064015b60405180910390fd5b5081610217565b610217838361021f565b949350505050565b81511561022f5781518083602001fd5b8060405162461bcd60e51b81526004016101fd91906102be565b60006020828403121561025b57600080fd5b81516001600160a01b038116811461004e57600080fd5b60005b8381101561028d578181015183820152602001610275565b8381111561029c576000848401525b50505050565b600082516102b4818460208701610272565b9190910192915050565b60208152600082518060208401526102dd816040850160208701610272565b601f01601f1916919091016040019291505056fe416464726573733a206c6f772d6c6576656c2064656c65676174652063616c6c206661696c6564a2646970667358221220d51e81d3bc5ed20a26aeb05dce7e825c503b2061aa78628027300c8d65b9d89a64736f6c634300080c0033416464726573733a206c6f772d6c6576656c2064656c65676174652063616c6c206661696c6564";
 
     function setUp() public {
-        addrs[0] = address(0x1); // Simulated OPERATOR1 address
-        addrs[1] = address(0x2); // Simulated OPERATOR2 address
-        addrs[2] = address(0x3); // Simulated OPERATOR3 address
+        addrs[0] = address(0x1); // Simulated VALIDATOR1 address
+        addrs[1] = address(0x2); // Simulated VALIDATOR2 address
+        addrs[2] = address(0x3); // Simulated VALIDATOR3 address
         addrs[3] = address(0x4); // Simulated STAKER1 address
         addrs[4] = address(0x5); // Simulated STAKER2 address
         addrs[5] = address(0x6); // Simulated STAKER3 address
@@ -313,31 +313,31 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test03_RegisterOperator() public {
-        assertTrue(bootstrap.getOperatorsCount() == 0);
-        // Register operators. The keys used below do not matter since they are unit test only.
-        string[3] memory operators = [
+    function test03_RegisterValidator() public {
+        assertTrue(bootstrap.getValidatorsCount() == 0);
+        // Register validators. The keys used below do not matter since they are unit test only.
+        string[3] memory validators = [
             "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac",
             "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2",
             "exo1rtg0cgw94ep744epyvanc0wdd5kedwql73vlmr"
         ];
-        string[3] memory names = ["operator1", "operator2", "operator3"];
+        string[3] memory names = ["validator1", "validator2", "validator3"];
         bytes32[3] memory pubKeys = [
             bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782),
             bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9),
             bytes32(0xa29429a3ca352334fbe75df9485544bd517e3718df73725f33c6d06f3c1caade)
         ];
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         for (uint256 i = 0; i < 3; i++) {
             vm.startPrank(addrs[i]);
-            bootstrap.registerOperator(operators[i], names[i], commission, pubKeys[i]);
+            bootstrap.registerValidator(validators[i], names[i], commission, pubKeys[i]);
             // check count
-            assertTrue(bootstrap.getOperatorsCount() == i + 1);
+            assertTrue(bootstrap.getValidatorsCount() == i + 1);
             // check ethToExocoreAddress mapping
             string memory exoAddress = bootstrap.ethToExocoreAddress(addrs[i]);
-            assertTrue(keccak256(abi.encodePacked(exoAddress)) == keccak256(abi.encodePacked(operators[i])));
-            (string memory name, IOperatorRegistry.Commission memory thisCommision, bytes32 key) =
-                bootstrap.operators(exoAddress);
+            assertTrue(keccak256(abi.encodePacked(exoAddress)) == keccak256(abi.encodePacked(validators[i])));
+            (string memory name, IValidatorRegistry.Commission memory thisCommision, bytes32 key) =
+                bootstrap.validators(exoAddress);
             assertTrue(keccak256(abi.encodePacked(name)) == keccak256(abi.encodePacked(names[i])));
             assertTrue(key == pubKeys[i]);
             assertTrue(thisCommision.rate == commission.rate);
@@ -345,83 +345,83 @@ contract BootstrapTest is Test {
         }
     }
 
-    function test03_RegisterOperator_EthAlreadyRegistered() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
-        // Register operator
+    function test03_RegisterValidator_EthAlreadyRegistered() public {
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register validator
         string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-        string memory name = "operator1";
+        string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerOperator(exo, name, commission, pubKey);
-        // change all identifying params except eth address of operator
+        bootstrap.registerValidator(exo, name, commission, pubKey);
+        // change all identifying params except eth address of validator
         exo = "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2";
-        name = "operator1_re";
+        name = "validator1_re";
         pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
-        vm.expectRevert("Ethereum address already linked to an operator");
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        vm.expectRevert("Ethereum address already linked to a validator");
+        bootstrap.registerValidator(exo, name, commission, pubKey);
         vm.stopPrank();
     }
 
-    function test03_RegisterOperator_ExoAlreadyRegistered() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
-        // Register operator
+    function test03_RegisterValidator_ExoAlreadyRegistered() public {
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register validator
         string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-        string memory name = "operator1";
+        string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerOperator(exo, name, commission, pubKey);
-        // change all identifying params except exo address of operator
+        bootstrap.registerValidator(exo, name, commission, pubKey);
+        // change all identifying params except exo address of validator
         vm.stopPrank();
         vm.startPrank(addrs[1]);
-        name = "operator1_re";
+        name = "validator1_re";
         pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
-        vm.expectRevert("Operator with this Exocore address is already registered");
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        vm.expectRevert("Validator with this Exocore address is already registered");
+        bootstrap.registerValidator(exo, name, commission, pubKey);
         vm.stopPrank();
     }
 
-    function test03_RegisterOperator_ConsensusKeyInUse() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
-        // Register operator
+    function test03_RegisterValidator_ConsensusKeyInUse() public {
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register validator
         string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-        string memory name = "operator1";
+        string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
 
-        // change all identifying params except consensus key of operator
+        // change all identifying params except consensus key of validator
         vm.stopPrank();
         vm.startPrank(addrs[1]);
         exo = "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2";
-        name = "operator1_re";
+        name = "validator1_re";
         vm.expectRevert("Consensus public key already in use");
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
         vm.stopPrank();
     }
 
-    function test03_RegisterOperator_NameInUse() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
-        // Register operator
+    function test03_RegisterValidator_NameInUse() public {
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register validator
         string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-        string memory name = "operator1";
+        string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
 
-        // change all identifying params except name of operator
+        // change all identifying params except name of validator
         vm.stopPrank();
         vm.startPrank(addrs[1]);
         exo = "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2";
         pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
         vm.expectRevert("Name already in use");
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
         vm.stopPrank();
     }
 
     function test04_DepositThenDelegate() public {
         // since deposit and delegate are already tested, we will just do a simple success
         // check here to ensure the reentrancy modifier works.
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         vm.startPrank(addrs[0]);
         IVault vault = IVault(bootstrap.tokenToVault(address(myToken)));
         myToken.approve(address(vault), amounts[0]);
@@ -437,26 +437,26 @@ contract BootstrapTest is Test {
     }
 
     function test05_ReplaceKey() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
-        // Register operator
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register validator
         string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-        string memory name = "operator1";
+        string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerOperator(exo, name, commission, pubKey);
-        assertTrue(bootstrap.getOperatorsCount() == 1);
-        (,, bytes32 consensusPublicKey) = bootstrap.operators(exo);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
+        assertTrue(bootstrap.getValidatorsCount() == 1);
+        (,, bytes32 consensusPublicKey) = bootstrap.validators(exo);
         assertTrue(consensusPublicKey == pubKey);
         // Then change the key
         bytes32 newKey = bytes32(0xd995b7f4b2178b0466cfa512955ce2299a4487ebcd86f817d686880dd2b7c4b0);
         bootstrap.replaceKey(newKey);
-        (,, consensusPublicKey) = bootstrap.operators(exo);
+        (,, consensusPublicKey) = bootstrap.validators(exo);
         assertTrue(consensusPublicKey == newKey);
         vm.stopPrank();
     }
 
     function test05_ReplaceKey_InUseByOther() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         // Then change the key
         vm.startPrank(addrs[0]);
         bytes32 newKey = bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9);
@@ -466,7 +466,7 @@ contract BootstrapTest is Test {
     }
 
     function test05_ReplaceKey_InUseBySelf() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         // Then change the key for the same address
         vm.startPrank(addrs[1]);
         bytes32 newKey = bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9);
@@ -478,35 +478,35 @@ contract BootstrapTest is Test {
     function test05_ReplaceKey_Unregistered() public {
         vm.startPrank(addrs[1]);
         bytes32 newKey = bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9);
-        vm.expectRevert("no such operator exists");
+        vm.expectRevert("no such validator exists");
         bootstrap.replaceKey(newKey);
         vm.stopPrank();
     }
 
     function test06_UpdateRate() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
-        // Register one operator
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register one validator
         string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-        string memory name = "operator1";
+        string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
         bootstrap.updateRate(1e17);
-        (, IOperatorRegistry.Commission memory newCommission,) = bootstrap.operators(exo);
+        (, IValidatorRegistry.Commission memory newCommission,) = bootstrap.validators(exo);
         assertTrue(newCommission.rate == 1e17);
         vm.stopPrank();
     }
 
     function test06_UpdateRate_Twice() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
-        // Register one operator
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register one validator
         string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-        string memory name = "operator1";
+        string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
         bootstrap.updateRate(1e17);
-        (, IOperatorRegistry.Commission memory newCommission,) = bootstrap.operators(exo);
+        (, IValidatorRegistry.Commission memory newCommission,) = bootstrap.validators(exo);
         assertTrue(newCommission.rate == 1e17);
         vm.expectRevert("Commission already edited once");
         bootstrap.updateRate(1e17);
@@ -514,13 +514,13 @@ contract BootstrapTest is Test {
     }
 
     function test06_UpdateRate_MoreThanMaxRate() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e17, 1e17);
-        // Register one operator
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e17, 1e17);
+        // Register one validator
         string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-        string memory name = "operator1";
+        string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
         vm.expectRevert("Rate exceeds max rate");
         bootstrap.updateRate(2e17);
         vm.stopPrank();
@@ -528,23 +528,23 @@ contract BootstrapTest is Test {
 
     function test06_UpdateRate_MoreThanMaxChangeRate() public {
         // 0, 0.1, 0.01
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e17, 1e16);
-        // Register one operator
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e17, 1e16);
+        // Register one validator
         string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
-        string memory name = "operator1";
+        string memory name = "validator1";
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
-        bootstrap.registerOperator(exo, name, commission, pubKey);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
         vm.expectRevert("Rate change exceeds max change rate");
         bootstrap.updateRate(2e16);
         vm.stopPrank();
     }
 
     function test06_UpdateRate_Unregistered() public {
-        // Register one operator
+        // Register one validator
         address addr = address(0x7);
         vm.startPrank(addr);
-        vm.expectRevert("no such operator exists");
+        vm.expectRevert("no such validator exists");
         bootstrap.updateRate(1e18);
         vm.stopPrank();
     }
@@ -588,8 +588,8 @@ contract BootstrapTest is Test {
     }
 
     function test09_DelegateTo() public {
-        // first, register the operators
-        test03_RegisterOperator();
+        // first, register the validators
+        test03_RegisterValidator();
         // then, make the transfers and deposits
         test02_Deposit();
         // first, self delegate
@@ -597,18 +597,18 @@ contract BootstrapTest is Test {
             vm.startPrank(addrs[i]);
             string memory exo = bootstrap.ethToExocoreAddress(addrs[i]);
             uint256 prevDelegation = bootstrap.delegations(addrs[i], exo, address(myToken));
-            uint256 prevDelegationByOperator = bootstrap.delegationsByOperator(exo, address(myToken));
+            uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
             uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             bootstrap.delegateTo(exo, address(myToken), amounts[i]);
             uint256 postDelegation = bootstrap.delegations(addrs[i], exo, address(myToken));
-            uint256 postDelegationByOperator = bootstrap.delegationsByOperator(exo, address(myToken));
+            uint256 postDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
             uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             assertTrue(postDelegation == prevDelegation + amounts[i]);
-            assertTrue(postDelegationByOperator == prevDelegationByOperator + amounts[i]);
+            assertTrue(postDelegationByValidator == prevDelegationByValidator + amounts[i]);
             assertTrue(postWithdrawableAmount == prevWithdrawableAmount - amounts[i]);
             vm.stopPrank();
         }
-        // finally, delegate from stakers to the operators
+        // finally, delegate from stakers to the validators
         uint8[3][3] memory delegations = [[8, 9, 0], [0, 7, 8], [2, 0, 6]];
         for (uint256 i = 0; i < 3; i++) {
             address delegator = addrs[i + 3];
@@ -618,14 +618,14 @@ contract BootstrapTest is Test {
                 if (amount != 0) {
                     string memory exo = bootstrap.ethToExocoreAddress(addrs[j]);
                     uint256 prevDelegation = bootstrap.delegations(delegator, exo, address(myToken));
-                    uint256 prevDelegationByOperator = bootstrap.delegationsByOperator(exo, address(myToken));
+                    uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
                     uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
                     bootstrap.delegateTo(exo, address(myToken), uint256(amount));
                     uint256 postDelegation = bootstrap.delegations(delegator, exo, address(myToken));
-                    uint256 postDelegationByOperator = bootstrap.delegationsByOperator(exo, address(myToken));
+                    uint256 postDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
                     uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
                     assertTrue(postDelegation == prevDelegation + amount);
-                    assertTrue(postDelegationByOperator == prevDelegationByOperator + amount);
+                    assertTrue(postDelegationByValidator == prevDelegationByValidator + amount);
                     assertTrue(postWithdrawableAmount == prevWithdrawableAmount - amount);
                 }
             }
@@ -636,12 +636,12 @@ contract BootstrapTest is Test {
     function test09_DelegateTo_Unregistered() public {
         test02_Deposit();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Operator does not exist");
+        vm.expectRevert("Validator does not exist");
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
     function test09_DelegateTo_TokenNotWhitelisted() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
@@ -649,7 +649,7 @@ contract BootstrapTest is Test {
     }
 
     function test09_DelegateTo_NotEnoughBlance() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         vm.startPrank(deployer);
         address[] memory addedWhitelistTokens = new address[](1);
         addedWhitelistTokens[0] = address(0xa);
@@ -661,7 +661,7 @@ contract BootstrapTest is Test {
     }
 
     function test09_DelegateTo_ZeroAmount() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
@@ -669,14 +669,14 @@ contract BootstrapTest is Test {
     }
 
     function test09_DelegateTo_NoDeposits() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient withdrawable balance");
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
     function test09_DelegateTo_Excess() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient withdrawable balance");
@@ -690,18 +690,18 @@ contract BootstrapTest is Test {
             vm.startPrank(addrs[i]);
             string memory exo = bootstrap.ethToExocoreAddress(addrs[i]);
             uint256 prevDelegation = bootstrap.delegations(addrs[i], exo, address(myToken));
-            uint256 prevDelegationByOperator = bootstrap.delegationsByOperator(exo, address(myToken));
+            uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
             uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             bootstrap.undelegateFrom(exo, address(myToken), amounts[i]);
             uint256 postDelegation = bootstrap.delegations(addrs[i], exo, address(myToken));
-            uint256 postDelegationByOperator = bootstrap.delegationsByOperator(exo, address(myToken));
+            uint256 postDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
             uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             assertTrue(postDelegation == prevDelegation - amounts[i]);
-            assertTrue(postDelegationByOperator == prevDelegationByOperator - amounts[i]);
+            assertTrue(postDelegationByValidator == prevDelegationByValidator - amounts[i]);
             assertTrue(postWithdrawableAmount == prevWithdrawableAmount + amounts[i]);
             vm.stopPrank();
         }
-        // finally, undelegate from stakers to the operators
+        // finally, undelegate from stakers to the validators
         uint8[3][3] memory delegations = [[8, 9, 0], [0, 7, 8], [2, 0, 6]];
         for (uint256 i = 0; i < 3; i++) {
             address delegator = addrs[i + 3];
@@ -711,14 +711,14 @@ contract BootstrapTest is Test {
                 if (amount != 0) {
                     string memory exo = bootstrap.ethToExocoreAddress(addrs[j]);
                     uint256 prevDelegation = bootstrap.delegations(delegator, exo, address(myToken));
-                    uint256 prevDelegationByOperator = bootstrap.delegationsByOperator(exo, address(myToken));
+                    uint256 prevDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
                     uint256 prevWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
                     bootstrap.undelegateFrom(exo, address(myToken), uint256(amount));
                     uint256 postDelegation = bootstrap.delegations(delegator, exo, address(myToken));
-                    uint256 postDelegationByOperator = bootstrap.delegationsByOperator(exo, address(myToken));
+                    uint256 postDelegationByValidator = bootstrap.delegationsByValidator(exo, address(myToken));
                     uint256 postWithdrawableAmount = bootstrap.withdrawableAmounts(delegator, address(myToken));
                     assertTrue(postDelegation == prevDelegation - amount);
-                    assertTrue(postDelegationByOperator == prevDelegationByOperator - amount);
+                    assertTrue(postDelegationByValidator == prevDelegationByValidator - amount);
                     assertTrue(postWithdrawableAmount == prevWithdrawableAmount + amount);
                 }
             }
@@ -729,19 +729,19 @@ contract BootstrapTest is Test {
     function test10_UndelegateFrom_Unregistered() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Operator does not exist");
+        vm.expectRevert("Validator does not exist");
         bootstrap.undelegateFrom("exo1awm72f4sc5yhedurdunx9afcshfq6ymqva8an4", address(myToken), amounts[0]);
     }
 
     function test10_UndelegateFrom_TokenNotWhitelisted() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
     }
 
     function test10_UndelegateFrom_NotEnoughBalance() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         vm.startPrank(deployer);
         address[] memory addedWhitelistTokens = new address[](1);
         addedWhitelistTokens[0] = address(0xa);
@@ -753,14 +753,14 @@ contract BootstrapTest is Test {
     }
 
     function test10_UndelegateFrom_ZeroAmount() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         test02_Deposit();
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), 0);
     }
 
-    function test10_UndelegateFromOperator_Excess() public {
+    function test10_UndelegateFromValidator_Excess() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient delegated balance");
@@ -768,7 +768,7 @@ contract BootstrapTest is Test {
     }
 
     function test10_UndelegateFrom_NoDelegation() public {
-        test03_RegisterOperator();
+        test03_RegisterValidator();
         vm.startPrank(addrs[0]);
         vm.expectRevert("Bootstrap: insufficient delegated balance");
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
@@ -905,32 +905,32 @@ contract BootstrapTest is Test {
     }
 
     function test14_IsCommissionValid() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1e18);
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
         assertTrue(bootstrap.isCommissionValid(commission));
     }
 
     function test14_IsCommissionValidRateLarge() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(1.1e18, 1e18, 1e18);
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(1.1e18, 1e18, 1e18);
         assertFalse(bootstrap.isCommissionValid(commission));
     }
 
     function test14_IsCommissionValidMaxRateLarge() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1.1e18, 1e18);
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1.1e18, 1e18);
         assertFalse(bootstrap.isCommissionValid(commission));
     }
 
     function test14_IsCommissionValidMaxChangeRateLarge() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0, 1e18, 1.1e18);
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1.1e18);
         assertFalse(bootstrap.isCommissionValid(commission));
     }
 
     function test14_IsCommissionValidRateExceedsMaxRate() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0.5e18, 0.2e18, 1e18);
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0.5e18, 0.2e18, 1e18);
         assertFalse(bootstrap.isCommissionValid(commission));
     }
 
     function test14_IsCommissionValidMaxChangeRateExceedsMaxRate() public {
-        IOperatorRegistry.Commission memory commission = IOperatorRegistry.Commission(0.1e18, 0.2e18, 1e18);
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0.1e18, 0.2e18, 1e18);
         assertFalse(bootstrap.isCommissionValid(commission));
     }
 

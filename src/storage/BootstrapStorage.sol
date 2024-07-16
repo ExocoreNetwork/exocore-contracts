@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
-import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
+import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
@@ -51,53 +51,57 @@ contract BootstrapStorage is GatewayStorage {
      */
     mapping(address tokenAddress => uint256 amount) public depositsByToken;
 
-    // operator information, including delegations received by them
+    // validator information, including delegations received by them
     /**
-     * @dev A public array holding the Ethereum addresses of all operators that have been
-     * registered in the contract. These operators, sorted by their vote power, will be
-     * used to initialize the Exocore chain's validator set.
+     * @dev A public array holding the Ethereum addresses of all validators that have been
+     * registered in the contract. These validators, sorted by their vote power, will be
+     * used to initialize the Exocore chain's validator set. In addition, they will be
+     * registered in the Exocore system as an operator for other AVSs. Since the Bootstrap
+     * contract only accepts validators, we will use the word 'validator' in the rest of
+     * this contract and avoid the term 'operator' in items that are specific to Bootstrap
+     * storage and not actively used by the ClientChainGateway.
      *
-     * The system used is a delegated POS system, where the vote power of each operator
+     * The system used is a delegated POS system, where the vote power of each validator
      * is determined by the total amount of tokens delegated to them across all supported
      * tokens.
      */
-    address[] public registeredOperators;
+    address[] public registeredValidators;
 
     /**
      * @dev Maps Ethereum addresses to their corresponding Exocore addresses.
      * @notice This mapping is used to track which Ethereum address is linked to which
      * Exocore address.
-     * Useful for verifying if a particular Ethereum address has already registered an operator.
+     * Useful for verifying if a particular Ethereum address has already registered as a validator.
      */
     mapping(address ethAddress => string exoAddress) public ethToExocoreAddress;
 
     /**
-     * @dev Maps Exocore addresses to their corresponding operator details stored in an
-     * Operator` struct.
-     * @notice Use this mapping to access or modify operator details associated with a specific
+     * @dev Maps Exocore addresses to their corresponding validator details stored in a
+     * `Validator` struct.
+     * @notice Use this mapping to access or modify validator details associated with a specific
      * Exocore address.
-     * This helps in managing and accessing all registered operator data efficiently.
+     * This helps in managing and accessing all registered validator data efficiently.
      */
-    mapping(string exoAddress => IOperatorRegistry.Operator operator) public operators;
+    mapping(string exoAddress => IValidatorRegistry.Validator validator) public validators;
 
     /**
-     * @dev A mapping of operator Exocore address to a boolean indicating whether said operator
+     * @dev A mapping of validator Exocore address to a boolean indicating whether said validator
      * has edited their commission rate.
      *
-     * This mapping is used to enforce a once-only commission rate change for operators before
+     * This mapping is used to enforce a once-only commission rate change for validators before
      * the chain bootstrap.
      */
     mapping(string exoAddress => bool hasEdited) public commissionEdited;
 
     /**
-     * @dev Maps an operator address to a mapping, where the key is the token address and the
+     * @dev Maps a validator address to a mapping, where the key is the token address and the
      * value is the amount of delegated tokens.
-     * @notice This allows tracking of how much each operator has been delegated by all
+     * @notice This allows tracking of how much each validator has been delegated by all
      * delegators for each of the whitelisted tokens.
      */
-    // delegationsByOperator means it is indexed by operator address and not that is is
-    // a delegation made by the operator.
-    mapping(string exoAddress => mapping(address tokenAddress => uint256 amount)) public delegationsByOperator;
+    // delegationsByValidator means it is indexed by validator address and not that is is
+    // a delegation made by the validator.
+    mapping(string exoAddress => mapping(address tokenAddress => uint256 amount)) public delegationsByValidator;
 
     // depositor and delegation information
     /**
@@ -132,10 +136,10 @@ contract BootstrapStorage is GatewayStorage {
     mapping(address depositor => mapping(address tokenAddress => uint256 amount)) public withdrawableAmounts;
 
     /**
-     * @dev Maps a delegator address to a nested mapping, where the first key the operator
+     * @dev Maps a delegator address to a nested mapping, where the first key the validator
      * address and the second key is the token's address, pointing to the amount of tokens
      * delegated.
-     * @notice This allows tracking of how much each delegator has delegated to each operator
+     * @notice This allows tracking of how much each delegator has delegated to each validator
      * for all of the whitelisted tokens.
      */
     mapping(address delegator => mapping(string exoAddress => mapping(address tokenAddress => uint256))) public
@@ -438,8 +442,8 @@ contract BootstrapStorage is GatewayStorage {
         return vault;
     }
 
-    function isValidExocoreAddress(string calldata operatorExocoreAddress) public pure returns (bool) {
-        bytes memory stringBytes = bytes(operatorExocoreAddress);
+    function isValidExocoreAddress(string calldata question) public pure returns (bool) {
+        bytes memory stringBytes = bytes(question);
         if (stringBytes.length != 42) {
             return false;
         }

@@ -102,7 +102,7 @@ contract ClientChainGateway is
         delete offsetDuration;
         // previously, we tried clearing the loops but it is too expensive.
         delete depositors;
-        delete registeredOperators;
+        delete registeredValidators;
     }
 
     function pause() external {
