@@ -50,17 +50,12 @@ contract ExocoreGateway is
 
     receive() external payable {}
 
-    function initialize(address payable exocoreValidatorSetAddress_) external initializer {
-        require(
-            exocoreValidatorSetAddress_ != address(0),
-            "ExocoreGateway: validator set address cannot be the zero address"
-        );
-
-        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
+    function initialize(address owner_) external initializer {
+        require(owner_ != address(0), "ExocoreGateway: owner address cannot be the zero address");
 
         _initializeWhitelistFunctionSelectors();
-        _transferOwnership(exocoreValidatorSetAddress);
-        __OAppCore_init_unchained(exocoreValidatorSetAddress);
+        _transferOwnership(owner_);
+        __OAppCore_init_unchained(owner_);
         __Pausable_init_unchained();
         __ReentrancyGuard_init_unchained();
     }
@@ -76,19 +71,11 @@ contract ExocoreGateway is
             this.requestDepositThenDelegateTo.selector;
     }
 
-    function pause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ExocoreGateway: caller is not Exocore validator set aggregated address"
-        );
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ExocoreGateway: caller is not Exocore validator set aggregated address"
-        );
+    function unpause() external onlyOwner {
         _unpause();
     }
 
@@ -444,7 +431,7 @@ contract ExocoreGateway is
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
         MessagingReceipt memory receipt =
-            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), exocoreValidatorSetAddress, payByApp);
+            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), msg.sender, payByApp);
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 

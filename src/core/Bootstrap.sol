@@ -48,7 +48,6 @@ contract Bootstrap is
         address owner,
         uint256 spawnTime_,
         uint256 offsetDuration_,
-        address payable exocoreValidatorSetAddress_,
         address[] calldata whitelistTokens_,
         address customProxyAdmin_
     ) external initializer {
@@ -58,14 +57,10 @@ contract Bootstrap is
         require(spawnTime_ > offsetDuration_, "Bootstrap: spawn time should be greater than offset duration");
         uint256 lockTime = spawnTime_ - offsetDuration_;
         require(lockTime > block.timestamp, "Bootstrap: lock time should be in the future");
-        require(
-            exocoreValidatorSetAddress_ != address(0), "Bootstrap: exocore validator set address should not be empty"
-        );
         require(customProxyAdmin_ != address(0), "Bootstrap: custom proxy admin should not be empty");
 
         exocoreSpawnTime = spawnTime_;
         offsetDuration = offsetDuration_;
-        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
 
         _addWhitelistTokens(whitelistTokens_);
 

@@ -66,7 +66,6 @@ contract DeployBootstrapOnly is BaseScript {
                                 exocoreValidatorSet.addr,
                                 block.timestamp + 365 days + 24 hours,
                                 24 hours,
-                                payable(exocoreValidatorSet.addr),
                                 whitelistTokens, // vault is auto deployed
                                 address(proxyAdmin)
                             )
