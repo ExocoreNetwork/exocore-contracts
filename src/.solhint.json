@@ -1,9 +1,9 @@
 {
   "extends": "solhint:recommended",
   "rules": {
-    "max-line-length": ["error", 128],
+    "max-line-length": ["error", 121],
     "compiler-version": ["error", "^0.8.0"],
-    "func-visibility": ["warn", { "ignoreConstructors": true }],
+    "func-visibility": ["warn", {"ignoreConstructors": true}],
     "no-inline-assembly": "off",
     "no-empty-blocks": "off",
     "no-unused-vars": "error",
@@ -13,7 +13,6 @@
     "max-states-count": "off",
     "reason-string": "off",
     "gas-custom-errors": "off",
-    "state-visibility": "error",
-    "no-complex-fallback": "off"
+    "state-visibility": "error"
   }
 }
