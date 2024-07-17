@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IExocoreBtcGateway} from "../interfaces/IExocoreBtcGateway.sol";
-import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
-import {CLAIM_REWARD_CONTRACT} from "../interfaces/precompiles/IClaimReward.sol";
-import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
-import {SignatureVerifier} from "../libraries/SignatureVerifier.sol";
-import {GatewayStorage} from "../storage/GatewayStorage.sol";
 import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import "forge-std/console.sol";
+import {IExocoreBtcGateway} from "src/interfaces/IExocoreBtcGateway.sol";
+import {ASSETS_CONTRACT} from "src/interfaces/precompiles/IAssets.sol";
+import {CLAIM_REWARD_CONTRACT} from "src/interfaces/precompiles/IClaimReward.sol";
+import {DELEGATION_CONTRACT} from "src/interfaces/precompiles/IDelegation.sol";
+import {SignatureVerifier} from "src/libraries/SignatureVerifier.sol";
+import {GatewayStorage} from "src/storage/GatewayStorage.sol";
 
-contract ExocoreBtcGateway is
+contract ExocoreBtcGatewayMock is
     IExocoreBtcGateway,
     Initializable,
     PausableUpgradeable,
@@ -62,57 +62,13 @@ contract ExocoreBtcGateway is
         _;
     }
 
-    /**
-     * @notice Pauses the contract. Can only be called by an authorized validator.
-     */
-    function pause() external onlyAuthorizedValidator {
-        _pause();
+    constructor(address exocoreValidatorSetAddress_) {
+        exocoreValidatorSetAddress = payable(exocoreValidatorSetAddress_);
+        isWhitelistedToken[BTC_ADDR] = true;
     }
 
-    /**
-     * @notice Unpauses the contract. Can only be called by an authorized validator.
-     */
-    function unpause() external onlyAuthorizedValidator {
-        _unpause();
-    }
-
-    /**
-     * @notice Constructor to initialize the contract with the client chain ID.
-     * @param clientChainId The ID of the client chain.
-     */
-    constructor(uint32 clientChainId) {
-        _registerClientChain(clientChainId);
-        _disableInitializers();
-    }
-
-    /**
-     * @notice Initializes the contract with the Exocore validator set address.
-     * @param exocoreValidatorSetAddress_ The address of the Exocore validator set.
-     */
-    function initialize(address payable exocoreValidatorSetAddress_) external initializer {
-        if (exocoreValidatorSetAddress_ == address(0)) {
-            revert ZeroAddressNotAllowed();
-        }
-
-        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
-
-        __Ownable_init_unchained(exocoreValidatorSetAddress);
-        __Pausable_init_unchained();
-    }
-
-    /**
-     * @notice Registers the client chain ID with the Exocore system.
-     * @param clientChainId The ID of the client chain.
-     * @dev This function should be implemented in ExocoreGateway.
-     */
-    function _registerClientChain(uint32 clientChainId) internal {
-        if (clientChainId == 0) {
-            revert ZeroAddressNotAllowed();
-        }
-        if (!ASSETS_CONTRACT.registerClientChain(clientChainId)) {
-            revert RegisterClientChainToExocoreFailed(clientChainId);
-        }
-        CLIENT_CHAIN_ID = clientChainId;
+    function setWhitelistedToken(address token, bool whitelisted) public onlyOwner {
+        isWhitelistedToken[token] = whitelisted;
     }
 
     /**
@@ -148,11 +104,14 @@ contract ExocoreBtcGateway is
             _msg.txTag,
             _msg.payload
         );
+
         console.logBytes(encodeMsg);
+
         bytes32 messageHash = keccak256(encodeMsg);
         bytes32 digest = messageHash.toEthSignedMessageHash();
 
         console.logBytes32(messageHash);
+
         SignatureVerifier.verifyMsgSig(exocoreValidatorSetAddress, digest, signature);
     }
 
@@ -163,6 +122,7 @@ contract ExocoreBtcGateway is
         }
         return string(bytesArray);
     }
+
     /**
      * @notice Processes and verifies an interchain message.
      * @param _msg The interchain message.
@@ -171,7 +131,6 @@ contract ExocoreBtcGateway is
      * @return btcAddress The BTC address.
      * @return exocoreAddress The Exocore address.
      */
-
     function _processAndVerify(InterchainMsg calldata _msg, bytes calldata signature)
         internal
         returns (bytes memory btcTxTag, bytes memory btcAddress, bytes memory exocoreAddress)
@@ -230,62 +189,6 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Delegates BTC to an operator.
-     * @param token The token address.
-     * @param delegator The delegator's address.
-     * @param operator The operator's address.
-     * @param amount The amount to delegate.
-     */
-    function delegateTo(address token, bytes calldata delegator, bytes calldata operator, uint256 amount)
-        external
-        nonReentrant
-        whenNotPaused
-        isTokenWhitelisted(token)
-        isValidAmount(amount)
-    {
-        _nextNonce(CLIENT_CHAIN_ID, delegator);
-        try DELEGATION_CONTRACT.delegateTo(CLIENT_CHAIN_ID, BTC_TOKEN, delegator, operator, amount) returns (
-            bool success
-        ) {
-            if (!success) {
-                revert DelegationFailed();
-            }
-            emit DelegationCompleted(token, delegator, operator, amount);
-        } catch {
-            emit ExocorePrecompileError(address(DELEGATION_CONTRACT));
-            revert DelegationFailed();
-        }
-    }
-
-    /**
-     * @notice Undelegates BTC from an operator.
-     * @param token The token address.
-     * @param delegator The delegator's address.
-     * @param operator The operator's address.
-     * @param amount The amount to undelegate.
-     */
-    function undelegateFrom(address token, bytes calldata delegator, bytes calldata operator, uint256 amount)
-        external
-        nonReentrant
-        whenNotPaused
-        isTokenWhitelisted(token)
-        isValidAmount(amount)
-    {
-        _nextNonce(CLIENT_CHAIN_ID, delegator);
-        try DELEGATION_CONTRACT.undelegateFrom(CLIENT_CHAIN_ID, BTC_TOKEN, delegator, operator, amount) returns (
-            bool success
-        ) {
-            if (!success) {
-                revert UndelegationFailed();
-            }
-            emit UndelegationCompleted(token, delegator, operator, amount);
-        } catch {
-            emit ExocorePrecompileError(address(DELEGATION_CONTRACT));
-            revert UndelegationFailed();
-        }
-    }
-
-    /**
      * @notice Withdraws the principal BTC.
      * @param token The token address.
      * @param withdrawer The withdrawer's address.
@@ -336,85 +239,6 @@ contract ExocoreBtcGateway is
         } catch {
             emit ExocorePrecompileError(address(CLAIM_REWARD_CONTRACT));
             revert WithdrawRewardFailed();
-        }
-    }
-
-    /**
-     * @notice Deposits BTC and then delegates it to an operator.
-     * @param _msg The interchain message containing the deposit details.
-     * @param operator The operator's address.
-     * @param signature The signature to verify.
-     */
-    function depositThenDelegateTo(InterchainMsg calldata _msg, bytes calldata operator, bytes calldata signature)
-        external
-        nonReentrant
-        whenNotPaused
-        isTokenWhitelisted(BTC_ADDR)
-        isValidAmount(_msg.amount)
-        onlyAuthorizedValidator
-    {
-        (bytes memory btcTxHash, bytes memory btcAddress,) = _processAndVerify(_msg, signature);
-        _depositToAssetContract(CLIENT_CHAIN_ID, BTC_TOKEN, btcAddress, _msg.amount, btcTxHash, operator);
-    }
-
-    /**
-     * @notice Internal function to deposit BTC to the asset contract.
-     * @param clientChainId The client chain ID.
-     * @param btcToken The BTC token.
-     * @param btcAddress The BTC address.
-     * @param amount The amount to deposit.
-     * @param btcTxHash The BTC transaction hash.
-     * @param operator The operator's address.
-     */
-    function _depositToAssetContract(
-        uint32 clientChainId,
-        bytes memory btcToken,
-        bytes memory btcAddress,
-        uint256 amount,
-        bytes memory btcTxHash,
-        bytes memory operator
-    ) internal {
-        try ASSETS_CONTRACT.depositTo(clientChainId, btcToken, btcAddress, amount) returns (
-            bool depositSuccess, uint256 updatedBalance
-        ) {
-            if (!depositSuccess) {
-                revert DepositFailed(btcTxHash);
-            }
-            processedBtcTxs[btcTxHash] = TxInfo(true, block.timestamp);
-            _delegateToDelegationContract(clientChainId, btcToken, btcAddress, operator, amount, updatedBalance);
-        } catch {
-            emit ExocorePrecompileError(address(ASSETS_CONTRACT));
-            revert DepositFailed(btcTxHash);
-        }
-    }
-
-    /**
-     * @notice Internal function to delegate BTC to the delegation contract.
-     * @param clientChainId The client chain ID.
-     * @param btcToken The BTC token.
-     * @param btcAddress The BTC address.
-     * @param operator The operator's address.
-     * @param amount The amount to delegate.
-     * @param updatedBalance The updated balance after delegation.
-     */
-    function _delegateToDelegationContract(
-        uint32 clientChainId,
-        bytes memory btcToken,
-        bytes memory btcAddress,
-        bytes memory operator,
-        uint256 amount,
-        uint256 updatedBalance
-    ) internal {
-        try DELEGATION_CONTRACT.delegateTo(clientChainId, btcToken, btcAddress, operator, amount) returns (
-            bool delegateSuccess
-        ) {
-            if (!delegateSuccess) {
-                revert DelegationFailed();
-            }
-            emit DepositAndDelegationCompleted(BTC_ADDR, btcAddress, operator, amount, updatedBalance);
-        } catch {
-            emit ExocorePrecompileError(address(DELEGATION_CONTRACT));
-            revert DelegationFailed();
         }
     }
 

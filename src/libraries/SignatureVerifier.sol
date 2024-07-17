@@ -2,21 +2,16 @@
 pragma solidity ^0.8.13;
 
 // Signature-related
-bytes32 constant EIP2098_allButHighestBitMask = (
-    0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff
-);
+bytes32 constant EIP2098_allButHighestBitMask = (0x7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff);
 
 library SignatureVerifier {
-    // 定义错误
+
+    // define errors.
     error BadSignatureV(uint8 v);
     error InvalidSigner();
     error InvalidSignature();
 
-    function verifyMsgSig(
-        address signer,
-        bytes32 digest,
-        bytes memory signature
-    ) internal pure {
+    function verifyMsgSig(address signer, bytes32 digest, bytes memory signature) internal pure {
         // Declare r, s, and v signature parameters.
         bytes32 r;
         bytes32 s;
@@ -54,4 +49,5 @@ library SignatureVerifier {
             revert InvalidSigner();
         }
     }
+
 }

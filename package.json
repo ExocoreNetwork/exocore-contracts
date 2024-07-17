@@ -386,7 +386,7 @@
     "build": "forge build",
     "test": "forge test",
     "lint": "forge fmt --check",
-    "format": "forge fmt",
+    "fmt": "forge fmt",
     "clean": "forge clean",
     "deploy": "forge create --rpc-url <RPC_URL> --private-key <PRIVATE_KEY> src/YourContract.sol:YourContract"
   },

@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import "forge-std/console.sol";
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
 
 contract AssetsMock is IAssets {
 
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address constant VIRTUAL_STAKED_BTC_ADDRESS = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    uint32 internal constant clientBtcChainId = 111;
 
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principalBalances;
 
@@ -17,13 +21,24 @@ contract AssetsMock is IAssets {
         returns (bool success, uint256 latestAssetState)
     {
         require(assetsAddress.length == 32, "invalid asset address");
-        require(stakerAddress.length == 32, "invalid staker address");
-        if (bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))) {
-            require(isRegisteredToken[clientChainLzId][assetsAddress], "the token is not registered before");
+
+        console.log("stakerAddress len: ", stakerAddress.length);
+
+        if (clientChainLzId != clientBtcChainId) {
+            require(stakerAddress.length == 32, "invalid staker address");
+        }
+
+        // Validate the asset address
+        // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered
+        bool one = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        bool two = bytes32(assetsAddress) != bytes32(abi.encodePacked(bytes12(0), VIRTUAL_STAKED_BTC_ADDRESS));
+        if (one && two) {
+            console.log("one ", one, " two", two);
+            require(isRegisteredToken[clientChainLzId][assetsAddress], "the token not registered");
         }
 
         principalBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
-
+        console.log("principalBalances: ", opAmount);
         return (true, principalBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
