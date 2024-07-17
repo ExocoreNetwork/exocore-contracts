@@ -159,8 +159,7 @@ library BeaconChainProofs {
         );
         bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(proof);
         bool validHistoricalSummary = isValidHistoricalSummaryRoot(proof);
-        bool validWCRootAgainstExecutionPayloadRoot =
-            isValidWCRootAgainstExecutionPayloadRoot(proof, withdrawalContainerRoot);
+        bool validWCRootAgainstExecutionPayloadRoot = isValidWCRootAgainstBlockRoot(proof, withdrawalContainerRoot);
         if (validExecutionPayloadRoot && validHistoricalSummary && validWCRootAgainstExecutionPayloadRoot) {
             valid = true;
         }
@@ -192,10 +191,11 @@ library BeaconChainProofs {
         return true;
     }
 
-    function isValidWCRootAgainstExecutionPayloadRoot(
-        WithdrawalProof calldata withdrawalProof,
-        bytes32 withdrawalContainerRoot
-    ) internal view returns (bool) {
+    function isValidWCRootAgainstBlockRoot(WithdrawalProof calldata withdrawalProof, bytes32 withdrawalContainerRoot)
+        internal
+        view
+        returns (bool)
+    {
         //Next we verify the slot against the blockRoot
         require(
             Merkle.verifyInclusionSha256({

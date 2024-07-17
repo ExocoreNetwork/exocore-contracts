@@ -46,7 +46,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     error UnregisteredValidator(bytes32 pubkey);
     error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
     error FullyWithdrawnValidatorContainer(bytes32 pubkey);
-    error UnmatchedValidatorAndWithdrawal(bytes32 pubkey);
+    error UnmatchedValidatorAndWithdrawal(bytes32 validatorStateRoot, bytes32 withdrawalStateRoot);
     error NotPartialWithdrawal(bytes32 pubkey);
     error BeaconChainOracleNotUpdatedAtTime(address oracle, uint256 timestamp);
     error WithdrawalFailure(address withdrawer, address recipient, uint256 amount);
@@ -151,6 +151,11 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         }
 
         provenWithdrawal[validatorPubkey][withdrawalProof.withdrawalIndex] = true;
+
+        // Validate if validator and withdrawal proof state roots are the same
+        if (validatorProof.stateRoot != withdrawalProof.stateRoot) {
+            revert UnmatchedValidatorAndWithdrawal(validatorProof.stateRoot, withdrawalProof.stateRoot);
+        }
 
         _verifyValidatorContainer(validatorContainer, validatorProof);
         _verifyWithdrawalContainer(withdrawalContainer, withdrawalProof);
