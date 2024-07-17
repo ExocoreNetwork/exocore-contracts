@@ -29,15 +29,24 @@ contract ExoCapsuleStorage {
     address public constant BEACON_ROOTS_ADDRESS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
     uint256 public constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
+    uint256 public constant GWEI_TO_WEI = 1e9;
+    uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
 
     uint256 public principalBalance;
+    /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon
+    /// Chain but not from Exocore)
     uint256 public withdrawableBalance;
+    /// @notice This variable tracks any ETH deposited into this contract via the `receive` fallback function
+    uint256 public nonBeaconChainETHBalance;
     address public capsuleOwner;
     INativeRestakingController public gateway;
     IBeaconChainOracle public beaconOracle;
 
     mapping(bytes32 pubkey => Validator validator) internal _capsuleValidators;
     mapping(uint256 index => bytes32 pubkey) internal _capsuleValidatorsByIndex;
+    /// @notice This is a mapping of validatorPubkeyHash to withdrawal index to whether or not they have proven a
+    /// withdrawal
+    mapping(bytes32 => mapping(uint256 => bool)) public provenWithdrawal;
 
     uint256[40] private __gap;
 

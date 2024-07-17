@@ -2,10 +2,9 @@ pragma solidity ^0.8.19;
 
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
-
+import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
-import {ExoCapsule} from "./ExoCapsule.sol";
 
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
@@ -53,7 +52,7 @@ abstract contract NativeRestakingController is
             address(ownerToCapsule[msg.sender]) == address(0),
             "NativeRestakingController: message sender has already created the capsule"
         );
-        ExoCapsule capsule = ExoCapsule(
+        IExoCapsule capsule = IExoCapsule(
             Create2.deploy(
                 0,
                 bytes32(uint256(uint160(msg.sender))),
@@ -76,9 +75,7 @@ abstract contract NativeRestakingController is
         IExoCapsule.ValidatorContainerProof calldata proof
     ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
         IExoCapsule capsule = _getCapsule(msg.sender);
-        capsule.verifyDepositProof(validatorContainer, proof);
-
-        uint256 depositValue = uint256(validatorContainer.getEffectiveBalance()) * GWEI_TO_WEI;
+        uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
 
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(msg.sender)), depositValue);
@@ -86,18 +83,24 @@ abstract contract NativeRestakingController is
         _processRequest(Action.REQUEST_DEPOSIT, actionArgs, encodedRequest);
     }
 
-    function processBeaconChainPartialWithdrawal(
+    function processBeaconChainWithdrawal(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
-        IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {}
+        BeaconChainProofs.WithdrawalProof calldata withdrawalProof
+    ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
+        IExoCapsule capsule = _getCapsule(msg.sender);
+        (bool partialWithdrawal, uint256 withdrawalAmount) =
+            capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+        if (!partialWithdrawal) {
+            // request full withdraw
+            bytes memory actionArgs = abi.encodePacked(
+                bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(msg.sender)), withdrawalAmount
+            );
+            bytes memory encodedRequest = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, withdrawalAmount);
 
-    function processBeaconChainFullWithdrawal(
-        bytes32[] calldata validatorContainer,
-        IExoCapsule.ValidatorContainerProof calldata validatorProof,
-        bytes32[] calldata withdrawalContainer,
-        IExoCapsule.WithdrawalContainerProof calldata withdrawalProof
-    ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {}
+            _processRequest(Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, actionArgs, encodedRequest);
+        }
+    }
 
 }
