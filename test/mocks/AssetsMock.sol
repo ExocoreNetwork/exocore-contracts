@@ -30,10 +30,10 @@ contract AssetsMock is IAssets {
 
         // Validate the asset address
         // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered
-        bool one = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
-        bool two = bytes32(assetsAddress) != bytes32(abi.encodePacked(bytes12(0), VIRTUAL_STAKED_BTC_ADDRESS));
-        if (one && two) {
-            console.log("one ", one, " two", two);
+        bool notEth = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        bool notBtc = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
+        if (notEth && notBtc) {
+            console.log("notEth ", notEth, " notBtc", notBtc);
             require(isRegisteredToken[clientChainLzId][assetsAddress], "the token not registered");
         }
 

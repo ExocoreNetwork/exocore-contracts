@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "../../mocks/ExocoreBtcGatewayMock.sol";
+import "src/core/ExocoreBtcGateway.sol";
 import "src/interfaces/IExocoreBtcGateway.sol";
 import "src/interfaces/precompiles/IAssets.sol";
 import "src/interfaces/precompiles/IClaimReward.sol";
@@ -13,14 +13,14 @@ import "forge-std/Test.sol";
 
 contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
 
-    ExocoreBtcGatewayMock internal exocoreBtcGateway;
+    ExocoreBtcGateway internal exocoreBtcGateway;
 
     uint32 internal exocoreChainId = 2;
     uint32 internal clientBtcChainId = 111;
 
     address internal validator = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     address internal btcToken = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-    bytes internal BTC_TOKEN = abi.encodePacked(bytes12(0), btcToken);
+    bytes internal BTC_TOKEN = abi.encodePacked(bytes32(bytes20(btcToken)));
 
     using stdStorage for StdStorage;
 
@@ -30,7 +30,7 @@ contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
         bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
         vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
         // Deploy the main contract
-        exocoreBtcGateway = new ExocoreBtcGatewayMock(validator);
+        exocoreBtcGateway = new ExocoreBtcGateway(validator);
         // Whitelist the btcToken
         // Calculate the storage slot for the mapping
         bytes32 whitelistedSlot = bytes32(
@@ -80,10 +80,6 @@ contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
         exocoreBtcGateway.depositTo(_msg, signature);
     }
 
-    function _stringToBytes(string memory source) internal pure returns (bytes memory) {
-        return abi.encodePacked(source);
-    }
-
     function testEstimateGas() public {
         bytes memory data =
             hex"016322c3000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002e000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000001800000000000000000000000002260fac5e5542a773aa44fbcfedf7c193bc2c59900000000000000000000000000000000000000000000000000002449f1539800000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000003e74623170647766356172306b787232736468787732387771686a777a796e7a6c6b6472716c6778386a753373723032686b6c64716d6c6673706d306d6d680000000000000000000000000000000000000000000000000000000000000000003e7462317171797467716b7a76673438703730307334366e35377766676166303468376361356d3033716373636861617776397171773276737036376b753400000000000000000000000000000000000000000000000000000000000000000042623263343336366532396461353336626431636135616331373930626131643361356537303661326235653236373464656532363738613636393433326666632d330000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002307800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000411b599ef9aebf5d2a65c6e8288e1e1d3fbcbe30d891a016110c5dbba48a91037f34c5b1b5cc5903b59a19ae5b58ebd3eb659deaf651b74bf4b50ca5bc22e8f7b11c00000000000000000000000000000000000000000000000000000000000000";
@@ -109,6 +105,10 @@ contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
                 revert("Call failed without a reason");
             }
         }
+    }
+
+    function _stringToBytes(string memory source) internal pure returns (bytes memory) {
+        return abi.encodePacked(source);
     }
 
 }

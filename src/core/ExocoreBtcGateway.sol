@@ -27,7 +27,7 @@ contract ExocoreBtcGateway is
 
     uint32 internal CLIENT_CHAIN_ID;
     address internal constant BTC_ADDR = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-    bytes internal constant BTC_TOKEN = abi.encodePacked(bytes12(0), BTC_ADDR);
+    bytes internal constant BTC_TOKEN = abi.encodePacked(bytes32(bytes20(BTC_ADDR)));
     mapping(bytes => TxInfo) public processedBtcTxs;
     mapping(bytes => bytes) public btcToExocoreAddress;
     mapping(bytes => bytes) public exocoreToBtcAddress;
@@ -78,10 +78,12 @@ contract ExocoreBtcGateway is
 
     /**
      * @notice Constructor to initialize the contract with the client chain ID.
-     * @param clientChainId The ID of the client chain.
+     * @param exocoreValidatorSetAddress_ The signer of the btc-bridge.
      */
-    constructor(uint32 clientChainId) {
-        _registerClientChain(clientChainId);
+    constructor(address exocoreValidatorSetAddress_) {
+        exocoreValidatorSetAddress = payable(exocoreValidatorSetAddress_);
+        _registerClientChain(111);
+        isWhitelistedToken[BTC_ADDR] = true;
         _disableInitializers();
     }
 
@@ -109,9 +111,9 @@ contract ExocoreBtcGateway is
         if (clientChainId == 0) {
             revert ZeroAddressNotAllowed();
         }
-        if (!ASSETS_CONTRACT.registerClientChain(clientChainId)) {
-            revert RegisterClientChainToExocoreFailed(clientChainId);
-        }
+        // if (!ASSETS_CONTRACT.registerClientChain(clientChainId)) {
+        //     revert RegisterClientChainToExocoreFailed(clientChainId);
+        // }
         CLIENT_CHAIN_ID = clientChainId;
     }
 
