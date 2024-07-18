@@ -24,7 +24,7 @@ contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
 
     using stdStorage for StdStorage;
 
-    event DepositCompleted(bytes btcTxTag, bytes token, bytes depositor, uint256 amount, uint256 updatedBalance);
+    event DepositCompleted(bytes btcTxTag, address token, bytes depositor, uint256 amount, uint256 updatedBalance);
 
     function setUp() public {
         bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
@@ -49,6 +49,11 @@ contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
 
         bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
         bytes memory exocoreAddress = _stringToBytes("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+
+        // Get the inboundBytesNonce
+        uint256 nonce = exocoreBtcGateway.inboundBytesNonce(clientBtcChainId, btcAddress) + 1;
+        assertEq(nonce, 1, "Nonce should be 1");
+
         // register address.
         vm.prank(validator);
         exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
@@ -69,7 +74,7 @@ contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
 
         // Check if the event is emitted correctly
         vm.expectEmit(true, true, true, true);
-        emit DepositCompleted(_msg.txTag, BTC_TOKEN, _msg.srcAddress, _msg.amount, 39_900_000_000_000);
+        emit DepositCompleted(_msg.txTag, btcToken, _msg.srcAddress, _msg.amount, 39_900_000_000_000);
 
         bytes memory data = abi.encodeWithSelector(exocoreBtcGateway.depositTo.selector, _msg, signature);
 

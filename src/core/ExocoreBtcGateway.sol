@@ -32,7 +32,7 @@ contract ExocoreBtcGateway is
     mapping(bytes => bytes) public btcToExocoreAddress;
     mapping(bytes => bytes) public exocoreToBtcAddress;
 
-    event DepositCompleted(bytes btcTxTag, bytes token, bytes depositor, uint256 amount, uint256 updatedBalance);
+    event DepositCompleted(bytes btcTxTag, address token, bytes depositor, uint256 amount, uint256 updatedBalance);
     event WithdrawPrincipalCompleted(address token, bytes withdrawer, uint256 amount, uint256 updatedBalance);
     event WithdrawRewardCompleted(address token, bytes withdrawer, uint256 amount, uint256 updatedBalance);
     event DelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
@@ -40,7 +40,7 @@ contract ExocoreBtcGateway is
     event DepositAndDelegationCompleted(
         address token, bytes depositor, bytes operator, uint256 amount, uint256 updatedBalance
     );
-    event AddressRegistered(bytes btcAddress, bytes exocoreAddress);
+    event AddressRegistered(bytes depositor, bytes exocoreAddress);
     event ExocorePrecompileError(address precompileAddress);
 
     error UnauthorizedValidator();
@@ -119,17 +119,21 @@ contract ExocoreBtcGateway is
 
     /**
      * @notice Registers a BTC address with an Exocore address.
-     * @param btcAddress The BTC address to register.
+     * @param depositor The BTC address to register.
      * @param exocoreAddress The corresponding Exocore address.
      */
-    function registerAddress(bytes calldata btcAddress, bytes calldata exocoreAddress)
+    function registerAddress(bytes calldata depositor, bytes calldata exocoreAddress)
         external
         onlyAuthorizedValidator
     {
-        require(btcAddress.length > 0 && exocoreAddress.length > 0, "Invalid address");
-        btcToExocoreAddress[btcAddress] = exocoreAddress;
-        exocoreToBtcAddress[exocoreAddress] = btcAddress;
-        emit AddressRegistered(btcAddress, exocoreAddress);
+        require(depositor.length > 0 && exocoreAddress.length > 0, "Invalid address");
+        require(btcToExocoreAddress[depositor].length == 0, "Depositor address already registered");
+        require(exocoreToBtcAddress[exocoreAddress].length == 0, "Exocore address already registered");
+
+        btcToExocoreAddress[depositor] = exocoreAddress;
+        exocoreToBtcAddress[exocoreAddress] = depositor;
+
+        emit AddressRegistered(depositor, exocoreAddress);
     }
 
     /**
@@ -170,29 +174,29 @@ contract ExocoreBtcGateway is
      * @param _msg The interchain message.
      * @param signature The signature to verify.
      * @return btcTxTag The lowercase of BTC txid-vout.
-     * @return btcAddress The BTC address.
+     * @return depositor The BTC address.
      * @return exocoreAddress The Exocore address.
      */
 
     function _processAndVerify(InterchainMsg calldata _msg, bytes calldata signature)
         internal
-        returns (bytes memory btcTxTag, bytes memory btcAddress, bytes memory exocoreAddress)
+        returns (bytes memory btcTxTag, bytes memory depositor, bytes memory exocoreAddress)
     {
         btcTxTag = _msg.txTag;
-        btcAddress = _msg.srcAddress;
+        depositor = _msg.srcAddress;
 
         if (processedBtcTxs[btcTxTag].processed) {
             revert BtcTxAlreadyProcessed();
         }
 
         // Verify nonce
-        _verifyAndUpdateBytesNonce(_msg.srcChainID, btcAddress, _msg.nonce);
+        _verifyAndUpdateBytesNonce(_msg.srcChainID, depositor, _msg.nonce);
 
         // Verify signature
         _verifySignature(_msg, signature);
 
         console.log("verify sig done, nonce: ", _msg.nonce);
-        exocoreAddress = btcToExocoreAddress[btcAddress];
+        exocoreAddress = btcToExocoreAddress[depositor];
         if (exocoreAddress.length == 0) {
             revert BtcAddressNotRegistered();
         }
@@ -212,9 +216,9 @@ contract ExocoreBtcGateway is
         isValidAmount(_msg.amount)
         onlyAuthorizedValidator
     {
-        (bytes memory btcTxTag, bytes memory btcAddress,) = _processAndVerify(_msg, signature);
+        (bytes memory btcTxTag, bytes memory depositor,) = _processAndVerify(_msg, signature);
         console.log("ASSETS_CONTRACT:", address(ASSETS_CONTRACT));
-        try ASSETS_CONTRACT.depositTo(_msg.srcChainID, BTC_TOKEN, btcAddress, _msg.amount) returns (
+        try ASSETS_CONTRACT.depositTo(_msg.srcChainID, BTC_TOKEN, depositor, _msg.amount) returns (
             bool success, uint256 updatedBalance
         ) {
             if (!success) {
@@ -223,7 +227,7 @@ contract ExocoreBtcGateway is
             }
             console.log("depositTo success");
             processedBtcTxs[btcTxTag] = TxInfo(true, block.timestamp);
-            emit DepositCompleted(btcTxTag, BTC_TOKEN, btcAddress, _msg.amount, updatedBalance);
+            emit DepositCompleted(btcTxTag, BTC_ADDR, depositor, _msg.amount, updatedBalance);
         } catch {
             console.log("depositTo Error");
             emit ExocorePrecompileError(address(ASSETS_CONTRACT));
@@ -355,15 +359,15 @@ contract ExocoreBtcGateway is
         isValidAmount(_msg.amount)
         onlyAuthorizedValidator
     {
-        (bytes memory btcTxHash, bytes memory btcAddress,) = _processAndVerify(_msg, signature);
-        _depositToAssetContract(CLIENT_CHAIN_ID, BTC_TOKEN, btcAddress, _msg.amount, btcTxHash, operator);
+        (bytes memory btcTxHash, bytes memory depositor,) = _processAndVerify(_msg, signature);
+        _depositToAssetContract(CLIENT_CHAIN_ID, BTC_TOKEN, depositor, _msg.amount, btcTxHash, operator);
     }
 
     /**
      * @notice Internal function to deposit BTC to the asset contract.
      * @param clientChainId The client chain ID.
      * @param btcToken The BTC token.
-     * @param btcAddress The BTC address.
+     * @param depositor The BTC address.
      * @param amount The amount to deposit.
      * @param btcTxHash The BTC transaction hash.
      * @param operator The operator's address.
@@ -371,19 +375,19 @@ contract ExocoreBtcGateway is
     function _depositToAssetContract(
         uint32 clientChainId,
         bytes memory btcToken,
-        bytes memory btcAddress,
+        bytes memory depositor,
         uint256 amount,
         bytes memory btcTxHash,
         bytes memory operator
     ) internal {
-        try ASSETS_CONTRACT.depositTo(clientChainId, btcToken, btcAddress, amount) returns (
+        try ASSETS_CONTRACT.depositTo(clientChainId, btcToken, depositor, amount) returns (
             bool depositSuccess, uint256 updatedBalance
         ) {
             if (!depositSuccess) {
                 revert DepositFailed(btcTxHash);
             }
             processedBtcTxs[btcTxHash] = TxInfo(true, block.timestamp);
-            _delegateToDelegationContract(clientChainId, btcToken, btcAddress, operator, amount, updatedBalance);
+            _delegateToDelegationContract(clientChainId, btcToken, depositor, operator, amount, updatedBalance);
         } catch {
             emit ExocorePrecompileError(address(ASSETS_CONTRACT));
             revert DepositFailed(btcTxHash);
@@ -394,7 +398,7 @@ contract ExocoreBtcGateway is
      * @notice Internal function to delegate BTC to the delegation contract.
      * @param clientChainId The client chain ID.
      * @param btcToken The BTC token.
-     * @param btcAddress The BTC address.
+     * @param depositor The BTC address.
      * @param operator The operator's address.
      * @param amount The amount to delegate.
      * @param updatedBalance The updated balance after delegation.
@@ -402,18 +406,18 @@ contract ExocoreBtcGateway is
     function _delegateToDelegationContract(
         uint32 clientChainId,
         bytes memory btcToken,
-        bytes memory btcAddress,
+        bytes memory depositor,
         bytes memory operator,
         uint256 amount,
         uint256 updatedBalance
     ) internal {
-        try DELEGATION_CONTRACT.delegateTo(clientChainId, btcToken, btcAddress, operator, amount) returns (
+        try DELEGATION_CONTRACT.delegateTo(clientChainId, btcToken, depositor, operator, amount) returns (
             bool delegateSuccess
         ) {
             if (!delegateSuccess) {
                 revert DelegationFailed();
             }
-            emit DepositAndDelegationCompleted(BTC_ADDR, btcAddress, operator, amount, updatedBalance);
+            emit DepositAndDelegationCompleted(BTC_ADDR, depositor, operator, amount, updatedBalance);
         } catch {
             emit ExocorePrecompileError(address(DELEGATION_CONTRACT));
             revert DelegationFailed();
@@ -432,11 +436,11 @@ contract ExocoreBtcGateway is
     /**
      * @notice Gets the current nonce for a given BTC address.
      * @param srcChainId The source chain ID.
-     * @param btcAddress The BTC address as a string.
+     * @param depositor The BTC address as a string.
      * @return The current nonce.
      */
-    function getCurrentNonce(uint32 srcChainId, string calldata btcAddress) external view returns (uint64) {
-        bytes memory bytesBtcAddr = _stringToBytes(btcAddress);
+    function getCurrentNonce(uint32 srcChainId, string calldata depositor) external view returns (uint64) {
+        bytes memory bytesBtcAddr = _stringToBytes(depositor);
         return inboundBytesNonce[srcChainId][bytesBtcAddr];
     }
 
@@ -456,8 +460,8 @@ contract ExocoreBtcGateway is
      * @return The next nonce.
      */
     function _nextNonce(uint32 srcChainId, bytes calldata srcAddress) internal returns (uint64) {
-        bytes memory btcAddress = exocoreToBtcAddress[srcAddress];
-        return inboundBytesNonce[srcChainId][btcAddress]++;
+        bytes memory depositor = exocoreToBtcAddress[srcAddress];
+        return inboundBytesNonce[srcChainId][depositor]++;
     }
 
     /**
