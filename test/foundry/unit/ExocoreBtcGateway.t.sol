@@ -76,9 +76,43 @@ contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
         vm.expectEmit(true, true, true, true);
         emit DepositCompleted(_msg.txTag, btcToken, _msg.srcAddress, _msg.amount, 39_900_000_000_000);
 
-        bytes memory data = abi.encodeWithSelector(exocoreBtcGateway.depositTo.selector, _msg, signature);
+        // Simulate the validator calling the depositTo function
+        vm.prank(validator);
+        exocoreBtcGateway.depositTo(_msg, signature);
+    }
 
-        emit log_bytes(data);
+    /**
+     * @notice Test the depositTo function with the second InterchainMsg.
+     */
+    function testDepositToWithSecondMessage() public {
+        assertTrue(exocoreBtcGateway.isWhitelistedToken(btcToken));
+        bytes memory btcAddress = _stringToBytes("tb1p43yswl96qlz9v9m6wtvv9c7s0jv7g6dktwfcuzle6nflyyhrqhpqtdacpy");
+        bytes memory exocoreAddress = _stringToBytes("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC");
+        // Get the inboundBytesNonce
+        uint256 nonce = exocoreBtcGateway.inboundBytesNonce(clientBtcChainId, btcAddress) + 1;
+        assertEq(nonce, 1, "Nonce should be 1");
+
+        // register address.
+        vm.prank(validator);
+        exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
+
+        InterchainMsg memory _msg = InterchainMsg({
+            srcChainID: clientBtcChainId,
+            dstChainID: exocoreChainId,
+            srcAddress: btcAddress,
+            dstAddress: _stringToBytes("tb1qqytgqkzvg48p700s46n57wfgaf04h7ca5m03qcschaawv9qqw2vsp67ku4"),
+            token: btcToken,
+            amount: 49_000_000_000, // 0.000049 BTC
+            nonce: 1,
+            txTag: _stringToBytes("102f5578c65f78cda5b1c4b35b58281b66c27a4929bb4f938fd15fa8f2d1c58b-1"),
+            payload: "0x"
+        });
+        // This is a placeholder signature. In a real scenario, you would need to generate a valid signature.
+        bytes memory signature =
+            hex"4eb94c22acf431262f040dbb99bec5acc6b8288c61d4acbe6a8ba7969ab0cea91613579684c664cd81dd876a385c0c493646267fbbdd58f9408d784e8b8e616d1b";
+        // Check if the event is emitted correctly
+        vm.expectEmit(true, true, true, true);
+        emit DepositCompleted(_msg.txTag, btcToken, _msg.srcAddress, _msg.amount, 49_000_000_000);
 
         // Simulate the validator calling the depositTo function
         vm.prank(validator);
