@@ -1,5 +1,6 @@
 pragma solidity ^0.8.19;
 
+import {Errors} from "../libraries/Errors.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -7,10 +8,9 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, BootstrapStorage {
 
     modifier onlyCalledFromThis() {
-        require(
-            msg.sender == address(this),
-            "BootstrapLzReceiver: could only be called from this contract itself with low level call"
-        );
+        if (msg.sender != address(this)) {
+            revert Errors.BootstrapLzReceiverOnlyCalledFromThis();
+        }
         _;
     }
 
@@ -20,7 +20,9 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
         }
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
         Action act = Action(uint8(payload[0]));
-        require(act != Action.RESPOND, "BootstrapLzReceiver: invalid action");
+        if (act == Action.RESPOND) {
+            revert Errors.BootstrapLzReceiverInvalidAction();
+        }
         bytes4 selector_ = _whiteListFunctionSelectors[act];
         if (selector_ == bytes4(0)) {
             revert UnsupportedRequest(act);

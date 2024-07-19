@@ -4,6 +4,7 @@ import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol
 import {IVault} from "../interfaces/IVault.sol";
 import {VaultStorage} from "../storage/VaultStorage.sol";
 
+import {Errors} from "../libraries/Errors.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -13,7 +14,9 @@ contract Vault is Initializable, VaultStorage, IVault {
     using SafeERC20 for IERC20;
 
     modifier onlyGateway() {
-        require(msg.sender == address(gateway), "Vault: caller is not the gateway");
+        if (msg.sender != address(gateway)) {
+            revert Errors.VaultCallerIsNotGateway();
+        }
         _;
     }
 
@@ -22,8 +25,12 @@ contract Vault is Initializable, VaultStorage, IVault {
     }
 
     function initialize(address underlyingToken_, address gateway_) external initializer {
-        require(underlyingToken_ != address(0), "Vault: underlying token can not be empty");
-        require(gateway_ != address(0), "VaultStorage: the gateway address should not be empty");
+        if (underlyingToken_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (gateway_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
 
         underlyingToken = IERC20(underlyingToken_);
         gateway = ILSTRestakingController(gateway_);
@@ -38,10 +45,9 @@ contract Vault is Initializable, VaultStorage, IVault {
     }
 
     function withdraw(address withdrawer, address recipient, uint256 amount) external onlyGateway {
-        require(
-            amount <= withdrawableBalances[withdrawer],
-            "Vault: withdrawal amount is larger than depositor's withdrawable balance"
-        );
+        if (amount > withdrawableBalances[withdrawer]) {
+            revert Errors.VaultWithdrawalAmountExceeds();
+        }
 
         withdrawableBalances[withdrawer] -= amount;
         underlyingToken.safeTransfer(recipient, amount);
@@ -74,16 +80,14 @@ contract Vault is Initializable, VaultStorage, IVault {
         onlyGateway
     {
         uint256 totalDeposited = totalDepositedPrincipalAmount[user];
-        require(
-            unlockPrincipalAmount <= totalDeposited,
-            "Vault: principal unlock amount is larger than the total deposited amount"
-        );
+        if (unlockPrincipalAmount > totalDeposited) {
+            revert Errors.VaultPrincipalExceedsTotalDeposit();
+        }
 
         totalUnlockPrincipalAmount[user] += unlockPrincipalAmount;
-        require(
-            totalUnlockPrincipalAmount[user] <= totalDeposited,
-            "Vault: total principal unlock amount is larger than the total deposited amount"
-        );
+        if (totalUnlockPrincipalAmount[user] > totalDeposited) {
+            revert Errors.VaultTotalUnlockPrincipalExceedsDeposit();
+        }
 
         withdrawableBalances[user] = withdrawableBalances[user] + unlockPrincipalAmount + unlockRewardAmount;
 

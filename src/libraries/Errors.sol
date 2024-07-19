@@ -244,10 +244,19 @@ library Errors {
      * ExocoreGateway: failed to decode client chain ids
      */
     error ExocoreGatewayFailedToDecodeClientChainIds();
+    /**
+     * ExocoreGateway: client chain should be registered before setting peer to change peer address
+     */
+    error ExocoreGatewayNotRegisteredClientChainId();
 
     ////////////////////////////////////////
     //  NativeRestakingController Errors  //
     ////////////////////////////////////////
+
+    /**
+     * NativeRestakingController: native restaking is not enabled
+     */
+    error NativeRestakingControllerNotWhitelisted();
 
     /**
      * NativeRestakingController: stake value must be exactly 32 ether
@@ -272,6 +281,11 @@ library Errors {
      * Vault: withdrawal amount is larger than depositor's withdrawable balance
      */
     error VaultWithdrawalAmountExceeds();
+
+    /**
+     * Vault: total principal unlock amount is larger than the total deposited amount
+     */
+    error VaultPrincipalExceedsTotalDeposit();
 
     /**
      * Vault: total principal unlock amount is larger than the total deposited amount
