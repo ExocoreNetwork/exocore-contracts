@@ -18,6 +18,7 @@ import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
+import {Errors} from "../libraries/Errors.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 
@@ -51,13 +52,25 @@ contract Bootstrap is
         address[] calldata whitelistTokens_,
         address customProxyAdmin_
     ) external initializer {
-        require(owner != address(0), "Bootstrap: owner should not be empty");
-        require(spawnTime_ > block.timestamp, "Bootstrap: spawn time should be in the future");
-        require(offsetDuration_ > 0, "Bootstrap: offset duration should be greater than 0");
-        require(spawnTime_ > offsetDuration_, "Bootstrap: spawn time should be greater than offset duration");
+        if (owner == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (spawnTime_ <= block.timestamp) {
+            revert Errors.BootstrapSpawnTimeAlreadyPast();
+        }
+        if (offsetDuration_ == 0) {
+            revert Errors.ZeroAmount();
+        }
+        if (spawnTime_ <= offsetDuration_) {
+            revert Errors.BootstrapSpawnTimeLessThanDuration();
+        }
         uint256 lockTime = spawnTime_ - offsetDuration_;
-        require(lockTime > block.timestamp, "Bootstrap: lock time should be in the future");
-        require(customProxyAdmin_ != address(0), "Bootstrap: custom proxy admin should not be empty");
+        if (lockTime <= block.timestamp) {
+            revert Errors.BootstrapLockTimeAlreadyPast();
+        }
+        if (customProxyAdmin_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
 
         exocoreSpawnTime = spawnTime_;
         offsetDuration = offsetDuration_;
@@ -101,7 +114,9 @@ contract Bootstrap is
      * revert with an informative error message.
      */
     modifier beforeLocked() {
-        require(!isLocked(), "Bootstrap: operation not allowed after lock time");
+        if (isLocked()) {
+            revert Errors.BootstrapBeforeLocked();
+        }
         _;
     }
 
@@ -123,10 +138,16 @@ contract Bootstrap is
      * @param _spawnTime The new spawn time in seconds.
      */
     function setSpawnTime(uint256 _spawnTime) external onlyOwner beforeLocked {
-        require(_spawnTime > block.timestamp, "Bootstrap: spawn time should be in the future");
-        require(_spawnTime > offsetDuration, "Bootstrap: spawn time should be greater than offset duration");
+        if (_spawnTime <= block.timestamp) {
+            revert Errors.BootstrapSpawnTimeAlreadyPast();
+        }
+        if (_spawnTime <= offsetDuration) {
+            revert Errors.BootstrapSpawnTimeLessThanDuration();
+        }
         uint256 lockTime = _spawnTime - offsetDuration;
-        require(lockTime > block.timestamp, "Bootstrap: lock time should be in the future");
+        if (lockTime <= block.timestamp) {
+            revert Errors.BootstrapLockTimeAlreadyPast();
+        }
         // technically the spawn time can be moved backwards in time as well.
         exocoreSpawnTime = _spawnTime;
         emit SpawnTimeUpdated(_spawnTime);
@@ -141,9 +162,13 @@ contract Bootstrap is
      * @param _offsetDuration The new offset duration in seconds.
      */
     function setOffsetDuration(uint256 _offsetDuration) external onlyOwner beforeLocked {
-        require(exocoreSpawnTime > _offsetDuration, "Bootstrap: spawn time should be greater than offset duration");
+        if (exocoreSpawnTime <= _offsetDuration) {
+            revert Errors.BootstrapSpawnTimeLessThanDuration();
+        }
         uint256 lockTime = exocoreSpawnTime - _offsetDuration;
-        require(lockTime > block.timestamp, "Bootstrap: lock time should be in the future");
+        if (lockTime <= block.timestamp) {
+            revert Errors.BootstrapLockTimeAlreadyPast();
+        }
         offsetDuration = _offsetDuration;
         emit OffsetDurationUpdated(_offsetDuration);
     }
@@ -160,8 +185,12 @@ contract Bootstrap is
     function _addWhitelistTokens(address[] calldata tokens) internal {
         for (uint256 i; i < tokens.length; i++) {
             address token = tokens[i];
-            require(token != address(0), "Bootstrap: zero token address");
-            require(!isWhitelistedToken[token], "Bootstrap: token should be not whitelisted before");
+            if (token == address(0)) {
+                revert Errors.ZeroAddress();
+            }
+            if (isWhitelistedToken[token]) {
+                revert Errors.BootstrapAlreadyWhitelisted(token);
+            }
 
             whitelistTokens.push(token);
             isWhitelistedToken[token] = true;
@@ -188,18 +217,25 @@ contract Bootstrap is
         bytes32 consensusPublicKey
     ) external beforeLocked whenNotPaused isValidBech32Address(operatorExocoreAddress) {
         // ensure that there is only one operator per ethereum address
-        require(bytes(ethToExocoreAddress[msg.sender]).length == 0, "Ethereum address already linked to an operator");
+        if (bytes(ethToExocoreAddress[msg.sender]).length > 0) {
+            revert Errors.BootstrapOperatorAlreadyHasAddress(msg.sender);
+        }
         // check if operator with the same exocore address already exists
-        require(
-            bytes(operators[operatorExocoreAddress].name).length == 0,
-            "Operator with this Exocore address is already registered"
-        );
+        if (bytes(operators[operatorExocoreAddress].name).length > 0) {
+            revert Errors.BootstrapOperatorAlreadyRegistered();
+        }
         // check that the consensus key is unique.
-        require(!consensusPublicKeyInUse(consensusPublicKey), "Consensus public key already in use");
+        if (consensusPublicKeyInUse(consensusPublicKey)) {
+            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(consensusPublicKey);
+        }
         // and that the name (meta info) is unique.
-        require(!nameInUse(name), "Name already in use");
+        if (nameInUse(name)) {
+            revert Errors.BootstrapOperatorNameAlreadyUsed();
+        }
         // check that the commission is valid.
-        require(isCommissionValid(commission), "invalid commission");
+        if (!isCommissionValid(commission)) {
+            revert Errors.BootstrapInvalidCommission();
+        }
         ethToExocoreAddress[msg.sender] = operatorExocoreAddress;
         operators[operatorExocoreAddress] =
             IOperatorRegistry.Operator({name: name, commission: commission, consensusPublicKey: consensusPublicKey});
@@ -226,7 +262,9 @@ contract Bootstrap is
      * is unique and can be safely used for a new or updating operator.
      */
     function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
-        require(newKey != bytes32(0), "Consensus public key cannot be zero");
+        if (newKey == bytes32(0)) {
+            revert Errors.ZeroValue();
+        }
         uint256 arrayLength = registeredOperators.length;
         for (uint256 i = 0; i < arrayLength; i++) {
             address ethAddress = registeredOperators[i];
@@ -287,8 +325,12 @@ contract Bootstrap is
 
     // implementation of IOperatorRegistry
     function replaceKey(bytes32 newKey) external beforeLocked whenNotPaused {
-        require(bytes(ethToExocoreAddress[msg.sender]).length != 0, "no such operator exists");
-        require(!consensusPublicKeyInUse(newKey), "Consensus public key already in use");
+        if (bytes(ethToExocoreAddress[msg.sender]).length == 0) {
+            revert Errors.BootstrapOperatorNotExist();
+        }
+        if (consensusPublicKeyInUse(newKey)) {
+            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(newKey);
+        }
         operators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
         emit OperatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
     }
@@ -296,20 +338,28 @@ contract Bootstrap is
     // implementation of IOperatorRegistry
     function updateRate(uint256 newRate) external beforeLocked whenNotPaused {
         string memory operatorAddress = ethToExocoreAddress[msg.sender];
-        require(bytes(operatorAddress).length != 0, "no such operator exists");
+        if (bytes(operatorAddress).length == 0) {
+            revert Errors.BootstrapOperatorNotExist();
+        }
         // across the lifetime of this contract before network bootstrap,
         // allow the editing of commission only once.
-        require(!commissionEdited[operatorAddress], "Commission already edited once");
+        if (commissionEdited[operatorAddress]) {
+            revert Errors.BootstrapComissionAlreadyEdited();
+        }
         Commission memory commission = operators[operatorAddress].commission;
         uint256 rate = commission.rate;
         uint256 maxRate = commission.maxRate;
         uint256 maxChangeRate = commission.maxChangeRate;
         // newRate <= maxRate <= 1e18
-        require(newRate <= maxRate, "Rate exceeds max rate");
+        if (newRate > maxRate) {
+            revert Errors.BootstrapRateExceedsMaxRate();
+        }
         // to prevent operators from blindsiding users by first registering at low rate and
         // subsequently increasing it, we should also check that the change is within the
         // allowed rate change.
-        require(newRate <= rate + maxChangeRate, "Rate change exceeds max change rate");
+        if (newRate > rate + maxChangeRate) {
+            revert Errors.BootstrapRateChangeExceedsMaxChangeRate();
+        }
         operators[operatorAddress].commission.rate = newRate;
         commissionEdited[operatorAddress] = true;
         emit OperatorCommissionUpdated(newRate);
@@ -372,9 +422,13 @@ contract Bootstrap is
         IVault vault = _getVault(token);
 
         uint256 deposited = totalDepositAmounts[user][token];
-        require(deposited >= amount, "Bootstrap: insufficient deposited balance");
+        if (deposited < amount) {
+            revert Errors.BootstrapInsufficientDepositedBalance();
+        }
         uint256 withdrawable = withdrawableAmounts[user][token];
-        require(withdrawable >= amount, "Bootstrap: insufficient withdrawable balance");
+        if (withdrawable < amount) {
+            revert Errors.BootstrapInsufficientWithdrawableBalance();
+        }
 
         // when the withdraw precompile is called, it does these things.
         totalDepositAmounts[user][token] -= amount;
@@ -424,14 +478,20 @@ contract Bootstrap is
     }
 
     function _delegateTo(address user, string calldata operator, address token, uint256 amount) internal {
-        require(msg.value == 0, "Bootstrap: no ether required for delegation");
+        if (msg.value > 0) {
+            revert Errors.BootstrapNoEtherForDelegation();
+        }
         // check that operator is registered
-        require(bytes(operators[operator].name).length != 0, "Operator does not exist");
+        if (bytes(operators[operator].name).length == 0) {
+            revert Errors.BootstrapOperatorNotExist();
+        }
         // operator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
         uint256 withdrawable = withdrawableAmounts[msg.sender][token];
-        require(withdrawable >= amount, "Bootstrap: insufficient withdrawable balance");
+        if (withdrawable < amount) {
+            revert Errors.BootstrapInsufficientWithdrawableBalance();
+        }
         delegations[user][operator][token] += amount;
         delegationsByOperator[operator][token] += amount;
         withdrawableAmounts[user][token] -= amount;
@@ -455,14 +515,20 @@ contract Bootstrap is
     }
 
     function _undelegateFrom(address user, string calldata operator, address token, uint256 amount) internal {
-        require(msg.value == 0, "Bootstrap: no ether required for undelegation");
+        if (msg.value > 0) {
+            revert Errors.BootstrapNoEtherForDelegation();
+        }
         // check that operator is registered
-        require(bytes(operators[operator].name).length != 0, "Operator does not exist");
+        if (bytes(operators[operator].name).length == 0) {
+            revert Errors.BootstrapOperatorNotExist();
+        }
         // operator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
         uint256 delegated = delegations[user][operator][token];
-        require(delegated >= amount, "Bootstrap: insufficient delegated balance");
+        if (delegated < amount) {
+            revert Errors.BootstrapInsufficientDelegatedBalance();
+        }
         // the undelegation is released immediately since it is not at stake yet.
         delegations[user][operator][token] -= amount;
         delegationsByOperator[operator][token] -= amount;
@@ -512,9 +578,15 @@ contract Bootstrap is
         // nonce match, which requires that inbound nonce is uint64(1).
         // TSS checks are not super clear since they can be set by anyone
         // but at this point that does not matter since it is not fully implemented anyway.
-        require(block.timestamp >= exocoreSpawnTime, "Bootstrap: not yet in the bootstrap time");
-        require(!bootstrapped, "Bootstrap: already bootstrapped");
-        require(clientChainGatewayLogic != address(0), "Bootstrap: client chain gateway logic not set");
+        if (block.timestamp < exocoreSpawnTime) {
+            revert Errors.BootstrapNotSpawnTime();
+        }
+        if (bootstrapped) {
+            revert Errors.BootstrapAlreadyBootstrapped();
+        }
+        if (clientChainGatewayLogic == address(0)) {
+            revert Errors.ZeroAddress();
+        }
         ICustomProxyAdmin(customProxyAdmin).changeImplementation(
             // address(this) is storage address and not logic address. so it is a proxy.
             ITransparentUpgradeableProxy(address(this)),
@@ -538,8 +610,12 @@ contract Bootstrap is
         public
         onlyOwner
     {
-        require(_clientChainGatewayLogic != address(0), "Bootstrap: client chain gateway logic address cannot be empty");
-        require(_clientChainInitializationData.length >= 4, "Bootstrap: client chain initialization data is malformed");
+        if (_clientChainGatewayLogic == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (_clientChainInitializationData.length < 4) {
+            revert Errors.BootstrapClientChainDataMalformed();
+        }
         clientChainGatewayLogic = _clientChainGatewayLogic;
         clientChainInitializationData = _clientChainInitializationData;
         emit ClientChainGatewayLogicUpdated(_clientChainGatewayLogic, _clientChainInitializationData);
@@ -573,7 +649,9 @@ contract Bootstrap is
      * amount.
      */
     function getWhitelistedTokenAtIndex(uint256 index) public view returns (TokenInfo memory) {
-        require(index < whitelistTokens.length, "Index out of bounds");
+        if (index >= whitelistTokens.length) {
+            revert Errors.IndexOutOfBounds();
+        }
         address tokenAddress = whitelistTokens[index];
         ERC20 token = ERC20(tokenAddress);
         return TokenInfo({
