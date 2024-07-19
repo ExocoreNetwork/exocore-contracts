@@ -301,23 +301,6 @@ contract BootstrapStorage is GatewayStorage {
     );
 
     /**
-     * @notice Emitted when a deposit + delegation is made.
-     * @dev This event is triggered whenever a delegator deposits and then delegates tokens to an operator.
-     * @param delegateSuccess Whether the delegation succeeded (deposits always succeed!).
-     * @param delegator The address of the delegator, on this chain.
-     * @param delegatee The Exocore address of the operator.
-     * @param token The address of the token being delegated, on this chain.
-     * @param delegatedAmount The amount of the token delegated.
-     */
-    event DepositThenDelegateResult(
-        bool indexed delegateSuccess,
-        address indexed delegator,
-        string indexed delegatee,
-        address token,
-        uint256 delegatedAmount
-    );
-
-    /**
      * @notice Emitted after the Exocore chain is bootstrapped.
      * @dev This event is triggered after the Exocore chain is bootstrapped, indicating that
      * the contract has successfully transitioned to the Client Chain Gateway logic. Exocore

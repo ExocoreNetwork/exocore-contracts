@@ -26,10 +26,10 @@ contract DelegateTest is ExocoreDeployer {
     string operatorAddress;
 
     event DelegateResult(
-        bool indexed success, address indexed delegator, string indexed delegatee, address token, uint256 amount
+        bool indexed success, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
     );
     event UndelegateResult(
-        bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
+        bool indexed success, bytes32 indexed token, bytes32 indexed undelegator, string operator, uint256 amount
     );
     event DelegateRequestProcessed(
         uint32 clientChainLzId,
@@ -151,6 +151,16 @@ contract DelegateTest is ExocoreDeployer {
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit MessageSent(GatewayStorage.Action.RESPOND, responseId, delegateResponseNonce, responseNativeFee);
 
+        /// exocoreGateway contract should emit DelegateResult event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit DelegateResult(
+            true,
+            bytes32(bytes20(address(restakeToken))),
+            bytes32(bytes20(delegator.addr)),
+            operatorAddress,
+            delegateAmount
+        );
+
         /// relayer call layerzero endpoint to deliver request messages and generate response message
         vm.startPrank(relayer.addr);
         exocoreLzEndpoint.lzReceive(
@@ -171,10 +181,10 @@ contract DelegateTest is ExocoreDeployer {
         // 3. third layerzero relayers should watch the response message packet and relay the message to source chain
         // endpoint
 
-        /// after relayer relay the response message back to client chain, clientGateway should emit DelegateResult
+        /// after relayer relay the response message back to client chain, clientGateway should emit RequestFinished
         /// event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit DelegateResult(true, delegator.addr, operatorAddress, address(restakeToken), delegateAmount);
+        emit RequestFinished(GatewayStorage.Action.REQUEST_DELEGATE_TO, delegateRequestNonce, true);
 
         /// relayer should watch the response message and relay it back to client chain
         vm.startPrank(relayer.addr);
@@ -264,6 +274,16 @@ contract DelegateTest is ExocoreDeployer {
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit MessageSent(GatewayStorage.Action.RESPOND, responseId, undelegateResponseNonce, responseNativeFee);
 
+        /// exocoreGateway contract should emit UndelegateResult event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit UndelegateResult(
+            true,
+            bytes32(bytes20(address(restakeToken))),
+            bytes32(bytes20(delegator.addr)),
+            operatorAddress,
+            undelegateAmount
+        );
+
         /// relayer call layerzero endpoint to deliver request messages and generate response message
         vm.startPrank(relayer.addr);
         exocoreLzEndpoint.lzReceive(
@@ -283,10 +303,10 @@ contract DelegateTest is ExocoreDeployer {
         // 3. third layerzero relayers should watch the response message packet and relay the message to source chain
         // endpoint
 
-        /// after relayer relay the response message back to client chain, clientGateway should emit UndelegateResult
+        /// after relayer relay the response message back to client chain, clientGateway should emit RequestFinished
         /// event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit UndelegateResult(true, delegator.addr, operatorAddress, address(restakeToken), undelegateAmount);
+        emit RequestFinished(GatewayStorage.Action.REQUEST_UNDELEGATE_FROM, undelegateRequestNonce, true);
 
         /// relayer should watch the response message and relay it back to client chain
         vm.startPrank(relayer.addr);

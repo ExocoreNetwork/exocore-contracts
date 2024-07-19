@@ -13,8 +13,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
 
     using AddressCast for address;
 
-    event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
-    event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
+    event WithdrawRewardResult(bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount);
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event MessageProcessed(uint16 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
 
@@ -90,6 +89,12 @@ contract WithdrawRewardTest is ExocoreDeployer {
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit MessageSent(GatewayStorage.Action.RESPOND, responseId, withdrawResponseNonce, responseNativeFee);
 
+        // exocore gateway should emit WithdrawRewardResult event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit WithdrawRewardResult(
+            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(withdrawer.addr)), withdrawAmount
+        );
+
         vm.startPrank(relayer.addr);
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), withdrawRequestNonce),
@@ -103,9 +108,9 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // third layerzero relayers should watch the response message packet and relay the message to source chain
         // endpoint
 
-        // client chain gateway should execute the response hook and emit depositResult event
+        // client chain gateway should execute the response hook and emit RequestFinished event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit WithdrawRewardResult(true, address(restakeToken), withdrawer.addr, withdrawAmount);
+        emit RequestFinished(GatewayStorage.Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, withdrawRequestNonce, true);
 
         vm.startPrank(relayer.addr);
         clientChainLzEndpoint.lzReceive(

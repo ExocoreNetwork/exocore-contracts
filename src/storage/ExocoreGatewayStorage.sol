@@ -31,6 +31,19 @@ contract ExocoreGatewayStorage is GatewayStorage {
     event WhitelistTokenAdded(uint32 clientChainId, bytes32 token);
     event WhitelistTokenUpdated(uint32 clientChainId, bytes32 token);
 
+    /* --------- asset operations results and staking operations results -------- */
+    event WithdrawRewardResult(bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount);
+    event DepositResult(bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount);
+    event WithdrawPrincipalResult(
+        bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount
+    );
+    event DelegateResult(
+        bool indexed success, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
+    );
+    event UndelegateResult(
+        bool indexed success, bytes32 indexed token, bytes32 indexed undelegator, string operator, uint256 amount
+    );
+
     error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
     error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);

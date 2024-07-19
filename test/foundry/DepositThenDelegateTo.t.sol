@@ -21,13 +21,10 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
     using AddressCast for address;
 
-    // ClientChainGateway emits this when receiving the response
-    event DepositThenDelegateResult(
-        bool indexed delegateSuccess,
-        address indexed delegator,
-        string indexed delegatee,
-        address token,
-        uint256 delegatedAmount
+    // ExocoreGateway emits these two events after handling the request
+    event DepositResult(bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount);
+    event DelegateResult(
+        bool indexed success, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
     );
 
     // emitted by the mock delegation contract
@@ -160,6 +157,12 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         vm.expectEmit(address(exocoreGateway));
         emit MessageSent(GatewayStorage.Action.RESPOND, responseId, responseLzNonce, responseNativeFee);
 
+        vm.expectEmit(address(exocoreGateway));
+        emit DepositResult(true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), delegateAmount);
+        emit DelegateResult(
+            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), operatorAddress, delegateAmount
+        );
+
         vm.startPrank(relayer);
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), requestLzNonce),
@@ -189,7 +192,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         assertEq(actualDelegateAmount, delegateAmount);
 
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit DepositThenDelegateResult(true, delegator, operatorAddress, address(restakeToken), delegateAmount);
+        emit RequestFinished(GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, requestLzNonce, true);
 
         vm.startPrank(relayer);
         clientChainLzEndpoint.lzReceive(
