@@ -22,7 +22,14 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          node-version: '22'
+          # Node 22.5 has a bug
+          # https://github.com/nodejs/node/pull/53904
+          # TODO: Once a version with the bug fix (above) is released,
+          # the version pin can be moved back to 22
+          node-version: '22.4'
+
+      - name: Clear npm cache
+        run: npm cache clean --force
 
       - name: Install Solhint
         run: npm install --save-dev solhint
