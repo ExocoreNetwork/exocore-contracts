@@ -99,8 +99,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                 success = _decodeBasicResponse(response);
             } else {
                 // otherwise expect BalanceResponse, which means deposit-then-delegate operation
-                (address token, address staker, string memory operator, uint256 amount) =
-                    abi.decode(cachedRequest, (address, address, string, uint256));
+                (address token, address staker,,) = abi.decode(cachedRequest, (address, address, string, uint256));
                 (success, updatedBalance) = _decodeBalanceResponse(response);
 
                 IVault vault = _getVault(token);
