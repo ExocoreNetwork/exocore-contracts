@@ -16,7 +16,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     mapping(address => IExoCapsule) public ownerToCapsule;
     mapping(uint64 => bytes) internal _registeredRequests;
     mapping(uint64 => Action) internal _registeredRequestActions;
-    mapping(Action => bytes4) internal _registeredResponseHooks;
 
     // immutable state variables
     address public immutable BEACON_ORACLE_ADDRESS;
@@ -42,7 +41,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     /* ----------------------------- restaking      ----------------------------- */
     event ClaimSucceeded(address token, address recipient, uint256 amount);
-    event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
+    event RequestFinished(Action indexed action, uint64 indexed requestId, bool indexed success);
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */

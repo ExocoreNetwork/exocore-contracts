@@ -63,16 +63,6 @@ contract ClientChainGateway is
 
         require(owner_ != address(0), "ClientChainGateway: contract owner should not be empty");
 
-        _registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE] =
-            this.afterReceiveWithdrawPrincipalResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
-            this.afterReceiveWithdrawRewardResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
-            this.afterReceiveDepositThenDelegateToResponse.selector;
-
         _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] =
             this.afterReceiveAddWhitelistTokensRequest.selector;
 
@@ -106,10 +96,6 @@ contract ClientChainGateway is
 
     function unpause() external onlyOwner {
         _unpause();
-    }
-
-    function addWhitelistTokens(address[] calldata) external onlyOwner whenNotPaused {
-        revert("this function is not supported for client chain, please register on Exocore");
     }
 
     // implementation of ITokenWhitelister

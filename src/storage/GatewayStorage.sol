@@ -17,13 +17,13 @@ contract GatewayStorage {
     mapping(Action => bytes4) internal _whiteListFunctionSelectors;
     mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
 
+    uint256[40] private __gap;
+
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
     error UnsupportedRequest(Action act);
     error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
-
-    uint256[40] private __gap;
 
     function _verifyAndUpdateNonce(uint32 srcChainId, bytes32 srcAddress, uint64 nonce) internal {
         uint64 expectedNonce = inboundNonce[srcChainId][srcAddress] + 1;
