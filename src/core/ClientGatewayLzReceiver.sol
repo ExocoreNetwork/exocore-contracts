@@ -71,8 +71,11 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
         bool success = false;
         uint256 updatedBalance;
-        if (_isAssetOperationRequest(requestAct)) {
-            (address token, address staker, uint256 amount) = abi.decode(cachedRequest, (address, address, uint256));
+
+        if (_expectBasicResponse(requestAct)) {
+            success = _decodeBasicResponse(response);
+        } else if (_expectBalanceResponse(requestAct)) {
+            (address token, address staker,, uint256 amount) = _decodeCachedRequest(requestAct, cachedRequest);
             (success, updatedBalance) = _decodeBalanceResponse(response);
 
             if (_isPrincipalType(requestAct)) {
@@ -94,17 +97,6 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                         vault.updateWithdrawableBalance(staker, 0, amount);
                     }
                 }
-            }
-        } else if (_isStakingOperationRequest(requestAct)) {
-            if (_expectBasicResponse(requestAct)) {
-                success = _decodeBasicResponse(response);
-            } else {
-                // otherwise expect BalanceResponse, which means deposit-then-delegate operation
-                (address token, address staker,,) = abi.decode(cachedRequest, (address, address, string, uint256));
-                (success, updatedBalance) = _decodeBalanceResponse(response);
-
-                IVault vault = _getVault(token);
-                vault.updatePrincipalBalance(staker, updatedBalance);
             }
         } else {
             revert UnsupportedResponse(requestAct);
@@ -138,8 +130,17 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             || action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO;
     }
 
+    // Basic response only includes reqeust execution status, no other informations like balance update
+    // and it is typically the response of a staking only operations.
     function _expectBasicResponse(Action action) internal pure returns (bool) {
         return action == Action.REQUEST_DELEGATE_TO || action == Action.REQUEST_UNDELEGATE_FROM;
+    }
+
+    // Balance response includes not only request execution status, but also the balance update informations,
+    // so it is typically the response of an asset operation.
+    function _expectBalanceResponse(Action action) internal pure returns (bool) {
+        return action == Action.REQUEST_DEPOSIT || action == Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE
+            || action == Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE || action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO;
     }
 
     function _isPrincipalType(Action action) internal pure returns (bool) {
@@ -156,15 +157,35 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         return action == Action.REQUEST_DEPOSIT || action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO;
     }
 
-    function _decodeBalanceResponse(bytes calldata response) internal pure returns (bool, uint256) {
-        bool success = (uint8(bytes1(response[9])) == 1);
-        uint256 updatedBalance = uint256(bytes32(response[10:]));
+    function _decodeCachedRequest(Action requestAct, bytes memory cachedRequest)
+        internal
+        pure
+        returns (address token, address staker, string memory operator, uint256 amount)
+    {
+        if (_isAssetOperationRequest(requestAct)) {
+            (token, staker, amount) = abi.decode(cachedRequest, (address, address, uint256));
+        } else if (_isStakingOperationRequest(requestAct)) {
+            (token, staker, operator, amount) = abi.decode(cachedRequest, (address, address, string, uint256));
+        } else {
+            revert UnsupportedRequest(requestAct);
+        }
+
+        return (token, staker, operator, amount);
+    }
+
+    function _decodeBalanceResponse(bytes calldata response)
+        internal
+        pure
+        returns (bool success, uint256 updatedBalance)
+    {
+        success = (uint8(bytes1(response[9])) == 1);
+        updatedBalance = uint256(bytes32(response[10:]));
 
         return (success, updatedBalance);
     }
 
-    function _decodeBasicResponse(bytes calldata response) internal pure returns (bool) {
-        bool success = (uint8(bytes1(response[9])) == 1);
+    function _decodeBasicResponse(bytes calldata response) internal pure returns (bool success) {
+        success = (uint8(bytes1(response[9])) == 1);
 
         return success;
     }
