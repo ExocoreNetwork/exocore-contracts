@@ -59,7 +59,7 @@ contract Bootstrap is
             revert Errors.BootstrapSpawnTimeAlreadyPast();
         }
         if (offsetDuration_ == 0) {
-            revert Errors.ZeroAmount();
+            revert Errors.ZeroValue();
         }
         if (spawnTime_ <= offsetDuration_) {
             revert Errors.BootstrapSpawnTimeLessThanDuration();

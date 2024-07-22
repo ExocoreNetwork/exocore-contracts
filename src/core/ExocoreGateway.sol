@@ -130,23 +130,13 @@ contract ExocoreGateway is
         string calldata metaInfo,
         string calldata signatureType
     ) public onlyOwner whenNotPaused {
-        if (clientChainId == uint32(0)) {
-            revert Errors.ZeroValue();
-        }
-        if (peer == bytes32(0)) {
-            revert Errors.ZeroValue();
-        }
-        if (addressLength == 0) {
-            revert Errors.ZeroValue();
-        }
-        if (bytes(name).length == 0) {
-            revert Errors.ZeroValue();
-        }
-        if (bytes(metaInfo).length == 0) {
+        if (
+            clientChainId == uint32(0) || peer == bytes32(0) || addressLength == 0 || bytes(name).length == 0
+                || bytes(metaInfo).length == 0
+        ) {
             revert Errors.ZeroValue();
         }
         // signature type could be left as empty for current implementation
-
         _registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
         super.setPeer(clientChainId, peer);
 

@@ -25,10 +25,7 @@ contract Vault is Initializable, VaultStorage, IVault {
     }
 
     function initialize(address underlyingToken_, address gateway_) external initializer {
-        if (underlyingToken_ == address(0)) {
-            revert Errors.ZeroAddress();
-        }
-        if (gateway_ == address(0)) {
+        if (underlyingToken_ == address(0) || gateway_ == address(0)) {
             revert Errors.ZeroAddress();
         }
 
