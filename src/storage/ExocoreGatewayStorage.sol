@@ -74,6 +74,50 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param token The address of the token.
     event WhitelistTokenUpdated(uint32 clientChainId, bytes32 token);
 
+    /* --------- asset operations results and staking operations results -------- */
+    /// @notice Emitted when reward is withdrawn.
+    /// @param success Whether the withdrawal was successful.
+    /// @param token The address of the token.
+    /// @param withdrawer The address of the withdrawer.
+    /// @param amount The amount of the token withdrawn.
+    event WithdrawRewardResult(bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount);
+
+    /// @notice Emitted when a deposit happens.
+    /// @param success Whether the deposit was successful.
+    /// @param token The address of the token.
+    /// @param depositor The address of the depositor.
+    /// @param amount The amount of the token deposited.
+    event DepositResult(bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount);
+
+    /// @notice Emitted when principal is withdrawn.
+    /// @param success Whether the withdrawal was successful.
+    /// @param token The address of the token.
+    /// @param withdrawer The address of the withdrawer.
+    /// @param amount The amount of the token withdrawn.
+    event WithdrawPrincipalResult(
+        bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount
+    );
+
+    /// @notice Emitted upon delegation.
+    /// @param success Whether the delegation was successful.
+    /// @param token The address of the token.
+    /// @param delegator The address of the delegator.
+    /// @param operator The Exo account address of the operator.
+    /// @param amount The amount of the token delegated.
+    event DelegateResult(
+        bool indexed success, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
+    );
+
+    /// @notice Emitted upon undelegation
+    /// @param success Whether the undelegation was successful.
+    /// @param token The address of the token.
+    /// @param undelegator The address of the undelegator.
+    /// @param operator The Exo account address of the operator.
+    /// @param amount The amount of the token undelegated.
+    event UndelegateResult(
+        bool indexed success, bytes32 indexed token, bytes32 indexed undelegator, string operator, uint256 amount
+    );
+
     /// @notice Thrown when the execution of a request fails
     /// @param act The action that failed.
     /// @param nonce The LayerZero nonce.

@@ -19,9 +19,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
     using AddressCast for address;
     using stdStorage for StdStorage;
 
-    event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
+    event DepositResult(bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount);
     event WithdrawPrincipalResult(
-        bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
+        bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount
     );
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event MessageProcessed(uint32 _srcChainId, bytes _srcAddress, uint64 _nonce, bytes _payload);
@@ -50,11 +50,20 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // before deposit we should add whitelist tokens
         test_AddWhitelistTokens();
 
+        uint256 principalBalanceBefore = vault.principalBalances(depositor.addr);
+        uint256 withdrawableBefore = vault.getWithdrawableBalance(depositor.addr);
         _testLSTDeposit(depositor, depositAmount, lastlyUpdatedPrincipalBalance);
+        assertEq(principalBalanceBefore + depositAmount, vault.principalBalances(depositor.addr));
+        assertEq(withdrawableBefore, vault.getWithdrawableBalance(depositor.addr));
 
         lastlyUpdatedPrincipalBalance += depositAmount;
 
+        principalBalanceBefore = vault.principalBalances(depositor.addr);
+        withdrawableBefore = vault.getWithdrawableBalance(depositor.addr);
         _testLSTWithdraw(depositor, withdrawAmount, lastlyUpdatedPrincipalBalance);
+
+        assertEq(principalBalanceBefore - withdrawAmount, vault.principalBalances(depositor.addr));
+        assertEq(withdrawableBefore + withdrawAmount, vault.getWithdrawableBalance(depositor.addr));
     }
 
     function _testLSTDeposit(Player memory depositor, uint256 depositAmount, uint256 lastlyUpdatedPrincipalBalance)
@@ -119,6 +128,10 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit MessageSent(
             GatewayStorage.Action.RESPOND, depositResponseId, depositResponseNonce, depositResponseNativeFee
         );
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit DepositResult(
+            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(depositor.addr)), depositAmount
+        );
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), depositRequestNonce),
             address(exocoreGateway),
@@ -130,9 +143,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // third layerzero relayers should watch the response message packet and relay the message to source chain
         // endpoint
 
-        // client chain gateway should execute the response hook and emit depositResult event
+        // client chain gateway should execute the response hook and emit RequestFinished event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit DepositResult(true, address(restakeToken), depositor.addr, depositAmount);
+        emit RequestFinished(GatewayStorage.Action.REQUEST_DEPOSIT, depositRequestNonce, true);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), depositResponseNonce),
             address(clientGateway),
@@ -204,6 +217,10 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit MessageSent(
             GatewayStorage.Action.RESPOND, withdrawResponseId, withdrawResponseNonce, withdrawResponseNativeFee
         );
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit WithdrawPrincipalResult(
+            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(withdrawer.addr)), withdrawAmount
+        );
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), withdrawRequestNonce),
             address(exocoreGateway),
@@ -215,9 +232,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // third layerzero relayers should watch the response message packet and relay the message to source chain
         // endpoint
 
-        // client chain gateway should execute the response hook and emit depositResult event
+        // client chain gateway should execute the response hook and emit RequestFinished event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit WithdrawPrincipalResult(true, address(restakeToken), withdrawer.addr, withdrawAmount);
+        emit RequestFinished(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, withdrawRequestNonce, true);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), withdrawResponseNonce),
             address(clientGateway),
@@ -233,6 +250,12 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         uint256 lastlyUpdatedPrincipalBalance;
 
+        uint256 depositAmount = uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI;
+        // Cap to 32 ether
+        if (depositAmount >= 32 ether) {
+            depositAmount = 32 ether;
+        }
+
         // transfer some ETH to depositor for staking and paying for gas fee
         deal(depositor.addr, 1e22);
         // transfer some gas fee to relayer for paying for onboarding cross-chain message packet
@@ -244,52 +267,41 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // before deposit we should add whitelist tokens
         test_AddWhitelistTokens();
 
+        _stakeAndPrepareCapsuleBeforeDeposit(depositor);
+
+        uint256 principalBalanceBefore = capsule.principalBalance();
+        uint256 withdrawableBefore = capsule.withdrawableBalance();
         _testNativeDeposit(depositor, relayer, lastlyUpdatedPrincipalBalance);
+        assertEq(principalBalanceBefore + depositAmount, capsule.principalBalance());
+        assertEq(withdrawableBefore, capsule.withdrawableBalance());
+
         lastlyUpdatedPrincipalBalance += 32 ether;
+
+        // before native withdraw, we simulate proper block environment states to make proof valid
+        _simulateBlockEnvironmentForNativeWithdraw();
+        deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
+        uint64 withdrawalAmountGwei = _getWithdrawalAmount(withdrawalContainer);
+        uint256 withdrawalAmount;
+        if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
+            withdrawalAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
+        } else {
+            withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
+        }
+
+        console.log("deposit amount:", depositAmount);
+        console.log("withdrawal amount:", withdrawalAmount);
+
+        principalBalanceBefore = capsule.principalBalance();
+        withdrawableBefore = capsule.withdrawableBalance();
         _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);
+        assertEq(principalBalanceBefore - withdrawalAmount, capsule.principalBalance());
+        assertEq(withdrawableBefore + withdrawalAmount, capsule.withdrawableBalance());
     }
 
     function _testNativeDeposit(Player memory depositor, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
         internal
     {
-        // before native stake and deposit, we simulate proper block environment states to make proof valid
-        _simulateBlockEnvironmentForNativeDeposit();
-
-        // 1. firstly depositor should stake to beacon chain by depositing 32 ETH to ETHPOS contract
-        IExoCapsule expectedCapsule = IExoCapsule(
-            Create2.computeAddress(
-                bytes32(uint256(uint160(depositor.addr))),
-                keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(capsuleBeacon), ""))),
-                address(clientGateway)
-            )
-        );
-        vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit CapsuleCreated(depositor.addr, address(expectedCapsule));
-        emit StakedWithCapsule(depositor.addr, address(expectedCapsule));
-
-        vm.startPrank(depositor.addr);
-        clientGateway.stake{value: 32 ether}(abi.encodePacked(_getPubkey(validatorContainer)), bytes(""), bytes32(0));
-        vm.stopPrank();
-
-        // do some hack to replace expectedCapsule address with capsule address loaded from proof file
-        // because capsule address is expected to be compatible with validator container withdrawal credentails
-        address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
-        vm.etch(capsuleAddress, address(expectedCapsule).code);
-        capsule = ExoCapsule(payable(capsuleAddress));
-        stdstore.target(capsuleAddress).sig("_beacon()").checked_write(address(capsuleBeacon));
-        assertEq(stdstore.target(capsuleAddress).sig("_beacon()").read_address(), address(capsuleBeacon));
-
-        /// replace expectedCapsule with capsule
-        bytes32 capsuleSlotInGateway = bytes32(
-            stdstore.target(address(clientGatewayLogic)).sig("ownerToCapsule(address)").with_key(depositor.addr).find()
-        );
-        vm.store(address(clientGateway), capsuleSlotInGateway, bytes32(uint256(uint160(address(capsule)))));
-        assertEq(address(clientGateway.ownerToCapsule(depositor.addr)), address(capsule));
-
-        /// initialize replaced capsule
-        capsule.initialize(address(clientGateway), depositor.addr, address(beaconOracle));
-
-        // 2. next depositor call clientGateway.depositBeaconChainValidator to deposit into Exocore from client chain
+        // 1. next depositor call clientGateway.depositBeaconChainValidator to deposit into Exocore from client chain
         // through layerzero
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
@@ -328,7 +340,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         clientGateway.depositBeaconChainValidator{value: depositRequestNativeFee}(validatorContainer, validatorProof);
         vm.stopPrank();
 
-        // 3. thirdly layerzero relayers should watch the request message packet and relay the message to destination
+        // 2. thirdly layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
         /// exocore gateway should return response message to exocore network layerzero endpoint
@@ -353,6 +365,13 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit MessageSent(
             GatewayStorage.Action.RESPOND, depositResponseId, depositResponseNonce, depositResponseNativeFee
         );
+
+        /// exocore gateway should emit DepositResult event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit DepositResult(
+            true, bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(depositor.addr)), depositAmount
+        );
+
         /// relayer catches the request message packet by listening to client chain event and feed it to Exocore network
         vm.startPrank(relayer.addr);
         exocoreLzEndpoint.lzReceive(
@@ -367,9 +386,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // At last layerzero relayers should watch the response message packet and relay the message back to source
         // chain endpoint
 
-        /// client chain gateway should execute the response hook and emit depositResult event
+        /// client chain gateway should execute the response hook and emit RequestFinished event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit DepositResult(true, VIRTUAL_STAKED_ETH_ADDRESS, depositor.addr, depositAmount);
+        emit RequestFinished(GatewayStorage.Action.REQUEST_DEPOSIT, depositRequestNonce, true);
 
         /// relayer catches the response message packet by listening to Exocore event and feed it to client chain
         vm.startPrank(relayer.addr);
@@ -381,6 +400,31 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             bytes("")
         );
         vm.stopPrank();
+    }
+
+    function _stakeAndPrepareCapsuleBeforeDeposit(Player memory depositor) internal {
+        // before native stake and deposit, we simulate proper block environment states to make proof valid
+        _simulateBlockEnvironmentForNativeDeposit();
+
+        // 1. firstly depositor should stake to beacon chain by depositing 32 ETH to ETHPOS contract
+        IExoCapsule expectedCapsule = IExoCapsule(
+            Create2.computeAddress(
+                bytes32(uint256(uint160(depositor.addr))),
+                keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(capsuleBeacon), ""))),
+                address(clientGateway)
+            )
+        );
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit CapsuleCreated(depositor.addr, address(expectedCapsule));
+        emit StakedWithCapsule(depositor.addr, address(expectedCapsule));
+
+        vm.startPrank(depositor.addr);
+        clientGateway.stake{value: 32 ether}(abi.encodePacked(_getPubkey(validatorContainer)), bytes(""), bytes32(0));
+        vm.stopPrank();
+
+        // do some hack to replace expectedCapsule address with capsule address loaded from proof file
+        // because capsule address is expected to be compatible with validator container withdrawal credentails
+        _attachCapsuleToWithdrawalCredentials(expectedCapsule, depositor);
     }
 
     function _simulateBlockEnvironmentForNativeDeposit() internal {
@@ -402,14 +446,28 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         );
     }
 
+    function _attachCapsuleToWithdrawalCredentials(IExoCapsule createdCapsule, Player memory depositor) internal {
+        address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
+        vm.etch(capsuleAddress, address(createdCapsule).code);
+        capsule = ExoCapsule(payable(capsuleAddress));
+        stdstore.target(capsuleAddress).sig("_beacon()").checked_write(address(capsuleBeacon));
+        assertEq(stdstore.target(capsuleAddress).sig("_beacon()").read_address(), address(capsuleBeacon));
+
+        /// replace expectedCapsule with capsule
+        bytes32 capsuleSlotInGateway = bytes32(
+            stdstore.target(address(clientGatewayLogic)).sig("ownerToCapsule(address)").with_key(depositor.addr).find()
+        );
+        vm.store(address(clientGateway), capsuleSlotInGateway, bytes32(uint256(uint160(address(capsule)))));
+        assertEq(address(clientGateway.ownerToCapsule(depositor.addr)), address(capsule));
+
+        /// initialize replaced capsule
+        capsule.initialize(address(clientGateway), depositor.addr, address(beaconOracle));
+    }
+
     function _testNativeWithdraw(Player memory withdrawer, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
         internal
     {
-        // before native withdraw, we simulate proper block environment states to make proof valid
-        _simulateBlockEnvironmentForNativeWithdraw();
-        deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
-
-        // 2. withdrawer will call clientGateway.processBeaconChainWithdrawal to withdraw from Exocore thru layerzero
+        // 1. withdrawer will call clientGateway.processBeaconChainWithdrawal to withdraw from Exocore thru layerzero
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
         uint64 withdrawRequestNonce = 2;
@@ -475,6 +533,13 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit MessageSent(
             GatewayStorage.Action.RESPOND, withdrawResponseId, withdrawResponseNonce, withdrawResponseNativeFee
         );
+
+        // exocore gateway should emit WithdrawPrincipalResult event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit WithdrawPrincipalResult(
+            true, bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(withdrawer.addr)), withdrawalAmount
+        );
+
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), withdrawRequestNonce),
             address(exocoreGateway),
@@ -483,9 +548,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             bytes("")
         );
 
-        // client chain gateway should execute the response hook and emit depositResult event
+        // client chain gateway should execute the response hook and emit RequestFinished event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit WithdrawPrincipalResult(true, address(VIRTUAL_STAKED_ETH_ADDRESS), withdrawer.addr, withdrawalAmount);
+        emit RequestFinished(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, withdrawRequestNonce, true);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), withdrawResponseNonce),
             address(clientGateway),

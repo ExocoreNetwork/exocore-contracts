@@ -103,6 +103,7 @@ contract ExocoreDeployer is Test {
     event NewPacket(uint32, address, bytes32, uint64, bytes);
     event WhitelistTokenAdded(address _token);
     event VaultCreated(address underlyingToken, address vault);
+    event RequestFinished(GatewayStorage.Action indexed action, uint64 indexed requestId, bool indexed success);
 
     function setUp() public virtual {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));

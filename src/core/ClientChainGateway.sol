@@ -1,7 +1,6 @@
 pragma solidity ^0.8.19;
 
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
-import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {MessagingFee, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
@@ -66,16 +65,6 @@ contract ClientChainGateway is
 
         require(owner_ != address(0), "ClientChainGateway: contract owner should not be empty");
 
-        _registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE] =
-            this.afterReceiveWithdrawPrincipalResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_DELEGATE_TO] = this.afterReceiveDelegateResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_UNDELEGATE_FROM] = this.afterReceiveUndelegateResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] =
-            this.afterReceiveWithdrawRewardResponse.selector;
-        _registeredResponseHooks[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
-            this.afterReceiveDepositThenDelegateToResponse.selector;
-
         _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] =
             this.afterReceiveAddWhitelistTokensRequest.selector;
 
@@ -114,16 +103,9 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    /// @inheritdoc ITokenWhitelister
-    /// @dev This function reverts intentionally. Now that the Exocore chain is live,
-    /// requests to whitelist tokens must originate from cross-chain messages and not
-    /// by the owner.
-    function addWhitelistTokens(address[] calldata) external onlyOwner whenNotPaused {
-        revert("this function is not supported for client chain, please register on Exocore");
-    }
-
-    /// @inheritdoc ITokenWhitelister
-    function getWhitelistedTokensCount() external view returns (uint256) {
+    /// @notice Gets the count of whitelisted tokens.
+    /// @return The count of whitelisted tokens.
+    function getWhitelistedTokensCount() external returns (uint256) {
         return whitelistTokens.length;
     }
 

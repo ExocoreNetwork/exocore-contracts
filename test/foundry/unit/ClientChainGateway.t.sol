@@ -273,34 +273,3 @@ contract Initialize is SetUp {
     }
 
 }
-
-contract AddWhitelistTokens is SetUp {
-
-    using stdStorage for StdStorage;
-
-    function test_RevertWhen_CallerNotOwner() public {
-        address[] memory whitelistTokens = new address[](2);
-
-        vm.startPrank(deployer.addr);
-        vm.expectRevert("Ownable: caller is not the owner");
-        clientGateway.addWhitelistTokens(whitelistTokens);
-    }
-
-    function test_RevertWhen_Paused() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        clientGateway.pause();
-
-        address[] memory whitelistTokens = new address[](2);
-        vm.expectRevert("Pausable: paused");
-        clientGateway.addWhitelistTokens(whitelistTokens);
-    }
-
-    function test_Revert_NotSupported() public {
-        address[] memory whitelistTokens = new address[](2);
-
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert("this function is not supported for client chain, please register on Exocore");
-        clientGateway.addWhitelistTokens(whitelistTokens);
-    }
-
-}

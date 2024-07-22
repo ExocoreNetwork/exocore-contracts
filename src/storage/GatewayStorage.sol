@@ -25,6 +25,9 @@ contract GatewayStorage {
     /// @dev Mapping to track inbound nonces for each chain and sender.
     mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
 
+    /// @dev Storage gap to allow for future upgrades.
+    uint256[40] private __gap;
+
     /// @notice Emitted when a message is sent through the gateway.
     /// @param act The action being performed.
     /// @param packetId The unique identifier for the packet.
@@ -44,9 +47,6 @@ contract GatewayStorage {
     /// @param expectedNonce The expected nonce.
     /// @param actualNonce The actual nonce received.
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
-
-    /// @dev Storage gap to allow for future upgrades.
-    uint256[40] private __gap;
 
     /// @notice Verifies and updates the inbound nonce for a given source chain and address.
     /// @dev This function reverts if the nonce is not as expected.

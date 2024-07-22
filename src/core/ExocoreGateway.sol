@@ -338,6 +338,8 @@ contract ExocoreGateway is
         }
 
         _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance), true);
+
+        emit DepositResult(true, bytes32(token), bytes32(depositor), amount);
     }
 
     /// @notice Responds to a withdraw-principal request from a client chain.
@@ -357,15 +359,19 @@ contract ExocoreGateway is
         bytes memory withdrawer = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
 
+        bool result = false;
         try ASSETS_CONTRACT.withdrawPrincipal(srcChainId, token, withdrawer, amount) returns (
             bool success, uint256 updatedBalance
         ) {
+            result = success;
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance), true);
         } catch {
             emit ExocorePrecompileError(ASSETS_PRECOMPILE_ADDRESS, lzNonce);
 
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, uint256(0)), true);
         }
+
+        emit WithdrawPrincipalResult(result, bytes32(token), bytes32(withdrawer), amount);
     }
 
     /// @notice Responds to a withdraw-reward request from a client chain.
@@ -383,15 +389,19 @@ contract ExocoreGateway is
         bytes memory withdrawer = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
 
+        bool result = false;
         try CLAIM_REWARD_CONTRACT.claimReward(srcChainId, token, withdrawer, amount) returns (
             bool success, uint256 updatedBalance
         ) {
+            result = success;
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance), true);
         } catch {
             emit ExocorePrecompileError(CLAIM_REWARD_PRECOMPILE_ADDRESS, lzNonce);
 
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, uint256(0)), true);
         }
+
+        emit WithdrawRewardResult(result, bytes32(token), bytes32(withdrawer), amount);
     }
 
     /// @notice Responds to a delegate request from a client chain.
@@ -407,14 +417,18 @@ contract ExocoreGateway is
         bytes memory operator = payload[64:106];
         uint256 amount = uint256(bytes32(payload[106:138]));
 
+        bool result = false;
         try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, delegator, operator, amount)
         returns (bool success) {
+            result = success;
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success), true);
         } catch {
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
 
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false), true);
         }
+
+        emit DelegateResult(result, bytes32(token), bytes32(delegator), string(operator), amount);
     }
 
     /// @notice Responds to an undelegate request from a client chain.
@@ -433,15 +447,19 @@ contract ExocoreGateway is
         bytes memory operator = payload[64:106];
         uint256 amount = uint256(bytes32(payload[106:138]));
 
+        bool result = false;
         try DELEGATION_CONTRACT.undelegateFromThroughClientChain(
             srcChainId, lzNonce, token, delegator, operator, amount
         ) returns (bool success) {
+            result = success;
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success), true);
         } catch {
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
 
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false), true);
         }
+
+        emit UndelegateResult(result, bytes32(token), bytes32(delegator), string(operator), amount);
     }
 
     /// @notice Responds to a deposit-then-delegate request from a client chain.
@@ -466,12 +484,16 @@ contract ExocoreGateway is
         // for example, you cannot index a bytes memory result from the requestDepositTo call,
         // if you were to modify it to return bytes and then process them here.
 
+        bool result = false;
         (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositTo(srcChainId, token, depositor, amount);
         if (!success) {
             revert DepositRequestShouldNotFail(srcChainId, lzNonce);
         }
+        emit DepositResult(true, bytes32(token), bytes32(depositor), amount);
+
         try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, depositor, operator, amount)
         returns (bool delegateSuccess) {
+            result = delegateSuccess;
             _sendInterchainMsg(
                 srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, delegateSuccess, updatedBalance), true
             );
@@ -479,6 +501,7 @@ contract ExocoreGateway is
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, updatedBalance), true);
         }
+        emit DelegateResult(result, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 
     /// @dev Validates the payload length, that it matches the expected length.
