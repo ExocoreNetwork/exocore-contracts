@@ -1,10 +1,15 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 
+/// @title ExoCapsule interface
+/// @author ExocoreNetwork
+/// @notice IExoCapsule is the interface for the ExoCapsule contract. It provides a set of functions for ExoCapsule
+/// operations. It is a contract used for native restaking.
 interface IExoCapsule {
 
-    /// @notice This struct contains the infos needed for validator container validity verification
+    /// @notice This struct contains the information needed for validator container validity verification
     struct ValidatorContainerProof {
         uint256 beaconBlockTimestamp;
         bytes32 stateRoot;
@@ -13,18 +18,41 @@ interface IExoCapsule {
         uint256 validatorIndex;
     }
 
+    /// @notice This struct contains the information needed for withdrawal container proof verification
     struct WithdrawalContainerProof {
         uint256 beaconBlockTimestamp;
         bytes32 stateRoot;
         bytes32[] withdrawalContainerRootProof;
     }
 
+    /// @notice Initializes the ExoCapsule contract with the given parameters.
+    /// @param gateway The address of the ClientChainGateway contract.
+    /// @param capsuleOwner The address of the ExoCapsule owner.
+    /// @param beaconOracle The address of the BeaconOracle contract.
     function initialize(address gateway, address capsuleOwner, address beaconOracle) external;
 
+    /// @notice Verifies the deposit proof and returns the amount of deposit.
+    /// @param validatorContainer The validator container.
+    /// @param proof The validator container proof.
+    /// @return The amount of deposit.
+    /// @dev The container must not have been previously registered, must not be stale,
+    /// must be activated at a previous epoch, must have the correct withdrawal credentials,
+    /// and must have a valid container root.
     function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
         external
         returns (uint256);
 
+    /// @notice Verifies the withdrawal proof and returns the partial withdrawal status and the withdrawal amount.
+    /// @param validatorContainer The validator container.
+    /// @param validatorProof The validator container proof.
+    /// @param withdrawalContainer The withdrawal container.
+    /// @param withdrawalProof The withdrawal proof.
+    /// @return partialWithdrawal Whether the withdrawal is partial (rewards only).
+    /// @return withdrawalAmount The amount of withdrawal.
+    /// @dev The validator must have registered previously and not withdrawn yet, the proof must not
+    /// have been used before, the state root of both the proofs must match, the roots must be valid.
+    /// The withdrawal is considered partial if the epoch in the withdrawal proof is less than the
+    /// withdrawable epoch of the validator.
     function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
         ValidatorContainerProof calldata validatorProof,
@@ -32,12 +60,23 @@ interface IExoCapsule {
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external returns (bool partialWithdrawal, uint256 withdrawalAmount);
 
+    /// @notice Allows the owner to withdraw the specified amount to the recipient.
+    /// @dev The amount must be available in the withdrawable balance.
+    /// @param amount The amount to withdraw.
+    /// @param recipient The recipient address.
     function withdraw(uint256 amount, address payable recipient) external;
 
+    /// @notice Updates the principal balance of the ExoCapsule.
+    /// @param lastlyUpdatedPrincipalBalance The final principal balance.
     function updatePrincipalBalance(uint256 lastlyUpdatedPrincipalBalance) external;
 
+    /// @notice Increases the withdrawable balance of the ExoCapsule.
+    /// @param unlockPrincipalAmount The additionally unlocked withdrawable amount.
     function updateWithdrawableBalance(uint256 unlockPrincipalAmount) external;
 
+    /// @notice Returns the withdrawal credentials of the ExoCapsule.
+    /// @return The withdrawal credentials.
+    /// @dev Returns '0x1' + '0x0' * 11 + 'address' of capsule.
     function capsuleWithdrawalCredentials() external view returns (bytes memory);
 
 }

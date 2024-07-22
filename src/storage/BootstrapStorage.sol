@@ -1,18 +1,18 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
 import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
-
 import {IVault} from "../interfaces/IVault.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
-// BootstrapStorage should inherit from GatewayStorage since it exists
-// prior to ClientChainGateway. ClientChainStorage should inherit from
-// BootstrapStorage to ensure overlap of positioning between the
-// members of each contract.
+/// @title BootstrapStorage
+/// @notice The storage contract for the Bootstrap contract. It later upgrades to ClientChainGatewayStorage.
+/// @dev This contract is used as the base storage and is inherited by the storage for Bootstrap and ExocoreGateway.
+/// @author ExocoreNetwork
 contract BootstrapStorage is GatewayStorage {
 
     /* -------------------------------------------------------------------------- */
@@ -20,159 +20,88 @@ contract BootstrapStorage is GatewayStorage {
     /* -------------------------------------------------------------------------- */
 
     // time and duration
-    /**
-     * @notice A timestamp representing the scheduled spawn time of the Exocore chain, which
-     * influences the contract's operational restrictions.
-     *
-     * @dev This variable sets a specific point in time (in UNIX timestamp format) that triggers
-     * a freeze period for the contract 24 hours before the Exocore chain is expected to launch.
-     * Operations that could alter the state of the contract significantly are not allowed
-     * during this freeze period to ensure stability and integrity leading up to the spawn time.
-     */
+    /// @notice A timestamp representing the scheduled spawn time of the Exocore chain, which influences the contract's
+    /// operational restrictions.
+    /// @dev `offsetDuration` before `exocoreSpawnTime`, the contract freezes and most actions are prohibited.
     uint256 public exocoreSpawnTime;
 
-    /**
-     * @notice The amount of time before the Exocore spawn time during which operations are
-     * restricted.
-     *
-     * @dev This variable defines a period in seconds before the scheduled spawn time of the
-     * Exocore chain, during which certain contract operations are locked to prevent state
-     * changes. The lock period is intended to ensure stability and integrity of the contract
-     * state leading up to the critical event. This period can be customized at the time of
-     * contract deployment according to operational needs and security considerations.
-     */
+    /// @notice The amount of time before the Exocore spawn time during which operations are restricted.
+    /// @dev The duration before the Exocore spawn time during which most contract operations are locked.
     uint256 public offsetDuration;
 
-    // total deposits of said tokens
-    /**
-     * @dev A mapping of token addresses to the total amount of that token deposited into the
-     * contract.
-     * @notice This mapping is used to track the deposits made by all depositors for each token.
-     */
+    /// @notice This mapping is used to track the deposits made by all depositors for each token.
+    /// @dev A mapping of token addresses to the total amount of that token deposited into the contract.
     mapping(address tokenAddress => uint256 amount) public depositsByToken;
 
-    // validator information, including delegations received by them
-    /**
-     * @dev A public array holding the Ethereum addresses of all validators that have been
-     * registered in the contract. These validators, sorted by their vote power, will be
-     * used to initialize the Exocore chain's validator set. In addition, they will be
-     * registered in the Exocore system as an operator for other AVSs. Since the Bootstrap
-     * contract only accepts validators, we will use the word 'validator' in the rest of
-     * this contract and avoid the term 'operator' in items that are specific to Bootstrap
-     * storage and not actively used by the ClientChainGateway.
-     *
-     * The system used is a delegated POS system, where the vote power of each validator
-     * is determined by the total amount of tokens delegated to them across all supported
-     * tokens.
-     */
+    /// @notice This array stores the Ethereum addresses of all validators that have been registered in the contract.
+    /// These validators, sorted by their vote power, will be used to initialize the Exocore chain's validator set.
+    /// @dev A public array holding the Ethereum addresses of all validators that have been registered in the contract.
     address[] public registeredValidators;
 
-    /**
-     * @dev Maps Ethereum addresses to their corresponding Exocore addresses.
-     * @notice This mapping is used to track which Ethereum address is linked to which
-     * Exocore address.
-     * Useful for verifying if a particular Ethereum address has already registered as a validator.
-     */
+    /// @notice This mapping is used to track which Ethereum address is linked to which Exocore address.
+    /// @dev Maps Ethereum addresses to their corresponding Exocore addresses.
     mapping(address ethAddress => string exoAddress) public ethToExocoreAddress;
 
-    /**
-     * @dev Maps Exocore addresses to their corresponding validator details stored in a
-     * `Validator` struct.
-     * @notice Use this mapping to access or modify validator details associated with a specific
-     * Exocore address.
-     * This helps in managing and accessing all registered validator data efficiently.
-     */
+    /// @notice Use this mapping to access or modify validator details associated with a specific Exocore address.
+    /// @dev Maps Exocore addresses to their corresponding validator details stored in a `Validator` struct.
     mapping(string exoAddress => IValidatorRegistry.Validator validator) public validators;
 
-    /**
-     * @dev A mapping of validator Exocore address to a boolean indicating whether said validator
-     * has edited their commission rate.
-     *
-     * This mapping is used to enforce a once-only commission rate change for validators before
-     * the chain bootstrap.
-     */
+    /// @notice This mapping is used to enforce a once-only commission rate change for validators before the chain
+    /// bootstrap.
+    /// @dev A mapping of validator Exocore address to a boolean indicating whether said validator has edited their
+    /// commission rate.
     mapping(string exoAddress => bool hasEdited) public commissionEdited;
 
-    /**
-     * @dev Maps a validator address to a mapping, where the key is the token address and the
-     * value is the amount of delegated tokens.
-     * @notice This allows tracking of how much each validator has been delegated by all
-     * delegators for each of the whitelisted tokens.
-     */
-    // delegationsByValidator means it is indexed by validator address and not that is is
-    // a delegation made by the validator.
+    /// @notice This allows tracking of how much each validator has been delegated by all delegators for each of the
+    /// whitelisted tokens.
+    /// @dev Maps a validator address to a mapping, where the key is the token address and the value is the amount of
+    /// delegated tokens.
     mapping(string exoAddress => mapping(address tokenAddress => uint256 amount)) public delegationsByValidator;
 
-    // depositor and delegation information
-    /**
-     * @dev List of addresses that have staked or deposited into the contract.
-     * @notice This array stores all unique depositor addresses to manage and track staking
-     * participation.
-     */
+    /// @notice This array stores all unique depositor addresses to manage and track staking participation.
+    /// @dev List of addresses that have staked or deposited into the contract.
     address[] public depositors;
 
-    /**
-     * @dev A mapping of depositor addresses to a boolean indicating whether the address has
-     * deposited into the contract.
-     * @notice Use this mapping to check if a specific address has deposited into the contract.
-     */
+    /// @notice Use this mapping to check if a specific address has deposited into the contract.
+    /// @dev A mapping of depositor addresses to a boolean indicating whether the address has deposited into the
+    /// contract.
     mapping(address depositor => bool hasDeposited) public isDepositor;
 
-    /**
-     * @dev Maps depositor addresses to another mapping, where the key is an token address and
-     * the value is the total amount of that token deposited by the depositor.
-     * @notice This mapping is used to keep track of the total deposits made by each account
-     * for each token.
-     */
+    /// @notice This mapping is used to keep track of the total deposits made by each account for each token.
+    /// @dev Maps depositor addresses to another mapping, where the key is a token address and the value is the total
+    /// amount of that token deposited by the depositor.
     mapping(address depositor => mapping(address tokenAddress => uint256 amount)) public totalDepositAmounts;
 
-    /**
-     * @dev Maps depositor addresses to another mapping, where the key is an token address and
-     * the value is the total amount of that token deposited and free to bond by the depositor.
-     * @notice Use this to check the amount available for withdrawal by each account for each
-     * token. The amount available for withdrawal is the total deposited amount minus the
-     * amount already delegated.
-     */
+    /// @notice Use this to check the amount available for withdrawal by each account for each token. The amount
+    /// available for withdrawal is the total deposited amount minus the amount already delegated.
+    /// @dev Maps depositor addresses to another mapping, where the key is a token address and the value is the total
+    /// amount of that token deposited and free to bond by the depositor.
     mapping(address depositor => mapping(address tokenAddress => uint256 amount)) public withdrawableAmounts;
 
-    /**
-     * @dev Maps a delegator address to a nested mapping, where the first key the validator
-     * address and the second key is the token's address, pointing to the amount of tokens
-     * delegated.
-     * @notice This allows tracking of how much each delegator has delegated to each validator
-     * for all of the whitelisted tokens.
-     */
-    mapping(address delegator => mapping(string exoAddress => mapping(address tokenAddress => uint256))) public
+    /// @notice This allows tracking of how much each delegator has delegated to each validator for all of the
+    /// whitelisted tokens.
+    /// @dev Maps a delegator address to a nested mapping, where the first key is the validator address and the second
+    /// key is the token's address, pointing to the amount of tokens delegated.
+    mapping(address delegator => mapping(string exoAddress => mapping(address tokenAddress => uint256 amount))) public
         delegations;
 
-    // bootstrapping information - including status, address of proxy, implementation, and
-    // initialization
-    /**
-     * @dev A boolean indicating whether the Exocore chain has been bootstrapped.
-     * @notice This flag is used to determine whether the implementation of this contract
-     * has been switched over to the client chain gateway.
-     */
+    /// @notice This flag is used to determine whether the implementation of this contract has been switched over to the
+    /// client chain gateway.
+    /// @dev A boolean indicating whether the Exocore chain has been bootstrapped.
     bool public bootstrapped;
 
-    /**
-     * @dev Address of the custom proxy admin used to manage upgradeability of this contract.
-     * @notice This proxy admin facilitates the implementation switch from Bootstrap to
-     * ClientChainGateway based on conditions met by the Exocore validator set's transactions.
-     */
+    /// @notice This proxy admin facilitates the implementation switch from Bootstrap to ClientChainGateway based on
+    /// conditions met by the Exocore validator set's transactions.
+    /// @dev Address of the custom proxy admin used to manage upgradeability of this contract.
     address public customProxyAdmin;
 
-    /**
-     * @dev Address of the Client Chain Gateway logic implementation.
-     * @notice This address points to the logic contract that the proxy should switch to upon
-     * successful bootstrapping.
-     */
+    /// @notice This address points to the logic contract that the proxy should switch to upon successful bootstrapping.
+    /// @dev Address of the Client Chain Gateway logic implementation.
     address public clientChainGatewayLogic;
 
-    /**
-     * @dev Contains the initialization data for the Client Chain Gateway logic when upgrading.
-     * @notice This data is used to initialize the new logic contract (ClientChainGateway) when
-     * the proxy admin switches the implementation post-bootstrapping.
-     */
+    /// @notice This data is used to initialize the new logic contract (ClientChainGateway) when the proxy admin
+    /// switches the implementation post-bootstrapping.
+    /// @dev Contains the initialization data for the Client Chain Gateway logic when upgrading.
     bytes public clientChainInitializationData;
 
     /* -------------------------------------------------------------------------- */
@@ -180,48 +109,33 @@ contract BootstrapStorage is GatewayStorage {
     /* -------------------------------------------------------------------------- */
 
     // whitelisted tokens and their vaults, and total deposits of said tokens
-    /**
-     * @dev An array containing all the token addresses that have been added to the whitelist.
-     * @notice Use this array to iterate through all whitelisted tokens.
-     * This helps in operations like audits, UI display, or when removing tokens
-     * from the whitelist needs an indexed approach.
-     */
+    /// @notice Use this array to iterate through all whitelisted tokens. This helps in operations like audits, UI
+    /// display, or when removing tokens from the whitelist needs an indexed approach.
+    /// @dev An array containing all the token addresses that have been added to the whitelist.
     address[] public whitelistTokens;
 
-    /**
-     * @dev Stores a mapping of whitelisted token addresses to their status.
-     * @notice Use this to check if a token is allowed for processing.
-     * Each token address maps to a boolean indicating whether it is whitelisted.
-     */
+    /// @notice Use this to check if a token is allowed for processing. Each token address maps to a boolean indicating
+    /// whether it is whitelisted.
+    /// @dev Stores a mapping of whitelisted token addresses to their status.
     mapping(address token => bool whitelisted) public isWhitelistedToken;
 
-    /**
-     * @dev Maps token addresses to their corresponding vault contracts.
-     * @notice Access the vault interface for a specific token using this mapping.
-     * Each token address maps to an IVault contract instance handling its operations.
-     */
+    /// @notice Access the vault interface for a specific token using this mapping. Each token address maps to an IVault
+    /// contract instance handling its operations.
+    /// @dev Maps token addresses to their corresponding vault contracts.
     mapping(address token => IVault vault) public tokenToVault;
 
-    // cross-chain level information
-    /**
-     * @dev Stores the Layer Zero chain ID of the Exocore chain.
-     * @notice Used to identify the specific Exocore chain this contract interacts with for
-     * cross-chain functionalities.
-     */
+    /// @notice Used to identify the specific Exocore chain this contract interacts with for cross-chain
+    /// functionalities.
+    /// @dev Stores the Layer Zero chain ID of the Exocore chain.
     uint32 public immutable EXOCORE_CHAIN_ID;
 
-    // the beacon that stores the Vault implementation contract address for proxy
-    /**
-     * @notice this stores the Vault implementation contract address for proxy, and it is
-     * shared among all beacon proxies.
-     */
+    /// @notice This stores the Vault implementation contract address for proxy, and it is shared among all beacon
+    /// proxies.
     IBeacon public immutable VAULT_BEACON;
 
-    /**
-     * @notice a stantalone contract that is dedicated for providing the bytecode of beacon proxy contract
-     * @dev we do not store bytecode of beacon proxy contract in this storage because that would cause the code size
-     * of this contract exeeding limit and leading to creation failure
-     */
+    /// @notice A standalone contract that is dedicated for providing the bytecode of beacon proxy contract.
+    /// @dev We do not store bytecode of beacon proxy contract in this storage because that would cause the code size of
+    /// this contract exceeding the limit and leading to creation failure.
     BeaconProxyBytecode public immutable BEACON_PROXY_BYTECODE;
 
     bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
@@ -230,89 +144,64 @@ contract BootstrapStorage is GatewayStorage {
     /*                                   Events                                   */
     /* -------------------------------------------------------------------------- */
 
-    /**
-     * @notice Emitted when the spawn time of the Exocore chain is updated.
-     *
-     * @dev This event is triggered whenever the contract owner updates the spawn time of the
-     * Exocore chain.
-     *
-     * @param newSpawnTime The new time (in seconds) that has been set.
-     */
+    /// @notice Emitted when the spawn time of the Exocore chain is updated.
+    /// @dev This event is triggered whenever the contract owner updates the spawn time of the Exocore chain.
+    /// @param newSpawnTime The new time (in UNIX seconds) that has been set.
     event SpawnTimeUpdated(uint256 newSpawnTime);
 
-    /**
-     * @notice Emitted when the offset duration before the Exocore spawn time, during which
-     * operations are restricted, is updated.
-     *
-     * @dev This event is triggered whenever the contract owner updates the offset duration that
-     * defines the operational lock period leading up to the Exocore chain's launch. The
-     * offset duration determines how long before the spawn time the contract will restrict
-     * certain operations to ensure stability and integrity. This event logs the new offset
-     * duration for transparency and traceability.
-     *
-     * @param newOffsetDuration The new offset duration (in seconds) that has been set. This value
-     * represents the duration before the Exocore spawn time during which certain contract
-     * operations are locked.
-     */
+    /// @notice Emitted when the offset duration before the Exocore spawn time, during which operations are restricted,
+    /// is updated.
+    /// @dev This event is triggered whenever the contract owner updates the offset duration.
+    /// @param newOffsetDuration The new offset duration (in seconds) that has been set.
     event OffsetDurationUpdated(uint256 newOffsetDuration);
 
-    /**
-     * @notice Emitted when a deposit is made into the contract.
-     * @dev This event is triggered whenever a depositor makes a deposit into the contract.
-     * @param success Whether the operation succeeded.
-     * @param token The address of the token being deposited, on this chain.
-     * @param depositor The address of the depositor, on this chain.
-     * @param amount The amount of the token accepted as deposit.
-     */
+    /// @notice Emitted when a deposit is made into the contract.
+    /// @dev This event is triggered whenever a depositor makes a deposit into the contract.
+    /// @param success Whether the operation succeeded.
+    /// @param token The address of the token being deposited, on this chain.
+    /// @param depositor The address of the depositor, on this chain.
+    /// @param amount The amount of the token accepted as deposit.
     event DepositResult(bool indexed success, address indexed token, address indexed depositor, uint256 amount);
 
-    /**
-     * @notice Emitted when a withdrawal is made from the contract.
-     * @dev This event is triggered whenever a withdrawer withdraws from the contract.
-     * @param success Whether the operation succeeded.
-     * @param token The address of the token being withdrawn, on this chain.
-     * @param withdrawer The address of the withdrawer, on this chain.
-     * @param amount The amount of the token available to claim.
-     */
+    /// @notice Emitted when a withdrawal is made from the contract.
+    /// @dev This event is triggered whenever a withdrawer withdraws from the contract.
+    /// @param success Whether the operation succeeded.
+    /// @param token The address of the token being withdrawn, on this chain.
+    /// @param withdrawer The address of the withdrawer, on this chain.
+    /// @param amount The amount of the token available to claim.
     event WithdrawPrincipalResult(
         bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
     );
 
-    /**
-     * @notice Emitted when a delegation is made to an operator.
-     * @dev This event is triggered whenever a delegator delegates tokens to an operator.
-     * @param success Whether the operation succeeded.
-     * @param delegator The address of the delegator, on this chain.
-     * @param delegatee The Exocore address of the operator.
-     * @param token The address of the token being delegated, on this chain.
-     * @param amount The amount of the token delegated.
-     */
+    /// @notice Emitted when a delegation is made to an operator.
+    /// @dev This event is triggered whenever a delegator delegates tokens to an operator.
+    /// @param success Whether the operation succeeded.
+    /// @param delegator The address of the delegator, on this chain.
+    /// @param delegatee The Exocore address of the operator.
+    /// @param token The address of the token being delegated, on this chain.
+    /// @param amount The amount of the token delegated.
     event DelegateResult(
         bool indexed success, address indexed delegator, string indexed delegatee, address token, uint256 amount
     );
 
-    /**
-     * @notice Emitted when a delegation is removed from an operator.
-     * @dev This event is triggered whenever a delegator removes a delegation from an operator.
-     * @param success Whether the operation succeeded.
-     * @param undelegator The address of the delegator, on this chain.
-     * @param undelegatee The Exocore address of the operator..
-     * @param token The address of the token being undelegated, on this chain.
-     * @param amount The amount of the token undelegated.
-     */
+    /// @notice Emitted when a delegation is removed from an operator.
+    /// @dev This event is triggered whenever a delegator removes a delegation from an operator.
+    /// @param success Whether the operation succeeded.
+    /// @param undelegator The address of the delegator, on this chain.
+    /// @param undelegatee The Exocore address of the operator.
+    /// @param token The address of the token being undelegated, on this chain.
+    /// @param amount The amount of the token undelegated.
     event UndelegateResult(
         bool indexed success, address indexed undelegator, string indexed undelegatee, address token, uint256 amount
     );
 
-    /**
-     * @notice Emitted when a deposit + delegation is made.
-     * @dev This event is triggered whenever a delegator deposits and then delegates tokens to an operator.
-     * @param delegateSuccess Whether the delegation succeeded (deposits always succeed!).
-     * @param delegator The address of the delegator, on this chain.
-     * @param delegatee The Exocore address of the operator.
-     * @param token The address of the token being delegated, on this chain.
-     * @param delegatedAmount The amount of the token delegated.
-     */
+    /// @notice Emitted when a deposit + delegation is made.
+    /// @dev This event is triggered whenever a delegator deposits and then delegates tokens to an operator.
+    /// @param delegateSuccess Whether the delegation succeeded (deposits always succeed!).
+    /// @param delegator The address of the delegator, on this chain.
+    /// @param delegatee The Exocore address of the operator.
+    /// @param token The address of the token being delegated, on this chain.
+    /// @param delegatedAmount The amount of the token delegated.
     event DepositThenDelegateResult(
         bool indexed delegateSuccess,
         address indexed delegator,
@@ -321,74 +210,54 @@ contract BootstrapStorage is GatewayStorage {
         uint256 delegatedAmount
     );
 
-    /**
-     * @notice Emitted after the Exocore chain is bootstrapped.
-     * @dev This event is triggered after the Exocore chain is bootstrapped, indicating that
-     * the contract has successfully transitioned to the Client Chain Gateway logic. Exocore
-     * must send a message to the contract to trigger this event.
-     */
+    /// @notice Emitted after the Exocore chain is bootstrapped.
+    /// @dev This event is triggered after the Exocore chain is bootstrapped, indicating that the contract has
+    /// successfully transitioned to the Client Chain Gateway logic. Exocore must send a message to the contract to
+    /// trigger this event.
     event Bootstrapped();
 
-    /**
-     * @notice Emitted when the client chain gateway logic + implementation are updated.
-     * @dev This event is triggered whenever the client chain gateway logic and implementation
-     * are updated. It may be used, before bootstrapping is complete, to upgrade the client
-     * chain gateway logic for upgrades or other bugs.
-     * @param newLogic Address of the new implementation
-     * @param initializationData The abi encoded function which will be called upon upgrade
-     */
+    /// @notice Emitted when the client chain gateway logic + implementation are updated.
+    /// @dev This event is triggered whenever the client chain gateway logic and implementation are updated. It may be
+    /// used, before bootstrapping is complete, to upgrade the client chain gateway logic for upgrades or other bugs.
+    /// @param newLogic Address of the new implementation
+    /// @param initializationData The abi encoded function which will be called upon upgrade
     event ClientChainGatewayLogicUpdated(address newLogic, bytes initializationData);
 
-    /**
-     * @dev Emitted when a new vault is created.
-     * @param vault The address of the vault that has been added.
-     * @param underlyingToken The underlying token of vault.
-     */
+    /// @dev Emitted when a new vault is created.
+    /// @param vault The address of the vault that has been added.
+    /// @param underlyingToken The underlying token of vault.
     event VaultCreated(address underlyingToken, address vault);
 
-    /**
-     * @dev Emitted when a new token is added to the whitelist.
-     * @param _token The address of the token that has been added to the whitelist.
-     */
+    /// @dev Emitted when a new token is added to the whitelist.
+    /// @param _token The address of the token that has been added to the whitelist.
     event WhitelistTokenAdded(address _token);
 
     /* -------------------------------------------------------------------------- */
     /*                                   Errors                                   */
     /* -------------------------------------------------------------------------- */
 
-    /**
-     * @dev Indicates an operation failed because the specified vault does not exist.
-     */
+    /// @dev Indicates an operation failed because the specified vault does not exist.
     error VaultNotExist();
 
-    /**
-     * @dev Indicates that an operation which is not yet supported is requested.
-     */
+    /// @dev Indicates that an operation which is not yet supported is requested.
     error NotYetSupported();
 
-    /**
-     * @dev This error is returned when the execution of a layer zero message fails.
-     * @param act The action for which the selector or the response function was executed, but
-     * failed.
-     * @param nonce The nonce of the message that failed.
-     * @param reason The reason for the failure.
-     * @notice This error is returned when the contract fails to execute a layer zero message
-     * due to an error in the execution process.
-     */
+    /// @notice This error is returned when the contract fails to execute a layer zero message due to an error in the
+    /// execution process.
+    /// @dev This error is returned when the execution of a layer zero message fails.
+    /// @param act The action for which the selector or the response function was executed, but failed.
+    /// @param nonce The nonce of the message that failed.
+    /// @param reason The reason for the failure.
     error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
 
-    /**
-     * @dev Struct to return detailed information about a token, including its name, symbol,
-     * address, decimals, total supply, and additional metadata for cross-chain operations
-     * and contextual data.
-     *
-     * @param name The name of the token.
-     * @param symbol The symbol of the token.
-     * @param tokenAddress The contract address of the token.
-     * @param decimals The number of decimals the token uses.
-     * @param totalSupply The total supply of the token.
-     * @param depositAmount The total amount of the token deposited into the contract.
-     */
+    /// @dev Struct to return detailed information about a token, including its name, symbol, address, decimals, total
+    /// supply, and additional metadata for cross-chain operations and contextual data.
+    /// @param name The name of the token.
+    /// @param symbol The symbol of the token.
+    /// @param tokenAddress The contract address of the token.
+    /// @param decimals The number of decimals the token uses.
+    /// @param totalSupply The total supply of the token.
+    /// @param depositAmount The total amount of the token deposited into the contract.
     struct TokenInfo {
         string name;
         string symbol;
@@ -398,28 +267,41 @@ contract BootstrapStorage is GatewayStorage {
         uint256 depositAmount;
     }
 
+    /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;
 
+    /// @notice Checks if the token is whitelisted.
+    /// @param token The address of the token to check.
     modifier isTokenWhitelisted(address token) {
         require(isWhitelistedToken[token], "BootstrapStorage: token is not whitelisted");
         _;
     }
 
+    /// @notice Ensures the amount is greater than zero.
+    /// @param amount The amount to check.
     modifier isValidAmount(uint256 amount) {
         require(amount > 0, "BootstrapStorage: amount should be greater than zero");
         _;
     }
 
+    /// @notice Checks if a vault exists for the given token.
+    /// @param token The address of the token to check.
     modifier vaultExists(address token) {
         require(address(tokenToVault[token]) != address(0), "BootstrapStorage: no vault added for this token");
         _;
     }
 
+    /// @notice Ensures the provided Exocore address is a valid Bech32 encoded address.
+    /// @param exocoreAddress The Exocore address to check.
     modifier isValidBech32Address(string calldata exocoreAddress) {
         require(isValidExocoreAddress(exocoreAddress), "BootstrapStorage: invalid bech32 encoded Exocore address");
         _;
     }
 
+    /// @notice Initializes the contract with the given parameters.
+    /// @param exocoreChainId_ The chain ID of the Exocore chain.
+    /// @param vaultBeacon_ The address of the vault beacon.
+    /// @param beaconProxyBytecode_ The address of the beacon proxy bytecode contract.
     constructor(uint32 exocoreChainId_, address vaultBeacon_, address beaconProxyBytecode_) {
         require(exocoreChainId_ != 0, "BootstrapStorage: exocore chain id should not be empty");
         require(
@@ -434,6 +316,10 @@ contract BootstrapStorage is GatewayStorage {
         BEACON_PROXY_BYTECODE = BeaconProxyBytecode(beaconProxyBytecode_);
     }
 
+    /// @notice Returns the vault associated with the given token.
+    /// @dev Reverts if the vault does not exist.
+    /// @param token The address of the token.
+    /// @return The vault associated with the given token.
     function _getVault(address token) internal view returns (IVault) {
         IVault vault = tokenToVault[token];
         if (address(vault) == address(0)) {
@@ -442,6 +328,11 @@ contract BootstrapStorage is GatewayStorage {
         return vault;
     }
 
+    /// @notice Checks if the provided Exocore address is valid.
+    /// @param question The Exocore address to check.
+    /// @return True if the address is valid, false otherwise.
+    /// @dev Since implementation of bech32 is difficult in Solidity, this function only
+    /// checks that the address is 42 characters long and starts with "exo1".
     function isValidExocoreAddress(string calldata question) public pure returns (bool) {
         bytes memory stringBytes = bytes(question);
         if (stringBytes.length != 42) {
@@ -456,6 +347,10 @@ contract BootstrapStorage is GatewayStorage {
         return true;
     }
 
+    /// @notice Deploys a new vault for the given underlying token.
+    /// @dev Uses the Create2 opcode to deploy the vault.
+    /// @param underlyingToken The address of the underlying token.
+    /// @return The address of the newly deployed vault.
     // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision

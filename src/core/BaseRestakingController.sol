@@ -10,6 +10,11 @@ import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuil
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
+/// @title BaseRestakingController
+/// @author ExocoreNetwork
+/// @notice The base contract for the restaking controller. It only controls ERC20 tokens.
+/// @dev This contract is abstract because it does not call the base contract's constructor. It is not used by
+/// Bootstrap.
 abstract contract BaseRestakingController is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable,
@@ -22,6 +27,7 @@ abstract contract BaseRestakingController is
 
     receive() external payable {}
 
+    /// @inheritdoc IBaseRestakingController
     function claim(address token, uint256 amount, address recipient)
         external
         isTokenWhitelisted(token)
@@ -41,6 +47,7 @@ abstract contract BaseRestakingController is
         emit ClaimSucceeded(token, recipient, amount);
     }
 
+    /// @inheritdoc IBaseRestakingController
     function delegateTo(string calldata operator, address token, uint256 amount)
         external
         payable
@@ -56,6 +63,7 @@ abstract contract BaseRestakingController is
         _processRequest(Action.REQUEST_DELEGATE_TO, actionArgs, encodedRequest);
     }
 
+    /// @inheritdoc IBaseRestakingController
     function undelegateFrom(string calldata operator, address token, uint256 amount)
         external
         payable
@@ -71,6 +79,10 @@ abstract contract BaseRestakingController is
         _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, encodedRequest);
     }
 
+    /// @dev Processes the request by sending it to Exocore.
+    /// @param action The action to be performed.
+    /// @param actionArgs The encodePacked arguments for the action.
+    /// @param encodedRequest The encoded request.
     function _processRequest(Action action, bytes memory actionArgs, bytes memory encodedRequest) internal {
         outboundNonce++;
         _registeredRequests[outboundNonce] = encodedRequest;
@@ -79,6 +91,9 @@ abstract contract BaseRestakingController is
         _sendMsgToExocore(action, actionArgs);
     }
 
+    /// @dev Sends a message to Exocore.
+    /// @param action The action to be performed.
+    /// @param actionArgs The encodePacked arguments for the action.
     function _sendMsgToExocore(Action action, bytes memory actionArgs) internal {
         bytes memory payload = abi.encodePacked(action, actionArgs);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(

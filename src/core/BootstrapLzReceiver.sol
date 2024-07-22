@@ -4,8 +4,14 @@ import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
+/// @title BootstrapLzReceiver
+/// @author ExocoreNetwork
+/// @notice The base contract for the BootstrapLzReceiver. It only receives messages from the Exocore chain and does not
+/// send any.
+/// @dev This contract is abstract because it does not call the base contract's constructor.
 abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, BootstrapStorage {
 
+    /// @dev Allows only this contract to call the function via low level call.
     modifier onlyCalledFromThis() {
         require(
             msg.sender == address(this),
@@ -14,6 +20,7 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
         _;
     }
 
+    /// @inheritdoc OAppReceiverUpgradeable
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override {
         if (_origin.srcEid != EXOCORE_CHAIN_ID) {
             revert UnexpectedSourceChain(_origin.srcEid);
@@ -31,6 +38,7 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
         }
     }
 
+    /// @inheritdoc OAppReceiverUpgradeable
     function nextNonce(uint32 srcEid, bytes32 sender)
         public
         view

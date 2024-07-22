@@ -10,6 +10,11 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
+/// @title NativeRestakingController
+/// @author ExocoreNetwork
+/// @notice This is the implementation of INativeRestakingController. It allows Ethereum validators
+/// to stake, deposit and withdraw from the Ethereum beacon chain.
+/// @dev This contract is abstract because it does not call the base constructor.
 abstract contract NativeRestakingController is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable,
@@ -19,6 +24,7 @@ abstract contract NativeRestakingController is
 
     using ValidatorContainer for bytes32[];
 
+    /// @dev Ensures that native restaking is enabled for this contract.
     modifier nativeRestakingEnabled() {
         require(
             isWhitelistedToken[VIRTUAL_STAKED_ETH_ADDRESS], "NativeRestakingController: native restaking is not enabled"
@@ -26,6 +32,11 @@ abstract contract NativeRestakingController is
         _;
     }
 
+    /// @notice Stakes 32 ETH on behalf of the validators in the Ethereum beacon chain, and
+    /// points the withdrawal credentials to the capsule contract, creating it if necessary.
+    /// @param pubkey The validator's BLS12-381 public key.
+    /// @param signature Value signed by the @param pubkey.
+    /// @param depositDataRoot The SHA-256 hash of the SSZ-encoded DepositData object.
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot)
         external
         payable
@@ -44,6 +55,8 @@ abstract contract NativeRestakingController is
         emit StakedWithCapsule(msg.sender, address(capsule));
     }
 
+    /// @notice Creates a new ExoCapsule contract for the message sender.
+    /// @return The address of the newly created ExoCapsule contract.
     // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision
@@ -70,6 +83,9 @@ abstract contract NativeRestakingController is
         return address(capsule);
     }
 
+    /// @notice Verifies a deposit proof from the beacon chain and forwards the information to Exocore.
+    /// @param validatorContainer The validator container which made the deposit.
+    /// @param proof The proof of the validator container.
     function depositBeaconChainValidator(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata proof
@@ -83,6 +99,11 @@ abstract contract NativeRestakingController is
         _processRequest(Action.REQUEST_DEPOSIT, actionArgs, encodedRequest);
     }
 
+    /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Exocore.
+    /// @param validatorContainer The validator container which made the withdrawal.
+    /// @param validatorProof The proof of the validator container.
+    /// @param withdrawalContainer The withdrawal container.
+    /// @param withdrawalProof The proof of the withdrawal.
     function processBeaconChainWithdrawal(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,

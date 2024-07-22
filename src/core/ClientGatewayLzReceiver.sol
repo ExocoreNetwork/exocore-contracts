@@ -7,16 +7,37 @@ import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.so
 
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
+/// @title ClientGatewayLzReceiver
+/// @author ExocoreNetwork
+/// @notice This contract receives messages over LayerZero from the Exocore Gateway.
+/// @dev It is abstract because it does not call the base contract's constructor.
 abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
 
+    /// @dev Thrown when the response is unsupported, that is, no hook has been registered for it.
+    /// @param act The action that was unsupported.
     error UnsupportedResponse(Action act);
+
+    /// @dev Thrown when the response received is unexpected, that is, the request payload for the id cannot be
+    /// retrieved.
+    /// @param nonce The nonce of the request.
     error UnexpectedResponse(uint64 nonce);
+
+    /// @dev Thrown when deposit fails on the Exocore end.
+    /// @param token The token address.
+    /// @param depositor The depositor address.
     error DepositShouldNotFailOnExocore(address token, address depositor);
+
+    /// @dev Thrown when the whitelist tokens length is invalid.
+    /// @param expectedLength The expected length of the request payload.
+    /// @param actualLength The actual length of the request payload.
     error InvalidAddWhitelistTokensRequest(uint256 expectedLength, uint256 actualLength);
 
-    // Events
+    /// @notice Emitted when withdrawal fails on the Exocore end.
+    /// @param token The token address.
+    /// @param withdrawer The withdrawer address.
     event WithdrawFailedOnExocore(address indexed token, address indexed withdrawer);
 
+    /// @dev Ensure that the function is called only from this contract.
     modifier onlyCalledFromThis() {
         require(
             msg.sender == address(this),
@@ -25,6 +46,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         _;
     }
 
+    /// @inheritdoc OAppReceiverUpgradeable
     // This function would call other functions inside this contract through low-level-call
     // slither-disable-next-line reentrancy-no-eth
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
@@ -71,6 +93,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         }
     }
 
+    /// @inheritdoc OAppReceiverUpgradeable
     function nextNonce(uint32 srcEid, bytes32 sender)
         public
         view
@@ -81,6 +104,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         return inboundNonce[srcEid][sender] + 1;
     }
 
+    /// @notice Called after a deposit response is received.
+    /// @param requestPayload The request payload.
+    /// @param responsePayload The response payload.
     function afterReceiveDepositResponse(bytes memory requestPayload, bytes calldata responsePayload)
         public
         onlyCalledFromThis
@@ -105,6 +131,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit DepositResult(success, token, depositor, amount);
     }
 
+    /// @notice Called after a withdraw principal response is received.
+    /// @param requestPayload The request payload.
+    /// @param responsePayload The response payload.
     function afterReceiveWithdrawPrincipalResponse(bytes memory requestPayload, bytes calldata responsePayload)
         public
         onlyCalledFromThis
@@ -134,6 +163,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         }
     }
 
+    /// @notice Called after a withdraw reward response is received.
+    /// @param requestPayload The request payload.
+    /// @param responsePayload The response payload.
     function afterReceiveWithdrawRewardResponse(bytes memory requestPayload, bytes calldata responsePayload)
         public
         onlyCalledFromThis
@@ -153,6 +185,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit WithdrawRewardResult(success, token, withdrawer, unlockRewardAmount);
     }
 
+    /// @notice Called after a delegate response is received.
+    /// @param requestPayload The request payload.
+    /// @param responsePayload The response payload.
     function afterReceiveDelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
         public
         onlyCalledFromThis
@@ -165,6 +200,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit DelegateResult(success, delegator, operator, token, amount);
     }
 
+    /// @notice Called after an undelegate response is received.
+    /// @param requestPayload The request payload.
+    /// @param responsePayload The response payload.
     function afterReceiveUndelegateResponse(bytes memory requestPayload, bytes calldata responsePayload)
         public
         onlyCalledFromThis
@@ -177,6 +215,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit UndelegateResult(success, undelegator, operator, token, amount);
     }
 
+    /// @notice Called after a deposit-then-delegate response is received.
+    /// @param requestPayload The request payload.
+    /// @param responsePayload The response payload.
     function afterReceiveDepositThenDelegateToResponse(bytes memory requestPayload, bytes calldata responsePayload)
         public
         onlyCalledFromThis
@@ -198,6 +239,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit DepositThenDelegateResult(delegateSuccess, delegator, operator, token, amount);
     }
 
+    /// @notice Called after an add-whitelist-tokens response is received.
+    /// @param requestPayload The request payload.
     // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
     // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
     // like reentrancy.

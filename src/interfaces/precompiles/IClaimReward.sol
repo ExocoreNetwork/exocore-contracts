@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity >=0.8.17;
 
 /// TODO: we might remove this precompile contract and merge it into assets precompile
