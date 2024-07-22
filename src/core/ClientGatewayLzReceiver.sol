@@ -81,7 +81,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                 }
 
                 if (success) {
-                    _updatePrincipleAssetState(requestAct, token, staker, amount, updatedBalance);
+                    _updatePrincipalAssetState(requestAct, token, staker, amount, updatedBalance);
                 }
             } else {
                 // otherwise this is an operation aimed at reward
@@ -173,7 +173,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         return success;
     }
 
-    function _updatePrincipleAssetState(
+    function _updatePrincipalAssetState(
         Action requestAct,
         address token,
         address staker,
