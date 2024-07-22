@@ -84,7 +84,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                     _updatePrincipalAssetState(requestAct, token, staker, amount, updatedBalance);
                 }
             } else {
-                // otherwise this is an operation aimed at reward
+                // otherwise this is an operation aimed at reward since Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE is
+                // the only asset operation request that deals with reward instead of principal
                 if (success) {
                     IVault vault = _getVault(token);
 
