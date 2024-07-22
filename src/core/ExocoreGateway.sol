@@ -162,9 +162,6 @@ contract ExocoreGateway is
     }
 
     /// @inheritdoc IExocoreGateway
-    // Though this function would call precompiled contract, all precompiled contracts belong to Exocore
-    // and we could make sure its implementation does not have dangerous behavior like reentrancy.
-    // slither-disable-next-line reentrancy-no-eth
     function addWhitelistTokens(
         uint32 clientChainId,
         bytes32[] calldata tokens,
@@ -197,6 +194,9 @@ contract ExocoreGateway is
     /// @param metaData List of arbitrary meta data for each token
     /// @param add Whether to add or update the tokens
     /// @dev Validates that lengths are equal, <= 255, and that the chain is registered.
+    // Though this function would call precompiled contract, all precompiled contracts belong to Exocore
+    // and we could make sure its implementation does not have dangerous behavior like reentrancy.
+    // slither-disable-next-line reentrancy-no-eth
     function _addOrUpdateWhitelistTokens(
         uint32 clientChainId,
         bytes32[] calldata tokens,
