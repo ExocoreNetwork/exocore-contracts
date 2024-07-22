@@ -39,7 +39,7 @@ library WithdrawalContainer {
         return withdrawalContainer[3].fromLittleEndianUint64();
     }
 
-    function merklelizeWithdrawalContainer(bytes32[] calldata withdrawalContainer) internal pure returns (bytes32) {
+    function merkleizeWithdrawalContainer(bytes32[] calldata withdrawalContainer) internal pure returns (bytes32) {
         bytes32[] memory leaves = withdrawalContainer;
         for (uint256 i; i < MERKLE_TREE_HEIGHT; i++) {
             bytes32[] memory roots = new bytes32[](leaves.length / 2);
