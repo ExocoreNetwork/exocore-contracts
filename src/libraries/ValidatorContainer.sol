@@ -53,7 +53,7 @@ library ValidatorContainer {
         return validatorContainer[7].fromLittleEndianUint64();
     }
 
-    function merklelizeValidatorContainer(bytes32[] calldata validatorContainer) internal pure returns (bytes32) {
+    function merkleizeValidatorContainer(bytes32[] calldata validatorContainer) internal pure returns (bytes32) {
         bytes32[] memory leaves = validatorContainer;
         for (uint256 i; i < MERKLE_TREE_HEIGHT; i++) {
             bytes32[] memory roots = new bytes32[](leaves.length / 2);

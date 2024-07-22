@@ -372,7 +372,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         view
     {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
-        bytes32 validatorContainerRoot = validatorContainer.merklelizeValidatorContainer();
+        bytes32 validatorContainerRoot = validatorContainer.merkleizeValidatorContainer();
         bool valid = validatorContainerRoot.isValidValidatorContainerRoot(
             proof.validatorContainerRootProof,
             proof.validatorIndex,
@@ -393,7 +393,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         BeaconChainProofs.WithdrawalProof calldata proof
     ) internal view {
         // To-do check withdrawalContainer length is valid
-        bytes32 withdrawalContainerRoot = withdrawalContainer.merklelizeWithdrawalContainer();
+        bytes32 withdrawalContainerRoot = withdrawalContainer.merkleizeWithdrawalContainer();
         bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(proof);
         if (!valid) {
             revert InvalidWithdrawalContainer(withdrawalContainer.getValidatorIndex());
