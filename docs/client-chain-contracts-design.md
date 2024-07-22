@@ -349,19 +349,3 @@ This function is aimed for user claiming the unlocked amount of principal. Befor
 This function should be accessible for any EOA address and contract address.
 
 In aspect of security, we must carefully check against user’s claimable(unlocked) principal balance.
-
-### `updateUsersBalance`
-
-This function should only be called by Exocore validator set through `Gateway` to update user’s `principalBalance`, `rewardBalance` and `withdrawableBalance`.
-
-This function could be called in two scenaries:
-
-1. Exocore validator set periodically calls this to update user principal and reward balance(this should not update user's withdrawable balance).
-2. Exocore validator set sends reponse for the request of withdrawPrincipalFromExocore and unlock part of
-the vault assets and update user's withdrawable balance correspondingly. User's `principalBalance` and `rewardBalance` will be updated either.
-
-This function should be only accessible for `Gateway` so that this function could only be called by Exocore validator set through `Gateway`.
-
-This function relies on the Exocore set correctly returning the updated `principalBalance`, `rewardBalance` and `unlockAmount`.
-
-Everytime the user is trying to withdraw principal and reward from Exocore chain, this function must be called by Exocore validator set via cross-chain message to correctly update user’s Exocore balance and especially correctly update user’s withdrawable amount on client chain.
