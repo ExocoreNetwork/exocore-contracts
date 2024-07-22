@@ -141,11 +141,6 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         return action == Action.REQUEST_DELEGATE_TO || action == Action.REQUEST_UNDELEGATE_FROM;
     }
 
-    function _expectBalanceResponse(Action action) internal pure returns (bool) {
-        return action == Action.REQUEST_DEPOSIT || action == Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE
-            || action == Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE || action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO;
-    }
-
     function _isPrincipalType(Action action) internal pure returns (bool) {
         return action == Action.REQUEST_DEPOSIT || action == Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE
             || action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO;
