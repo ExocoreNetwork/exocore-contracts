@@ -134,6 +134,11 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, responsePayload);
         bytes32 responseId = generateUID(responseLzNonce, false);
 
+        // deposit request is firstly handled and its event is firstly emitted
+        vm.expectEmit(address(exocoreGateway));
+        emit DepositResult(true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), delegateAmount);
+
+        // secondly delegate request is handled
         vm.expectEmit(DELEGATION_PRECOMPILE_ADDRESS);
         emit DelegateRequestProcessed(
             clientChainId,
@@ -158,7 +163,6 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         emit MessageSent(GatewayStorage.Action.RESPOND, responseId, responseLzNonce, responseNativeFee);
 
         vm.expectEmit(address(exocoreGateway));
-        emit DepositResult(true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), delegateAmount);
         emit DelegateResult(
             true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), operatorAddress, delegateAmount
         );

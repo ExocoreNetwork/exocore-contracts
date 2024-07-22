@@ -422,6 +422,8 @@ contract ExocoreGateway is
         if (!success) {
             revert DepositRequestShouldNotFail(srcChainId, lzNonce);
         }
+        emit DepositResult(true, bytes32(token), bytes32(depositor), amount);
+
         try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, depositor, operator, amount)
         returns (bool delegateSuccess) {
             result = delegateSuccess;
@@ -432,8 +434,6 @@ contract ExocoreGateway is
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, updatedBalance), true);
         }
-
-        emit DepositResult(true, bytes32(token), bytes32(depositor), amount);
         emit DelegateResult(result, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 
