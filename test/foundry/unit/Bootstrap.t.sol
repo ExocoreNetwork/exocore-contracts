@@ -22,8 +22,10 @@ import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/Upgradeabl
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import "@openzeppelin/contracts/utils/Create2.sol";
+
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
+import "src/libraries/Errors.sol";
 
 import "src/core/BeaconProxyBytecode.sol";
 import "src/core/ExoCapsule.sol";
@@ -165,7 +167,7 @@ contract BootstrapTest is Test {
 
     function test01_AddWhitelistToken_AlreadyExists() public {
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: token should be not whitelisted before");
+        vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapAlreadyWhitelisted.selector, address(myToken)));
         address[] memory addedWhitelistTokens = new address[](1);
         addedWhitelistTokens[0] = address(myToken);
         bootstrap.addWhitelistTokens(addedWhitelistTokens);
@@ -350,7 +352,7 @@ contract BootstrapTest is Test {
         exo = "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2";
         name = "operator1_re";
         pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
-        vm.expectRevert("Ethereum address already linked to an operator");
+        vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapOperatorAlreadyHasAddress.selector, addrs[0]));
         bootstrap.registerOperator(exo, name, commission, pubKey);
         vm.stopPrank();
     }
@@ -368,7 +370,7 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[1]);
         name = "operator1_re";
         pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
-        vm.expectRevert("Operator with this Exocore address is already registered");
+        vm.expectRevert(Errors.BootstrapOperatorAlreadyRegistered.selector);
         bootstrap.registerOperator(exo, name, commission, pubKey);
         vm.stopPrank();
     }
@@ -387,7 +389,7 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[1]);
         exo = "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2";
         name = "operator1_re";
-        vm.expectRevert("Consensus public key already in use");
+        vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapConsensusPubkeyAlreadyUsed.selector, pubKey));
         bootstrap.registerOperator(exo, name, commission, pubKey);
         vm.stopPrank();
     }
@@ -406,7 +408,7 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[1]);
         exo = "exo1wnw7zcl9fy04ax69uffumwkdxftfqsjyj37wt2";
         pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540783);
-        vm.expectRevert("Name already in use");
+        vm.expectRevert(Errors.BootstrapOperatorNameAlreadyUsed.selector);
         bootstrap.registerOperator(exo, name, commission, pubKey);
         vm.stopPrank();
     }
@@ -453,7 +455,7 @@ contract BootstrapTest is Test {
         // Then change the key
         vm.startPrank(addrs[0]);
         bytes32 newKey = bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9);
-        vm.expectRevert("Consensus public key already in use");
+        vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapConsensusPubkeyAlreadyUsed.selector, newKey));
         bootstrap.replaceKey(newKey);
         vm.stopPrank();
     }
@@ -463,7 +465,7 @@ contract BootstrapTest is Test {
         // Then change the key for the same address
         vm.startPrank(addrs[1]);
         bytes32 newKey = bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9);
-        vm.expectRevert("Consensus public key already in use");
+        vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapConsensusPubkeyAlreadyUsed.selector, newKey));
         bootstrap.replaceKey(newKey);
         vm.stopPrank();
     }
@@ -471,7 +473,7 @@ contract BootstrapTest is Test {
     function test05_ReplaceKey_Unregistered() public {
         vm.startPrank(addrs[1]);
         bytes32 newKey = bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9);
-        vm.expectRevert("no such operator exists");
+        vm.expectRevert(Errors.BootstrapOperatorNotExist.selector);
         bootstrap.replaceKey(newKey);
         vm.stopPrank();
     }
@@ -501,7 +503,7 @@ contract BootstrapTest is Test {
         bootstrap.updateRate(1e17);
         (, IOperatorRegistry.Commission memory newCommission,) = bootstrap.operators(exo);
         assertTrue(newCommission.rate == 1e17);
-        vm.expectRevert("Commission already edited once");
+        vm.expectRevert(Errors.BootstrapComissionAlreadyEdited.selector);
         bootstrap.updateRate(1e17);
         vm.stopPrank();
     }
@@ -514,7 +516,7 @@ contract BootstrapTest is Test {
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
         bootstrap.registerOperator(exo, name, commission, pubKey);
-        vm.expectRevert("Rate exceeds max rate");
+        vm.expectRevert(Errors.BootstrapRateExceedsMaxRate.selector);
         bootstrap.updateRate(2e17);
         vm.stopPrank();
     }
@@ -528,7 +530,7 @@ contract BootstrapTest is Test {
         bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
         vm.startPrank(addrs[0]);
         bootstrap.registerOperator(exo, name, commission, pubKey);
-        vm.expectRevert("Rate change exceeds max change rate");
+        vm.expectRevert(Errors.BootstrapRateChangeExceedsMaxChangeRate.selector);
         bootstrap.updateRate(2e16);
         vm.stopPrank();
     }
@@ -537,7 +539,7 @@ contract BootstrapTest is Test {
         // Register one operator
         address addr = address(0x7);
         vm.startPrank(addr);
-        vm.expectRevert("no such operator exists");
+        vm.expectRevert(Errors.BootstrapOperatorNotExist.selector);
         bootstrap.updateRate(1e18);
         vm.stopPrank();
     }
@@ -561,7 +563,7 @@ contract BootstrapTest is Test {
 
     function test07_AddWhitelistedToken_AlreadyWhitelisted() public {
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: token should be not whitelisted before");
+        vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapAlreadyWhitelisted.selector, address(myToken)));
         address[] memory addedWhitelistTokens = new address[](1);
         addedWhitelistTokens[0] = address(myToken);
         bootstrap.addWhitelistTokens(addedWhitelistTokens);
@@ -629,7 +631,7 @@ contract BootstrapTest is Test {
     function test09_DelegateTo_Unregistered() public {
         test02_Deposit();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Operator does not exist");
+        vm.expectRevert(Errors.BootstrapOperatorNotExist.selector);
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
@@ -649,7 +651,7 @@ contract BootstrapTest is Test {
         bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         vm.startPrank(addrs[0]);
-        vm.expectRevert(bytes("Bootstrap: insufficient withdrawable balance"));
+        vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
     }
 
@@ -664,7 +666,7 @@ contract BootstrapTest is Test {
     function test09_DelegateTo_NoDeposits() public {
         test03_RegisterOperator();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: insufficient withdrawable balance");
+        vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
@@ -672,7 +674,7 @@ contract BootstrapTest is Test {
         test03_RegisterOperator();
         test02_Deposit();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: insufficient withdrawable balance");
+        vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0] + 1);
     }
 
@@ -722,7 +724,7 @@ contract BootstrapTest is Test {
     function test10_UndelegateFrom_Unregistered() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Operator does not exist");
+        vm.expectRevert(Errors.BootstrapOperatorNotExist.selector);
         bootstrap.undelegateFrom("exo1awm72f4sc5yhedurdunx9afcshfq6ymqva8an4", address(myToken), amounts[0]);
     }
 
@@ -741,7 +743,7 @@ contract BootstrapTest is Test {
         bootstrap.addWhitelistTokens(addedWhitelistTokens);
         vm.stopPrank();
         vm.startPrank(addrs[0]);
-        vm.expectRevert(bytes("Bootstrap: insufficient delegated balance"));
+        vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
     }
 
@@ -756,14 +758,14 @@ contract BootstrapTest is Test {
     function test10_UndelegateFromOperator_Excess() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: insufficient delegated balance");
+        vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0] + 1);
     }
 
     function test10_UndelegateFrom_NoDelegation() public {
         test03_RegisterOperator();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: insufficient delegated balance");
+        vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
@@ -809,7 +811,7 @@ contract BootstrapTest is Test {
 
     function test11_WithdrawPrincipalFromExocore_NoDeposits() public {
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: insufficient deposited balance");
+        vm.expectRevert(Errors.BootstrapInsufficientDepositedBalance.selector);
         bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0]);
         vm.stopPrank();
     }
@@ -817,7 +819,7 @@ contract BootstrapTest is Test {
     function test11_WithdrawPrincipalFromExocore_Excess() public {
         test10_UndelegateFrom();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: insufficient deposited balance");
+        vm.expectRevert(Errors.BootstrapInsufficientDepositedBalance.selector);
         bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0] + 1);
         vm.stopPrank();
     }
@@ -825,7 +827,7 @@ contract BootstrapTest is Test {
     function test11_WithdrawPrincipalFromExocore_ExcessFree() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: insufficient withdrawable balance");
+        vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
         bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0]);
         vm.stopPrank();
     }
@@ -884,7 +886,7 @@ contract BootstrapTest is Test {
     function test12_MarkBootstrapped_DirectCall() public {
         vm.startPrank(address(0x20));
         vm.warp(spawnTime + 2);
-        vm.expectRevert("BootstrapLzReceiver: could only be called from this contract itself with low level call");
+        vm.expectRevert(Errors.BootstrapLzReceiverOnlyCalledFromThis.selector);
         bootstrap.markBootstrapped();
         vm.stopPrank();
     }
@@ -892,7 +894,7 @@ contract BootstrapTest is Test {
     function test13_OperationAllowed() public {
         vm.warp(spawnTime - offsetDuration);
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Bootstrap: operation not allowed after lock time");
+        vm.expectRevert(Errors.BootstrapBeforeLocked.selector);
         bootstrap.deposit(address(myToken), amounts[0]);
         vm.stopPrank();
     }
@@ -942,7 +944,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
-        vm.expectRevert("Bootstrap: owner should not be empty");
+        vm.expectRevert(Errors.ZeroAddress.selector);
         Bootstrap(
             payable(
                 address(
@@ -965,7 +967,7 @@ contract BootstrapTest is Test {
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         vm.warp(20);
-        vm.expectRevert("Bootstrap: spawn time should be in the future");
+        vm.expectRevert(Errors.BootstrapSpawnTimeAlreadyPast.selector);
         Bootstrap(
             payable(
                 address(
@@ -987,7 +989,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
-        vm.expectRevert("Bootstrap: offset duration should be greater than 0");
+        vm.expectRevert(Errors.ZeroValue.selector);
         Bootstrap(
             payable(
                 address(
@@ -1008,7 +1010,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
-        vm.expectRevert("Bootstrap: spawn time should be greater than offset duration");
+        vm.expectRevert(Errors.BootstrapSpawnTimeLessThanDuration.selector);
         vm.warp(20);
         Bootstrap(
             payable(
@@ -1028,7 +1030,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
-        vm.expectRevert("Bootstrap: lock time should be in the future");
+        vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
         vm.warp(20);
         Bootstrap(
             payable(
@@ -1048,7 +1050,7 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
-        vm.expectRevert("Bootstrap: custom proxy admin should not be empty");
+        vm.expectRevert(Errors.ZeroAddress.selector);
         Bootstrap(
             payable(
                 address(
@@ -1073,13 +1075,13 @@ contract BootstrapTest is Test {
     function test16_SetSpawnTime_NotInFuture() public {
         vm.startPrank(deployer);
         vm.warp(10);
-        vm.expectRevert("Bootstrap: spawn time should be in the future");
+        vm.expectRevert(Errors.BootstrapSpawnTimeAlreadyPast.selector);
         bootstrap.setSpawnTime(9);
     }
 
     function test16_SetSpawnTime_LessThanOffsetDuration() public {
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: spawn time should be greater than offset duration");
+        vm.expectRevert(Errors.BootstrapSpawnTimeLessThanDuration.selector);
         bootstrap.setSpawnTime(offsetDuration - 1);
     }
 
@@ -1087,7 +1089,7 @@ contract BootstrapTest is Test {
         vm.startPrank(deployer);
         vm.warp(offsetDuration - 1);
         console.log(block.timestamp, offsetDuration, spawnTime);
-        vm.expectRevert("Bootstrap: lock time should be in the future");
+        vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
         // the initial block.timestamp is 1, so subtract 2 here - 1 for
         // the test and 1 for the warp offset above.
         bootstrap.setSpawnTime(spawnTime - 2);
@@ -1101,14 +1103,14 @@ contract BootstrapTest is Test {
 
     function test17_SetOffsetDuration_GTESpawnTime() public {
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: spawn time should be greater than offset duration");
+        vm.expectRevert(Errors.BootstrapSpawnTimeLessThanDuration.selector);
         bootstrap.setOffsetDuration(spawnTime);
     }
 
     function test17_SetOffsetDuration_LockTimeNotInFuture() public {
         vm.warp(offsetDuration - 1);
         vm.startPrank(deployer);
-        vm.expectRevert("Bootstrap: lock time should be in the future");
+        vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
         bootstrap.setOffsetDuration(offsetDuration + 2);
     }
 
@@ -1144,7 +1146,7 @@ contract BootstrapTest is Test {
     function test22_Claim_Excess() public {
         test11_WithdrawPrincipalFromExocore();
         vm.startPrank(addrs[0]);
-        vm.expectRevert("Vault: withdrawal amount is larger than depositor's withdrawable balance");
+        vm.expectRevert(Errors.VaultWithdrawalAmountExceeds.selector);
         bootstrap.claim(address(myToken), amounts[0] + 5, addrs[0]);
     }
 
