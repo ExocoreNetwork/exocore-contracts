@@ -202,7 +202,7 @@ contract Pausable is SetUp {
     }
 
     function test_RevertWhen_UnauthorizedPauser() public {
-        vm.expectRevert("ClientChainGateway: caller is not Exocore validator set aggregated address");
+        vm.expectRevert("Ownable: caller is not the owner");
         vm.startPrank(deployer.addr);
         clientGateway.pause();
     }
@@ -258,10 +258,6 @@ contract Initialize is SetUp {
     function test_ExoCapsuleBeaconInitialized() public {
         assertFalse(address(capsuleBeacon) == address(0));
         assertEq(address(clientGateway.EXO_CAPSULE_BEACON()), address(capsuleBeacon));
-    }
-
-    function test_ExocoreValidatoSetAddressInitialized() public {
-        assertEq(clientGateway.exocoreValidatorSetAddress(), exocoreValidatorSet.addr);
     }
 
     function test_OwnerInitialized() public {

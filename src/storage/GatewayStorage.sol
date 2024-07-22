@@ -15,8 +15,6 @@ contract GatewayStorage {
     }
 
     mapping(Action => bytes4) internal _whiteListFunctionSelectors;
-    address payable public exocoreValidatorSetAddress;
-
     mapping(uint32 eid => mapping(bytes32 sender => uint64 nonce)) public inboundNonce;
 
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);

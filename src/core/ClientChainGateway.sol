@@ -58,15 +58,10 @@ contract ClientChainGateway is
 
     // initialization happens from another contract so it must be external.
     // reinitializer(2) is used so that the ownable and oappcore functions can be called again.
-    function initialize(address payable exocoreValidatorSetAddress_) external reinitializer(2) {
+    function initialize(address owner_) external reinitializer(2) {
         _clearBootstrapData();
 
-        require(
-            exocoreValidatorSetAddress_ != address(0),
-            "ClientChainGateway: exocore validator set address should not be empty"
-        );
-
-        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
+        require(owner_ != address(0), "ClientChainGateway: contract owner should not be empty");
 
         _registeredResponseHooks[Action.REQUEST_DEPOSIT] = this.afterReceiveDepositResponse.selector;
         _registeredResponseHooks[Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE] =
@@ -83,8 +78,8 @@ contract ClientChainGateway is
 
         bootstrapped = true;
 
-        _transferOwnership(exocoreValidatorSetAddress);
-        __OAppCore_init_unchained(exocoreValidatorSetAddress);
+        _transferOwnership(owner_);
+        __OAppCore_init_unchained(owner_);
         __Pausable_init_unchained();
         __ReentrancyGuard_init_unchained();
     }
@@ -105,19 +100,11 @@ contract ClientChainGateway is
         delete registeredValidators;
     }
 
-    function pause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ClientChainGateway: caller is not Exocore validator set aggregated address"
-        );
+    function pause() external onlyOwner {
         _pause();
     }
 
-    function unpause() external {
-        require(
-            msg.sender == exocoreValidatorSetAddress,
-            "ClientChainGateway: caller is not Exocore validator set aggregated address"
-        );
+    function unpause() external onlyOwner {
         _unpause();
     }
 

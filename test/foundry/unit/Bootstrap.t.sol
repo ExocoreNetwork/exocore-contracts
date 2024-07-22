@@ -107,14 +107,7 @@ contract BootstrapTest is Test {
                         address(proxyAdmin),
                         abi.encodeCall(
                             bootstrap.initialize,
-                            (
-                                deployer,
-                                spawnTime,
-                                offsetDuration,
-                                payable(exocoreValidatorSet),
-                                whitelistTokens,
-                                address(proxyAdmin)
-                            )
+                            (deployer, spawnTime, offsetDuration, whitelistTokens, address(proxyAdmin))
                         )
                     )
                 )
@@ -958,14 +951,7 @@ contract BootstrapTest is Test {
                         address(proxyAdmin),
                         abi.encodeCall(
                             bootstrap.initialize,
-                            (
-                                address(0x0),
-                                spawnTime,
-                                offsetDuration,
-                                payable(exocoreValidatorSet),
-                                whitelistTokens,
-                                address(proxyAdmin)
-                            )
+                            (address(0x0), spawnTime, offsetDuration, whitelistTokens, address(proxyAdmin))
                         )
                     )
                 )
@@ -988,14 +974,7 @@ contract BootstrapTest is Test {
                         address(proxyAdmin),
                         abi.encodeCall(
                             bootstrap.initialize,
-                            (
-                                deployer,
-                                block.timestamp - 10,
-                                offsetDuration,
-                                payable(exocoreValidatorSet),
-                                whitelistTokens,
-                                address(proxyAdmin)
-                            )
+                            (deployer, block.timestamp - 10, offsetDuration, whitelistTokens, address(proxyAdmin))
                         )
                     )
                 )
@@ -1016,8 +995,7 @@ contract BootstrapTest is Test {
                         address(bootstrapLogic),
                         address(proxyAdmin),
                         abi.encodeCall(
-                            bootstrap.initialize,
-                            (deployer, spawnTime, 0, payable(exocoreValidatorSet), whitelistTokens, address(proxyAdmin))
+                            bootstrap.initialize, (deployer, spawnTime, 0, whitelistTokens, address(proxyAdmin))
                         )
                     )
                 )
@@ -1038,10 +1016,7 @@ contract BootstrapTest is Test {
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
                         address(proxyAdmin),
-                        abi.encodeCall(
-                            bootstrap.initialize,
-                            (deployer, 21, 22, payable(exocoreValidatorSet), whitelistTokens, address(proxyAdmin))
-                        )
+                        abi.encodeCall(bootstrap.initialize, (deployer, 21, 22, whitelistTokens, address(proxyAdmin)))
                     )
                 )
             )
@@ -1061,39 +1036,7 @@ contract BootstrapTest is Test {
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
                         address(proxyAdmin),
-                        abi.encodeCall(
-                            bootstrap.initialize,
-                            (deployer, 21, 9, payable(exocoreValidatorSet), whitelistTokens, address(proxyAdmin))
-                        )
-                    )
-                )
-            )
-        );
-    }
-
-    function test15_Initialize_ExocoreValSetZero() public {
-        vm.startPrank(deployer);
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
-        );
-        vm.expectRevert("Bootstrap: exocore validator set address should not be empty");
-        Bootstrap(
-            payable(
-                address(
-                    new TransparentUpgradeableProxy(
-                        address(bootstrapLogic),
-                        address(proxyAdmin),
-                        abi.encodeCall(
-                            bootstrap.initialize,
-                            (
-                                deployer,
-                                spawnTime,
-                                offsetDuration,
-                                payable(address(0)),
-                                whitelistTokens,
-                                address(proxyAdmin)
-                            )
-                        )
+                        abi.encodeCall(bootstrap.initialize, (deployer, 21, 9, whitelistTokens, address(proxyAdmin)))
                     )
                 )
             )
@@ -1113,15 +1056,7 @@ contract BootstrapTest is Test {
                         address(bootstrapLogic),
                         address(proxyAdmin),
                         abi.encodeCall(
-                            bootstrap.initialize,
-                            (
-                                deployer,
-                                spawnTime,
-                                offsetDuration,
-                                payable(exocoreValidatorSet),
-                                whitelistTokens,
-                                address(0x0)
-                            )
+                            bootstrap.initialize, (deployer, spawnTime, offsetDuration, whitelistTokens, address(0x0))
                         )
                     )
                 )

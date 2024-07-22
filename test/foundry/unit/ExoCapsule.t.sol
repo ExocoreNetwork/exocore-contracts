@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 import "src/core/ExoCapsule.sol";
 import "src/interfaces/IExoCapsule.sol";
@@ -14,7 +13,7 @@ import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
 import {ExoCapsuleStorage} from "src/storage/ExoCapsuleStorage.sol";
 
-contract SetUp is Test {
+contract DepositSetup is Test {
 
     using stdStorage for StdStorage;
     using Endian for bytes32;
@@ -77,7 +76,7 @@ contract SetUp is Test {
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(phantomCapsule).code);
-        capsule = ExoCapsule(capsuleAddress);
+        capsule = ExoCapsule(payable(capsuleAddress));
         assertEq(bytes32(capsule.capsuleWithdrawalCredentials()), _getWithdrawalCredentials(validatorContainer));
 
         stdstore.target(capsuleAddress).sig("gateway()").checked_write(bytes32(uint256(uint160(address(this)))));
@@ -115,7 +114,7 @@ contract SetUp is Test {
 
 }
 
-contract VerifyDepositProof is SetUp {
+contract VerifyDepositProof is DepositSetup {
 
     using BeaconChainProofs for bytes32;
     using stdStorage for StdStorage;
@@ -293,6 +292,251 @@ contract VerifyDepositProof is SetUp {
             abi.encodeWithSelector(ExoCapsule.InvalidValidatorContainer.selector, _getPubkey(validatorContainer))
         );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
+    }
+
+}
+
+contract WithdrawalSetup is Test {
+
+    using stdStorage for StdStorage;
+    using Endian for bytes32;
+
+    bytes32[] validatorContainer;
+    /**
+     * struct ValidatorContainerProof {
+     *     uint256 beaconBlockTimestamp;
+     *     bytes32 stateRoot;
+     *     bytes32[] stateRootProof;
+     *     bytes32[] validatorContainerRootProof;
+     *     uint256 validatorIndex;
+     * }
+     */
+    IExoCapsule.ValidatorContainerProof validatorProof;
+
+    bytes32[] withdrawalContainer;
+    BeaconChainProofs.WithdrawalProof withdrawalProof;
+    bytes32 beaconBlockRoot; // latest beacon block root
+
+    ExoCapsule capsule;
+    IBeaconChainOracle beaconOracle;
+    address capsuleOwner;
+
+    uint256 constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
+    /// @notice The number of slots each epoch in the beacon chain
+    uint64 internal constant SLOTS_PER_EPOCH = 32;
+    /// @notice The number of seconds in a slot in the beacon chain
+    uint64 internal constant SECONDS_PER_SLOT = 12;
+    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot
+    uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
+    uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
+
+    uint256 mockProofTimestamp;
+    uint256 mockCurrentBlockTimestamp;
+    uint256 activationTimestamp;
+
+    function setUp() public {
+        string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
+        _setValidatorContainer(validatorInfo);
+
+        beaconOracle = IBeaconChainOracle(address(0x123));
+        vm.etch(address(beaconOracle), bytes("aabb"));
+
+        capsuleOwner = address(0x125);
+
+        ExoCapsule phantomCapsule = new ExoCapsule();
+
+        address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
+        vm.etch(capsuleAddress, address(phantomCapsule).code);
+        capsule = ExoCapsule(payable(capsuleAddress));
+        assertEq(bytes32(capsule.capsuleWithdrawalCredentials()), _getWithdrawalCredentials(validatorContainer));
+
+        stdstore.target(capsuleAddress).sig("gateway()").checked_write(bytes32(uint256(uint160(address(this)))));
+
+        stdstore.target(capsuleAddress).sig("capsuleOwner()").checked_write(bytes32(uint256(uint160(capsuleOwner))));
+
+        stdstore.target(capsuleAddress).sig("beaconOracle()").checked_write(
+            bytes32(uint256(uint160(address(beaconOracle))))
+        );
+
+        activationTimestamp = BEACON_CHAIN_GENESIS_TIME + _getActivationEpoch(validatorContainer) * SECONDS_PER_EPOCH;
+        mockProofTimestamp = activationTimestamp;
+        mockCurrentBlockTimestamp = mockProofTimestamp + SECONDS_PER_SLOT;
+
+        vm.warp(mockCurrentBlockTimestamp);
+        validatorProof.beaconBlockTimestamp = mockProofTimestamp;
+
+        vm.mockCall(
+            address(beaconOracle),
+            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, mockProofTimestamp),
+            abi.encode(beaconBlockRoot)
+        );
+
+        uint256 depositAmount = capsule.verifyDepositProof(validatorContainer, validatorProof);
+
+        ExoCapsuleStorage.Validator memory validator =
+            capsule.getRegisteredValidatorByPubkey(_getPubkey(validatorContainer));
+        assertEq(uint8(validator.status), uint8(ExoCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
+        assertEq(validator.validatorIndex, validatorProof.validatorIndex);
+        assertEq(validator.mostRecentBalanceUpdateTimestamp, validatorProof.beaconBlockTimestamp);
+        assertEq(validator.restakedBalanceGwei, depositAmount / 1e9);
+
+        vm.deal(address(capsule), 1 ether); // Deposit 1 ether to handle excess amount withdraw
+    }
+
+    function _setValidatorContainer(string memory validatorInfo) internal {
+        validatorContainer = stdJson.readBytes32Array(validatorInfo, ".ValidatorFields");
+        require(validatorContainer.length > 0, "validator container should not be empty");
+
+        validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
+        require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
+        validatorProof.stateRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+        require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
+        validatorProof.validatorContainerRootProof =
+            stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+        require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
+        validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
+        require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
+
+        beaconBlockRoot = stdJson.readBytes32(validatorInfo, ".latestBlockHeaderRoot");
+        require(beaconBlockRoot != bytes32(0), "beacon block root should not be empty");
+    }
+
+    function _setWithdrawalContainer(string memory withdrawalInfo) internal {
+        withdrawalContainer = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalFields");
+        require(withdrawalContainer.length > 0, "validator container should not be empty");
+
+        // bytes32 array proof data
+        withdrawalProof.withdrawalContainerRootProof = stdJson.readBytes32Array(withdrawalInfo, ".WithdrawalProof");
+        withdrawalProof.slotProof = stdJson.readBytes32Array(withdrawalInfo, ".SlotProof");
+        withdrawalProof.executionPayloadRootProof = stdJson.readBytes32Array(withdrawalInfo, ".ExecutionPayloadProof");
+        withdrawalProof.timestampProof = stdJson.readBytes32Array(withdrawalInfo, ".TimestampProof");
+        withdrawalProof.historicalSummaryBlockRootProof =
+            stdJson.readBytes32Array(withdrawalInfo, ".HistoricalSummaryProof");
+
+        // Index data
+        withdrawalProof.blockRootIndex = stdJson.readUint(withdrawalInfo, ".blockHeaderRootIndex");
+        require(withdrawalProof.blockRootIndex != 0, "block header root index should not be 0");
+
+        withdrawalProof.historicalSummaryIndex = stdJson.readUint(withdrawalInfo, ".historicalSummaryIndex");
+        require(withdrawalProof.historicalSummaryIndex != 0, "historical summary index should not be 0");
+
+        withdrawalProof.withdrawalIndex = stdJson.readUint(withdrawalInfo, ".withdrawalIndex");
+
+        // Root data
+        withdrawalProof.blockRoot = stdJson.readBytes32(withdrawalInfo, ".blockHeaderRoot");
+        withdrawalProof.slotRoot = stdJson.readBytes32(withdrawalInfo, ".slotRoot");
+        withdrawalProof.timestampRoot = stdJson.readBytes32(withdrawalInfo, ".timestampRoot");
+        withdrawalProof.executionPayloadRoot = stdJson.readBytes32(withdrawalInfo, ".executionPayloadRoot");
+        withdrawalProof.stateRoot = stdJson.readBytes32(withdrawalInfo, ".beaconStateRoot");
+        require(withdrawalProof.stateRoot != bytes32(0), "state root should not be empty");
+    }
+
+    function _setTimeStamp() internal {
+        validatorProof.beaconBlockTimestamp = activationTimestamp + SECONDS_PER_SLOT;
+        mockCurrentBlockTimestamp = validatorProof.beaconBlockTimestamp + SECONDS_PER_SLOT;
+        vm.warp(mockCurrentBlockTimestamp);
+        vm.mockCall(
+            address(beaconOracle),
+            abi.encodeWithSelector(beaconOracle.timestampToBlockRoot.selector, validatorProof.beaconBlockTimestamp),
+            abi.encode(beaconBlockRoot)
+        );
+    }
+
+    function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
+        return address(bytes20(uint160(uint256(withdrawalCredentials))));
+    }
+
+    function _getPubkey(bytes32[] storage vc) internal view returns (bytes32) {
+        return vc[0];
+    }
+
+    function _getWithdrawalCredentials(bytes32[] storage vc) internal view returns (bytes32) {
+        return vc[1];
+    }
+
+    function _getEffectiveBalance(bytes32[] storage vc) internal view returns (uint64) {
+        return vc[2].fromLittleEndianUint64();
+    }
+
+    function _getActivationEpoch(bytes32[] storage vc) internal view returns (uint64) {
+        return vc[5].fromLittleEndianUint64();
+    }
+
+    function _getExitEpoch(bytes32[] storage vc) internal view returns (uint64) {
+        return vc[6].fromLittleEndianUint64();
+    }
+
+}
+
+contract VerifyWithdrawalProof is WithdrawalSetup {
+
+    using BeaconChainProofs for bytes32;
+    using stdStorage for StdStorage;
+
+    function test_NonBeaconChainETHWithdraw() public {
+        assertEq(capsule.nonBeaconChainETHBalance(), 0);
+        address sender = vm.addr(1);
+        vm.startPrank(sender);
+        vm.deal(sender, 1 ether);
+        (bool sent,) = address(capsule).call{value: 0.5 ether}("");
+        assertEq(sent, true);
+        assertEq(capsule.nonBeaconChainETHBalance(), 0.5 ether);
+        vm.stopPrank();
+
+        address recipient = vm.addr(2);
+        capsule.withdrawNonBeaconChainETHBalance(recipient, 0.2 ether);
+        assertEq(recipient.balance, 0.2 ether);
+        assertEq(capsule.nonBeaconChainETHBalance(), 0.3 ether);
+
+        vm.expectRevert(
+            bytes(
+                "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
+            )
+        );
+        capsule.withdrawNonBeaconChainETHBalance(recipient, 0.5 ether);
+    }
+
+    function test_processFullWithdrawal_success() public setValidatorContainerAndTimestampForFullWithdrawal {
+        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+    }
+
+    function test_processFullWithdrawal_revert_AlreadyProcessed()
+        public
+        setValidatorContainerAndTimestampForFullWithdrawal
+    {
+        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExoCapsule.WithdrawalAlreadyProven.selector,
+                _getPubkey(validatorContainer),
+                withdrawalProof.withdrawalIndex
+            )
+        );
+        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+    }
+
+    function test_processPartialWithdrawal_success() public setValidatorContainerAndTimestampForPartialWithdrawal {
+        capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
+    }
+
+    modifier setValidatorContainerAndTimestampForFullWithdrawal() {
+        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/full_withdrawal_proof.json");
+        _setValidatorContainer(withdrawalInfo);
+        _setWithdrawalContainer(withdrawalInfo);
+
+        _setTimeStamp();
+        _;
+    }
+
+    modifier setValidatorContainerAndTimestampForPartialWithdrawal() {
+        string memory withdrawalInfo = vm.readFile("test/foundry/test-data/partial_withdrawal_proof.json");
+        _setValidatorContainer(withdrawalInfo);
+        _setWithdrawalContainer(withdrawalInfo);
+
+        _setTimeStamp();
+        _;
     }
 
 }
