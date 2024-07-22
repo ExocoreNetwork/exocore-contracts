@@ -79,11 +79,11 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             (success, updatedBalance) = _decodeBalanceResponse(response);
 
             if (_isPrincipalType(requestAct)) {
-                if (_isDeposit(requestAct) && !success) {
-                    revert DepositShouldNotFailOnExocore(token, staker);
-                }
-
-                if (success) {
+                // we assume deposit request must always be successful, thus we should always update balance for deposit
+                // request
+                // Notice: Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO is a special operation that is not atomic, since
+                // deposit should always be successful while delegate could fail for some cases
+                if (success || _isDeposit(requestAct)) {
                     _updatePrincipalAssetState(requestAct, token, staker, amount, updatedBalance);
                 }
             } else {
