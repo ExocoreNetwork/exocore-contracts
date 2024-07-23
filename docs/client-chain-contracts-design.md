@@ -1,32 +1,32 @@
 # Client Chain Contracts Design
 
-# Exocore Client Chain Smart Contracts Design
-
 ## Overview
 
-Exocore Client chain smart contracts refer to a set smart contracts that are deployed on multiple chains(evm-compatible chains for current version), and provided for Exocore users(mainly stakers) to interact with Exocore system from specific client chain. And most of its administrative functionalities are only acccessble for Exocore validator set via valid TSS signature forwarded by some third-party bridge(Layerzero) or Exocore itself.
+Exocore Client chain smart contracts refer to a set smart contracts that are deployed on multiple chains (EVM-compatible chains for current version), and provided for Exocore users (mainly stakers) to interact with Exocore system from specific client chains. The administrative functionalities of these contracts are via their owner, which ideally should be a multi-sig.
 
-As the two main functionalities of client chain smart contracts include:
+The two main functionalities of client chain smart contracts include:
 
 1. Take user funds into custody when users ask to enter Exocore system, update user balance periodically and deal with withdrawal request of user based on withdrawable balance.
 2. Forward user request from client chain side to Exocore validator set, as well as receive response from Exocore validator set to update state or execute some operations.
 
 We have these components included in Exocore client chain smart contracts architecture:
 
-1. `Gateway`: This is the entry point where client chain users make request to Exocore validator set, as well as the end point that receives cross-chain messages from Exocore validator set.
-2. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore validator set through cross-chain message to reveal user’s real position(after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from Exocore validator set. Every specific asset should have standalone `Vault`.
-3. `Controller`: The controller that is responsible for managing multiple `Vault`s. It should be the entry point for operations on `Vault`, as well as the entry point for user’s interactions with Exocore validator set.
+1. `ClientChainGateway`: This is the entry point where client chain users make request to Exocore validator set, as well as the end point that receives cross-chain messages from Exocore validator set.
+2. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have standalone `Vault`.
+3. `LSTRestakingController`: The controller is responsible for managing multiple `Vault`s. It should be the entry point for operations on `Vault`, as well as the entry point for user’s interactions with the gateway. It is inherited / implemented by the `Gateway`.
 
 ## Upgrade
 
-Upgradeable contracts rely on three components: storage contract, logic contract, proxy contract. All upgradeable contracts architecture utilizes the fact that inside a proxy contract, if we `delegatecall` the logic contract, the code of logic contract would be loaded in the context of the proxy contract. Therefore proxy contract could actually forward the call to a logic contract but read and write proxy’s own state variables, and reading or writing the state variables of logic contract would modify the corresponding slot of proxy contract. That way, proxy contract could inherit the old state(and even add state variable) but replacing the logic contract. Because after upgrade, the new logic contract with new implementation should align the storage with proxy storage layout by only extending the proxy storage layout(no state variables should be removed, and the type as well as the order of state variable should remain the same), all versions of logic contract should inherit the same storage contract to make storage layout compatible after upgrade. Afterwards, by replacing the old logic contract address to the address of new logic contract, we could upgrade a contract without violating its storage. 
+Upgradeable contracts rely on three components: storage contract, logic contract, proxy contract. All upgradeable contracts architecture utilizes the fact that inside a proxy contract, if we `delegatecall` the logic contract, the code of the logic contract would be loaded in the context of the proxy contract. Therefore, the proxy contract actually forwards the call to a logic contract but reads and writes the proxy’s own state variables. That way, a proxy contract can inherit the old state (and even add state variables) even if the logic contract is replaced.
 
-In this architecture, proxy contract would not inherit the storage contract and keep as stateless as possible.
+After the upgrade, the new logic contract (with the new implementation) must align the storage with the previous storage layout by extending it. It means that no state variables should be removed, and the type as well as the order of state variable should remain the same. All future versions of the logic contract must inherit the same storage contract to make the storage layout compatible after upgrade. Afterwards, by replacing the old logic contract address with the address of new logic contract, we can upgrade a contract without violating its storage.
 
-For the purpose of allowing adding state variables to proxy contract, usually we need to remain some unused slots in the end of storage contract so that we could add new state variables and override the unused slots.
+In this architecture, proxy contracts do not inherit the storage contract and are kept as stateless as possible.
+
+For the purpose of allowing adding state variables to proxy contract, we need to retain some unused slots in the end of storage contract so that we can add new state variables and override the unused slots.
 
 ```solidity
-abstract contract DelegationManagerStorage is IDelegationManager {
+contract GatewayStorage {
 ......
 /**
      * @dev This empty reserved space is put in place to allow future versions to add new
@@ -37,18 +37,17 @@ abstract contract DelegationManagerStorage is IDelegationManager {
 }
 ```
 
-Besides all of these techniques, there are other details that we need to handle when designing upgradeable contracts, like function signature collision and forbidding initializing state variables in `constructor` and so on. Openzeppelin’s `TransparentUpgradeableProxy` and upgradeable implementation of token standards like `ERC20Upgradeable` handle details properly.
+Besides all of these techniques, there are other details that we need to handle when designing upgradeable contracts, like function signature collision and forbidding initializing state variables in `constructor` and so on. Openzeppelin’s `TransparentUpgradeableProxy` and upgradeable implementation of token standards like `ERC20Upgradeable` handle these details properly.
 
-1.  `TransparentUpgradeableProxy` would store the meta state variables like logic contract address to random slots to avoid state variable storage layout collision.
-2. https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable follow the upgradeable design by:
+1. `TransparentUpgradeableProxy` would store the meta state variables like logic contract address to random slots to avoid state variable storage layout collision.
+2. [OpenZeppelin/openzeppelin-contracts-upgradeable](https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable) follows the upgradeable design through the following:
 
 > constructors are replaced by initializer functions, state variables are initialized in initializer functions, and we additionally check for storage incompatibilities across minor versions.
-> 
 
-In most of cases, we can not directly use implementations in https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable and need to implement our own upgradeable contracts. When we write our own upgradeable smart contracts, we must follow these principles:
+In most of the cases, we can not directly use implementations linked above and need to implement our own upgradeable contracts. When we write our own upgradeable smart contracts, we must follow these principles:
 
-1. upgradeable contract should always inherit from upgradeable contracts.
-2. Do not assign an initial value to state variables when declaring them except `immutable` and `constant` .
+1. Our upgradeable contracts should always inherit from OZ's upgradeable contracts.
+2. Do not assign an initial value to state variables when declaring them except `immutable` and `constant`.
 3. Do not assign initial value to state variables in `constructor` except `immutable` .
 4. Replace `constructor` with openzeppelin’s `initializer` modifier.
 5. Disable initializers in `constructor` to prevent anyone else directly initialize the contract without calling the proxy.
@@ -88,11 +87,11 @@ Most commonly, community uses openzeppelin’s `[TransparentUpgradeableProxy](ht
 
 It follow these steps:
 
-1. First, deploy upgradeable proxy contracts that will point to the implementations. Since the implementation contracts are not yet deployed, we give these proxies an empty contract as the initial implementation, to act as if they have no code. 
+1. First, deploy upgradeable proxy contracts that will point to the implementations. Since the implementation contracts are not yet deployed, we give these proxies an empty contract as the initial implementation, to act as if they have no code.
 2. Second, deploy the implementation contracts, using the proxy contracts as inputs.
 3. Third, upgrade the proxy contracts to use the correct implementation contracts and initialize them.
 
-On the other hand, openzeppelin’s doc suggests using `[UUPSUpgradeable](https://docs.openzeppelin.com/contracts/4.x/api/proxy#UUPSUpgradeable)` while `[TransparentUpgradeableProxy](https://docs.openzeppelin.com/contracts/4.x/api/proxy#TransparentUpgradeableProxy)` being the most popular upgradeable proxy. We could explore `[UUPSUpgradeable](https://docs.openzeppelin.com/contracts/4.x/api/proxy#UUPSUpgradeable)` while reserve the plan of using `[TransparentUpgradeableProxy](https://docs.openzeppelin.com/contracts/4.x/api/proxy#TransparentUpgradeableProxy)` .
+On the other hand, openzeppelin’s doc suggests using `[UUPSUpgradeable](https://docs.openzeppelin.com/contracts/4.x/api/proxy#UUPSUpgradeable)` while `[TransparentUpgradeableProxy](https://docs.openzeppelin.com/contracts/4.x/api/proxy#TransparentUpgradeableProxy)` being the most popular upgradeable proxy. We could explore `[UUPSUpgradeable](https://docs.openzeppelin.com/contracts/4.x/api/proxy#UUPSUpgradeable)` while we reserve the plan of using `[TransparentUpgradeableProxy](https://docs.openzeppelin.com/contracts/4.x/api/proxy#TransparentUpgradeableProxy)` .
 
 For more details please refer to these docs:
 
@@ -102,226 +101,175 @@ For more details please refer to these docs:
 
 ## `Gateway`
 
-Similar to LayerZero `endpoint`, `Gateway` is mainly responsible for sending cross-chain messages and receiving cross-chain messages. The validity of cross-chain messages are guaranteed by LayerZero oracle and relayer if integrated with LayerZero protocol, otherwise `Gateway` itself should validate the cross-chain messages.
+Similar to LayerZero `endpoint`, `ClientChainGateway` is mainly responsible for sending cross-chain messages and receiving cross-chain messages. The validity of cross-chain messages are guaranteed by LayerZero oracle and relayer if integrated with LayerZero protocol, otherwise `Gateway` itself should validate the cross-chain messages.
 
-Eventually, Exocore validator set should be the owner of `Gateway` so that it can update some state variables or even upgrade it in the future. At the early stage, we still need more controlled way to upgrade, meaning upgrade by multisig.
+Eventually, Exocore validator set should be the owner of `ClientChainGateway` so that it can update some state variables or even upgrade it in the future. In the early stages, a more controlled way to upgrade is needed, for example, a multi-sig.
 
-`Gateway` is also the router that forwards messages from Exocore validator set to its destination contract to be handled. Currently this mainly refers to forwarding response from Exocore validator set to `Controller` to execute the messages.
-
-We could make `Gateway` contract upgradable so that we could inherit the state while adding or removing some logics in the future.
+We have made `ClientChainGateway` contract upgradable so that the state can be retained while adding or removing some features in the future.
 
 ```solidity
-interface IGateway {
-    /**
-     * @dev The interchain message sent from client chain Gateway or received from Exocore validator set for cross-chain communication.
-     * @param dstChainID - Destination chain ID.
-     * @param dstAddress - Destination contract address that would receive the interchain message.
-     * @param payload - Actual payload for receiver.
-     * @param refundAddress - Address used for refundding.
-     * @param interchainFuelAddress - Address that would pay for interchain costs.
-     * @param params - Custom params for extension.
-     */
-    struct InterchainMsg {
-        uint16  dstChainID;
-        bytes  dstAddress;
-        bytes payload;
-        address payable refundAddress;
-        address payable interchainFuelAddress;
-        bytes params;
-    }
+contract BaseRestakingController {
+    /// @dev Sends a message to Exocore.
+    /// @param action The action to be performed.
+    /// @param actionArgs The encodePacked arguments for the action.
+    function _sendMsgToExocore(Action action, bytes memory actionArgs);
 
-    /**
-     * @dev Emitted when sending interchain message from Gateway or receiving from Exocore validator set.
-     * @param dstChainID - Destination chain ID.
-     * @param dstAddress - Destination contract address that would receive the interchain message.
-     * @param payload - Actual payload for receiver.
-     * @param refundAddress - Address used for refundding.
-     * @param interchainFuelAddress - Address that would pay for interchain costs.
-     * @param params - Custom params for extension.
-     */
-    event InterchainMsgSent(
-        uint16 indexed dstChainID,
-        bytes indexed dstAddress,
-        bytes payload,
-        address refundAddress,
-        address interchainFuelAddress,
-        bytes params
-    );
-
-    /**
-     * @notice Contoller calls this to send cross-chain requests to Exocore validator set.
-     * @param msg The interchain message sent from client chain Gateway to Exocore validator set for cross-chain communication.
-     */
-    function sendInterchainMsg(InterchainMsg calldata msg) external payable;
-
-    /**
-     * @notice Only Exocore validator set could indirectly call this through bridge or relayer.
-     * @param msg The interchain message received from Exocore validator set for cross-chain communication.
-     */
-    function receiveInterchainMsg(InterchainMsg calldata msg) external payable;
+    /// @inheritdoc OAppReceiverUpgradeable
+    function _lzReceive(Origin calldata _origin, bytes calldata payload);
 }
 ```
 
-### `sendInterchainMsg`
+### `_sendMsgToExocore`
 
-If intergrating with LayerZero, the implementation of this function should call LayzerZero `endpoint` with corresponding arguments from `msg`, otherwise this function is the `endpoint` for cross-chain request from the client chain. In both cases, event `InterchainMsgSent` should be emmitted.
+This internal function is used to send a message, over LayerZero, from the client chain to the Exocore chain. It encodes the action to perform, along with its payload, and forwards the packed data. The fees for this cross-chain message is provided by the calling address.
 
-This function is only accessible for Exocore-controlled contracts like `Controller`, and only contracts that intend to send cross-chain requests to Exocore validator set could call this function. For example, in deposit workflow, `Controller` could only call this function to send deposit requests to Exocore validator set after locking user funds into the `Vault`, thus ensuring the deposit request is valid.
+### `_lzReceive`
 
-Generally speaking, if no unauthorized contracts or EOA addresses call this function, this function should be safe. Therefore, the implementation of `Gateway` contract should maintain the authorized contracts in a whitelist and restrict the accessibility of this function to the whitelist. While for the counterparty that receives the message in Exocore chain, it should check that the message is originated from trusted remote contract.
-
-### `receiveInterchainMsg`
-
-If integrating with LayerZero, `Gateway` contract should implement interface `ILayerZeroReceiver` and this function should be wrapped into `lzReceive` function to receive the cross-chain message relayed by LayerZero and sent from LayerZero `endpoint` on this client chain:
-
-```solidity
-function lzReceive(uint16 _srcChainId, bytes calldata _srcAddress, uint64 _nonce, bytes calldata _payload) external;
-```
-
-The implementation of this function should forward the received message to destination contract. For example, when a user asks to deposit to Exocore, Exocore validator set should respond with a message indicating whether the accounting for the deposited assets is successful, in this case, `receiveInterchainMsg` should call `Controller.call(payload)` to forward the payload to `Controller` (the destination) to inform the controller that the despoit is successful or failed for next step operation.
-
-This function should be only accessible for LayerZero `endpoint` to send cross-chain message. And for security reason, before actally executing the message, the function should check that the message is originated from the Exocore validor set by verifying the TSS signature or other means.
+This internal function is called via LayerZero upon the receipt of a cross-chain message. In the context of the `ClientChainGateway`, it is used to handle the response provided by the Exocore chain against an outgoing message. For example, if a withdraw request is initiated by a user, and sent by the `ClientChainGateway` to Exocore, a response is received indicating whether the withdrawal is valid. Based on this validity, `ClientChainGateway` marks the funds available for the user to claim.
 
 ## `Vault`
 
-Every whitelisted native token on the client chain for Exocore has a standalone `Vault` used for user funds custody.
+Every whitelisted native token on the client chain for Exocore has a standalone `Vault` used for user funds custody. Each `Vault` contract takes into custody the user's assets and stores them on their behalf. A user can enter the system by providing approval to the `Vault` contract and then depositing in it through the `ClientChainGateway`. Similarly, a user can exit the system by undelegating and withdrawing their assets and claiming them from the vault.
 
-Exocore validator set should be the owner of `Vault` so that it can update some state variables or even upgrade it in the future.
-
-This is where the user’s deposited funds are actually taken into custody. Generally speaking, user enter Exocore system by locking assets in `Vault` and leave Exocore system by unlocking all of the withdraw-able amount of assets in `Vualt`, which could be less than the total deposited amount but not greater after possible slashing, as well as collecting all of the rewards elsewhere. Between the first deposit and final withdrawal, Exocore validator set would update the user balance in `Vault` periodically through `Gateway` if there is any change.
-
-Especially for user withdrawal of deposited assets, use should apply for the withdrawal first before the user could actually withdraw the assets into destination address. `Gateway` would forward this withdrawal request to Exocore validator set, and after all necessary checks and computations, Exocore validator set would response with the withdrawal grant message. After receiving the withdrawal grant message and checked that `granted` as true, at least two operations should be executed:
-
-1. Accurately update the user balance in `Vualt`.
-2. Unlock the intended amount of tokens after checking against the updated user balance.
-
-Otherwise the user’s withdrawal request would be rejected.
-
-`Vualt` contract should be considered as upgradeable so that we could add or remove logics or even add more state variables in the future.
+The assets in a `Vault` include the principal deposited as well as any rewards that may have accrued to the staker and any reductions for slashing. While each `Vault` contract stores some data, Exocore is the single source of truth for the accurate withdrawable, deposited and staked balances.
 
 ```solidity
 interface IVault {
-	function withdraw(address recipient, uint256 amount) external payable;
 
-    function deposit(address sender, uint256 amount) external;
+    /// @notice Withdraws a specified amount from the vault.
+    /// @param withdrawer The address initiating the withdrawal.
+    /// @param recipient The address receiving the withdrawn amount.
+    /// @param amount The amount to be withdrawn.
+    function withdraw(address withdrawer, address recipient, uint256 amount) external;
 
-    function updatePrincipalBalance(address user, uint256 principalBalance) external;
+    /// @notice Deposits a specified amount into the vault.
+    /// @param depositor The address initiating the deposit.
+    /// @param amount The amount to be deposited.
+    function deposit(address depositor, uint256 amount) external payable;
 
-    function updateRewardBalance(address user, uint256 rewardBalance) external;
+    /// @notice Updates the principal balance for a user.
+    /// @param user The address of the user whose principal balance is being updated.
+    /// @param lastlyUpdatedPrincipalBalance The new principal balance for the user.
+    function updatePrincipalBalance(address user, uint256 lastlyUpdatedPrincipalBalance) external;
 
-    function updateWithdrawableBalance(address user, uint256 unlockAmount) external;
+    /// @notice Updates the reward balance for a user.
+    /// @param user The address of the user whose reward balance is being updated.
+    /// @param lastlyUpdatedRewardBalance The new reward balance for the user.
+    function updateRewardBalance(address user, uint256 lastlyUpdatedRewardBalance) external;
+
+    /// @notice Updates the withdrawable balance for a user.
+    /// @param user The address of the user whose withdrawable balance is being updated.
+    /// @param unlockPrincipalAmount The amount of principal to be unlocked.
+    /// @param unlockRewardAmount The amount of reward to be unlocked.
+    function updateWithdrawableBalance(address user, uint256 unlockPrincipalAmount, uint256 unlockRewardAmount)
+        external;
+
+    /// @notice Returns the address of the underlying token.
+    /// @return The address of the underlying token.
+    function getUnderlyingToken() external returns (address);
+
 }
 ```
 
-`principalBalance` refers to the principal that the user deposits into Exocore chain. This part is separated from the rewarding part of user assets on Exocore, as rewarding assets could be distributed on Exocore chain or on another client chain while the user principal is taken in custody in user’s client chain smart contracts. Besides we assume that the principal balance would only in influenced by slash and it should not be transferrable to another user on Exocore chain, which means that the principal balance would never be greater than the total deposited principal.
+`principalBalance` refers to the principal that the user deposits into the `ClientChainGateway`. It is separated from the rewards earned by the users, since such rewards could be distributed on the Exocore chain or on another client chain while the user principal is taken in custody on this chain. Besides, we assume that the principal balance can only be influenced during slashing and that it is not transferable to any other address. In other words, the principal balance to be withdrawn can never be greater than the originally deposited principal balance.
 
 ### `deposit`
 
-The implementation of this function should transfer user funds into `Vualt` address and update user balance correspondingly.
+The implementation of this function transfers user funds into `Vault` address and updates the user's principal balance correspondingly.
 
-This function should be only accessible for `Controller` so that this function could only work as part of the process of the whole deposit workflow and ensure the whole workflow is controlled by `Controller`.
+This function is only accessible for `ClientChainGateway` so that this function could only work as part of the process of the whole deposit workflow and ensure the whole workflow is controlled by `ClientChainGateway`.
 
-For security reason, we must call this function to lock user funds before the deposit request is forwarded to Exocore validator set and accounted.
+Whenever a `deposit` request is received by the `ClientChainGateway`, it first deposits the amount into the `Vault`. Then, it forwards the transaction to Exocore, where it is appropriately processed, in line with the `checks-effects-interactions` pattern.
 
 ### `withdraw`
 
-The implementation of this function should check against user’s clien chain balance and transfer the specified amount of token to destination address.
+This function allows a user to claim their withdrawable assets. The quantity of the withdrawable assets is set by the `ClientChainGateway` in response to a withdraw request, after receiving a response from Exocore.
 
-This function should be only accessible for `Controller` so that this function could only work as part of the process of the whole withdraw workflow and ensure the whole workflow is controlled by `Controller`.
+## `LSTRestakingController`
 
-This function could only deduct the clien chain balance, which is updated when each time user calls `Controller.withdrawPrincipalFromExocore` and `UserBalance.withdrawAmount` would be added to user’s client chain token balance.
+`LSTRestakingController` is the manager of all `Vaults`, as well as the entry point where users call to interact with Exocore system.
 
-Considering system security, Exocore validator set must return the correct `UserBalance.withdrawAmount` each time responding to `Controller.withdrawPrincipalFromExocore` and the function should check two invariants at the end of the function:
-
-1. After `withdraw` process finishes, the user’s client chain balance should never increase.
-2. The withdraw amount should never be greater than the `totalDepositedBalance`.
-
-## `Controller`
-
-`Controller` is the manager of all `Vaults`, as well as the entry point where users call to interact with Exocore system and Exocore validator set calls to update client chain state.
-
-Exocore validator set should be the owner of `Controller` so that it can update some state variables or even upgrade it in the future.
+Ideally, the Exocore validator set should own `LSTRestakingController` so that upgrades can be made trustlessly.
 
 ```solidity
-interface IController {
+interface IBaseRestakingController {
 
-    event DepositResult(address indexed depositor, bool indexed success, uint256 amount);
-    event WithdrawResult(address indexed withdrawer, bool indexed success, uint256 amount);
-    event DelegateResult(address indexed delegator, address indexed delegatee, bool indexed success, uint256 amount);
+    /// @notice Delegates a specified amount of tokens to a given operator.
+    /// @param operator The address of the operator to delegate tokens to.
+    /// @param token The address of the token to be delegated.
+    /// @param amount The amount of tokens to delegate.
+    function delegateTo(string calldata operator, address token, uint256 amount) external payable;
 
-    /// *** function signatures for staker operations ***
+    /// @notice Undelegates a specified amount of tokens from a given operator.
+    /// @param operator The address of the operator to undelegate tokens from.
+    /// @param token The address of the token to be undelegated.
+    /// @param amount The amount of tokens to undelegate.
+    function undelegateFrom(string calldata operator, address token, uint256 amount) external payable;
 
-    /**
-     * @notice Client chain users call to deposit to Exocore system for further operations like delegation, staking...
-     * @dev This function should:
-     * 1) lock the @param amount of @param token into vault.
-     * 2) ask Exocore validator set to account for the deposited @param amount of @param token.
-     * Deposited assets should remain locked until Exocore validator set responds with success or faulure.
-     * @param token - The address of specific token that the user wants to deposit.
-     * @param amount - The amount of @param token that the user wants to deposit.
-     */
+    /// @notice Client chain users call to claim their unlocked assets from the vault.
+    /// @dev This function assumes that the claimable assets should have been unlocked before calling this.
+    /// @dev This function does not ask for grant from Exocore validator set.
+    /// @param token The address of specific token that the user wants to claim from the vault.
+    /// @param amount The amount of @param token that the user wants to claim from the vault.
+    /// @param recipient The destination address that the assets would be transfered to.
+    function claim(address token, uint256 amount, address recipient) external;
+
+}
+
+interface ILSTRestakingController is IBaseRestakingController {
+
+    /// @notice Deposits tokens into the Exocore system for further operations like delegation and staking.
+    /// @dev This function locks the specified amount of tokens into a vault and informs the Exocore validator set.
+    /// Deposit is always considered successful on the Exocore chain side.
+    /// @param token The address of the specific token that the user wants to deposit.
+    /// @param amount The amount of the token that the user wants to deposit.
     function deposit(address token, uint256 amount) external payable;
 
-    /**
-     * @notice Client chain users call to delegate deposited token to specific node operator.
-     * @dev This assumes that the delegated assets should have already been deposited to Exocore system.
-     * @param operator - The address of a registered node operator that the user wants to delegate to.
-     * @param token - The address of specific token that the user wants to delegate to.
-     * @param amount - The amount of @param token that the user wants to delegate to node operator.
-     */
-    function delegateTo(address operator, address token, uint256 amount) external;
+    /// @notice Requests withdrawal of the principal amount from Exocore to the client chain.
+    /// @dev This function requests withdrawal approval from the Exocore validator set. If approved, the assets are
+    /// unlocked and can be claimed by the user. Otherwise, they remain locked.
+    /// @param token The address of the specific token that the user wants to withdraw from Exocore.
+    /// @param principalAmount The principal amount of assets the user deposited into Exocore for delegation and
+    /// staking.
+    function withdrawPrincipalFromExocore(address token, uint256 principalAmount) external payable;
 
-    /**
-     * @notice Client chain users call to withdraw principal from Exocore to client chain before they are granted to withdraw from the vault.
-     * @dev This function should ask Exocore validator set for withdrawal grant. If Exocore validator set responds
-     * with true or success, the corresponding assets should be unlocked to make them claimable by users themselves. Otherwise
-     * these assets should remain locked.
-     * @param token - The address of specific token that the user wants to withdraw from Exocore.
-     * @param principalAmount - principal means the assets user deposits into Exocore for delegating and staking.
-     * we suppose that After deposit, its amount could only remain unchanged or decrease owing to slashing, which means that direct
-     * transfer of principal is not possible.
-     */
-    function withdrawPrincipalFromExocore(address token, uint256 principalAmount) external;
+    /// @notice Withdraws reward tokens from Exocore.
+    /// @param token The address of the specific token that the user wants to withdraw as a reward.
+    /// @param rewardAmount The amount of reward tokens that the user wants to withdraw.
+    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
 
-    /**
-     * @notice Client chain users call to claim their unlocked assets from the vault.
-     * @dev This function assumes that the claimable assets should have been unlocked before calling this.
-     * @dev This function does not ask for grant from Exocore validator set.
-     * @param token - The address of specific token that the user wants to claim from the vault.
-     * @param amount - The amount of @param token that the user wants to claim from the vault.
-     * @param distination - The destination address that the assets would be transfered to.
-     */
-    function claim(address token, uint256 amount, address recipient) external;
+    /// @notice Deposits tokens and then delegates them to a specific node operator.
+    /// @dev This function locks the specified amount of tokens into a vault, informs the Exocore validator set, and
+    /// delegates the tokens to the specified node operator.
+    /// Delegation can fail if the node operator is not registered in Exocore.
+    /// @param token The address of the specific token that the user wants to deposit and delegate.
+    /// @param amount The amount of the token that the user wants to deposit and delegate.
+    /// @param operator The address of a registered node operator that the user wants to delegate to.
+    function depositThenDelegateTo(address token, uint256 amount, string calldata operator) external payable;
+
 }
 ```
 
-### `deposit`
+### `deposit` into the `ILSTRestakingController`
 
-This function handles the workflow of deposit process. The generaly deposit workflow is as follows:
+See [`deposit`](#deposit).
 
-1. find the targeted `Vault` based on token type and call `Vault.deposit` to take user funds into custody.
-2. If step 1 succeed, call `Gateway.sendInterchainMsg` to send deposit request to Exocore chain so that Exocore validator set could account for the deposited tokens.
-
-As cross-chain communication is asynchronous, upon steps would finish in one transaction. After this transaction finishs with success, Exocore chain is expected to deal with the deposit request correctly and returns a response indicating whether the deposit is successful or not:
-
-1. Relayer call `Gateway.receiveInterchainMsg` to send Exocore chain response. If the result is a success, emit the corresponding event in `Controller` to inform the user that deposit is successful and update `UserBalance` in `Vualt`. Otherwise emit the corresponding event in `Controller` to inform the user that deposit is failed and update user’s claimable balance correspondingly.
-
-This function should be accessible for any EOA address and contract address.
-
-In aspect of security, the implementation should strictly follow the designed workflow order and ensure there is no chance for false deposit.
+Once the assets have been deposited into the `Vault`, the `ClientChainGateway` sends a cross-chain message to Exocore, which is obviously asynchronous. Upon receiving the message, Exocore will take into account the deposit, and must respond that the message succeeded. This is because our design requires that deposits can never fail.
 
 ### `delegateTo`
 
-This function controlls the delegation workflow for client chain user. It assumes that there is enough amount of tokens deposited into the Exocore system before delegation, otherwise the delegation would fail.
+This function controls the delegation workflow originating from the client chain. It requires that the caller has previously deposited enough tokens into the system, failing which, the transaction will fail.
 
 The delegation workflow is also separated into two transactions:
 
-1. client chain transaction by user: call `Gateway.sendInterchainMsg` to send delegate request to Exocore chain.
-2. client chain transaction by Exocore validator set: call `Gateway.receiveInterchainMsg` to inform whether the delegation is successful or not.
+1. Transaction from the user: call `ClientChainGateway.sendInterchainMsg` to send delegate request to Exocore chain.
+2. Response from Exocore: call `ClientChainGateway.receiveInterchainMsg` to inform whether the delegation is successful or not.
 
-This function should be accessible for any EOA address and contract address.
+Since the `ClientChainGateway` by itself does not store enough information to check whether a delegation will be successful, this method must not make any state alterations to the balance.
 
-In aspect of security, this should not change the client chain state especially considering user balance.
+### `undelegateFrom`
+
+This function is the reverse of [`delegatTo`](#delegateto), except that it requires an unbonding period before the undelegation is released for withdrawal. The unbonding period is determined by Exocore on the basis of all of the AVSs in which the operator was participating at the time of undelegation.
 
 ### `withdrawPrincipalFromExocore`
 
@@ -329,14 +277,10 @@ This function is aimed for user withdrawing principal from Exocore chain to clie
 
 The principal withdrawal workflow is also separated into two trasactions:
 
-1. client chain transaction by user: call `Gateway.sendInterchainMsg` to send principal withdrawal request to Exocore chain.
-2. client chain transaction by Exocore validator set: call `Gateway.receiveInterchainMsg` to receive the response from Exocore chain, and call `unlock` to update user’s `principalBalance` and claimable balance. If response indicates failure, no user balance should be modified.
+1. Transaction from the user: call `ClientChainGateway.sendInterchainMsg` to send principal withdrawal request to Exocore chain.
+2. Response from Exocore: call `ClientChainGateway.receiveInterchainMsg` to receive the response from Exocore chain, and call `unlock` to update user’s `principalBalance` and claimable balance. If response indicates failure, no user balance should be modified.
 
-This function should be accessible for any EOA address and contract address.
-
-In aspect of security, Exocore chain must have successfully updated user balance on Exocore chain and checked against user’s withdraw-able balance.
-
-The withdraw-able amount of principal is defined as follows:
+The withdrawable amount of principal is defined as follows:
 
 1. The asset is not staked (delegated) on any operators.
 2. The asset is not frozen/slashed.
@@ -344,8 +288,12 @@ The withdraw-able amount of principal is defined as follows:
 
 ### `claim`
 
-This function is aimed for user claiming the unlocked amount of principal. Before claiming, user must make sure that thre is enogh principal unlocked by calling `withdrawPrincipalFromExocore`. The implementaion of this function should check against user’s claimable balance and transfer tokens to the destination address that user specified.
+This function is aimed for user claiming the unlocked amount of principal. Before claiming, user must make sure that thre is enogh principal unlocked by calling `withdrawPrincipalFromExocore`. The implementaion of this function should check against user’s claimable balance and transfer tokens to the destination address that the user specified.
 
-This function should be accessible for any EOA address and contract address.
+### `withdrawRewardFromExocore`
 
-In aspect of security, we must carefully check against user’s claimable(unlocked) principal balance.
+TBD
+
+### `depositThenDelegateTo`
+
+It is an ease-of-use feature to allow deposit and then delegation in one transaction. It has the same assumptions as the underlying two features.
