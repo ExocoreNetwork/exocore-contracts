@@ -1,5 +1,6 @@
 pragma solidity ^0.8.19;
 
+import {Errors} from "../libraries/Errors.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -14,13 +15,19 @@ contract CustomProxyAdmin is Initializable, ProxyAdmin {
     constructor() ProxyAdmin() {}
 
     function initialize(address newBootstrapper) external initializer onlyOwner {
-        require(newBootstrapper != address(0), "CustomProxyAdmin: newBootstrapper cannot be zero or empty address");
+        if (newBootstrapper == address(0)) {
+            revert Errors.ZeroAddress();
+        }
         bootstrapper = newBootstrapper;
     }
 
     function changeImplementation(address proxy, address implementation, bytes memory data) public virtual {
-        require(msg.sender == bootstrapper, "CustomProxyAdmin: sender must be bootstrapper");
-        require(msg.sender == proxy, "CustomProxyAdmin: sender must be the proxy itself");
+        if (msg.sender != bootstrapper) {
+            revert Errors.CustomProxyAdminOnlyCalledFromBootstrapper();
+        }
+        if (msg.sender != proxy) {
+            revert Errors.CustomProxyAdminOnlyCalledFromProxy();
+        }
 
         // we follow check-effects-interactions pattern to write state before external call
         bootstrapper = address(0);

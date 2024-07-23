@@ -5,6 +5,7 @@ import {IVault} from "../interfaces/IVault.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 
+import {Errors} from "../libraries/Errors.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
@@ -18,10 +19,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     event WithdrawFailedOnExocore(address indexed token, address indexed withdrawer);
 
     modifier onlyCalledFromThis() {
-        require(
-            msg.sender == address(this),
-            "ClientChainLzReceiver: could only be called from this contract itself with low level call"
-        );
+        if (msg.sender != address(this)) {
+            revert Errors.ClientGatewayLzReceiverOnlyCalledFromThis();
+        }
         _;
     }
 

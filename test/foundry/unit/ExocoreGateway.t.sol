@@ -4,6 +4,7 @@ import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpoint
 import "src/interfaces/precompiles/IAssets.sol";
 import "src/interfaces/precompiles/IClaimReward.sol";
 import "src/interfaces/precompiles/IDelegation.sol";
+import "src/libraries/Errors.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
@@ -254,7 +255,7 @@ contract RegisterOrUpdateClientChain is SetUp {
         _prepareClientChainData();
         anotherClientChain = 0;
 
-        vm.expectRevert("ExocoreGateway: client chain id cannot be zero or empty");
+        vm.expectRevert(Errors.ZeroValue.selector);
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
@@ -265,7 +266,7 @@ contract RegisterOrUpdateClientChain is SetUp {
         _prepareClientChainData();
         peer = bytes32(0);
 
-        vm.expectRevert("ExocoreGateway: peer address cannot be zero or empty");
+        vm.expectRevert(Errors.ZeroValue.selector);
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
@@ -276,7 +277,7 @@ contract RegisterOrUpdateClientChain is SetUp {
         _prepareClientChainData();
         addressLength = 0;
 
-        vm.expectRevert("ExocoreGateway: address length cannot be zero or empty");
+        vm.expectRevert(Errors.ZeroValue.selector);
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
@@ -287,7 +288,7 @@ contract RegisterOrUpdateClientChain is SetUp {
         _prepareClientChainData();
         name = "";
 
-        vm.expectRevert("ExocoreGateway: name cannot be empty");
+        vm.expectRevert(Errors.ZeroValue.selector);
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
@@ -298,7 +299,7 @@ contract RegisterOrUpdateClientChain is SetUp {
         _prepareClientChainData();
         metaInfo = "";
 
-        vm.expectRevert("ExocoreGateway: meta data cannot be empty");
+        vm.expectRevert(Errors.ZeroValue.selector);
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreGateway.registerOrUpdateClientChain(
             anotherClientChain, peer, addressLength, name, metaInfo, signatureType
@@ -355,7 +356,7 @@ contract SetPeer is SetUp {
 
     function test_RevertWhen_ClientChainNotRegistered() public {
         vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert("ExocoreGateway: client chain should be registered before setting peer to change peer address");
+        vm.expectRevert(Errors.ExocoreGatewayNotRegisteredClientChainId.selector);
         exocoreGateway.setPeer(anotherClientChain, newPeer);
     }
 
