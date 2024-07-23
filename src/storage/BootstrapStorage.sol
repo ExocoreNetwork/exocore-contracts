@@ -291,10 +291,10 @@ contract BootstrapStorage is GatewayStorage {
         _;
     }
 
-    /// @notice Ensures the provided Exocore address is a valid Bech32 encoded address.
-    /// @param exocoreAddress The Exocore address to check.
-    modifier isValidBech32Address(string calldata exocoreAddress) {
-        require(isValidExocoreAddress(exocoreAddress), "BootstrapStorage: invalid bech32 encoded Exocore address");
+    /// @notice Ensures the provided address is a valid exo Bech32 encoded address.
+    /// @param addressToValidate The address to check.
+    modifier isValidBech32Address(string calldata addressToValidate) {
+        require(isValidExocoreAddress(addressToValidate), "BootstrapStorage: invalid bech32 encoded Exocore address");
         _;
     }
 
@@ -328,13 +328,13 @@ contract BootstrapStorage is GatewayStorage {
         return vault;
     }
 
-    /// @notice Checks if the provided Exocore address is valid.
-    /// @param question The Exocore address to check.
-    /// @return True if the address is valid, false otherwise.
+    /// @notice Checks if the provided string is a valid Exocore address.
+    /// @param addressToValidate The string to check.
+    /// @return True if the string is valid, false otherwise.
     /// @dev Since implementation of bech32 is difficult in Solidity, this function only
     /// checks that the address is 42 characters long and starts with "exo1".
-    function isValidExocoreAddress(string calldata question) public pure returns (bool) {
-        bytes memory stringBytes = bytes(question);
+    function isValidExocoreAddress(string calldata addressToValidate) public pure returns (bool) {
+        bytes memory stringBytes = bytes(addressToValidate);
         if (stringBytes.length != 42) {
             return false;
         }
