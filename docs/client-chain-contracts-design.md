@@ -7,12 +7,12 @@ Exocore Client chain smart contracts refer to a set smart contracts that are dep
 The two main functionalities of client chain smart contracts include:
 
 1. Take user funds into custody when users ask to enter Exocore system, update user balance periodically and deal with withdrawal request of user based on withdrawable balance.
-2. Forward user request from client chain side to Exocore validator set, as well as receive response from Exocore validator set to update state or execute some operations.
+2. Forward user request from client chain side to Exocore, as well as receive response from Exocore to update state or execute some operations.
 
 We have these components included in Exocore client chain smart contracts architecture:
 
-1. `ClientChainGateway`: This is the entry point where client chain users make request to Exocore validator set, as well as the end point that receives cross-chain messages from Exocore validator set.
-2. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have standalone `Vault`.
+1. `ClientChainGateway`: This is the entry point where client chain users make a request which will be forwarded to Exocore, as well as the end point that receives cross-chain messages or responses from the chain.
+2. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore, in response to cross-chain messages originating from the user, to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have standalone `Vault`.
 3. `LSTRestakingController`: The controller is responsible for managing multiple `Vault`s. It should be the entry point for operations on `Vault`, as well as the entry point for user’s interactions with the gateway. It is inherited / implemented by the `Gateway`.
 
 ## Upgrade
@@ -103,7 +103,7 @@ For more details please refer to these docs:
 
 Similar to LayerZero `endpoint`, `ClientChainGateway` is mainly responsible for sending cross-chain messages and receiving cross-chain messages. The validity of cross-chain messages are guaranteed by LayerZero oracle and relayer if integrated with LayerZero protocol, otherwise `Gateway` itself should validate the cross-chain messages.
 
-Eventually, Exocore validator set should be the owner of `ClientChainGateway` so that it can update some state variables or even upgrade it in the future. In the early stages, a more controlled way to upgrade is needed, for example, a multi-sig.
+Eventually, the Exocore validator set should be the owner of `ClientChainGateway` so that it can update some state variables or even upgrade it in the future. In the early stages, a more controlled way to upgrade is needed, for example, a multi-sig.
 
 We have made `ClientChainGateway` contract upgradable so that the state can be retained while adding or removing some features in the future.
 
@@ -208,7 +208,7 @@ interface IBaseRestakingController {
 
     /// @notice Client chain users call to claim their unlocked assets from the vault.
     /// @dev This function assumes that the claimable assets should have been unlocked before calling this.
-    /// @dev This function does not ask for grant from Exocore validator set.
+    /// @dev This function does not interact with Exocore.
     /// @param token The address of specific token that the user wants to claim from the vault.
     /// @param amount The amount of @param token that the user wants to claim from the vault.
     /// @param recipient The destination address that the assets would be transfered to.
@@ -219,14 +219,14 @@ interface IBaseRestakingController {
 interface ILSTRestakingController is IBaseRestakingController {
 
     /// @notice Deposits tokens into the Exocore system for further operations like delegation and staking.
-    /// @dev This function locks the specified amount of tokens into a vault and informs the Exocore validator set.
-    /// Deposit is always considered successful on the Exocore chain side.
+    /// @dev This function locks the specified amount of tokens into a vault and forwards the information to Exocore.
+    /// @dev Deposit is always considered successful on the Exocore chain side.
     /// @param token The address of the specific token that the user wants to deposit.
     /// @param amount The amount of the token that the user wants to deposit.
     function deposit(address token, uint256 amount) external payable;
 
     /// @notice Requests withdrawal of the principal amount from Exocore to the client chain.
-    /// @dev This function requests withdrawal approval from the Exocore validator set. If approved, the assets are
+    /// @dev This function requests withdrawal approval from Exocore. If approved, the assets are
     /// unlocked and can be claimed by the user. Otherwise, they remain locked.
     /// @param token The address of the specific token that the user wants to withdraw from Exocore.
     /// @param principalAmount The principal amount of assets the user deposited into Exocore for delegation and
@@ -239,7 +239,7 @@ interface ILSTRestakingController is IBaseRestakingController {
     function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
 
     /// @notice Deposits tokens and then delegates them to a specific node operator.
-    /// @dev This function locks the specified amount of tokens into a vault, informs the Exocore validator set, and
+    /// @dev This function locks the specified amount of tokens into a vault, informs Exocore, and
     /// delegates the tokens to the specified node operator.
     /// Delegation can fail if the node operator is not registered in Exocore.
     /// @param token The address of the specific token that the user wants to deposit and delegate.

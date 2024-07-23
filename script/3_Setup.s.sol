@@ -44,7 +44,7 @@ contract SetupScript is BaseScript {
             _bindPrecompileMocks();
         }
 
-        // transfer some gas fee to exocore validator set address
+        // transfer some gas fee to contract owner
         clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, exocoreValidatorSet.addr, 0.2 ether);
 
@@ -56,7 +56,7 @@ contract SetupScript is BaseScript {
         // 1. setup client chain contracts to make them ready for sending and receiving messages from exocore gateway
 
         vm.selectFork(clientChain);
-        // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
+        // Set owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
         if (useEndpointMock) {
@@ -73,7 +73,7 @@ contract SetupScript is BaseScript {
         // gateway, and register client chain meta data to Exocore native module
 
         vm.selectFork(exocore);
-        // Exocore validator set should be the owner of these contracts and only owner could setup contracts state
+        // Set the owner of these contracts and only owner could setup contracts state
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         // set the destination endpoint for corresponding destinations in endpoint mock if USE_ENDPOINT_MOCK is true
         if (useEndpointMock) {

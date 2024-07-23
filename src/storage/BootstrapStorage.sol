@@ -91,7 +91,7 @@ contract BootstrapStorage is GatewayStorage {
     bool public bootstrapped;
 
     /// @notice This proxy admin facilitates the implementation switch from Bootstrap to ClientChainGateway based on
-    /// conditions met by the Exocore validator set's transactions.
+    /// certain conditions.
     /// @dev Address of the custom proxy admin used to manage upgradeability of this contract.
     address public customProxyAdmin;
 

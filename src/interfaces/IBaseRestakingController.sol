@@ -20,7 +20,7 @@ interface IBaseRestakingController {
 
     /// @notice Client chain users call to claim their unlocked assets from the vault.
     /// @dev This function assumes that the claimable assets should have been unlocked before calling this.
-    /// @dev This function does not ask for grant from Exocore validator set.
+    /// @dev This function does not interact with Exocore.
     /// @param token The address of specific token that the user wants to claim from the vault.
     /// @param amount The amount of @param token that the user wants to claim from the vault.
     /// @param recipient The destination address that the assets would be transfered to.
