@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {IExocoreGateway} from "../interfaces/IExocoreGateway.sol";
@@ -25,6 +26,10 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
+/// @title ExocoreGateway
+/// @author ExocoreNetwork
+/// @notice The gateway contract deployed on Exocore chain for client chain operations.
+/// @dev This contract address must be registered in the `x/assets` module for the precompile operations to go through.
 contract ExocoreGateway is
     Initializable,
     PausableUpgradeable,
@@ -37,6 +42,7 @@ contract ExocoreGateway is
 
     using OptionsBuilder for bytes;
 
+    /// @dev Ensures that the function is called only from this contract via low-level call.
     modifier onlyCalledFromThis() {
         if (msg.sender != address(this)) {
             revert Errors.ExocoreGatewayOnlyCalledFromThis();
@@ -44,12 +50,16 @@ contract ExocoreGateway is
         _;
     }
 
+    /// @notice Creates the ExocoreGateway contract.
+    /// @param endpoint_ The LayerZero endpoint address deployed on this chain
     constructor(address endpoint_) OAppUpgradeable(endpoint_) {
         _disableInitializers();
     }
 
     receive() external payable {}
 
+    /// @notice Initializes the ExocoreGateway contract.
+    /// @param owner_ The address of the contract owner.
     function initialize(address owner_) external initializer {
         if (owner_ == address(0)) {
             revert Errors.ZeroAddress();
@@ -62,6 +72,7 @@ contract ExocoreGateway is
         __ReentrancyGuard_init_unchained();
     }
 
+    /// @dev Initializes the whitelist function selectors.
     function _initializeWhitelistFunctionSelectors() private {
         _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
@@ -73,14 +84,21 @@ contract ExocoreGateway is
             this.requestDepositThenDelegateTo.selector;
     }
 
+    /// @notice Pauses the contract.
     function pause() external onlyOwner {
         _pause();
     }
 
+    /// @notice Unpauses the contract.
     function unpause() external onlyOwner {
         _unpause();
     }
 
+    /// @notice Marks the bootstrap on all chains.
+    /// @dev This function obtains a list of client chain ids from the precompile, and then
+    /// sends a `REQUEST_MARK_BOOTSTRAP` to all of them. In response, the Bootstrap contract
+    /// on those chains should upgrade itself to the ClientChainGateway contract.
+    /// This function should be the first to be called after the LZ infrastructure is ready.
     // TODO: call this function automatically, either within the initializer (which requires
     // setPeer) or be triggered by Golang after the contract is deployed.
     // For manual calls, this function should be called immediately after deployment and
@@ -105,23 +123,7 @@ contract ExocoreGateway is
         }
     }
 
-    /**
-     * @notice Register the `cientChainId` and othe meta data to Exocore native module or update clien chain's meta data
-     * according to the `clinetChainId`.
-     * And set trusted remote peer to enable layerzero messaging or other bridge messaging.
-     * @param clientChainId The endpoint ID for client chain.
-     * @param peer The trusted remote contract address to be associated with the corresponding endpoint or some
-     * authorized signer that would be trusted for
-     * sending messages from/to source chain to/from this contract
-     * @param addressLength The bytes length of address type on that client chain
-     * @param name The name of client chain
-     * @param metaInfo The arbitrary metadata for client chain
-     * @param signatureType The cryptographic signature type that client chain supports
-     *
-     * @dev Only the owner/admin of the OApp can call this function.
-     * @dev Indicates that the peer is trusted to send LayerZero messages to this OApp.
-     * @dev Peer is a bytes32 to accommodate non-evm chains.
-     */
+    /// @inheritdoc IExocoreGateway
     function registerOrUpdateClientChain(
         uint32 clientChainId,
         bytes32 peer,
@@ -148,6 +150,10 @@ contract ExocoreGateway is
         }
     }
 
+    /// @notice Sets a peer on the destination chain for this contract.
+    /// @dev This is the LayerZero peer.
+    /// @param clientChainId The id of the client chain.
+    /// @param clientChainGateway The address of the peer as bytes32.
     function setPeer(uint32 clientChainId, bytes32 clientChainGateway)
         public
         override(IOAppCore, OAppCoreUpgradeable)
@@ -161,9 +167,7 @@ contract ExocoreGateway is
         super.setPeer(clientChainId, clientChainGateway);
     }
 
-    // Though this function would call precompiled contract, all precompiled contracts belong to Exocore
-    // and we could make sure its implementation does not have dangerous behavior like reentrancy.
-    // slither-disable-next-line reentrancy-no-eth
+    /// @inheritdoc IExocoreGateway
     function addWhitelistTokens(
         uint32 clientChainId,
         bytes32[] calldata tokens,
@@ -172,11 +176,49 @@ contract ExocoreGateway is
         string[] calldata names,
         string[] calldata metaData
     ) external payable onlyOwner whenNotPaused nonReentrant {
+        _addOrUpdateWhitelistTokens(clientChainId, tokens, decimals, tvlLimits, names, metaData, true);
+    }
+
+    /// @inheritdoc IExocoreGateway
+    function updateWhitelistedTokens(
+        uint32 clientChainId,
+        bytes32[] calldata tokens,
+        uint8[] calldata decimals,
+        uint256[] calldata tvlLimits,
+        string[] calldata names,
+        string[] calldata metaData
+    ) external onlyOwner whenNotPaused {
+        _addOrUpdateWhitelistTokens(clientChainId, tokens, decimals, tvlLimits, names, metaData, false);
+    }
+
+    /// @dev The internal version of addWhitelistTokens and updateWhitelistedTokens.
+    /// @param clientChainId Source client chain id
+    /// @param tokens List of token addresses
+    /// @param decimals List of token decimals (like 18)
+    /// @param tvlLimits List of TVL limits (like max supply)
+    /// @param names List of token names
+    /// @param metaData List of arbitrary meta data for each token
+    /// @param add Whether to add or update the tokens
+    /// @dev Validates that lengths are equal, <= 255, and that the chain is registered.
+    // Though this function would call precompiled contract, all precompiled contracts belong to Exocore
+    // and we could make sure its implementation does not have dangerous behavior like reentrancy.
+    // slither-disable-next-line reentrancy-no-eth
+    function _addOrUpdateWhitelistTokens(
+        uint32 clientChainId,
+        bytes32[] calldata tokens,
+        uint8[] calldata decimals,
+        uint256[] calldata tvlLimits,
+        string[] calldata names,
+        string[] calldata metaData,
+        bool add
+    ) internal {
         _validateWhitelistTokensInput(clientChainId, tokens, decimals, tvlLimits, names, metaData);
 
         for (uint256 i; i < tokens.length; i++) {
             require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
-            require(!isWhitelistedToken[tokens[i]], "ExocoreGateway: token has already been added to whitelist before");
+            if (!add) {
+                require(isWhitelistedToken[tokens[i]], "ExocoreGateway: token has not been added to whitelist before");
+            }
             require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
             require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
             require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
@@ -186,48 +228,37 @@ contract ExocoreGateway is
             );
 
             if (success) {
-                isWhitelistedToken[tokens[i]] = true;
+                if (add) {
+                    isWhitelistedToken[tokens[i]] = true;
+                    emit WhitelistTokenAdded(clientChainId, tokens[i]);
+                } else {
+                    emit WhitelistTokenUpdated(clientChainId, tokens[i]);
+                }
             } else {
-                revert AddWhitelistTokenFailed(tokens[i]);
+                if (add) {
+                    revert AddWhitelistTokenFailed(tokens[i]);
+                } else {
+                    revert UpdateWhitelistTokenFailed(tokens[i]);
+                }
             }
-
-            emit WhitelistTokenAdded(clientChainId, tokens[i]);
         }
-
-        _sendInterchainMsg(
-            clientChainId, Action.REQUEST_ADD_WHITELIST_TOKENS, abi.encodePacked(uint8(tokens.length), tokens), false
-        );
-    }
-
-    function updateWhitelistedTokens(
-        uint32 clientChainId,
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData
-    ) external onlyOwner whenNotPaused {
-        _validateWhitelistTokensInput(clientChainId, tokens, decimals, tvlLimits, names, metaData);
-
-        for (uint256 i; i < tokens.length; i++) {
-            require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
-            require(isWhitelistedToken[tokens[i]], "ExocoreGateway: token has not been added to whitelist before");
-            require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
-            require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
-            require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
-
-            bool success = ASSETS_CONTRACT.registerToken(
-                clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
+        if (add) {
+            _sendInterchainMsg(
+                clientChainId,
+                Action.REQUEST_ADD_WHITELIST_TOKENS,
+                abi.encodePacked(uint8(tokens.length), tokens),
+                false
             );
-
-            if (!success) {
-                revert UpdateWhitelistTokenFailed(tokens[i]);
-            }
-
-            emit WhitelistTokenUpdated(clientChainId, tokens[i]);
         }
     }
 
+    /// @dev Validates the input for whitelist tokens.
+    /// @param clientChainId The client chain id, which must have been previously registered.
+    /// @param tokens The list of token addresses, length must be <= 255.
+    /// @param decimals The list of token decimals, length must be equal to that of @param tokens.
+    /// @param tvlLimits The list of token TVL limits, length must be equal to that of @param tokens.
+    /// @param names The list of token names, length must be equal to that of @param tokens.
+    /// @param metaData The list of token meta data, length must be equal to that of @param tokens.
     function _validateWhitelistTokensInput(
         uint32 clientChainId,
         bytes32[] calldata tokens,
@@ -253,6 +284,12 @@ contract ExocoreGateway is
         }
     }
 
+    /// @dev The internal version of registerClientChain.
+    /// @param clientChainId The client chain id.
+    /// @param addressLength The length of the address type on the client chain.
+    /// @param name The name of the client chain.
+    /// @param metaInfo The arbitrary metadata for the client chain.
+    /// @param signatureType The signature type supported by the client chain.
     function _registerClientChain(
         uint32 clientChainId,
         uint8 addressLength,
@@ -266,6 +303,7 @@ contract ExocoreGateway is
         }
     }
 
+    /// @inheritdoc OAppReceiverUpgradeable
     function _lzReceive(Origin calldata _origin, bytes calldata payload)
         internal
         virtual
@@ -288,6 +326,11 @@ contract ExocoreGateway is
         }
     }
 
+    /// @notice Responds to a deposit request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
     function requestDeposit(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
         _validatePayloadLength(payload, DEPOSIT_REQUEST_LENGTH, Action.REQUEST_DEPOSIT);
 
@@ -305,6 +348,11 @@ contract ExocoreGateway is
         emit DepositResult(true, bytes32(token), bytes32(depositor), amount);
     }
 
+    /// @notice Responds to a withdraw-principal request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
     function requestWithdrawPrincipal(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
         public
         onlyCalledFromThis
@@ -332,6 +380,11 @@ contract ExocoreGateway is
         emit WithdrawPrincipalResult(result, bytes32(token), bytes32(withdrawer), amount);
     }
 
+    /// @notice Responds to a withdraw-reward request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
     function requestWithdrawReward(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
         public
         onlyCalledFromThis
@@ -357,6 +410,11 @@ contract ExocoreGateway is
         emit WithdrawRewardResult(result, bytes32(token), bytes32(withdrawer), amount);
     }
 
+    /// @notice Responds to a delegate request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
     function requestDelegateTo(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
         _validatePayloadLength(payload, DELEGATE_REQUEST_LENGTH, Action.REQUEST_DELEGATE_TO);
 
@@ -379,6 +437,11 @@ contract ExocoreGateway is
         emit DelegateResult(result, bytes32(token), bytes32(delegator), string(operator), amount);
     }
 
+    /// @notice Responds to an undelegate request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
     function requestUndelegateFrom(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
         public
         onlyCalledFromThis
@@ -405,6 +468,11 @@ contract ExocoreGateway is
         emit UndelegateResult(result, bytes32(token), bytes32(delegator), string(operator), amount);
     }
 
+    /// @notice Responds to a deposit-then-delegate request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
     function requestDepositThenDelegateTo(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
         public
         onlyCalledFromThis
@@ -442,12 +510,22 @@ contract ExocoreGateway is
         emit DelegateResult(result, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 
+    /// @dev Validates the payload length, that it matches the expected length.
+    /// @param payload The payload to validate.
+    /// @param expectedLength The expected length of the payload.
+    /// @param action The action that the payload is for.
     function _validatePayloadLength(bytes calldata payload, uint256 expectedLength, Action action) private pure {
         if (payload.length != expectedLength) {
             revert InvalidRequestLength(action, expectedLength, payload.length);
         }
     }
 
+    /// @dev Sends an interchain message to the client chain.
+    /// @param srcChainId The chain id of the source chain, from which a message was received, and to which a response
+    /// is being sent.
+    /// @param act The action to be performed.
+    /// @param actionArgs The arguments for the action.
+    /// @param payByApp If the source for the transaction funds is this contract.
     function _sendInterchainMsg(uint32 srcChainId, Action act, bytes memory actionArgs, bool payByApp)
         internal
         whenNotPaused
@@ -463,6 +541,7 @@ contract ExocoreGateway is
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
+    /// @inheritdoc IExocoreGateway
     function quote(uint32 srcChainid, bytes memory _message) public view returns (uint256 nativeFee) {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
@@ -471,6 +550,7 @@ contract ExocoreGateway is
         return fee.nativeFee;
     }
 
+    /// @inheritdoc OAppReceiverUpgradeable
     function nextNonce(uint32 srcEid, bytes32 sender)
         public
         view

@@ -120,7 +120,7 @@ fork again
 :Store the request details in registeredRequests and registeredRequestActions;
 
 :Encode the request action arguments;
-:Send the request action to ExoCore using _sendMsgToExocore();
+:Send the request action to Exocore using _sendMsgToExocore();
 
 stop
 

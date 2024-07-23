@@ -1,13 +1,14 @@
 pragma solidity ^0.8.19;
 
-/// @title Errors library
-/// @notice A library for all errors that can be thrown in the Exocore contracts
-/// All errors in Exocore follow the following syntax: 'error ContractNameErrorName(arg1, arg2, ...)', where
-/// 'ContractName' is the name of the contract
-/// that the error originates from and 'ErrorName' is the name of the error. The arguments are optional and are used to
-/// provide additional context to the error
-/// 'Global' errors are those that are thrown from various contracts throughout the protocol and do not have a
-/// 'ContractName' prefix
+/// @dev @title Errors library
+/// @dev @notice A library for all errors that can be thrown in the Exocore contracts
+/// @dev All errors in Exocore follow the following syntax: 'error ContractNameErrorName(arg1, arg2, ...)', where
+/// @dev 'ContractName' is the name of the contract
+/// @dev that the error originates from and 'ErrorName' is the name of the error. The arguments are optional and are
+/// used to
+/// @dev provide additional context to the error
+/// @dev 'Global' errors are those that are thrown from various contracts throughout the protocol and do not have a
+/// @dev 'ContractName' prefix
 
 library Errors {
 
@@ -15,281 +16,182 @@ library Errors {
     //  Global Errors  //
     /////////////////////
 
-    error AlreadySet();
-
-    /**
-     * The passed-in address is the zero address, i.e. address(0)
-     */
+    /// @dev Thrown when the passed-in address is the zero address, i.e. address(0)
     error ZeroAddress();
 
-    /**
-     * The passed-in amount is zero
-     */
+    /// @dev Thrown when passed-in amount is zero
     error ZeroAmount();
 
-    /**
-     * The passed-in value is zero - used for bytes32
-     */
+    /// @dev Thrown wehn the passed-in value is zero
+    /// @dev This is used when the value in question is not an amount
     error ZeroValue();
 
-    /**
-     * Index out of array bounds
-     */
+    /// @dev Index out of array bounds
     error IndexOutOfBounds();
 
     ////////////////////////
     //  Bootstrap Errors  //
     ////////////////////////
 
-    /**
-     * Bootstrap: spawn time should be in the future
-     */
+    /// @dev Bootstrap: spawn time should be in the future
     error BootstrapSpawnTimeAlreadyPast();
 
-    /**
-     * Bootstrap: spawn time should be greater than offset duration
-     */
+    /// @dev Bootstrap: spawn time should be greater than offset duration
     error BootstrapSpawnTimeLessThanDuration();
 
-    /**
-     * Bootstrap: lock time should be in the future
-     */
+    /// @dev Bootstrap: lock time should be in the future
     error BootstrapLockTimeAlreadyPast();
 
-    /**
-     * Bootstrap: operation not allowed after lock time
-     */
+    /// @dev Bootstrap: operation not allowed after lock time
     error BootstrapBeforeLocked();
 
-    /**
-     * Bootstrap: token should be not whitelisted before
-     */
+    /// @dev Bootstrap: token should be not whitelisted before
+    /// @param token The address of the token already whitelisted
     error BootstrapAlreadyWhitelisted(address token);
 
-    /**
-     * Bootstrap: Ethereum address already linked to an operator
-     */
-    error BootstrapOperatorAlreadyHasAddress(address operator);
+    /// @dev Bootstrap: Ethereum address already linked to a validator
+    /// @param validator The Ethereum address of the validator
+    error BootstrapValidatorAlreadyHasAddress(address validator);
 
-    /**
-     * Bootstrap: Operator with this Exocore address is already registered
-     */
-    error BootstrapOperatorAlreadyRegistered();
+    /// @dev Bootstrap: Validator with this Exocore address is already registered
+    error BootstrapValidatorAlreadyRegistered();
 
-    /**
-     * Bootstrap: Consensus public key already in use
-     */
+    /// @dev Bootstrap: Consensus public key already in use
+    /// @param publicKey The public key that is already in use
     error BootstrapConsensusPubkeyAlreadyUsed(bytes32 publicKey);
 
-    /**
-     * Bootstrap: Operator name already in use
-     */
-    error BootstrapOperatorNameAlreadyUsed();
+    /// @dev Bootstrap: Validator name already in use
+    error BootstrapValidatorNameAlreadyUsed();
 
-    /**
-     * Bootstrap: Invalid commission
-     */
+    /// @dev Bootstrap: Invalid commission
     error BootstrapInvalidCommission();
 
-    /**
-     * Bootstrap: operator does not exist
-     */
-    error BootstrapOperatorNotExist();
+    /// @dev Bootstrap: validator does not exist
+    error BootstrapValidatorNotExist();
 
-    /**
-     * Bootstrap: Commission already edited once
-     */
+    /// @dev Bootstrap: Commission already edited once
     error BootstrapComissionAlreadyEdited();
 
-    /**
-     * Bootstrap: Rate exceeds max rate
-     */
+    /// @dev Bootstrap: Rate exceeds max rate
     error BootstrapRateExceedsMaxRate();
 
-    /**
-     * Bootstrap: Rate change exceeds max change rate
-     */
+    /// @dev Bootstrap: Rate change exceeds max change rate
     error BootstrapRateChangeExceedsMaxChangeRate();
 
-    /**
-     * Bootstrap: insufficient deposited balance
-     */
+    /// @dev Bootstrap: insufficient deposited balance
     error BootstrapInsufficientDepositedBalance();
 
-    /**
-     * Bootstrap: insufficient withdrawable balance
-     */
+    /// @dev Bootstrap: insufficient withdrawable balance
     error BootstrapInsufficientWithdrawableBalance();
 
-    /**
-     * Bootstrap: insufficient delegated balance
-     */
+    /// @dev Bootstrap: insufficient delegated balance
     error BootstrapInsufficientDelegatedBalance();
 
-    /**
-     * Bootstrap: no ether required for delegation/undelegation
-     */
+    /// @dev Bootstrap: no ether required for delegation/undelegation
     error BootstrapNoEtherForDelegation();
 
-    /**
-     * Bootstrap: not yet in the bootstrap time
-     */
+    /// @dev Bootstrap: not yet in the bootstrap time
     error BootstrapNotSpawnTime();
 
-    /**
-     * Bootstrap: not yet bootstrapped
-     */
+    /// @dev Bootstrap: not yet bootstrapped
     error BootstrapAlreadyBootstrapped();
 
-    /**
-     * Bootstrap: client chain initialization data is malformed
-     */
+    /// @dev Bootstrap: client chain initialization data is malformed
     error BootstrapClientChainDataMalformed();
 
     //////////////////////////////////
     //  BootstrapLzReceiver Errors  //
     //////////////////////////////////
 
-    /**
-     * BootstrapLzReceiver: could only be called from this contract itself with low level call
-     */
+    /// @dev BootstrapLzReceiver: could only be called from this contract itself with low level call
     error BootstrapLzReceiverOnlyCalledFromThis();
 
-    /**
-     * BootstrapLzReceiver: invalid action
-     */
+    /// @dev BootstrapLzReceiver: invalid action
     error BootstrapLzReceiverInvalidAction();
 
     /////////////////////////////////
     //  ClientChainGateway Errors  //
     /////////////////////////////////
 
-    /**
-     * ClientChainGateway: caller is not Exocore validator set aggregated address
-     */
-    error ClientChainGatewayInvalidCaller();
-
-    /**
-     * ClientChainGateway: tokens length should not execeed 255
-     */
+    /// @dev ClientChainGateway: tokens length should not execeed 255
     error ClientChainGatewayAddWhitelistTooManyTokens();
 
-    /**
-     * ClientChainGateway: token should not be whitelisted before
-     */
+    /// @dev ClientChainGateway: token should not be whitelisted before
     error ClientChainGatewayAlreadyWhitelisted();
 
     //////////////////////////////////////
     //  ClientGatewayLzReceiver Errors  //
     //////////////////////////////////////
 
-    /**
-     * ClientChainLzReceiver: could only be called from this contract itself with low level call
-     */
+    /// @dev ClientChainLzReceiver: could only be called from this contract itself with low level call
     error ClientGatewayLzReceiverOnlyCalledFromThis();
 
     ///////////////////////////////
     //  CustomProxyAdmin Errors  //
     ///////////////////////////////
 
-    /**
-     * CustomProxyAdmin: sender must be bootstrapper
-     */
+    /// @dev CustomProxyAdmin: sender must be bootstrapper
     error CustomProxyAdminOnlyCalledFromBootstrapper();
 
-    /**
-     * CustomProxyAdmin: sender must be the proxy itself
-     */
+    /// @dev CustomProxyAdmin: sender must be the proxy itself
     error CustomProxyAdminOnlyCalledFromProxy();
 
     /////////////////////////
     //  ExoCapsule Errors  //
     /////////////////////////
 
-    /**
-     * ExoCapsule: withdrawal amount is larger than staker's withdrawable balance
-     */
+    /// @dev ExoCapsule: withdrawal amount is larger than staker's withdrawable balance
     error ExoCapsuleWithdrawalAmountExceeds();
 
-    /**
-     * ExoCapsule: withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance
-     */
+    /// @dev ExoCapsule: withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance
     error ExoCapsuleNonBeaconChainWithdrawalAmountExceeds();
 
-    /**
-     * ExoCapsule: timestamp should be greater than beacon chain genesis timestamp
-     */
+    /// @dev ExoCapsule: timestamp should be greater than beacon chain genesis timestamp
     error ExoCapsuleTimestampBeforeGenesis();
 
     /////////////////////////////
     //  ExocoreGateway Errors  //
     /////////////////////////////
 
-    /**
-     * ExocoreGateway: can only be called from this contract itself with a low-level call
-     */
+    /// @dev ExocoreGateway: can only be called from this contract itself with a low-level call
     error ExocoreGatewayOnlyCalledFromThis();
 
-    /**
-     * ExocoreGateway: caller is not Exocore validator set aggregated address
-     */
-    error ExocoreGatewayInvalidCaller();
-
-    /**
-     * ExocoreGateway: failed to get client chain ids
-     */
+    /// @dev ExocoreGateway: failed to get client chain ids
     error ExocoreGatewayFailedToGetClientChainIds();
 
-    /**
-     * ExocoreGateway: failed to decode client chain ids
-     */
+    /// @dev ExocoreGateway: failed to decode client chain ids
     error ExocoreGatewayFailedToDecodeClientChainIds();
-    /**
-     * ExocoreGateway: client chain should be registered before setting peer to change peer address
-     */
+
+    /// @dev ExocoreGateway: client chain should be registered before setting peer to change peer address
     error ExocoreGatewayNotRegisteredClientChainId();
 
     ////////////////////////////////////////
     //  NativeRestakingController Errors  //
     ////////////////////////////////////////
 
-    /**
-     * NativeRestakingController: native restaking is not enabled
-     */
+    /// @dev NativeRestakingController: native restaking is not enabled
     error NativeRestakingControllerNotWhitelisted();
 
-    /**
-     * NativeRestakingController: stake value must be exactly 32 ether
-     */
+    /// @dev NativeRestakingController: stake value must be exactly 32 ether
     error NativeRestakingControllerInvalidStakeValue();
 
-    /**
-     * NativeRestakingController: message sender has already created the capsule
-     */
+    /// @dev NativeRestakingController: message sender has already created the capsule
     error NativeRestakingControllerCapsuleAlreadyCreated();
 
     ////////////////////
     //  Vault Errors  //
     ////////////////////
 
-    /**
-     * Vault: caller is not the gateway
-     */
+    /// @dev Vault: caller is not the gateway
     error VaultCallerIsNotGateway();
 
-    /**
-     * Vault: withdrawal amount is larger than depositor's withdrawable balance
-     */
+    /// @dev Vault: withdrawal amount is larger than depositor's withdrawable balance
     error VaultWithdrawalAmountExceeds();
 
-    /**
-     * Vault: total principal unlock amount is larger than the total deposited amount
-     */
+    /// @dev Vault: total principal unlock amount is larger than the total deposited amount
     error VaultPrincipalExceedsTotalDeposit();
 
-    /**
-     * Vault: total principal unlock amount is larger than the total deposited amount
-     */
+    /// @dev Vault: total principal unlock amount is larger than the total deposited amount
     error VaultTotalUnlockPrincipalExceedsDeposit();
 
 }

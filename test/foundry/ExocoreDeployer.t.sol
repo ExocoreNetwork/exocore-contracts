@@ -130,7 +130,7 @@ contract ExocoreDeployer is Test {
     }
 
     function test_AddWhitelistTokens() public {
-        // transfer some gas fee to exocore validator set
+        // transfer some gas fee to the owner / deployer
         deal(exocoreValidatorSet.addr, 1e22);
 
         uint8[] memory decimals = new uint8[](2);

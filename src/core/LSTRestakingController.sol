@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
@@ -8,6 +9,9 @@ import {BaseRestakingController} from "./BaseRestakingController.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
+/// @title LSTRestakingController
+/// @author ExocoreNetwork
+/// @notice Implementation of ILSTRestakingController, used to restake tokens.
 abstract contract LSTRestakingController is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable,
@@ -15,6 +19,7 @@ abstract contract LSTRestakingController is
     BaseRestakingController
 {
 
+    /// @inheritdoc ILSTRestakingController
     function deposit(address token, uint256 amount)
         external
         payable
@@ -32,6 +37,7 @@ abstract contract LSTRestakingController is
         _processRequest(Action.REQUEST_DEPOSIT, actionArgs, encodedRequest);
     }
 
+    /// @inheritdoc ILSTRestakingController
     function withdrawPrincipalFromExocore(address token, uint256 principalAmount)
         external
         payable
@@ -47,6 +53,7 @@ abstract contract LSTRestakingController is
         _processRequest(Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, actionArgs, encodedRequest);
     }
 
+    /// @inheritdoc ILSTRestakingController
     function withdrawRewardFromExocore(address token, uint256 rewardAmount)
         external
         payable
@@ -60,7 +67,7 @@ abstract contract LSTRestakingController is
         _processRequest(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, actionArgs, encodedRequest);
     }
 
-    // implementation of ILSTRestakingController
+    /// @inheritdoc ILSTRestakingController
     function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
         external
         payable

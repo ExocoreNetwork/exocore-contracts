@@ -1,83 +1,55 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {IBaseRestakingController} from "./IBaseRestakingController.sol";
 import {IExoCapsule} from "./IExoCapsule.sol";
 
+/// @title INativeRestakingController
+/// @author ExocoreNetwork
+/// @notice Interface for the NativeRestakingController contract.
+/// @dev Provides methods for interacting with the Ethereum beacon chain and Exocore network, including staking,
+/// creating ExoCapsules, and processing withdrawals.
 interface INativeRestakingController is IBaseRestakingController {
 
-    /// *** function signatures for staker operations ***
-
-    /**
-     * @notice Stakers call this function to deposit to beacon chain validator, and point withdrawal_credentials of
-     * beacon chain validator to staker's ExoCapsule contract address. An ExoCapsule contract owned by staker would
-     * be created if it does not exist.
-     * @param pubkey the BLS pubkey of beacon chain validator
-     * @param signature the BLS signature
-     * @param depositDataRoot The SHA-256 hash of the SSZ-encoded DepositData object.
-     * Used as a protection against malformed input.
-     */
+    /// @notice Deposits to a beacon chain validator and sets withdrawal credentials to the staker's ExoCapsule contract
+    /// address.
+    /// @dev If the ExoCapsule contract does not exist, it will be created.
+    /// @param pubkey The BLS pubkey of the beacon chain validator.
+    /// @param signature The BLS signature.
+    /// @param depositDataRoot The SHA-256 hash of the SSZ-encoded DepositData object, used as a protection against
+    /// malformed input.
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot) external payable;
 
-    /**
-     * @notice Ethereum native restaker could call this function to create owned ExoCapsule before staking to beacon
-     * chain.
-     */
+    /// @notice Creates an ExoCapsule owned by the Ethereum native restaker.
+    /// @dev This should be done before staking to the beacon chain.
+    /// @return capsule The address of the created ExoCapsule.
     function createExoCapsule() external returns (address capsule);
 
-    /**
-     * @notice This is called to deposit ETH that is staked on Ethereum beacon chain to Exocore network to be restaked
-     * in future
-     * @dev Before deposit, staker should have created the ExoCapsule that it owns and point the validator's withdrawal
-     * credentials
-     * to the ExoCapsule owned by staker. The effective balance of `validatorContainer` would be credited as deposited
-     * value by Exocore network.
-     * @ param
-     */
+    /// @notice Deposits ETH staked on the Ethereum beacon chain to the Exocore network for future restaking.
+    /// @dev Before depositing, the staker should have created an ExoCapsule and set the validator's withdrawal
+    /// credentials to it.
+    /// The effective balance of `validatorContainer` will be credited as the deposited value by the Exocore network.
+    /// @param validatorContainer The data structure included in the `BeaconState` of `BeaconBlock` that contains beacon
+    /// chain validator information.
+    /// @param proof The proof needed to verify the validator container.
     function depositBeaconChainValidator(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata proof
     ) external payable;
 
-    /**
-     * @notice When a beacon chain partial withdrawal to an ExoCapsule contract happens(the withdrawal time is less than
-     * validator's withdrawable_epoch),
-     * this function could be called with `validatorContainer`, `withdrawalContainer` and corresponding proofs to prove
-     * this partial withdrawal
-     * from beacon chain is done and unlock withdrawn ETH to be claimable for ExoCapsule owner.
-     * @param validatorContainer is the data structure included in `BeaconState` of `BeaconBlock` that contains beacon
-     * chain validator information,
-     * refer to: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#validator
-     * @param validatorProof is the merkle proof needed for verifying that `validatorContainer` is included in some
-     * beacon block root.
-     * @param withdrawalContainer is the data structure included in `ExecutionPayload` of `BeaconBlockBody` that
-     * contains withdrawals from beacon chain to execution layer(partial/full), refer to:
-     * https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#withdrawal
-     * @param withdrawalProof is the merkle proof needed for verifying that `withdrawalContainer` is included in some
-     * beacon block root.
-     */
-
-    /**
-     * @notice When a beacon chain full withdrawal to this capsule contract happens(the withdrawal time is euqal to or
-     * greater than
-     * validator's withdrawable_epoch), this function could be called with `validatorContainer`, `withdrawalContainer`
-     * and corresponding
-     * proofs to prove this full withdrawal from beacon chain is done, send withdrawal request to Exocore network to be
-     * processed.
-     * After Exocore network finishs dealing with withdrawal request and sending back the response, ExoCapsule would
-     * unlock corresponding ETH
-     * in response to be cliamable for ExoCapsule owner.
-     * @param validatorContainer is the data structure included in `BeaconState` of `BeaconBlock` that contains beacon
-     * chain validator information,
-     * refer to: https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#validator
-     * @param validatorProof is the merkle proof needed for verifying that `validatorContainer` is included in some
-     * beacon block root.
-     * @param withdrawalContainer is the data structure included in `ExecutionPayload` of `BeaconBlockBody` that
-     * contains withdrawals from beacon chain to execution layer(partial/full), refer to:
-     * https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#withdrawal
-     * @param withdrawalProof is the merkle proof needed for verifying that `withdrawalContainer` is included in some
-     * beacon block root.
-     */
+    /// @notice Processes a partial withdrawal from the beacon chain to an ExoCapsule contract.
+    /// @dev This function is called with `validatorContainer`, `withdrawalContainer`, and corresponding proofs to prove
+    /// the partial withdrawal.
+    /// The withdrawn ETH will be unlocked and claimable for the ExoCapsule owner.
+    /// @param validatorContainer The data structure included in the `BeaconState` of `BeaconBlock` that contains beacon
+    /// chain validator information.
+    /// @param validatorProof The merkle proof needed to verify that `validatorContainer` is included in a beacon block
+    /// root.
+    /// @param withdrawalContainer The data structure included in the `ExecutionPayload` of `BeaconBlockBody` that
+    /// contains withdrawals from the beacon chain to the execution layer.
+    /// @param withdrawalProof The merkle proof needed to verify that `withdrawalContainer` is included in a beacon
+    /// block root.
     function processBeaconChainWithdrawal(
         bytes32[] calldata validatorContainer,
         IExoCapsule.ValidatorContainerProof calldata validatorProof,

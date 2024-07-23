@@ -1,19 +1,22 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
-
-// Do not use IERC20 because it does not expose the decimals() function.
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+// Do not use IERC20 because it does not expose the decimals() function.
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 
+// This import is used for @inheritdoc but slither does not recognize it.
+// slither-disable-next-line unused-imports
+import {IBaseRestakingController} from "../interfaces/IBaseRestakingController.sol";
 import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
-import {IOperatorRegistry} from "../interfaces/IOperatorRegistry.sol";
+import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
 
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
@@ -22,11 +25,10 @@ import {Errors} from "../libraries/Errors.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 
-// ClientChainGateway differences:
-// replace IClientChainGateway with ITokenWhitelister (excludes only quote function).
-// add a new interface for operator registration.
-// replace ClientGatewayLzReceiver with BootstrapLzReceiver, which handles only incoming calls
-// and not responses.
+/// @title Bootstrap
+/// @author ExocoreNetwork
+/// @notice This contract is used to Bootstrap the Exocore network. It accepts validator registration, deposits and
+/// delegations.
 contract Bootstrap is
     Initializable,
     PausableUpgradeable,
@@ -34,10 +36,15 @@ contract Bootstrap is
     ReentrancyGuardUpgradeable,
     ITokenWhitelister,
     ILSTRestakingController,
-    IOperatorRegistry,
+    IValidatorRegistry,
     BootstrapLzReceiver
 {
 
+    /// @notice Constructor for the Bootstrap contract.
+    /// @param endpoint_ The address of the LayerZero endpoint contract.
+    /// @param exocoreChainId_ The chain ID of the Exocore chain.
+    /// @param vaultBeacon_ The address of the beacon contract for the vault.
+    /// @param beaconProxyBytecode_ The address of the beacon proxy bytecode contract.
     constructor(address endpoint_, uint32 exocoreChainId_, address vaultBeacon_, address beaconProxyBytecode_)
         OAppCoreUpgradeable(endpoint_)
         BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_)
@@ -45,6 +52,12 @@ contract Bootstrap is
         _disableInitializers();
     }
 
+    /// @notice Initializes the Bootstrap contract.
+    /// @param owner The address of the contract owner.
+    /// @param spawnTime_ The spawn time of the Exocore chain.
+    /// @param offsetDuration_ The offset duration before the spawn time.
+    /// @param whitelistTokens_ The list of whitelisted tokens.
+    /// @param customProxyAdmin_ The address of the custom proxy admin.
     function initialize(
         address owner,
         uint256 spawnTime_,
@@ -91,28 +104,16 @@ contract Bootstrap is
         __ReentrancyGuard_init_unchained();
     }
 
-    /**
-     * @notice Checks if the contract is locked, meaning it has passed the offset duration
-     * before the Exocore spawn time.
-     * @dev Returns true if the contract is locked, false otherwise.
-     * @return bool Returns `true` if the contract is locked, `false` otherwise.
-     */
+    /// @notice Checks if the contract is locked, meaning it has passed the offset duration
+    /// before the Exocore spawn time.
+    /// @dev Returns true if the contract is locked, false otherwise.
+    /// @return bool Returns `true` if the contract is locked, `false` otherwise.
     function isLocked() public view returns (bool) {
         return block.timestamp >= exocoreSpawnTime - offsetDuration;
     }
 
-    /**
-     * @dev Modifier to restrict operations based on the contract's defined timeline.
-     * It checks if the current block timestamp is less than 24 hours before the
-     * Exocore spawn time, effectively locking operations as the spawn time approaches
-     * and afterwards. This is used to enforce a freeze period before the Exocore
-     * chain's launch, ensuring no changes can be made during this critical time.
-     *
-     * The modifier is applied to functions that should be restricted by this timeline,
-     * including registration, delegation, and token management operations. Attempting
-     * to perform these operations during the lock period will result in a transaction
-     * revert with an informative error message.
-     */
+    /// @dev Modifier to restrict operations based on the contract's defined timeline, that is,
+    /// during the offset duration before the Exocore spawn time.
     modifier beforeLocked() {
         if (isLocked()) {
             revert Errors.BootstrapBeforeLocked();
@@ -120,23 +121,22 @@ contract Bootstrap is
         _;
     }
 
-    // pausing and unpausing can happen at all times, including after locked time.
+    /// @notice Pauses the contract.
+    /// @dev Pausing is not gated by the beforeLocked modifier.
     function pause() external onlyOwner {
         _pause();
     }
 
-    // pausing and unpausing can happen at all times, including after locked time.
+    /// @notice Unpauses the contract.
+    /// @dev Unpausing is not gated by the beforeLocked modifier.
     function unpause() external onlyOwner {
         _unpause();
     }
 
-    /**
-     * @dev Allows the contract owner to modify the spawn time of the Exocore
-     * chain. This function can only be called by the contract owner and must
-     * be called before the currently set lock time has started.
-     *
-     * @param _spawnTime The new spawn time in seconds.
-     */
+    /// @notice Allows the contract owner to modify the spawn time of the Exocore chain.
+    /// @dev This function can only be called by the contract owner and must
+    /// be called before the currently set lock time has started.
+    /// @param _spawnTime The new spawn time in seconds.
     function setSpawnTime(uint256 _spawnTime) external onlyOwner beforeLocked {
         if (_spawnTime <= block.timestamp) {
             revert Errors.BootstrapSpawnTimeAlreadyPast();
@@ -153,14 +153,11 @@ contract Bootstrap is
         emit SpawnTimeUpdated(_spawnTime);
     }
 
-    /**
-     * @dev Allows the contract owner to modify the offset duration that determines
-     * the lock period before the Exocore spawn time. This function can only be
-     * called by the contract owner and must be called before the currently set
-     * lock time has started.
-     *
-     * @param _offsetDuration The new offset duration in seconds.
-     */
+    /// @notice Allows the contract owner to modify the offset duration that determines
+    /// the lock period before the Exocore spawn time.
+    /// @dev This function can only be called by the contract owner and must be called
+    /// before the currently set lock time has started.
+    /// @param _offsetDuration The new offset duration in seconds.
     function setOffsetDuration(uint256 _offsetDuration) external onlyOwner beforeLocked {
         if (exocoreSpawnTime <= _offsetDuration) {
             revert Errors.BootstrapSpawnTimeLessThanDuration();
@@ -173,11 +170,13 @@ contract Bootstrap is
         emit OffsetDurationUpdated(_offsetDuration);
     }
 
-    // implementation of ITokenWhitelister
+    /// @inheritdoc ITokenWhitelister
     function addWhitelistTokens(address[] calldata tokens) external beforeLocked onlyOwner whenNotPaused {
         _addWhitelistTokens(tokens);
     }
 
+    /// @dev The internal function to add tokens to the whitelist.
+    /// @param tokens The list of token addresses to be added to the whitelist.
     // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
     // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
     // like reentrancy.
@@ -204,25 +203,25 @@ contract Bootstrap is
         }
     }
 
-    // implementation of ITokenWhitelister
+    /// @inheritdoc ITokenWhitelister
     function getWhitelistedTokensCount() external view returns (uint256) {
         return whitelistTokens.length;
     }
 
-    // implementation of IOperatorRegistry
-    function registerOperator(
-        string calldata operatorExocoreAddress,
+    /// @inheritdoc IValidatorRegistry
+    function registerValidator(
+        string calldata validatorAddress,
         string calldata name,
         Commission memory commission,
         bytes32 consensusPublicKey
-    ) external beforeLocked whenNotPaused isValidBech32Address(operatorExocoreAddress) {
-        // ensure that there is only one operator per ethereum address
+    ) external beforeLocked whenNotPaused isValidBech32Address(validatorAddress) {
+        // ensure that there is only one validator per ethereum address
         if (bytes(ethToExocoreAddress[msg.sender]).length > 0) {
-            revert Errors.BootstrapOperatorAlreadyHasAddress(msg.sender);
+            revert Errors.BootstrapValidatorAlreadyHasAddress(msg.sender);
         }
-        // check if operator with the same exocore address already exists
-        if (bytes(operators[operatorExocoreAddress].name).length > 0) {
-            revert Errors.BootstrapOperatorAlreadyRegistered();
+        // check if validator with the same exocore address already exists
+        if (bytes(validators[validatorAddress].name).length > 0) {
+            revert Errors.BootstrapValidatorAlreadyRegistered();
         }
         // check that the consensus key is unique.
         if (consensusPublicKeyInUse(consensusPublicKey)) {
@@ -230,62 +229,42 @@ contract Bootstrap is
         }
         // and that the name (meta info) is unique.
         if (nameInUse(name)) {
-            revert Errors.BootstrapOperatorNameAlreadyUsed();
+            revert Errors.BootstrapValidatorNameAlreadyUsed();
         }
         // check that the commission is valid.
         if (!isCommissionValid(commission)) {
             revert Errors.BootstrapInvalidCommission();
         }
-        ethToExocoreAddress[msg.sender] = operatorExocoreAddress;
-        operators[operatorExocoreAddress] =
-            IOperatorRegistry.Operator({name: name, commission: commission, consensusPublicKey: consensusPublicKey});
-        registeredOperators.push(msg.sender);
-        emit OperatorRegistered(msg.sender, operatorExocoreAddress, name, commission, consensusPublicKey);
+        ethToExocoreAddress[msg.sender] = validatorAddress;
+        validators[validatorAddress] =
+            IValidatorRegistry.Validator({name: name, commission: commission, consensusPublicKey: consensusPublicKey});
+        registeredValidators.push(msg.sender);
+        emit ValidatorRegistered(msg.sender, validatorAddress, name, commission, consensusPublicKey);
     }
 
-    /**
-     * @dev Checks if a given consensus public key is already in use by any registered operator.
-     *
-     * This function iterates over all registered operators stored in the contract's state
-     * to determine if the provided consensus public key matches any existing operator's
-     * public key. It is designed to ensure the uniqueness of consensus public keys among
-     * operators, as each operator must have a distinct consensus public key to maintain
-     * integrity and avoid potential conflicts or security issues.
-     *
-     * @param newKey The consensus public key to check for uniqueness. This key is expected
-     * to be provided as a byte32 array (`bytes32`), which is the typical format for
-     * storing and handling public keys in Ethereum smart contracts.
-     *
-     * @return bool Returns `true` if the consensus public key is already in use by an
-     * existing operator, indicating that the key is not unique. Returns `false` if the
-     * public key is not found among the registered operators, indicating that the key
-     * is unique and can be safely used for a new or updating operator.
-     */
+    /// @notice Checks if the given consensus public key is already in use by any registered validator.
+    /// @dev Iterates over all validators to determine if the key is in use.
+    /// @param newKey The input key to check.
+    /// @return bool Returns `true` if the key is already in use, `false` otherwise.
     function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
         if (newKey == bytes32(0)) {
             revert Errors.ZeroValue();
         }
-        uint256 arrayLength = registeredOperators.length;
+        uint256 arrayLength = registeredValidators.length;
         for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredOperators[i];
+            address ethAddress = registeredValidators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (operators[exoAddress].consensusPublicKey == newKey) {
+            if (validators[exoAddress].consensusPublicKey == newKey) {
                 return true;
             }
         }
         return false;
     }
 
-    /**
-     * @notice Checks if the given commission settings are valid.
-     * @dev Validates that the commission rate, max rate, and max change rate are within
-     * acceptable bounds. Each parameter must be less than or equal to 1e18. The commission rate
-     * must not exceed the max rate, and the max change rate must not exceed the max rate.
-     * @param commission The commission structure containing the rate, max rate, and max change
-     * rate to be validated.
-     * @return bool Returns `true` if all conditions for a valid commission are met,
-     * `false` otherwise.
-     */
+    /// @notice Checks if the provided commission is valid.
+    /// @dev The commission's rates must be <= 1e18 (100%) and the rate must be <= maxRate and maxChangeRate.
+    /// @param commission The commission to check.
+    /// @return bool Returns `true` if the commission is valid, `false` otherwise.
     // forgefmt: disable-next-item
     function isCommissionValid(Commission memory commission) public pure returns (bool) {
         return commission.rate <= 1e18 &&
@@ -295,58 +274,46 @@ contract Bootstrap is
                commission.maxChangeRate <= commission.maxRate;
     }
 
-    /**
-     * @dev Checks if a given name is already in use by any registered operator.
-     *
-     * This function iterates over all registered operators stored in the contract's state
-     * to determine if the provided name matches any existing operator's name. It is
-     * designed to ensure the uniqueness of name (identity) among operators, as each
-     * operator must have a distinct name to maintain integrity and avoid potential
-     * conflicts or security issues.
-     *
-     * @param newName The name to check for uniqueness, as a string.
-     *
-     * @return bool Returns `true` if the name is already in use by an existing operator,
-     * indicating that the name is not unique. Returns `false` if the name is not found
-     * among the registered operators, indicating that the name is unique and can be
-     * safely used for a new operator.
-     */
+    /// @notice Checks if the given name is already in use by any registered validator.
+    /// @dev Iterates over all validators to determine if the name is in use.
+    /// @param newName The input name to check.
+    /// @return bool Returns `true` if the name is already in use, `false` otherwise.
     function nameInUse(string memory newName) public view returns (bool) {
-        uint256 arrayLength = registeredOperators.length;
+        uint256 arrayLength = registeredValidators.length;
         for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredOperators[i];
+            address ethAddress = registeredValidators[i];
             string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (keccak256(abi.encodePacked(operators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
+            if (keccak256(abi.encodePacked(validators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
                 return true;
             }
         }
         return false;
     }
 
-    // implementation of IOperatorRegistry
+    /// @inheritdoc IValidatorRegistry
     function replaceKey(bytes32 newKey) external beforeLocked whenNotPaused {
         if (bytes(ethToExocoreAddress[msg.sender]).length == 0) {
-            revert Errors.BootstrapOperatorNotExist();
+            revert Errors.BootstrapValidatorNotExist();
         }
         if (consensusPublicKeyInUse(newKey)) {
             revert Errors.BootstrapConsensusPubkeyAlreadyUsed(newKey);
         }
-        operators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
-        emit OperatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
+        validators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
+        emit ValidatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
     }
 
-    // implementation of IOperatorRegistry
+    /// @inheritdoc IValidatorRegistry
     function updateRate(uint256 newRate) external beforeLocked whenNotPaused {
-        string memory operatorAddress = ethToExocoreAddress[msg.sender];
-        if (bytes(operatorAddress).length == 0) {
-            revert Errors.BootstrapOperatorNotExist();
+        string memory validatorAddress = ethToExocoreAddress[msg.sender];
+        if (bytes(validatorAddress).length == 0) {
+            revert Errors.BootstrapValidatorNotExist();
         }
         // across the lifetime of this contract before network bootstrap,
         // allow the editing of commission only once.
-        if (commissionEdited[operatorAddress]) {
+        if (commissionEdited[validatorAddress]) {
             revert Errors.BootstrapComissionAlreadyEdited();
         }
-        Commission memory commission = operators[operatorAddress].commission;
+        Commission memory commission = validators[validatorAddress].commission;
         uint256 rate = commission.rate;
         uint256 maxRate = commission.maxRate;
         uint256 maxChangeRate = commission.maxChangeRate;
@@ -354,18 +321,18 @@ contract Bootstrap is
         if (newRate > maxRate) {
             revert Errors.BootstrapRateExceedsMaxRate();
         }
-        // to prevent operators from blindsiding users by first registering at low rate and
+        // to prevent validators from blindsiding users by first registering at low rate and
         // subsequently increasing it, we should also check that the change is within the
         // allowed rate change.
         if (newRate > rate + maxChangeRate) {
             revert Errors.BootstrapRateChangeExceedsMaxChangeRate();
         }
-        operators[operatorAddress].commission.rate = newRate;
-        commissionEdited[operatorAddress] = true;
-        emit OperatorCommissionUpdated(newRate);
+        validators[validatorAddress].commission.rate = newRate;
+        commissionEdited[validatorAddress] = true;
+        emit ValidatorCommissionUpdated(newRate);
     }
 
-    // implementation of ILSTRestakingController
+    /// @inheritdoc ILSTRestakingController
     function deposit(address token, uint256 amount)
         external
         payable
@@ -379,7 +346,10 @@ contract Bootstrap is
         _deposit(msg.sender, token, amount);
     }
 
-    // _deposit is the internal function that does the work
+    /// @dev Internal version of deposit.
+    /// @param depositor The address of the depositor.
+    /// @param token The address of the token.
+    /// @param amount The amount of the @param token to deposit.
     function _deposit(address depositor, address token, uint256 amount) internal {
         IVault vault = _getVault(token);
         vault.deposit(depositor, amount);
@@ -402,8 +372,7 @@ contract Bootstrap is
         emit DepositResult(true, token, depositor, amount);
     }
 
-    // implementation of ILSTRestakingController
-    // This will allow release of undelegated (free) funds to the user for claiming separately.
+    /// @inheritdoc ILSTRestakingController
     function withdrawPrincipalFromExocore(address token, uint256 amount)
         external
         payable
@@ -417,7 +386,10 @@ contract Bootstrap is
         _withdraw(msg.sender, token, amount);
     }
 
-    // _withdraw is the internal function that does the actual work.
+    /// @dev Internal version of withdraw.
+    /// @param user The address of the withdrawer.
+    /// @param token The address of the token.
+    /// @param amount The amount of the @param token to withdraw.
     function _withdraw(address user, address token, uint256 amount) internal {
         IVault vault = _getVault(token);
 
@@ -442,13 +414,13 @@ contract Bootstrap is
         emit WithdrawPrincipalResult(true, token, user, amount);
     }
 
-    // implementation of ILSTRestakingController
-    // there are no rewards before the network bootstrap, so this function is not supported.
+    /// @inheritdoc ILSTRestakingController
+    /// @dev This is not yet supported.
     function withdrawRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
         revert NotYetSupported();
     }
 
-    // implementation of ILSTRestakingController
+    /// @inheritdoc IBaseRestakingController
     function claim(address token, uint256 amount, address recipient)
         external
         override
@@ -462,8 +434,8 @@ contract Bootstrap is
         vault.withdraw(msg.sender, recipient, amount);
     }
 
-    // implementation of ILSTRestakingController
-    function delegateTo(string calldata operator, address token, uint256 amount)
+    /// @inheritdoc IBaseRestakingController
+    function delegateTo(string calldata validator, address token, uint256 amount)
         external
         payable
         override
@@ -471,36 +443,41 @@ contract Bootstrap is
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
-        isValidBech32Address(operator)
+        isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
-        _delegateTo(msg.sender, operator, token, amount);
+        _delegateTo(msg.sender, validator, token, amount);
     }
 
-    function _delegateTo(address user, string calldata operator, address token, uint256 amount) internal {
+    /// @dev The internal version of `delegateTo`.
+    /// @param user The address of the delegator.
+    /// @param validator The address of the validator.
+    /// @param token The address of the token.
+    /// @param amount The amount of the @param token to delegate.
+    function _delegateTo(address user, string calldata validator, address token, uint256 amount) internal {
         if (msg.value > 0) {
             revert Errors.BootstrapNoEtherForDelegation();
         }
-        // check that operator is registered
-        if (bytes(operators[operator].name).length == 0) {
-            revert Errors.BootstrapOperatorNotExist();
+        // check that validator is registered
+        if (bytes(validators[validator].name).length == 0) {
+            revert Errors.BootstrapValidatorNotExist();
         }
-        // operator can't be frozen and amount can't be negative
+        // validator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
         uint256 withdrawable = withdrawableAmounts[msg.sender][token];
         if (withdrawable < amount) {
             revert Errors.BootstrapInsufficientWithdrawableBalance();
         }
-        delegations[user][operator][token] += amount;
-        delegationsByOperator[operator][token] += amount;
+        delegations[user][validator][token] += amount;
+        delegationsByValidator[validator][token] += amount;
         withdrawableAmounts[user][token] -= amount;
 
-        emit DelegateResult(true, user, operator, token, amount);
+        emit DelegateResult(true, user, validator, token, amount);
     }
 
-    // implementation of ILSTRestakingController
-    function undelegateFrom(string calldata operator, address token, uint256 amount)
+    /// @inheritdoc IBaseRestakingController
+    function undelegateFrom(string calldata validator, address token, uint256 amount)
         external
         payable
         override
@@ -508,42 +485,47 @@ contract Bootstrap is
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
-        isValidBech32Address(operator)
+        isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
-        _undelegateFrom(msg.sender, operator, token, amount);
+        _undelegateFrom(msg.sender, validator, token, amount);
     }
 
-    function _undelegateFrom(address user, string calldata operator, address token, uint256 amount) internal {
+    /// @dev The internal version of `undelegateFrom`.
+    /// @param user The address of the delegator.
+    /// @param validator The address of the validator.
+    /// @param token The address of the token.
+    /// @param amount The amount of the @param token to undelegate.
+    function _undelegateFrom(address user, string calldata validator, address token, uint256 amount) internal {
         if (msg.value > 0) {
             revert Errors.BootstrapNoEtherForDelegation();
         }
-        // check that operator is registered
-        if (bytes(operators[operator].name).length == 0) {
-            revert Errors.BootstrapOperatorNotExist();
+        // check that validator is registered
+        if (bytes(validators[validator].name).length == 0) {
+            revert Errors.BootstrapValidatorNotExist();
         }
-        // operator can't be frozen and amount can't be negative
+        // validator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
-        uint256 delegated = delegations[user][operator][token];
+        uint256 delegated = delegations[user][validator][token];
         if (delegated < amount) {
             revert Errors.BootstrapInsufficientDelegatedBalance();
         }
         // the undelegation is released immediately since it is not at stake yet.
-        delegations[user][operator][token] -= amount;
-        delegationsByOperator[operator][token] -= amount;
+        delegations[user][validator][token] -= amount;
+        delegationsByValidator[validator][token] -= amount;
         withdrawableAmounts[user][token] += amount;
 
-        emit UndelegateResult(true, user, operator, token, amount);
+        emit UndelegateResult(true, user, validator, token, amount);
     }
 
-    // implementation of ILSTRestakingController
+    /// @inheritdoc ILSTRestakingController
     // Though `_deposit` would make external call to `Vault` and some state variables would be written in the following
     // `_delegateTo`,
     // `Vault` contract belongs to Exocore and we could make sure it's implementation does not have dangerous behavior
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
-    function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
+    function depositThenDelegateTo(address token, uint256 amount, string calldata validator)
         external
         payable
         override
@@ -551,24 +533,20 @@ contract Bootstrap is
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
-        isValidBech32Address(operator)
+        isValidBech32Address(validator)
         nonReentrant // because it interacts with vault in deposit
     {
         _deposit(msg.sender, token, amount);
-        _delegateTo(msg.sender, operator, token, amount);
+        _delegateTo(msg.sender, validator, token, amount);
     }
 
-    /**
-     * @dev Marks the contract as bootstrapped when called from a valid source such as
-     * LayerZero or the validator set via TSS.
-     * @notice This function is triggered internally and is part of the bootstrapping process
-     * that switches the contract's state to allow further interactions specific to the
-     * bootstrapped mode.
-     * It should only be called through `address(this).call(selector, data)` to ensure it
-     * executes under specific security conditions.
-     * This function includes modifiers to ensure it's called only internally and while the
-     * contract is not paused.
-     */
+    /// @notice Marks the contract as bootstrapped.
+    /// @dev A contract can be marked as bootstrapped only when the current time is more than
+    /// the Exocore spawn time, since such a call must originate from the Exocore chain. To mark
+    /// a contract as bootstrapped, the address of the client chain gateway logic contract and its
+    /// initialization data must be set. The contract must not have been bootstrapped before.
+    /// Once it is marked bootstrapped, the implementation of the contract is upgraded to the
+    /// client chain gateway logic contract.
     function markBootstrapped() public onlyCalledFromThis whenNotPaused {
         // whenNotPaused is applied so that the upgrade does not proceed without unpausing it.
         // LZ checks made so far include:
@@ -596,16 +574,13 @@ contract Bootstrap is
         emit Bootstrapped();
     }
 
-    /**
-     * @dev Sets a new client chain gateway logic and its initialization data.
-     * @notice Allows the contract owner to update the address and initialization data for the
-     * client chain gateway logic. This is critical for preparing the contract setup before it's
-     * bootstrapped. The change can only occur prior to bootstrapping.
-     * @param _clientChainGatewayLogic The address of the new client chain gateway logic
-     * contract.
-     * @param _clientChainInitializationData The initialization data to be used when setting up
-     * the new logic contract.
-     */
+    /// @notice Sets a new client chain gateway logic and its initialization data.
+    /// @dev Allows the contract owner to update the address and initialization data for the
+    /// client chain gateway logic. The change can only occur prior to bootstrapping.
+    /// @param _clientChainGatewayLogic The address of the new client chain gateway logic
+    /// contract.
+    /// @param _clientChainInitializationData The initialization data to be used when setting up
+    /// the new logic contract.
     function setClientChainGatewayLogic(address _clientChainGatewayLogic, bytes calldata _clientChainInitializationData)
         public
         onlyOwner
@@ -621,33 +596,27 @@ contract Bootstrap is
         emit ClientChainGatewayLogicUpdated(_clientChainGatewayLogic, _clientChainInitializationData);
     }
 
-    /**
-     * @dev Gets the count of registered operators.
-     * @return The number of registered operators.
-     * @notice This function returns the total number of registered operators in the contract.
-     */
-    function getOperatorsCount() external view returns (uint256) {
-        return registeredOperators.length;
+    /// @dev Gets the count of registered validators.
+    /// @return The number of registered validators.
+    /// @notice This function returns the total number of registered validators in the contract.
+    function getValidatorsCount() external view returns (uint256) {
+        return registeredValidators.length;
     }
 
-    /**
-     * @dev Gets the count of depositors.
-     * @return The number of depositors.
-     * @notice This function returns the total number of depositors in the contract.
-     */
+    /// @dev Gets the count of depositors.
+    /// @return The number of depositors.
+    /// @notice This function returns the total number of depositors in the contract.
     function getDepositorsCount() external view returns (uint256) {
         return depositors.length;
     }
 
-    /**
-     * @notice Retrieves information for a supported token by its index in the storage array.
-     * @dev Returns comprehensive details about a token, including its ERC20 attributes and deposit amount.
-     * This function only exists in the Bootstrap contract and not in the ClientChainGateway, which
-     * does not track the deposits of whitelisted tokens.
-     * @param index The index of the token in the `supportedTokens` array.
-     * @return A `TokenInfo` struct containing the token's name, symbol, address, decimals, total supply, and deposit
-     * amount.
-     */
+    /// @notice Retrieves information for a supported token by its index in the storage array.
+    /// @dev Returns comprehensive details about a token, including its ERC20 attributes and deposit amount.
+    /// This function only exists in the Bootstrap contract and not in the ClientChainGateway, which
+    /// does not track the deposits of whitelisted tokens.
+    /// @param index The index of the token in the `supportedTokens` array.
+    /// @return A `TokenInfo` struct containing the token's name, symbol, address, decimals, total supply, and deposit
+    /// amount.
     function getWhitelistedTokenAtIndex(uint256 index) public view returns (TokenInfo memory) {
         if (index >= whitelistTokens.length) {
             revert Errors.IndexOutOfBounds();

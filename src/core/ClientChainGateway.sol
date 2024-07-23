@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
@@ -17,6 +18,9 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
+/// @title ClientChainGateway
+/// @author ExocoreNetwork
+/// @notice The gateway contract deployed on client chains for Exocore operations.
 contract ClientChainGateway is
     Initializable,
     PausableUpgradeable,
@@ -29,14 +33,12 @@ contract ClientChainGateway is
 
     using OptionsBuilder for bytes;
 
-    /**
-     * @notice This constructor initializes only immutable state variables
-     * @param endpoint_ is the layerzero endpoint address deployed on this chain
-     * @param exocoreChainId_ is the id of layerzero endpoint on Exocore chain
-     * @param beaconOracleAddress_ is the Ethereum beacon chain oracle that is used for fetching beacon block root
-     * @param exoCapsuleBeacon_ is the UpgradeableBeacon contract address for ExoCapsule beacon proxy
-     * @param vaultBeacon_ is the UpgradeableBeacon contract address for Vault beacon proxy
-     */
+    /// @notice This constructor initializes only immutable state variables
+    /// @param endpoint_ is the layerzero endpoint address deployed on this chain
+    /// @param exocoreChainId_ is the id of layerzero endpoint on Exocore chain
+    /// @param beaconOracleAddress_ is the Ethereum beacon chain oracle that is used for fetching beacon block root
+    /// @param exoCapsuleBeacon_ is the UpgradeableBeacon contract address for ExoCapsule beacon proxy
+    /// @param vaultBeacon_ is the UpgradeableBeacon contract address for Vault beacon proxy
     constructor(
         address endpoint_,
         uint32 exocoreChainId_,
@@ -57,8 +59,9 @@ contract ClientChainGateway is
         _disableInitializers();
     }
 
-    // initialization happens from another contract so it must be external.
-    // reinitializer(2) is used so that the ownable and oappcore functions can be called again.
+    /// @notice Initializes the ClientChainGateway contract.
+    /// @dev reinitializer(2) is used so that the base contract (like OAppCore) functions can be called again.
+    /// @param owner_ The address of the contract owner.
     function initialize(address owner_) external reinitializer(2) {
         _clearBootstrapData();
 
@@ -77,6 +80,7 @@ contract ClientChainGateway is
         __ReentrancyGuard_init_unchained();
     }
 
+    /// @dev Clears the bootstrap data.
     function _clearBootstrapData() internal {
         // mandatory to clear!
         delete _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP];
@@ -90,22 +94,26 @@ contract ClientChainGateway is
         delete offsetDuration;
         // previously, we tried clearing the loops but it is too expensive.
         delete depositors;
-        delete registeredOperators;
+        delete registeredValidators;
     }
 
+    /// @notice Pauses the contract.
     function pause() external onlyOwner {
         _pause();
     }
 
+    /// @notice Unpauses the contract.
     function unpause() external onlyOwner {
         _unpause();
     }
 
-    // implementation of ITokenWhitelister
-    function getWhitelistedTokensCount() external view returns (uint256) {
+    /// @notice Gets the count of whitelisted tokens.
+    /// @return The count of whitelisted tokens.
+    function getWhitelistedTokensCount() external returns (uint256) {
         return whitelistTokens.length;
     }
 
+    /// @inheritdoc IClientChainGateway
     function quote(bytes memory _message) public view returns (uint256 nativeFee) {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
@@ -114,11 +122,7 @@ contract ClientChainGateway is
         return fee.nativeFee;
     }
 
-    /**
-     * @notice Retrieves the OApp version information.
-     * @return senderVersion The version of the OAppSender.sol implementation.
-     * @return receiverVersion The version of the OAppReceiver.sol implementation.
-     */
+    /// @inheritdoc IOAppCore
     function oAppVersion()
         public
         pure

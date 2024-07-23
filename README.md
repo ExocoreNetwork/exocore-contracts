@@ -1,6 +1,6 @@
 # Exocore Contracts
 
-The Exocore contracts repository contains a set of smart contracts deployed on both Exocore and the target client chains, managed by the Exocore validator set, which facilitate assets deposit and withdrawal, cross-chain communication, and restaking operations for native assets and liquid staking tokens (LSTs), ensuring secure interactions and efficient management of restaked assets.
+The Exocore contracts repository contains a set of smart contracts deployed on both Exocore and the target client chains, which facilitate assets deposit and withdrawal, cross-chain communication, and restaking operations for native assets and liquid staking tokens (LSTs), ensuring secure interactions and efficient management of restaked assets.
 
 ## Getting Started
 
