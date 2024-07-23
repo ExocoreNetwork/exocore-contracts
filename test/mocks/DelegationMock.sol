@@ -5,6 +5,7 @@ import {IDelegation} from "../../src/interfaces/precompiles/IDelegation.sol";
 contract DelegationMock is IDelegation {
 
     mapping(bytes => mapping(bytes => mapping(uint32 => mapping(bytes => uint256)))) public delegateTo;
+    mapping(uint32 clientChainId => mapping(bytes staker => bytes operator)) public stakerToOperator;
 
     event DelegateRequestProcessed(
         uint32 clientChainLzId,
@@ -60,6 +61,16 @@ contract DelegationMock is IDelegation {
         );
 
         return true;
+    }
+
+    function associateOperatorWithStaker(uint32 clientChainId, bytes memory staker, bytes memory operator) external returns (bool success) {
+        stakerToOperator[clientChainId][staker] = operator;
+    }
+
+    function dissociateOperatorFromStaker(uint32 clientChainId, bytes memory staker) external returns (bool success) {
+        require(stakerToOperator[clientChainId][staker].length != 0, "staker has not been associated with any operator");
+
+        delete stakerToOperator[clientChainId][staker];
     }
 
     function getDelegateAmount(address delegator, string memory operator, uint32 clientChainLzId, address token)

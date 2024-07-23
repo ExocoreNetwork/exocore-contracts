@@ -31,6 +31,10 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @dev The length of a deposit-then-delegate request, in bytes.
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
     uint256 internal constant DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH = DELEGATE_REQUEST_LENGTH;
+    // bytes32 staker + bytes(42) operator
+    uint256 internal constant ASSOCIATE_OPERATOR_REQUEST_LENGTH = 74;
+    // bytes32 staker
+    uint256 internal constant DISSOCIATE_OPERATOR_REQUEST_LENGTH = 32;
 
     // constants used for layerzero messaging
     /// @dev The gas limit for all the destination chains.
@@ -117,6 +121,8 @@ contract ExocoreGatewayStorage is GatewayStorage {
     event UndelegateResult(
         bool indexed success, bytes32 indexed token, bytes32 indexed undelegator, string operator, uint256 amount
     );
+    event AssociateOperatorResult(bool indexed success, bytes32 indexed staker, bytes32 indexed operator);
+    event DissociateOperatorResult(bool indexed success, bytes32 indexed staker);
 
     /// @notice Thrown when the execution of a request fails
     /// @param act The action that failed.
@@ -162,6 +168,8 @@ contract ExocoreGatewayStorage is GatewayStorage {
 
     /// @notice Thrown when the whitelist tokens list is too long.
     error WhitelistTokensListTooLong();
+    error AssociateOperatorFailed(uint32 clientChainId, string staker, string operator);
+    error DissociateOperatorFailed(uint32 clientChainId, string staker);
 
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;

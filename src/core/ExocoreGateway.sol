@@ -252,6 +252,24 @@ contract ExocoreGateway is
         }
     }
 
+    function associateOperatorWithEVMStaker(uint32 clientChainId, string calldata operator) external whenNotPaused isValidBech32Address(operator) {
+        bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
+
+        bool success = DELEGATION_CONTRACT.associateOperatorWithStaker(clientChainId, staker, bytes(operator));
+        if (!success) {
+            revert AssociateOperatorFailed(clientChainId, string(staker), operator);
+        }
+    }
+
+    function dissociateOperatorFromEVMStaker(uint32 clientChainId) external whenNotPaused {
+        bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
+
+        bool success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(clientChainId, staker);
+        if (!success) {
+            revert DissociateOperatorFailed(clientChainId, string(staker));
+        }
+    }
+
     /// @dev Validates the input for whitelist tokens.
     /// @param clientChainId The client chain id, which must have been previously registered.
     /// @param tokens The list of token addresses, length must be <= 255.
@@ -508,6 +526,37 @@ contract ExocoreGateway is
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, updatedBalance), true);
         }
         emit DelegateResult(result, bytes32(token), bytes32(depositor), string(operator), amount);
+    }
+
+    function requestAssociateOperatorWithStaker(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+        _validatePayloadLength(payload, ASSOCIATE_OPERATOR_REQUEST_LENGTH, Action.REQUEST_ASSOCIATE_OPERATOR);
+
+        bytes calldata staker = payload[:32];
+        bytes calldata operator = payload[32:74];
+
+        bool result = false;
+        try DELEGATION_CONTRACT.associateOperatorWithStaker(srcChainId, staker, operator) returns (bool success) {
+            result = success;
+        } catch {
+            emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
+        }
+
+        emit AssociateOperatorResult(result, bytes32(staker), bytes32(operator));
+    }
+
+    function requestDissociateOperatorFromStaker(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+        _validatePayloadLength(payload, DISSOCIATE_OPERATOR_REQUEST_LENGTH, Action.REQUEST_DISSOCIATE_OPERATOR);
+
+        bytes calldata staker = payload[:32];
+
+        bool result = false;
+        try DELEGATION_CONTRACT.dissociateOperatorFromStaker(srcChainId, staker) returns (bool success) {
+            result = success;
+        } catch {
+            emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
+        }
+
+        emit DissociateOperatorResult(result, bytes32(staker));
     }
 
     /// @dev Validates the payload length, that it matches the expected length.
