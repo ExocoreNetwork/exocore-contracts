@@ -11,7 +11,7 @@ The two main functionalities of client chain smart contracts include:
 
 We have these components included in Exocore client chain smart contracts architecture:
 
-1. `ClientChainGateway`: This is the entry point where client chain users make request to Exocore validator set, as well as the end point that receives cross-chain messages from Exocore validator set.
+1. `ClientChainGateway`: This is the entry point where client chain users make requests to the Exocore validator set, as well as the endpoint that receives cross-chain messages from the Exocore validator set.
 2. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have a standalone `Vault`.
 3. `LSTRestakingController`: The controller is responsible for managing multiple `Vault`s. It should be the entry point for operations on `Vault`, as well as the entry point for user’s interactions with the gateway. It is inherited / implemented by the `Gateway`.
 
