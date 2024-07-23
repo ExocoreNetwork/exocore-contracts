@@ -11,6 +11,7 @@ import {ClientGatewayLzReceiver} from "./ClientGatewayLzReceiver.sol";
 import {LSTRestakingController} from "./LSTRestakingController.sol";
 import {NativeRestakingController} from "./NativeRestakingController.sol";
 
+import {Errors} from "../libraries/Errors.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -64,7 +65,9 @@ contract ClientChainGateway is
     function initialize(address owner_) external reinitializer(2) {
         _clearBootstrapData();
 
-        require(owner_ != address(0), "ClientChainGateway: contract owner should not be empty");
+        if (owner_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
 
         _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] =
             this.afterReceiveAddWhitelistTokensRequest.selector;

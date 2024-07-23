@@ -7,6 +7,7 @@ import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
+import {Errors} from "../libraries/Errors.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -27,9 +28,9 @@ abstract contract NativeRestakingController is
 
     /// @dev Ensures that native restaking is enabled for this contract.
     modifier nativeRestakingEnabled() {
-        require(
-            isWhitelistedToken[VIRTUAL_STAKED_ETH_ADDRESS], "NativeRestakingController: native restaking is not enabled"
-        );
+        if (!isWhitelistedToken[VIRTUAL_STAKED_ETH_ADDRESS]) {
+            revert Errors.NativeRestakingControllerNotWhitelisted();
+        }
         _;
     }
 
@@ -45,7 +46,9 @@ abstract contract NativeRestakingController is
         nonReentrant
         nativeRestakingEnabled
     {
-        require(msg.value == 32 ether, "NativeRestakingController: stake value must be exactly 32 ether");
+        if (msg.value != 32 ether) {
+            revert Errors.NativeRestakingControllerInvalidStakeValue();
+        }
 
         IExoCapsule capsule = ownerToCapsule[msg.sender];
         if (address(capsule) == address(0)) {
@@ -62,10 +65,9 @@ abstract contract NativeRestakingController is
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision
     function createExoCapsule() public whenNotPaused nativeRestakingEnabled returns (address) {
-        require(
-            address(ownerToCapsule[msg.sender]) == address(0),
-            "NativeRestakingController: message sender has already created the capsule"
-        );
+        if (address(ownerToCapsule[msg.sender]) != address(0)) {
+            revert Errors.NativeRestakingControllerCapsuleAlreadyCreated();
+        }
         IExoCapsule capsule = IExoCapsule(
             Create2.deploy(
                 0,

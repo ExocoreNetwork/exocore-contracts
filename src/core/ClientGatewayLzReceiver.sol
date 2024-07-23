@@ -6,6 +6,7 @@ import {IVault} from "../interfaces/IVault.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 
+import {Errors} from "../libraries/Errors.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 /// @title ClientGatewayLzReceiver
@@ -40,10 +41,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
     /// @dev Ensure that the function is called only from this contract.
     modifier onlyCalledFromThis() {
-        require(
-            msg.sender == address(this),
-            "ClientChainLzReceiver: could only be called from this contract itself with low level call"
-        );
+        if (msg.sender != address(this)) {
+            revert Errors.ClientGatewayLzReceiverOnlyCalledFromThis();
+        }
         _;
     }
 

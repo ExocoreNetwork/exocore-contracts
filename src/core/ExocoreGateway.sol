@@ -16,6 +16,7 @@ import {
 } from "../lzApp/OAppUpgradeable.sol";
 import {ExocoreGatewayStorage} from "../storage/ExocoreGatewayStorage.sol";
 
+import {Errors} from "../libraries/Errors.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
@@ -43,10 +44,9 @@ contract ExocoreGateway is
 
     /// @dev Ensures that the function is called only from this contract via low-level call.
     modifier onlyCalledFromThis() {
-        require(
-            msg.sender == address(this),
-            "ExocoreGateway: can only be called from this contract itself with a low-level call"
-        );
+        if (msg.sender != address(this)) {
+            revert Errors.ExocoreGatewayOnlyCalledFromThis();
+        }
         _;
     }
 
@@ -61,7 +61,9 @@ contract ExocoreGateway is
     /// @notice Initializes the ExocoreGateway contract.
     /// @param owner_ The address of the contract owner.
     function initialize(address owner_) external initializer {
-        require(owner_ != address(0), "ExocoreGateway: owner address cannot be the zero address");
+        if (owner_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
 
         _initializeWhitelistFunctionSelectors();
         _transferOwnership(owner_);
@@ -104,9 +106,13 @@ contract ExocoreGateway is
     function markBootstrapOnAllChains() public whenNotPaused nonReentrant {
         (bool success, bytes memory result) =
             ASSETS_PRECOMPILE_ADDRESS.staticcall(abi.encodeWithSelector(ASSETS_CONTRACT.getClientChains.selector));
-        require(success, "ExocoreGateway: failed to get client chain ids");
+        if (!success) {
+            revert Errors.ExocoreGatewayFailedToGetClientChainIds();
+        }
         (bool ok, uint32[] memory clientChainIds) = abi.decode(result, (bool, uint32[]));
-        require(ok, "ExocoreGateway: failed to decode client chain ids");
+        if (!ok) {
+            revert Errors.ExocoreGatewayFailedToDecodeClientChainIds();
+        }
         for (uint256 i = 0; i < clientChainIds.length; i++) {
             uint32 clientChainId = clientChainIds[i];
             if (!chainToBootstrapped[clientChainId]) {
@@ -126,13 +132,13 @@ contract ExocoreGateway is
         string calldata metaInfo,
         string calldata signatureType
     ) public onlyOwner whenNotPaused {
-        require(clientChainId != uint32(0), "ExocoreGateway: client chain id cannot be zero or empty");
-        require(peer != bytes32(0), "ExocoreGateway: peer address cannot be zero or empty");
-        require(addressLength != 0, "ExocoreGateway: address length cannot be zero or empty");
-        require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
-        require(bytes(metaInfo).length != 0, "ExocoreGateway: meta data cannot be empty");
+        if (
+            clientChainId == uint32(0) || peer == bytes32(0) || addressLength == 0 || bytes(name).length == 0
+                || bytes(metaInfo).length == 0
+        ) {
+            revert Errors.ZeroValue();
+        }
         // signature type could be left as empty for current implementation
-
         _registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
         super.setPeer(clientChainId, peer);
 
@@ -154,10 +160,9 @@ contract ExocoreGateway is
         onlyOwner
         whenNotPaused
     {
-        require(
-            isRegisteredClientChain[clientChainId],
-            "ExocoreGateway: client chain should be registered before setting peer to change peer address"
-        );
+        if (!isRegisteredClientChain[clientChainId]) {
+            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
+        }
 
         super.setPeer(clientChainId, clientChainGateway);
     }
