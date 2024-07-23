@@ -2,7 +2,7 @@
 
 ## Overview
 
-Exocore Client chain smart contracts refer to a set smart contracts that are deployed on multiple chains (EVM-compatible chains for current version), and provided for Exocore users (mainly stakers) to interact with Exocore system from specific client chains. The administrative functionalities of these contracts are via their owner, which ideally should be a multi-sig.
+Exocore Client chain smart contracts refer to a set of smart contracts that are deployed on multiple chains (EVM-compatible chains for current version), and provided for Exocore users (mainly stakers) to interact with Exocore system from specific client chains. The administrative functionalities of these contracts are via their owner, which ideally should be a multi-sig.
 
 The two main functionalities of client chain smart contracts include:
 
@@ -12,18 +12,18 @@ The two main functionalities of client chain smart contracts include:
 We have these components included in Exocore client chain smart contracts architecture:
 
 1. `ClientChainGateway`: This is the entry point where client chain users make request to Exocore validator set, as well as the end point that receives cross-chain messages from Exocore validator set.
-2. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have standalone `Vault`.
+2. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have a standalone `Vault`.
 3. `LSTRestakingController`: The controller is responsible for managing multiple `Vault`s. It should be the entry point for operations on `Vault`, as well as the entry point for user’s interactions with the gateway. It is inherited / implemented by the `Gateway`.
 
 ## Upgrade
 
 Upgradeable contracts rely on three components: storage contract, logic contract, proxy contract. All upgradeable contracts architecture utilizes the fact that inside a proxy contract, if we `delegatecall` the logic contract, the code of the logic contract would be loaded in the context of the proxy contract. Therefore, the proxy contract actually forwards the call to a logic contract but reads and writes the proxy’s own state variables. That way, a proxy contract can inherit the old state (and even add state variables) even if the logic contract is replaced.
 
-After the upgrade, the new logic contract (with the new implementation) must align the storage with the previous storage layout by extending it. It means that no state variables should be removed, and the type as well as the order of state variable should remain the same. All future versions of the logic contract must inherit the same storage contract to make the storage layout compatible after upgrade. Afterwards, by replacing the old logic contract address with the address of new logic contract, we can upgrade a contract without violating its storage.
+After the upgrade, the new logic contract (with the new implementation) must align the storage with the previous storage layout by extending it. It means that no state variables should be removed, and the type as well as the order of state variable should remain the same. All future versions of the logic contract must inherit the same storage contract to make the storage layout compatible after upgrade. Afterward, by replacing the old logic contract address with the address of new logic contract, we can upgrade a contract without violating its storage.
 
 In this architecture, proxy contracts do not inherit the storage contract and are kept as stateless as possible.
 
-For the purpose of allowing adding state variables to proxy contract, we need to retain some unused slots in the end of storage contract so that we can add new state variables and override the unused slots.
+For the purpose of allowing adding state variables to proxy contract, we need to retain some unused slots at the end of storage contract so that we can add new state variables and override the unused slots.
 
 ```solidity
 contract GatewayStorage {
@@ -44,10 +44,10 @@ Besides all of these techniques, there are other details that we need to handle 
 
 > constructors are replaced by initializer functions, state variables are initialized in initializer functions, and we additionally check for storage incompatibilities across minor versions.
 
-In most of the cases, we can not directly use implementations linked above and need to implement our own upgradeable contracts. When we write our own upgradeable smart contracts, we must follow these principles:
+In most of the cases, we cannot directly use implementations linked above and need to implement our own upgradeable contracts. When we write our own upgradeable smart contracts, we must follow these principles:
 
 1. Our upgradeable contracts should always inherit from OZ's upgradeable contracts.
-2. Do not assign an initial value to state variables when declaring them except `immutable` and `constant`.
+2. Do not assign an initial value to state variables when declaring them, except `immutable` and `constant`.
 3. Do not assign initial value to state variables in `constructor` except `immutable` .
 4. Replace `constructor` with openzeppelin’s `initializer` modifier.
 5. Disable initializers in `constructor` to prevent anyone else directly initialize the contract without calling the proxy.
@@ -105,7 +105,7 @@ Similar to LayerZero `endpoint`, `ClientChainGateway` is mainly responsible for 
 
 Eventually, Exocore validator set should be the owner of `ClientChainGateway` so that it can update some state variables or even upgrade it in the future. In the early stages, a more controlled way to upgrade is needed, for example, a multi-sig.
 
-We have made `ClientChainGateway` contract upgradable so that the state can be retained while adding or removing some features in the future.
+We have made `ClientChainGateway` contract upgradeable so that the state can be retained while adding or removing some features in the future.
 
 ```solidity
 contract BaseRestakingController {
@@ -125,7 +125,7 @@ This internal function is used to send a message, over LayerZero, from the clien
 
 ### `_lzReceive`
 
-This internal function is called via LayerZero upon the receipt of a cross-chain message. In the context of the `ClientChainGateway`, it is used to handle the response provided by the Exocore chain against an outgoing message. For example, if a withdraw request is initiated by a user, and sent by the `ClientChainGateway` to Exocore, a response is received indicating whether the withdrawal is valid. Based on this validity, `ClientChainGateway` marks the funds available for the user to claim.
+This internal function is called via LayerZero upon the receipt of a cross-chain message. In the context of the `ClientChainGateway`, it is used to handle the response provided by the Exocore chain against an outgoing message. For example, if a withdrawal request is initiated by a user, and sent by the `ClientChainGateway` to Exocore, a response is received indicating whether the withdrawal is valid. Based on this validity, `ClientChainGateway` marks the funds available for the user to claim.
 
 ## `Vault`
 
@@ -171,7 +171,7 @@ interface IVault {
 }
 ```
 
-`principalBalance` refers to the principal that the user deposits into the `ClientChainGateway`. It is separated from the rewards earned by the users, since such rewards could be distributed on the Exocore chain or on another client chain while the user principal is taken in custody on this chain. Besides, we assume that the principal balance can only be influenced during slashing and that it is not transferable to any other address. In other words, the principal balance to be withdrawn can never be greater than the originally deposited principal balance.
+`principalBalance` refers to the principal that the user deposits into the `ClientChainGateway`. It is separated from the rewards earned by the users, since such rewards could be distributed on the Exocore chain or on another client chain, while the user principal is taken in custody on this chain. Besides, we assume that the principal balance can only be influenced during slashing and that it is not transferable to any other address. In other words, the principal balance to be withdrawn can never be greater than the originally deposited principal balance.
 
 ### `deposit`
 
@@ -183,7 +183,7 @@ Whenever a `deposit` request is received by the `ClientChainGateway`, it first d
 
 ### `withdraw`
 
-This function allows a user to claim their withdrawable assets. The quantity of the withdrawable assets is set by the `ClientChainGateway` in response to a withdraw request, after receiving a response from Exocore.
+This function allows a user to claim their withdrawable assets. The quantity of the withdrawable assets is set by the `ClientChainGateway` in response to a withdrawal request, after receiving a response from Exocore.
 
 ## `LSTRestakingController`
 
@@ -254,7 +254,7 @@ interface ILSTRestakingController is IBaseRestakingController {
 
 See [`deposit`](#deposit).
 
-Once the assets have been deposited into the `Vault`, the `ClientChainGateway` sends a cross-chain message to Exocore, which is obviously asynchronous. Upon receiving the message, Exocore will take into account the deposit, and must respond that the message succeeded. This is because our design requires that deposits can never fail.
+Once the assets have been deposited into the `Vault`, the `ClientChainGateway` sends a cross-chain message to Exocore, which is obviously asynchronous. Upon receiving the message, Exocore will consider the deposit, and must respond that the message succeeded. This is because our design requires that deposits can never fail.
 
 ### `delegateTo`
 
@@ -269,7 +269,7 @@ Since the `ClientChainGateway` by itself does not store enough information to ch
 
 ### `undelegateFrom`
 
-This function is the reverse of [`delegatTo`](#delegateto), except that it requires an unbonding period before the undelegation is released for withdrawal. The unbonding period is determined by Exocore on the basis of all of the AVSs in which the operator was participating at the time of undelegation.
+This function is the reverse of [`delegatTo`](#delegateto), except that it requires an unbonding period before the undelegation is released for withdrawal. The unbonding period is determined by Exocore based on all the AVSs in which the operator was participating at the time of undelegation.
 
 ### `withdrawPrincipalFromExocore`
 
