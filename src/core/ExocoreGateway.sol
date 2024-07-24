@@ -82,6 +82,10 @@ contract ExocoreGateway is
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] =
             this.requestDepositThenDelegateTo.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_ASSOCIATE_OPERATOR] =
+            this.requestAssociateOperatorWithStaker.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_DISSOCIATE_OPERATOR] =
+            this.requestDissociateOperatorFromStaker.selector;
     }
 
     /// @notice Pauses the contract.
@@ -191,6 +195,47 @@ contract ExocoreGateway is
         _addOrUpdateWhitelistTokens(clientChainId, tokens, decimals, tvlLimits, names, metaData, false);
     }
 
+    /**
+     * @notice Associate an Exocore operator with an EVM staker(msg.sender),  and this would count staker's delegation
+     * as operator's self-delegation when staker delegates to operator.
+     * @param clientChainId The id of client chain
+     * @param operator The Exocore operator address
+     * @dev one staker(chainId+stakerAddress) can only associate one operator, while one operator might be associated
+     * with multiple stakers
+     */
+    function associateOperatorWithEVMStaker(uint32 clientChainId, string calldata operator)
+        external
+        whenNotPaused
+        isValidBech32Address(operator)
+    {
+        if (!isRegisteredClientChain[clientChainId]) {
+            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
+        }
+
+        bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
+        bool success = DELEGATION_CONTRACT.associateOperatorWithStaker(clientChainId, staker, bytes(operator));
+        if (!success) {
+            revert AssociateOperatorFailed(clientChainId, msg.sender, operator);
+        }
+    }
+
+    /**
+     * @notice Dissociate an Exocore operator from an EVM staker(msg.sender),  and this requires that the staker has
+     * already been associated to operator.
+     * @param clientChainId The id of client chain
+     */
+    function dissociateOperatorFromEVMStaker(uint32 clientChainId) external whenNotPaused {
+        if (!isRegisteredClientChain[clientChainId]) {
+            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
+        }
+
+        bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
+        bool success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(clientChainId, staker);
+        if (!success) {
+            revert DissociateOperatorFailed(clientChainId, msg.sender);
+        }
+    }
+
     /// @dev The internal version of addWhitelistTokens and updateWhitelistedTokens.
     /// @param clientChainId Source client chain id
     /// @param tokens List of token addresses
@@ -249,24 +294,6 @@ contract ExocoreGateway is
                 abi.encodePacked(uint8(tokens.length), tokens),
                 false
             );
-        }
-    }
-
-    function associateOperatorWithEVMStaker(uint32 clientChainId, string calldata operator) external whenNotPaused isValidBech32Address(operator) {
-        bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
-
-        bool success = DELEGATION_CONTRACT.associateOperatorWithStaker(clientChainId, staker, bytes(operator));
-        if (!success) {
-            revert AssociateOperatorFailed(clientChainId, string(staker), operator);
-        }
-    }
-
-    function dissociateOperatorFromEVMStaker(uint32 clientChainId) external whenNotPaused {
-        bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
-
-        bool success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(clientChainId, staker);
-        if (!success) {
-            revert DissociateOperatorFailed(clientChainId, string(staker));
         }
     }
 
@@ -528,7 +555,15 @@ contract ExocoreGateway is
         emit DelegateResult(result, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 
-    function requestAssociateOperatorWithStaker(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+    /// @notice Hanldes the associating operator request, and no response would be returned.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
+    function requestAssociateOperatorWithStaker(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
         _validatePayloadLength(payload, ASSOCIATE_OPERATOR_REQUEST_LENGTH, Action.REQUEST_ASSOCIATE_OPERATOR);
 
         bytes calldata staker = payload[:32];
@@ -541,10 +576,18 @@ contract ExocoreGateway is
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
         }
 
-        emit AssociateOperatorResult(result, bytes32(staker), bytes32(operator));
+        emit AssociateOperatorResult(result, bytes32(staker), operator);
     }
 
-    function requestDissociateOperatorFromStaker(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
+    /// @notice Hanldes the dissociating operator request, and no response would be returned.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
+    function requestDissociateOperatorFromStaker(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
         _validatePayloadLength(payload, DISSOCIATE_OPERATOR_REQUEST_LENGTH, Action.REQUEST_DISSOCIATE_OPERATOR);
 
         bytes calldata staker = payload[:32];

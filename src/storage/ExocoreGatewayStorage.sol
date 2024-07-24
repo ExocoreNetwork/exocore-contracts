@@ -121,7 +121,16 @@ contract ExocoreGatewayStorage is GatewayStorage {
     event UndelegateResult(
         bool indexed success, bytes32 indexed token, bytes32 indexed undelegator, string operator, uint256 amount
     );
-    event AssociateOperatorResult(bool indexed success, bytes32 indexed staker, bytes32 indexed operator);
+
+    /// @notice Emitted upon handling associating operator request
+    /// @param success Whether the operation was successful.
+    /// @param staker The staker address that should be associated to @operator.
+    /// @param operator The operator address that @staker should be associated with.
+    event AssociateOperatorResult(bool indexed success, bytes32 indexed staker, bytes operator);
+
+    /// @notice Emitted upon handling dissociating operator request
+    /// @param success Whether the operation was successful.
+    /// @param staker The staker address that should be dissociated from @operator.
     event DissociateOperatorResult(bool indexed success, bytes32 indexed staker);
 
     /// @notice Thrown when the execution of a request fails
@@ -168,8 +177,12 @@ contract ExocoreGatewayStorage is GatewayStorage {
 
     /// @notice Thrown when the whitelist tokens list is too long.
     error WhitelistTokensListTooLong();
-    error AssociateOperatorFailed(uint32 clientChainId, string staker, string operator);
-    error DissociateOperatorFailed(uint32 clientChainId, string staker);
+
+    /// @notice Thrown when associateOperatorWithEVMStaker failed
+    error AssociateOperatorFailed(uint32 clientChainId, address staker, string operator);
+
+    /// @notice Thrown when dissociateOperatorFromEVMStaker failed
+    error DissociateOperatorFailed(uint32 clientChainId, address staker);
 
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;

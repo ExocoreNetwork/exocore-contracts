@@ -4,7 +4,11 @@ import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpoint
 import "src/interfaces/precompiles/IAssets.sol";
 import "src/interfaces/precompiles/IClaimReward.sol";
 import "src/interfaces/precompiles/IDelegation.sol";
+
 import "src/libraries/Errors.sol";
+import "test/mocks/AssetsMock.sol";
+import "test/mocks/ClaimRewardMock.sol";
+import "test/mocks/DelegationMock.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
@@ -165,6 +169,24 @@ contract LzReceive is SetUp {
     using AddressCast for address;
 
     uint256 constant WITHDRAWAL_AMOUNT = 123;
+    string operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+
+    event AssociateOperatorResult(bool indexed success, bytes32 indexed staker, bytes operator);
+    event DissociateOperatorResult(bool indexed success, bytes32 indexed staker);
+
+    function setUp() public override {
+        super.setUp();
+
+        // bind precompile mock contracts code to constant precompile address
+        bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
+        vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
+
+        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
+        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
+
+        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
+        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+    }
 
     function test_NotRevert_WithdrawalAmountOverflow() public {
         bytes memory payload = abi.encodePacked(
@@ -176,6 +198,131 @@ contract LzReceive is SetUp {
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit ExocorePrecompileError(ASSETS_PRECOMPILE_ADDRESS, uint64(1));
+
+        vm.prank(address(exocoreLzEndpoint));
+        exocoreGateway.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
+            bytes32(0),
+            msg_,
+            address(0x2),
+            bytes("")
+        );
+    }
+
+    function test_Success_AssociateOperatorWithStaker() public {
+        Player memory staker = players[0];
+
+        bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))), bytes(operator));
+        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_ASSOCIATE_OPERATOR, payload);
+
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit AssociateOperatorResult(true, bytes32(bytes20(staker.addr)), bytes(operator));
+
+        vm.prank(address(exocoreLzEndpoint));
+        exocoreGateway.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),
+            bytes32(0),
+            msg_,
+            address(0x2),
+            bytes("")
+        );
+    }
+
+    function test_EmitResultAsFailed_StakerAlreadyBeenAssociated() public {
+        test_Success_AssociateOperatorWithStaker();
+
+        Player memory staker = players[0];
+        string memory anotherOperator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f811111";
+
+        bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))), bytes(anotherOperator));
+        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_ASSOCIATE_OPERATOR, payload);
+
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit AssociateOperatorResult(false, bytes32(bytes20(staker.addr)), bytes(anotherOperator));
+
+        vm.prank(address(exocoreLzEndpoint));
+        exocoreGateway.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), uint64(2)),
+            bytes32(0),
+            msg_,
+            address(0x2),
+            bytes("")
+        );
+
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
+            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
+        );
+        assertEq(keccak256(associatedOperator), keccak256(bytes(operator)));
+    }
+
+    function test_EmitResultAsSuccess_AssociateStakerOnAnotherChain() public {
+        test_Success_AssociateOperatorWithStaker();
+
+        Player memory staker = players[0];
+        string memory anotherOperator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f811111";
+        uint32 anotherChainId = 123;
+
+        bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))), bytes(anotherOperator));
+        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_ASSOCIATE_OPERATOR, payload);
+
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherChainId,
+            address(clientGateway).toBytes32(),
+            20,
+            "clientChain",
+            "EVM compatible client chain",
+            "secp256k1"
+        );
+        vm.stopPrank();
+
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit AssociateOperatorResult(true, bytes32(bytes20(staker.addr)), bytes(anotherOperator));
+
+        vm.prank(address(exocoreLzEndpoint));
+        exocoreGateway.lzReceive(
+            Origin(anotherChainId, address(clientGateway).toBytes32(), uint64(1)),
+            bytes32(0),
+            msg_,
+            address(0x2),
+            bytes("")
+        );
+
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
+            anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
+        );
+        assertEq(keccak256(associatedOperator), keccak256(bytes(anotherOperator)));
+    }
+
+    function test_Success_DissociateOperatorFromStaker() public {
+        test_Success_AssociateOperatorWithStaker();
+
+        Player memory staker = players[0];
+
+        bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))));
+        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_DISSOCIATE_OPERATOR, payload);
+
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit DissociateOperatorResult(true, bytes32(bytes20(staker.addr)));
+
+        vm.prank(address(exocoreLzEndpoint));
+        exocoreGateway.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), uint64(2)),
+            bytes32(0),
+            msg_,
+            address(0x2),
+            bytes("")
+        );
+    }
+
+    function test_EmitResultAsFailed_DissociateFreshStaker() public {
+        Player memory staker = players[0];
+
+        bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))));
+        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_DISSOCIATE_OPERATOR, payload);
+
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit DissociateOperatorResult(false, bytes32(bytes20(staker.addr)));
 
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(
@@ -679,6 +826,104 @@ contract UpdateWhitelistTokens is SetUp {
             clientChainId_, whitelistTokens_, decimals_, tvlLimits_, names_, metaData_
         );
         vm.stopPrank();
+    }
+
+}
+
+contract AssociateOperatorWithEVMStaker is SetUp {
+
+    using AddressCast for address;
+
+    string operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+    string anotherOperator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f811111";
+    uint32 anotherChainId = 123;
+
+    function test_Success_AssociateEVMStaker() public {
+        Player memory staker = players[0];
+        vm.startPrank(staker.addr);
+        exocoreGateway.associateOperatorWithEVMStaker(clientChainId, operator);
+
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
+            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
+        );
+        assertEq(keccak256(associatedOperator), keccak256(bytes(operator)));
+    }
+
+    function test_RevertWhen_ClientChainNotRegistered() public {
+        Player memory staker = players[0];
+        vm.expectRevert(Errors.ExocoreGatewayNotRegisteredClientChainId.selector);
+        vm.startPrank(staker.addr);
+        exocoreGateway.associateOperatorWithEVMStaker(anotherChainId, operator);
+    }
+
+    function test_RevertWhen_AssociateMarkedStaker() public {
+        test_Success_AssociateEVMStaker();
+
+        Player memory staker = players[0];
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ExocoreGatewayStorage.AssociateOperatorFailed.selector, clientChainId, staker.addr, anotherOperator
+            )
+        );
+        vm.startPrank(staker.addr);
+        exocoreGateway.associateOperatorWithEVMStaker(clientChainId, anotherOperator);
+    }
+
+    function test_Success_AssociateSameStakerButAnotherChain() public {
+        test_Success_AssociateEVMStaker();
+
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherChainId,
+            address(clientGateway).toBytes32(),
+            20,
+            "clientChain",
+            "EVM compatible client chain",
+            "secp256k1"
+        );
+        vm.stopPrank();
+
+        Player memory staker = players[0];
+        vm.startPrank(staker.addr);
+        exocoreGateway.associateOperatorWithEVMStaker(anotherChainId, anotherOperator);
+
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
+            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
+        );
+        assertEq(keccak256(associatedOperator), keccak256(bytes(operator)));
+        associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
+            anotherChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
+        );
+        assertEq(keccak256(associatedOperator), keccak256(bytes(anotherOperator)));
+    }
+
+    function test_Success_DissociateEVMStaker() public {
+        test_Success_AssociateEVMStaker();
+
+        Player memory staker = players[0];
+        vm.startPrank(staker.addr);
+        exocoreGateway.dissociateOperatorFromEVMStaker(clientChainId);
+
+        bytes memory associatedOperator = DelegationMock(DELEGATION_PRECOMPILE_ADDRESS).getAssociatedOperator(
+            clientChainId, abi.encodePacked(bytes32(bytes20(staker.addr)))
+        );
+        assertEq(associatedOperator.length, 0);
+    }
+
+    function test_RevertWhen_DissociateClientChainNotRegistered() public {
+        Player memory staker = players[0];
+        vm.expectRevert(Errors.ExocoreGatewayNotRegisteredClientChainId.selector);
+        vm.startPrank(staker.addr);
+        exocoreGateway.dissociateOperatorFromEVMStaker(anotherChainId);
+    }
+
+    function test_RevertWhen_DissociatePureStaker() public {
+        Player memory staker = players[0];
+        vm.expectRevert(
+            abi.encodeWithSelector(ExocoreGatewayStorage.DissociateOperatorFailed.selector, clientChainId, staker.addr)
+        );
+        vm.startPrank(staker.addr);
+        exocoreGateway.dissociateOperatorFromEVMStaker(clientChainId);
     }
 
 }

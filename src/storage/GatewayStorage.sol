@@ -20,10 +20,10 @@ contract GatewayStorage {
         REQUEST_DISSOCIATE_OPERATOR,
         RESPOND
     }
+    /// @notice the human readable prefix for Exocore bech32 encoded address.
 
-    
     bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
-    
+
     /// @dev Mapping of actions to their corresponding function selectors.
     mapping(Action => bytes4) internal _whiteListFunctionSelectors;
 
