@@ -182,10 +182,6 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
             revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
         }
 
-        if (!_isActivatedAtEpoch(validatorContainer, proof.beaconBlockTimestamp)) {
-            revert InactiveValidatorContainer(validatorPubkey);
-        }
-
         if (withdrawalCredentials != bytes32(capsuleWithdrawalCredentials())) {
             revert WithdrawalCredentialsNotMatch();
         }
