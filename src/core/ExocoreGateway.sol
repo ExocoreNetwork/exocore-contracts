@@ -555,7 +555,7 @@ contract ExocoreGateway is
         emit DelegateResult(result, bytes32(token), bytes32(depositor), string(operator), amount);
     }
 
-    /// @notice Hanldes the associating operator request, and no response would be returned.
+    /// @notice Handles the associating operator request, and no response would be returned.
     /// @dev Can only be called from this contract via low-level call.
     /// @param srcChainId The source chain id.
     /// @param lzNonce The layer zero nonce.
