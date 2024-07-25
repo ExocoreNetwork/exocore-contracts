@@ -579,7 +579,7 @@ contract ExocoreGateway is
         emit AssociateOperatorResult(result, bytes32(staker), operator);
     }
 
-    /// @notice Hanldes the dissociating operator request, and no response would be returned.
+    /// @notice Handles the dissociating operator request, and no response would be returned.
     /// @dev Can only be called from this contract via low-level call.
     /// @param srcChainId The source chain id.
     /// @param lzNonce The layer zero nonce.
