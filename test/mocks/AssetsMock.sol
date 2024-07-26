@@ -9,8 +9,8 @@ contract AssetsMock is IAssets {
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principalBalances;
 
     uint32[] internal chainIds;
-    mapping(uint32 chainId => bool registered) isRegisteredChain;
-    mapping(uint32 chainId => mapping(bytes token => bool registered)) isRegisteredToken;
+    mapping(uint32 chainId => bool registered) public isRegisteredChain;
+    mapping(uint32 chainId => mapping(bytes token => bool registered)) public isRegisteredToken;
 
     function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
         external

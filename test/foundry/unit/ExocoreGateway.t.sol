@@ -851,7 +851,9 @@ contract AssociateOperatorWithEVMStaker is SetUp {
 
     function test_RevertWhen_ClientChainNotRegistered() public {
         Player memory staker = players[0];
-        vm.expectRevert(Errors.ExocoreGatewayNotRegisteredClientChainId.selector);
+        vm.expectRevert(
+            abi.encodeWithSelector(Errors.AssociateOperatorFailed.selector, anotherChainId, staker.addr, operator)
+        );
         vm.startPrank(staker.addr);
         exocoreGateway.associateOperatorWithEVMStaker(anotherChainId, operator);
     }
@@ -861,9 +863,7 @@ contract AssociateOperatorWithEVMStaker is SetUp {
 
         Player memory staker = players[0];
         vm.expectRevert(
-            abi.encodeWithSelector(
-                ExocoreGatewayStorage.AssociateOperatorFailed.selector, clientChainId, staker.addr, anotherOperator
-            )
+            abi.encodeWithSelector(Errors.AssociateOperatorFailed.selector, clientChainId, staker.addr, anotherOperator)
         );
         vm.startPrank(staker.addr);
         exocoreGateway.associateOperatorWithEVMStaker(clientChainId, anotherOperator);
@@ -912,16 +912,14 @@ contract AssociateOperatorWithEVMStaker is SetUp {
 
     function test_RevertWhen_DissociateClientChainNotRegistered() public {
         Player memory staker = players[0];
-        vm.expectRevert(Errors.ExocoreGatewayNotRegisteredClientChainId.selector);
+        vm.expectRevert(abi.encodeWithSelector(Errors.DissociateOperatorFailed.selector, anotherChainId, staker.addr));
         vm.startPrank(staker.addr);
         exocoreGateway.dissociateOperatorFromEVMStaker(anotherChainId);
     }
 
     function test_RevertWhen_DissociatePureStaker() public {
         Player memory staker = players[0];
-        vm.expectRevert(
-            abi.encodeWithSelector(ExocoreGatewayStorage.DissociateOperatorFailed.selector, clientChainId, staker.addr)
-        );
+        vm.expectRevert(abi.encodeWithSelector(Errors.DissociateOperatorFailed.selector, clientChainId, staker.addr));
         vm.startPrank(staker.addr);
         exocoreGateway.dissociateOperatorFromEVMStaker(clientChainId);
     }

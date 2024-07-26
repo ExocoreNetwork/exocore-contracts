@@ -208,14 +208,10 @@ contract ExocoreGateway is
         whenNotPaused
         isValidBech32Address(operator)
     {
-        if (!isRegisteredClientChain[clientChainId]) {
-            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
-        }
-
         bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
         bool success = DELEGATION_CONTRACT.associateOperatorWithStaker(clientChainId, staker, bytes(operator));
         if (!success) {
-            revert AssociateOperatorFailed(clientChainId, msg.sender, operator);
+            revert Errors.AssociateOperatorFailed(clientChainId, msg.sender, operator);
         }
     }
 
@@ -225,14 +221,10 @@ contract ExocoreGateway is
      * @param clientChainId The id of client chain
      */
     function dissociateOperatorFromEVMStaker(uint32 clientChainId) external whenNotPaused {
-        if (!isRegisteredClientChain[clientChainId]) {
-            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
-        }
-
         bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
         bool success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(clientChainId, staker);
         if (!success) {
-            revert DissociateOperatorFailed(clientChainId, msg.sender);
+            revert Errors.DissociateOperatorFailed(clientChainId, msg.sender);
         }
     }
 

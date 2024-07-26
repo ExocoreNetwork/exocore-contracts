@@ -1,11 +1,14 @@
 pragma solidity ^0.8.19;
 
+import {ASSETS_PRECOMPILE_ADDRESS, IAssets} from "../../src/interfaces/precompiles/IAssets.sol";
 import {IDelegation} from "../../src/interfaces/precompiles/IDelegation.sol";
+import {AssetsMock} from "./AssetsMock.sol";
 
 contract DelegationMock is IDelegation {
 
     mapping(bytes => mapping(bytes => mapping(uint32 => mapping(bytes => uint256)))) public delegateTo;
     mapping(uint32 clientChainId => mapping(bytes staker => bytes operator)) public stakerToOperator;
+    mapping(uint32 chainId => bool registered) isRegisteredChain;
 
     event DelegateRequestProcessed(
         uint32 clientChainLzId,
@@ -32,6 +35,9 @@ contract DelegationMock is IDelegation {
         bytes memory operatorAddr,
         uint256 opAmount
     ) external returns (bool success) {
+        if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainLzId)) {
+            return false;
+        }
         if (operatorAddr.length != 42) {
             return false;
         }
@@ -51,6 +57,9 @@ contract DelegationMock is IDelegation {
         bytes memory operatorAddr,
         uint256 opAmount
     ) external returns (bool success) {
+        if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainLzId)) {
+            return false;
+        }
         if (operatorAddr.length != 42) {
             return false;
         }
@@ -69,6 +78,9 @@ contract DelegationMock is IDelegation {
         external
         returns (bool success)
     {
+        if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainId)) {
+            return false;
+        }
         if (stakerToOperator[clientChainId][staker].length > 0) {
             return false;
         }
@@ -78,6 +90,9 @@ contract DelegationMock is IDelegation {
     }
 
     function dissociateOperatorFromStaker(uint32 clientChainId, bytes memory staker) external returns (bool success) {
+        if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainId)) {
+            return false;
+        }
         if (stakerToOperator[clientChainId][staker].length == 0) {
             return false;
         }
