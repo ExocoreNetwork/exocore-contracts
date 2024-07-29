@@ -178,7 +178,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
             revert DoubleDepositedValidator(validatorPubkey);
         }
 
-        if (_isStaleProof(validator, proof.beaconBlockTimestamp)) {
+        if (_isStaleProof(proof.beaconBlockTimestamp)) {
             revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
         }
 
@@ -194,13 +194,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
 
         validator.status = VALIDATOR_STATUS.REGISTERED;
         validator.validatorIndex = proof.validatorIndex;
-        validator.mostRecentBalanceUpdateTimestamp = proof.beaconBlockTimestamp;
         uint64 depositAmountGwei = validatorContainer.getEffectiveBalance();
         if (depositAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
-            validator.restakedBalanceGwei = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR;
             depositAmount = MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR * GWEI_TO_WEI;
         } else {
-            validator.restakedBalanceGwei = depositAmountGwei;
             depositAmount = depositAmountGwei * GWEI_TO_WEI;
         }
 
@@ -249,7 +246,6 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         } else {
             // Full withdrawal
             validator.status = VALIDATOR_STATUS.WITHDRAWN;
-            validator.restakedBalanceGwei = 0;
             // If over MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32 * 1e9, then send remaining amount immediately
             emit FullWithdrawalRedeemed(validatorPubkey, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
             if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
@@ -415,11 +411,9 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @dev Checks if the proof is stale (too old).
-    /// @param validator The validator to check.
     /// @param proofTimestamp The timestamp of the proof.
-    function _isStaleProof(Validator storage validator, uint256 proofTimestamp) internal view returns (bool) {
-        return proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS < block.timestamp
-            || proofTimestamp <= validator.mostRecentBalanceUpdateTimestamp;
+    function _isStaleProof(uint256 proofTimestamp) internal view returns (bool) {
+        return proofTimestamp + VERIFY_BALANCE_UPDATE_WINDOW_SECONDS < block.timestamp;
     }
 
     /// @dev Checks if the validator has fully withdrawn.
