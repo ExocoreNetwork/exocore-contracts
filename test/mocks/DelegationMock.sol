@@ -1,10 +1,14 @@
 pragma solidity ^0.8.19;
 
+import {ASSETS_PRECOMPILE_ADDRESS, IAssets} from "../../src/interfaces/precompiles/IAssets.sol";
 import {IDelegation} from "../../src/interfaces/precompiles/IDelegation.sol";
+import {AssetsMock} from "./AssetsMock.sol";
 
 contract DelegationMock is IDelegation {
 
     mapping(bytes => mapping(bytes => mapping(uint32 => mapping(bytes => uint256)))) public delegateTo;
+    mapping(uint32 clientChainId => mapping(bytes staker => bytes operator)) public stakerToOperator;
+    mapping(uint32 chainId => bool registered) isRegisteredChain;
 
     event DelegateRequestProcessed(
         uint32 clientChainLzId,
@@ -31,9 +35,12 @@ contract DelegationMock is IDelegation {
         bytes memory operatorAddr,
         uint256 opAmount
     ) external returns (bool success) {
-        require(assetsAddress.length == 32, "invalid asset address");
-        require(stakerAddress.length == 32, "invalid staker address");
-        require(operatorAddr.length == 42, "invalid operator address");
+        if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainLzId)) {
+            return false;
+        }
+        if (operatorAddr.length != 42) {
+            return false;
+        }
         delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
         emit DelegateRequestProcessed(
             clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
@@ -50,14 +57,47 @@ contract DelegationMock is IDelegation {
         bytes memory operatorAddr,
         uint256 opAmount
     ) external returns (bool success) {
-        require(assetsAddress.length == 32, "invalid asset address");
-        require(stakerAddress.length == 32, "invalid staker address");
-        require(operatorAddr.length == 42, "invalid operator address");
-        require(opAmount <= delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress], "amount overflow");
+        if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainLzId)) {
+            return false;
+        }
+        if (operatorAddr.length != 42) {
+            return false;
+        }
+        if (opAmount > delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress]) {
+            return false;
+        }
         delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;
         emit UndelegateRequestProcessed(
             clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
         );
+
+        return true;
+    }
+
+    function associateOperatorWithStaker(uint32 clientChainId, bytes memory staker, bytes memory operator)
+        external
+        returns (bool success)
+    {
+        if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainId)) {
+            return false;
+        }
+        if (stakerToOperator[clientChainId][staker].length > 0) {
+            return false;
+        }
+        stakerToOperator[clientChainId][staker] = operator;
+
+        return true;
+    }
+
+    function dissociateOperatorFromStaker(uint32 clientChainId, bytes memory staker) external returns (bool success) {
+        if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainId)) {
+            return false;
+        }
+        if (stakerToOperator[clientChainId][staker].length == 0) {
+            return false;
+        }
+
+        delete stakerToOperator[clientChainId][staker];
 
         return true;
     }
@@ -68,6 +108,14 @@ contract DelegationMock is IDelegation {
         returns (uint256)
     {
         return delegateTo[_addressToBytes(delegator)][bytes(operator)][clientChainLzId][_addressToBytes(token)];
+    }
+
+    function getAssociatedOperator(uint32 clientChainId, bytes memory staker)
+        external
+        view
+        returns (bytes memory operator)
+    {
+        return stakerToOperator[clientChainId][staker];
     }
 
     function _addressToBytes(address addr) internal pure returns (bytes memory) {

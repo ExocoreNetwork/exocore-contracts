@@ -28,9 +28,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @dev Mapping of request IDs to their corresponding request actions.
     mapping(uint64 => Action) internal _registeredRequestActions;
 
-    /// @dev Mapping of request IDs to their corresponding response hooks.
-    mapping(Action => bytes4) internal _registeredResponseHooks;
-
     /// @notice The address of the beacon chain oracle.
     address public immutable BEACON_ORACLE_ADDRESS;
 

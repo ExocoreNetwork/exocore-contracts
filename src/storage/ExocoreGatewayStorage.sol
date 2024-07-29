@@ -31,6 +31,10 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @dev The length of a deposit-then-delegate request, in bytes.
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
     uint256 internal constant DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH = DELEGATE_REQUEST_LENGTH;
+    // bytes32 staker + bytes(42) operator
+    uint256 internal constant ASSOCIATE_OPERATOR_REQUEST_LENGTH = 74;
+    // bytes32 staker
+    uint256 internal constant DISSOCIATE_OPERATOR_REQUEST_LENGTH = 32;
 
     // constants used for layerzero messaging
     /// @dev The gas limit for all the destination chains.
@@ -118,6 +122,17 @@ contract ExocoreGatewayStorage is GatewayStorage {
         bool indexed success, bytes32 indexed token, bytes32 indexed undelegator, string operator, uint256 amount
     );
 
+    /// @notice Emitted upon handling associating operator request
+    /// @param success Whether the operation was successful.
+    /// @param staker The staker address that should be associated to @operator.
+    /// @param operator The operator address that @staker should be associated with.
+    event AssociateOperatorResult(bool indexed success, bytes32 indexed staker, bytes operator);
+
+    /// @notice Emitted upon handling dissociating operator request
+    /// @param success Whether the operation was successful.
+    /// @param staker The staker address that should be dissociated from @operator.
+    event DissociateOperatorResult(bool indexed success, bytes32 indexed staker);
+
     /// @notice Thrown when the execution of a request fails
     /// @param act The action that failed.
     /// @param nonce The LayerZero nonce.
@@ -162,6 +177,12 @@ contract ExocoreGatewayStorage is GatewayStorage {
 
     /// @notice Thrown when the whitelist tokens list is too long.
     error WhitelistTokensListTooLong();
+
+    /// @notice Thrown when associateOperatorWithEVMStaker failed
+    error AssociateOperatorFailed(uint32 clientChainId, address staker, string operator);
+
+    /// @notice Thrown when dissociateOperatorFromEVMStaker failed
+    error DissociateOperatorFailed(uint32 clientChainId, address staker);
 
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;

@@ -16,8 +16,13 @@ contract GatewayStorage {
         REQUEST_DEPOSIT_THEN_DELEGATE_TO,
         REQUEST_MARK_BOOTSTRAP,
         REQUEST_ADD_WHITELIST_TOKENS,
+        REQUEST_ASSOCIATE_OPERATOR,
+        REQUEST_DISSOCIATE_OPERATOR,
         RESPOND
     }
+    /// @notice the human readable prefix for Exocore bech32 encoded address.
+
+    bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
 
     /// @dev Mapping of actions to their corresponding function selectors.
     mapping(Action => bytes4) internal _whiteListFunctionSelectors;
@@ -47,6 +52,32 @@ contract GatewayStorage {
     /// @param expectedNonce The expected nonce.
     /// @param actualNonce The actual nonce received.
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
+
+    /// @notice Ensures the provided address is a valid exo Bech32 encoded address.
+    /// @param addressToValidate The address to check.
+    modifier isValidBech32Address(string calldata addressToValidate) {
+        require(isValidExocoreAddress(addressToValidate), "BootstrapStorage: invalid bech32 encoded Exocore address");
+        _;
+    }
+
+    /// @notice Checks if the provided string is a valid Exocore address.
+    /// @param addressToValidate The string to check.
+    /// @return True if the string is valid, false otherwise.
+    /// @dev Since implementation of bech32 is difficult in Solidity, this function only
+    /// checks that the address is 42 characters long and starts with "exo1".
+    function isValidExocoreAddress(string calldata addressToValidate) public pure returns (bool) {
+        bytes memory stringBytes = bytes(addressToValidate);
+        if (stringBytes.length != 42) {
+            return false;
+        }
+        for (uint256 i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
+            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     /// @notice Verifies and updates the inbound nonce for a given source chain and address.
     /// @dev This function reverts if the nonce is not as expected.

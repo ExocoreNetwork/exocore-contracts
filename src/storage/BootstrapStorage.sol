@@ -138,8 +138,6 @@ contract BootstrapStorage is GatewayStorage {
     /// this contract exceeding the limit and leading to creation failure.
     BeaconProxyBytecode public immutable BEACON_PROXY_BYTECODE;
 
-    bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
-
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
     /* -------------------------------------------------------------------------- */
@@ -291,13 +289,6 @@ contract BootstrapStorage is GatewayStorage {
         _;
     }
 
-    /// @notice Ensures the provided address is a valid exo Bech32 encoded address.
-    /// @param addressToValidate The address to check.
-    modifier isValidBech32Address(string calldata addressToValidate) {
-        require(isValidExocoreAddress(addressToValidate), "BootstrapStorage: invalid bech32 encoded Exocore address");
-        _;
-    }
-
     /// @notice Initializes the contract with the given parameters.
     /// @param exocoreChainId_ The chain ID of the Exocore chain.
     /// @param vaultBeacon_ The address of the vault beacon.
@@ -326,25 +317,6 @@ contract BootstrapStorage is GatewayStorage {
             revert VaultNotExist();
         }
         return vault;
-    }
-
-    /// @notice Checks if the provided string is a valid Exocore address.
-    /// @param addressToValidate The string to check.
-    /// @return True if the string is valid, false otherwise.
-    /// @dev Since implementation of bech32 is difficult in Solidity, this function only
-    /// checks that the address is 42 characters long and starts with "exo1".
-    function isValidExocoreAddress(string calldata addressToValidate) public pure returns (bool) {
-        bytes memory stringBytes = bytes(addressToValidate);
-        if (stringBytes.length != 42) {
-            return false;
-        }
-        for (uint256 i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
-            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     /// @notice Deploys a new vault for the given underlying token.
