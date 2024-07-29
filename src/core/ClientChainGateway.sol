@@ -109,7 +109,7 @@ contract ClientChainGateway is
 
     /// @notice Gets the count of whitelisted tokens.
     /// @return The count of whitelisted tokens.
-    function getWhitelistedTokensCount() external returns (uint256) {
+    function getWhitelistedTokensCount() external view returns (uint256) {
         return whitelistTokens.length;
     }
 
