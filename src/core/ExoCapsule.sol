@@ -396,20 +396,6 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         }
     }
 
-    /// @dev Checks if the validator is activated at the given epoch.
-    /// @param validatorContainer The validator container.
-    /// @param atTimestamp The timestamp at which the activation is checked.
-    function _isActivatedAtEpoch(bytes32[] calldata validatorContainer, uint256 atTimestamp)
-        internal
-        pure
-        returns (bool)
-    {
-        uint64 atEpoch = _timestampToEpoch(atTimestamp);
-        uint64 activationEpoch = validatorContainer.getActivationEpoch();
-
-        return atEpoch >= activationEpoch;
-    }
-
     /// @dev Checks if the proof is stale (too old).
     /// @param validator The validator to check.
     /// @param proofTimestamp The timestamp of the proof.
