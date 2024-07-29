@@ -6,7 +6,7 @@ import {AssetsMock} from "./AssetsMock.sol";
 
 contract DelegationMock is IDelegation {
 
-    mapping(bytes => mapping(bytes => mapping(uint32 => mapping(bytes => uint256)))) public delegateTo;
+    mapping(bytes => mapping(bytes => mapping(uint32 => mapping(bytes => uint256)))) public delegateToRecords;
     mapping(uint32 clientChainId => mapping(bytes staker => bytes operator)) public stakerToOperator;
     mapping(uint32 chainId => bool registered) isRegisteredChain;
 
@@ -41,7 +41,7 @@ contract DelegationMock is IDelegation {
         if (operatorAddr.length != 42) {
             return false;
         }
-        delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
+        delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
         emit DelegateRequestProcessed(
             clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
         );
@@ -63,10 +63,10 @@ contract DelegationMock is IDelegation {
         if (operatorAddr.length != 42) {
             return false;
         }
-        if (opAmount > delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress]) {
+        if (opAmount > delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress]) {
             return false;
         }
-        delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;
+        delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;
         emit UndelegateRequestProcessed(
             clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
         );
@@ -107,7 +107,7 @@ contract DelegationMock is IDelegation {
         view
         returns (uint256)
     {
-        return delegateTo[_addressToBytes(delegator)][bytes(operator)][clientChainLzId][_addressToBytes(token)];
+        return delegateToRecords[_addressToBytes(delegator)][bytes(operator)][clientChainLzId][_addressToBytes(token)];
     }
 
     function getAssociatedOperator(uint32 clientChainId, bytes memory staker)
@@ -120,6 +120,47 @@ contract DelegationMock is IDelegation {
 
     function _addressToBytes(address addr) internal pure returns (bytes memory) {
         return abi.encodePacked(bytes32(bytes20(addr)));
+    }
+
+    function delegateToThroughBtcGateway(
+        uint32 clientChainLzId,
+        bytes memory assetsAddress,
+        bytes memory stakerAddress,
+        bytes memory operatorAddr,
+        uint256 opAmount
+    ) external returns (bool success) {
+        require(assetsAddress.length == 32, "invalid asset address");
+        require(stakerAddress.length == 32, "invalid staker address");
+        require(operatorAddr.length == 42, "invalid operator address");
+        delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
+        uint64 lzNonce = 11;
+        emit DelegateRequestProcessed(
+            clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
+        );
+        return true;
+    }
+
+    function undelegateFromThroughBtcGateway(
+        uint32 clientChainLzId,
+        bytes memory assetsAddress,
+        bytes memory stakerAddress,
+        bytes memory operatorAddr,
+        uint256 opAmount
+    ) external returns (bool success) {
+        require(assetsAddress.length == 32, "invalid asset address");
+        require(stakerAddress.length == 32, "invalid staker address");
+        require(operatorAddr.length == 42, "invalid operator address");
+        require(
+            opAmount <= delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress],
+            "amount overflow"
+        );
+        delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;
+        uint64 lzNonce = 12;
+        emit UndelegateRequestProcessed(
+            clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
+        );
+
+        return true;
     }
 
 }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IExocoreBtcGateway} from "../interfaces/IExocoreBtcGateway.sol";
 import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
 import {CLAIM_REWARD_CONTRACT} from "../interfaces/precompiles/IClaimReward.sol";
 import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
@@ -15,7 +14,6 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 import "forge-std/console.sol";
 
 contract ExocoreBtcGateway is
-    IExocoreBtcGateway,
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
@@ -27,36 +25,7 @@ contract ExocoreBtcGateway is
     address internal constant BTC_ADDR = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     bytes internal constant BTC_TOKEN = abi.encodePacked(bytes32(bytes20(BTC_ADDR)));
 
-    // Mapping to store authorized witnesses
-    mapping(address => bool) public authorizedWitnesses;
     mapping(bytes => TxInfo) public processedBtcTxs;
-    mapping(bytes => bytes) public btcToExocoreAddress;
-    mapping(bytes => bytes) public exocoreToBtcAddress;
-
-    event DepositCompleted(bytes btcTxTag, address token, bytes depositor, uint256 amount, uint256 updatedBalance);
-    event WithdrawPrincipalCompleted(address token, bytes withdrawer, uint256 amount, uint256 updatedBalance);
-    event WithdrawRewardCompleted(address token, bytes withdrawer, uint256 amount, uint256 updatedBalance);
-    event DelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
-    event UndelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
-    event DepositAndDelegationCompleted(
-        address token, bytes depositor, bytes operator, uint256 amount, uint256 updatedBalance
-    );
-    event AddressRegistered(bytes depositor, bytes exocoreAddress);
-    event ExocorePrecompileError(address precompileAddress);
-    event WitnessAdded(address indexed witness);
-    event WitnessRemoved(address indexed witness);
-
-    error UnauthorizedWitness();
-    error RegisterClientChainToExocoreFailed(uint32 clientChainId);
-    error ZeroAddressNotAllowed();
-    error BtcTxAlreadyProcessed();
-    error BtcAddressNotRegistered();
-    error DepositFailed(bytes btcTxTag);
-    error WithdrawPrincipalFailed();
-    error WithdrawRewardFailed();
-    error DelegationFailed();
-    error UndelegationFailed();
-    error EtherTransferFailed();
 
     modifier onlyAuthorizedWitness() {
         if (!_isAuthorizedWitness(msg.sender)) {
@@ -83,7 +52,9 @@ contract ExocoreBtcGateway is
      * @notice Constructor to initialize the contract with the client chain ID.
      */
     constructor() {
+        // todo: for test.
         _registerClientChain(111);
+        authorizedWitnesses[EXOCORE_WITNESS] = true;
         isWhitelistedToken[BTC_ADDR] = true;
         _disableInitializers();
     }
@@ -111,6 +82,48 @@ contract ExocoreBtcGateway is
         require(authorizedWitnesses[_witness], "Witness not authorized");
         authorizedWitnesses[_witness] = false;
         emit WitnessRemoved(_witness);
+    }
+
+    // Function to update bridge fee
+    function updateBridgeFee(uint256 _newFee) public onlyOwner {
+        require(_newFee <= 1000, "Fee cannot exceed 10%"); // Max fee of 10%
+        bridgeFee = _newFee;
+        emit BridgeFeeUpdated(_newFee);
+    }
+
+    // Function to check if proofs are consistent
+    function _areProofsConsistent(bytes32 _txTag) internal view returns (bool) {
+        Proof[] storage txProofs = proofs[_txTag];
+        if (txProofs.length < REQUIRED_PROOFS) {
+            return false;
+        }
+
+        InterchainMsg memory firstMsg = txProofs[0].message;
+        for (uint256 i = 1; i < txProofs.length; i++) {
+            InterchainMsg memory currentMsg = txProofs[i].message;
+            if (
+                firstMsg.srcChainID != currentMsg.srcChainID || firstMsg.dstChainID != currentMsg.dstChainID
+                    || keccak256(firstMsg.srcAddress) != keccak256(currentMsg.srcAddress)
+                    || keccak256(firstMsg.dstAddress) != keccak256(currentMsg.dstAddress)
+                    || firstMsg.token != currentMsg.token || firstMsg.amount != currentMsg.amount
+                    || firstMsg.nonce != currentMsg.nonce || keccak256(firstMsg.txTag) != keccak256(currentMsg.txTag)
+                    || keccak256(firstMsg.payload) != keccak256(currentMsg.payload)
+            ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    // Function to check and update expired transactions
+    function checkExpiredTransactions(bytes32[] calldata _txTags) public {
+        for (uint256 i = 0; i < _txTags.length; i++) {
+            Transaction storage txn = transactions[_txTags[i]];
+            if (txn.status == TxStatus.Pending && block.timestamp >= txn.expiryTime) {
+                txn.status = TxStatus.Expired;
+                emit TransactionExpired(_txTags[i]);
+            }
+        }
     }
 
     /**
@@ -210,6 +223,73 @@ contract ExocoreBtcGateway is
         console.log("verify addr done");
     }
 
+    // Function to submit a proof with InterchainMsg and signature
+    function submitProof(InterchainMsg calldata _message, bytes calldata _signature)
+        public
+        nonReentrant
+        whenNotPaused
+    {
+        // Verify the signature
+        if (processedBtcTxs[_message.txTag].processed) {
+            revert BtcTxAlreadyProcessed();
+        }
+
+        // Verify nonce
+        _verifyAndUpdateBytesNonce(_message.srcChainID, _message.srcAddress, _message.nonce);
+
+        // Verify signature
+        _verifySignature(_message, _signature);
+
+        bytes32 txTag = keccak256(_message.txTag);
+        Transaction storage txn = transactions[txTag];
+
+        if (txn.status == TxStatus.Pending) {
+            require(!txn.hasWitnessed[msg.sender], "Witness has already submitted proof");
+            txn.hasWitnessed[msg.sender] = true;
+            txn.proofCount++;
+        } else {
+            txn.status = TxStatus.Pending;
+            txn.amount = _message.amount;
+            txn.recipient = address(bytes20(_message.dstAddress));
+            txn.expiryTime = block.timestamp + PROOF_TIMEOUT;
+            txn.proofCount = 1;
+            txn.hasWitnessed[msg.sender] = true;
+        }
+
+        proofs[txTag].push(
+            Proof({witness: msg.sender, message: _message, timestamp: block.timestamp, signature: _signature})
+        );
+
+        emit ProofSubmitted(txTag, msg.sender, _message);
+
+        // Check for consensus
+        if (txn.proofCount >= REQUIRED_PROOFS) {
+            _processDeposit(txTag);
+        }
+    }
+
+    // Function to process the deposit
+    function _processDeposit(bytes32 _txTag) internal {
+        Transaction storage txn = transactions[_txTag];
+        require(txn.status == TxStatus.Pending, "Transaction not pending");
+        require(txn.proofCount >= REQUIRED_PROOFS, "Insufficient proofs");
+
+        // Verify proof consistency
+        require(_areProofsConsistent(_txTag), "Inconsistent proofs");
+
+        // Calculate fee
+        uint256 fee = (txn.amount * bridgeFee) / 10_000;
+        uint256 amountAfterFee = txn.amount - fee;
+
+        //todo:call precompile depositTo
+
+        txn.status = TxStatus.Processed;
+
+        // totalDeposited += txn.amount;
+
+        emit DepositProcessed(_txTag, txn.recipient, amountAfterFee);
+    }
+
     /**
      * @notice Deposits BTC to the Exocore system.
      * @param _msg The interchain message containing the deposit details.
@@ -246,8 +326,8 @@ contract ExocoreBtcGateway is
     /**
      * @notice Delegates BTC to an operator.
      * @param token The token address.
-     * @param delegator The delegator's address.
-     * @param operator The operator's address.
+     * @param delegator The delegator's exocore address.
+     * @param operator The operator's exocore address.
      * @param amount The amount to delegate.
      */
     function delegateTo(address token, bytes calldata delegator, bytes calldata operator, uint256 amount)
@@ -258,9 +338,8 @@ contract ExocoreBtcGateway is
         isValidAmount(amount)
     {
         _nextNonce(CLIENT_CHAIN_ID, delegator);
-        try DELEGATION_CONTRACT.delegateTo(CLIENT_CHAIN_ID, BTC_TOKEN, delegator, operator, amount) returns (
-            bool success
-        ) {
+        try DELEGATION_CONTRACT.delegateToThroughBtcGateway(CLIENT_CHAIN_ID, BTC_TOKEN, delegator, operator, amount)
+        returns (bool success) {
             if (!success) {
                 revert DelegationFailed();
             }
@@ -274,8 +353,8 @@ contract ExocoreBtcGateway is
     /**
      * @notice Undelegates BTC from an operator.
      * @param token The token address.
-     * @param delegator The delegator's address.
-     * @param operator The operator's address.
+     * @param delegator The delegator's exocore address.
+     * @param operator The operator's exocore address.
      * @param amount The amount to undelegate.
      */
     function undelegateFrom(address token, bytes calldata delegator, bytes calldata operator, uint256 amount)
@@ -286,9 +365,8 @@ contract ExocoreBtcGateway is
         isValidAmount(amount)
     {
         _nextNonce(CLIENT_CHAIN_ID, delegator);
-        try DELEGATION_CONTRACT.undelegateFrom(CLIENT_CHAIN_ID, BTC_TOKEN, delegator, operator, amount) returns (
-            bool success
-        ) {
+        try DELEGATION_CONTRACT.undelegateFromThroughBtcGateway(CLIENT_CHAIN_ID, BTC_TOKEN, delegator, operator, amount)
+        returns (bool success) {
             if (!success) {
                 revert UndelegationFailed();
             }
@@ -302,7 +380,7 @@ contract ExocoreBtcGateway is
     /**
      * @notice Withdraws the principal BTC.
      * @param token The token address.
-     * @param withdrawer The withdrawer's address.
+     * @param withdrawer The withdrawer's exocore address.
      * @param amount The amount to withdraw.
      */
     function withdrawPrincipal(address token, bytes calldata withdrawer, uint256 amount)
@@ -350,6 +428,51 @@ contract ExocoreBtcGateway is
         } catch {
             emit ExocorePrecompileError(address(CLAIM_REWARD_CONTRACT));
             revert WithdrawRewardFailed();
+        }
+    }
+
+    // Function to initiate a peg-out request
+    function initiatePegOut(uint256 _amount, bytes memory _btcAddress) public nonReentrant whenNotPaused {
+        require(_btcAddress.length > 0, "Invalid BTC address");
+
+        bytes32 requestId = keccak256(abi.encodePacked(msg.sender, _amount, _btcAddress, block.number));
+        require(pegOutRequests[requestId].status == TxStatus.Pending, "Request already exists");
+
+        pegOutRequests[requestId] = PegOutRequest({
+            requester: msg.sender,
+            amount: _amount,
+            btcAddress: _btcAddress,
+            status: TxStatus.Pending,
+            timestamp: block.timestamp
+        });
+
+        emit PegOutRequested(requestId, msg.sender, _amount, _btcAddress);
+    }
+
+    // Function for witnesses to process a peg-out request
+    function processPegOut(bytes32 _requestId, bytes32 _btcTxHash)
+        public
+        onlyAuthorizedWitness
+        nonReentrant
+        whenNotPaused
+    {
+        PegOutRequest storage request = pegOutRequests[_requestId];
+        require(request.status == TxStatus.Pending, "Invalid request status");
+
+        request.status = TxStatus.Processed;
+        emit PegOutProcessed(_requestId, _btcTxHash);
+    }
+
+    // Function to check and update expired peg-out requests
+    function checkExpiredPegOutRequests(bytes32[] calldata _requestIds) public {
+        for (uint256 i = 0; i < _requestIds.length; i++) {
+            PegOutRequest storage request = pegOutRequests[_requestIds[i]];
+            if (request.status == TxStatus.Pending && block.timestamp >= request.timestamp + PROOF_TIMEOUT) {
+                request.status = TxStatus.Expired;
+                // Refund the tokens
+                // require(token.mint(request.requester, request.amount), "Token minting failed");
+                emit TransactionExpired(_requestIds[i]);
+            }
         }
     }
 
@@ -419,9 +542,8 @@ contract ExocoreBtcGateway is
         uint256 amount,
         uint256 updatedBalance
     ) internal {
-        try DELEGATION_CONTRACT.delegateTo(clientChainId, btcToken, depositor, operator, amount) returns (
-            bool delegateSuccess
-        ) {
+        try DELEGATION_CONTRACT.delegateToThroughBtcGateway(clientChainId, btcToken, depositor, operator, amount)
+        returns (bool delegateSuccess) {
             if (!delegateSuccess) {
                 revert DelegationFailed();
             }

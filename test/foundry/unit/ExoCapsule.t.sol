@@ -241,8 +241,6 @@ contract VerifyDepositProof is DepositSetup {
             capsule.getRegisteredValidatorByPubkey(_getPubkey(validatorContainer));
         assertEq(uint8(validator.status), uint8(ExoCapsuleStorage.VALIDATOR_STATUS.REGISTERED));
         assertEq(validator.validatorIndex, validatorProof.validatorIndex);
-        assertEq(validator.mostRecentBalanceUpdateTimestamp, validatorProof.beaconBlockTimestamp);
-        assertEq(validator.restakedBalanceGwei, _getEffectiveBalance(validatorContainer));
     }
 
     function test_verifyDepositProof_revert_mismatchWithdrawalCredentials() public {

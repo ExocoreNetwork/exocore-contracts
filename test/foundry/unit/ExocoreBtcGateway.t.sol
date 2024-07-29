@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import "src/core/ExocoreBtcGateway.sol";
-import "src/interfaces/IExocoreBtcGateway.sol";
 import "src/interfaces/precompiles/IAssets.sol";
 import "src/interfaces/precompiles/IClaimReward.sol";
 import "src/interfaces/precompiles/IDelegation.sol";
@@ -11,7 +10,7 @@ import "src/storage/ExocoreBtcGatewayStorage.sol";
 
 import "forge-std/Test.sol";
 
-contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
+contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
 
     ExocoreBtcGateway internal exocoreBtcGateway;
 
@@ -24,14 +23,11 @@ contract ExocoreBtcGatewayTest is IExocoreBtcGateway, Test {
 
     using stdStorage for StdStorage;
 
-    event DepositCompleted(bytes btcTxTag, address token, bytes depositor, uint256 amount, uint256 updatedBalance);
-
     function setUp() public {
         bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
         vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
         // Deploy the main contract
         exocoreBtcGateway = new ExocoreBtcGateway();
-        exocoreBtcGateway.initialize(validator);
         // Whitelist the btcToken
         // Calculate the storage slot for the mapping
         bytes32 whitelistedSlot = bytes32(
