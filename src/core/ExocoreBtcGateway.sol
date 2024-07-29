@@ -6,12 +6,12 @@ import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
 import {CLAIM_REWARD_CONTRACT} from "../interfaces/precompiles/IClaimReward.sol";
 import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
 import {SignatureVerifier} from "../libraries/SignatureVerifier.sol";
-import {GatewayStorage} from "../storage/GatewayStorage.sol";
-import {OwnableUpgradeable} from "@openzeppelin-upgradeable/contracts/access/OwnableUpgradeable.sol";
-import {Initializable} from "@openzeppelin-upgradeable/contracts/proxy/utils/Initializable.sol";
-import {PausableUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/PausableUpgradeable.sol";
-import {ReentrancyGuardUpgradeable} from "@openzeppelin-upgradeable/contracts/utils/ReentrancyGuardUpgradeable.sol";
-import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {ExocoreBtcGatewayStorage} from "../storage/ExocoreBtcGatewayStorage.sol";
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+
 import "forge-std/console.sol";
 
 contract ExocoreBtcGateway is
@@ -20,14 +20,15 @@ contract ExocoreBtcGateway is
     PausableUpgradeable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
-    GatewayStorage
+    ExocoreBtcGatewayStorage
 {
-
-    using MessageHashUtils for bytes32;
 
     uint32 internal CLIENT_CHAIN_ID;
     address internal constant BTC_ADDR = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     bytes internal constant BTC_TOKEN = abi.encodePacked(bytes32(bytes20(BTC_ADDR)));
+
+    // Mapping to store authorized witnesses
+    mapping(address => bool) public authorizedWitnesses;
     mapping(bytes => TxInfo) public processedBtcTxs;
     mapping(bytes => bytes) public btcToExocoreAddress;
     mapping(bytes => bytes) public exocoreToBtcAddress;
@@ -42,8 +43,10 @@ contract ExocoreBtcGateway is
     );
     event AddressRegistered(bytes depositor, bytes exocoreAddress);
     event ExocorePrecompileError(address precompileAddress);
+    event WitnessAdded(address indexed witness);
+    event WitnessRemoved(address indexed witness);
 
-    error UnauthorizedValidator();
+    error UnauthorizedWitness();
     error RegisterClientChainToExocoreFailed(uint32 clientChainId);
     error ZeroAddressNotAllowed();
     error BtcTxAlreadyProcessed();
@@ -55,51 +58,59 @@ contract ExocoreBtcGateway is
     error UndelegationFailed();
     error EtherTransferFailed();
 
-    modifier onlyAuthorizedValidator() {
-        if (!_isAuthorizedValidator(msg.sender)) {
-            revert UnauthorizedValidator();
+    modifier onlyAuthorizedWitness() {
+        if (!_isAuthorizedWitness(msg.sender)) {
+            revert UnauthorizedWitness();
         }
         _;
     }
 
     /**
-     * @notice Pauses the contract. Can only be called by an authorized validator.
+     * @notice Pauses the contract. Can only be called by an authorized witness.
      */
-    function pause() external onlyAuthorizedValidator {
+    function pause() external onlyOwner {
         _pause();
     }
 
     /**
-     * @notice Unpauses the contract. Can only be called by an authorized validator.
+     * @notice Unpauses the contract. Can only be called by an authorized witness.
      */
-    function unpause() external onlyAuthorizedValidator {
+    function unpause() external onlyOwner {
         _unpause();
     }
 
     /**
      * @notice Constructor to initialize the contract with the client chain ID.
-     * @param exocoreValidatorSetAddress_ The signer of the btc-bridge.
      */
-    constructor(address exocoreValidatorSetAddress_) {
-        exocoreValidatorSetAddress = payable(exocoreValidatorSetAddress_);
+    constructor() {
         _registerClientChain(111);
         isWhitelistedToken[BTC_ADDR] = true;
         _disableInitializers();
     }
 
     /**
-     * @notice Initializes the contract with the Exocore validator set address.
-     * @param exocoreValidatorSetAddress_ The address of the Exocore validator set.
+     * @notice Initializes the contract with the Exocore witness address.
+     * @param _witness The address of the Exocore witness .
      */
-    function initialize(address payable exocoreValidatorSetAddress_) external initializer {
-        if (exocoreValidatorSetAddress_ == address(0)) {
+    function initialize(address _witness) external initializer {
+        addWitness(_witness);
+        __Pausable_init_unchained();
+    }
+
+    function addWitness(address _witness) public onlyOwner {
+        if (_witness == address(0)) {
             revert ZeroAddressNotAllowed();
         }
+        require(!authorizedWitnesses[_witness], "Witness already authorized");
+        authorizedWitnesses[_witness] = true;
+        emit WitnessAdded(_witness);
+    }
 
-        exocoreValidatorSetAddress = exocoreValidatorSetAddress_;
-
-        __Ownable_init_unchained(exocoreValidatorSetAddress);
-        __Pausable_init_unchained();
+    // Function to remove a witness
+    function removeWitness(address _witness) public onlyOwner {
+        require(authorizedWitnesses[_witness], "Witness not authorized");
+        authorizedWitnesses[_witness] = false;
+        emit WitnessRemoved(_witness);
     }
 
     /**
@@ -122,10 +133,7 @@ contract ExocoreBtcGateway is
      * @param depositor The BTC address to register.
      * @param exocoreAddress The corresponding Exocore address.
      */
-    function registerAddress(bytes calldata depositor, bytes calldata exocoreAddress)
-        external
-        onlyAuthorizedValidator
-    {
+    function registerAddress(bytes calldata depositor, bytes calldata exocoreAddress) external onlyAuthorizedWitness {
         require(depositor.length > 0 && exocoreAddress.length > 0, "Invalid address");
         require(btcToExocoreAddress[depositor].length == 0, "Depositor address already registered");
         require(exocoreToBtcAddress[exocoreAddress].length == 0, "Exocore address already registered");
@@ -156,10 +164,9 @@ contract ExocoreBtcGateway is
         );
         console.logBytes(encodeMsg);
         bytes32 messageHash = keccak256(encodeMsg);
-        bytes32 digest = messageHash.toEthSignedMessageHash();
-
         console.logBytes32(messageHash);
-        SignatureVerifier.verifyMsgSig(exocoreValidatorSetAddress, digest, signature);
+
+        SignatureVerifier.verifyMsgSig(msg.sender, messageHash, signature);
     }
 
     function bytes32ToString(bytes32 _bytes32) public pure returns (string memory) {
@@ -214,8 +221,9 @@ contract ExocoreBtcGateway is
         whenNotPaused
         isTokenWhitelisted(_msg.token)
         isValidAmount(_msg.amount)
-        onlyAuthorizedValidator
+        onlyAuthorizedWitness
     {
+        require(authorizedWitnesses[msg.sender], "Not an authorized witness");
         (bytes memory btcTxTag, bytes memory depositor,) = _processAndVerify(_msg, signature);
         console.log("ASSETS_CONTRACT:", address(ASSETS_CONTRACT));
         try ASSETS_CONTRACT.depositTo(_msg.srcChainID, BTC_TOKEN, depositor, _msg.amount) returns (
@@ -357,7 +365,7 @@ contract ExocoreBtcGateway is
         whenNotPaused
         isTokenWhitelisted(BTC_ADDR)
         isValidAmount(_msg.amount)
-        onlyAuthorizedValidator
+        onlyAuthorizedWitness
     {
         (bytes memory btcTxHash, bytes memory depositor,) = _processAndVerify(_msg, signature);
         _depositToAssetContract(CLIENT_CHAIN_ID, BTC_TOKEN, depositor, _msg.amount, btcTxHash, operator);
@@ -465,15 +473,15 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Checks if a validator is authorized.
-     * @param validator The validator address.
-     * @return True if the validator is authorized, false otherwise.
+     * @notice Checks if a witness is authorized.
+     * @param witness The witness address.
+     * @return True if the witness is authorized, false otherwise.
      */
-    function _isAuthorizedValidator(address validator) internal view returns (bool) {
-        // Implementation depends on how you determine if a validator is authorized
-        // For example, you might check against a list of authorized validators
+    function _isAuthorizedWitness(address witness) internal view returns (bool) {
+        // Implementation depends on how you determine if a witness is authorized
+        // For example, you might check against a list of authorized witnesss
         // or query another contract
-        return validator == exocoreValidatorSetAddress;
+        return authorizedWitnesses[witness];
     }
 
     /**

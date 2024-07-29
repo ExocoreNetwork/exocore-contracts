@@ -11,7 +11,18 @@ library SignatureVerifier {
     error InvalidSigner();
     error InvalidSignature();
 
-    function verifyMsgSig(address signer, bytes32 digest, bytes memory signature) internal pure {
+    function toEthSignedMessageHash(bytes32 hash) internal pure returns (bytes32 message) {
+        // 32 is the length in bytes of hash,
+        // enforced by the type signature above
+        /// @solidity memory-safe-assembly
+        assembly {
+            mstore(0x00, "\x19Ethereum Signed Message:\n32")
+            mstore(0x1c, hash)
+            message := keccak256(0x00, 0x3c)
+        }
+    }
+
+    function verifyMsgSig(address signer, bytes32 messageHash, bytes memory signature) internal pure {
         // Declare r, s, and v signature parameters.
         bytes32 r;
         bytes32 s;
@@ -40,6 +51,8 @@ library SignatureVerifier {
         } else {
             revert InvalidSignature();
         }
+
+        bytes32 digest = toEthSignedMessageHash(messageHash);
 
         // Attempt to recover signer using the digest and signature parameters.
         address recoveredSigner = ecrecover(digest, v, r, s);
