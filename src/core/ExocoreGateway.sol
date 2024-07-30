@@ -186,7 +186,7 @@ contract ExocoreGateway is
             require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
             require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
 
-            (success, updated) = ASSETS_CONTRACT.registerOrUpdateToken(
+            (success, updated) = ASSETS_CONTRACT.registerOrUpdateTokens(
                 clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
             );
 

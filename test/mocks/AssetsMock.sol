@@ -65,7 +65,7 @@ contract AssetsMock is IAssets {
         return (true, updated);
     }
 
-    function registerOrUpdateToken(
+    function registerOrUpdateTokens(
         uint32 clientChainId,
         bytes calldata token,
         uint8 decimals,
