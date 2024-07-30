@@ -139,7 +139,11 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     /// @return RequestId for the response
     /// @return The action for the response
     /// @return The cached request for the response
-    function _getCachedRequestForResponse(bytes calldata response) internal returns (uint64, Action, bytes memory) {
+    function _getCachedRequestForResponse(bytes calldata response)
+        internal
+        view
+        returns (uint64, Action, bytes memory)
+    {
         uint64 requestId = uint64(bytes8(response[1:9]));
 
         bytes memory cachedRequest = _registeredRequests[requestId];
