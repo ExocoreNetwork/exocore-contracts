@@ -164,6 +164,10 @@ contract ExocoreGateway is
         onlyOwner
         whenNotPaused
     {
+        // The registration of the client chain is done here and nowhere else.
+        // Elsewhere, the precompile is responsible for the checks. The precompile
+        // is not called here at all, and hence, such a check must be made manually.
+        _validateClientChainIdRegistered(clientChainId);
         super.setPeer(clientChainId, clientChainGateway);
     }
 
@@ -176,6 +180,7 @@ contract ExocoreGateway is
         string[] calldata names,
         string[] calldata metaData
     ) external payable onlyOwner whenNotPaused nonReentrant {
+        // The registration of the client chain is left for the precompile to validate.
         _validateWhitelistTokensInput(tokens, decimals, tvlLimits, names, metaData);
 
         bool success;
@@ -271,6 +276,21 @@ contract ExocoreGateway is
                 || metaData.length != expectedLength
         ) {
             revert InvalidWhitelistTokensInput();
+        }
+    }
+
+    /// @dev Validates that the client chain id is registered.
+    /// @dev This is designed to be called only in the cases wherein the precompile isn't used.
+    /// @dev In all other situations, it is the responsibility of the precompile to perform such
+    ///      checks.
+    /// @param clientChainId The client chain id.
+    function _validateClientChainIdRegistered(uint32 clientChainId) internal view {
+        (bool success, bool isRegistered) = ASSETS_CONTRACT.isRegisteredClientChain(clientChainId);
+        if (!success) {
+            revert Errors.ExocoreGatewayFailedToCheckClientChainId();
+        }
+        if (!isRegistered) {
+            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
         }
     }
 

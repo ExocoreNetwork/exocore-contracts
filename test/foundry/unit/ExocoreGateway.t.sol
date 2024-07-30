@@ -501,6 +501,12 @@ contract SetPeer is SetUp {
         exocoreGateway.setPeer(anotherClientChain, newPeer);
     }
 
+    function test_RevertWhen_ClientChainNotRegistered() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectRevert(Errors.ExocoreGatewayNotRegisteredClientChainId.selector);
+        exocoreGateway.setPeer(anotherClientChain, newPeer);
+    }
+
 }
 
 contract AddWhitelistTokens is SetUp {

@@ -22,6 +22,7 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import {Errors} from "src/libraries/Errors.sol";
 import {OAppCoreUpgradeable} from "src/lzApp/OAppCoreUpgradeable.sol";
 
 contract ExocoreGatewayMock is
@@ -170,6 +171,7 @@ contract ExocoreGatewayMock is
         onlyOwner
         whenNotPaused
     {
+        _validateClientChainIdRegistered(clientChainId);
         super.setPeer(clientChainId, clientChainGateway);
     }
 
@@ -240,6 +242,16 @@ contract ExocoreGatewayMock is
                 || metaData.length != expectedLength
         ) {
             revert InvalidWhitelistTokensInput();
+        }
+    }
+
+    function _validateClientChainIdRegistered(uint32 clientChainId) internal view {
+        (bool success, bool isRegistered) = ASSETS_CONTRACT.isRegisteredClientChain(clientChainId);
+        if (!success) {
+            revert Errors.ExocoreGatewayFailedToCheckClientChainId();
+        }
+        if (!isRegistered) {
+            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
         }
     }
 

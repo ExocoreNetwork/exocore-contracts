@@ -96,4 +96,8 @@ contract AssetsMock is IAssets {
         return abi.encodePacked(bytes32(bytes20(addr)));
     }
 
+    function isRegisteredClientChain(uint32 clientChainID) external view returns (bool, bool) {
+        return (true, isRegisteredChain[clientChainID]);
+    }
+
 }
