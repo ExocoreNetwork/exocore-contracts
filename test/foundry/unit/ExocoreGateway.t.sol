@@ -903,10 +903,10 @@ contract MarkBootstrap is SetUp {
     function test_Success_Multiple() public {
         _registerClientChain();
         vm.startPrank(exocoreValidatorSet.addr);
-        // vm.expectEmit(address(exocoreGateway));
-        // emit ExocoreGatewayStorage.BootstrapRequestSent(clientChainId);
-        // vm.expectEmit(address(exocoreGateway));
-        // emit ExocoreGatewayStorage.BootstrapRequestSent(anotherClientChainId);
+        vm.expectEmit(address(exocoreGateway));
+        emit ExocoreGatewayStorage.BootstrapRequestSent(clientChainId);
+        vm.expectEmit(address(exocoreGateway));
+        emit ExocoreGatewayStorage.BootstrapRequestSent(anotherClientChainId);
         assertEq(exocoreGateway.chainToBootstrapped(clientChainId), false);
         assertEq(exocoreGateway.chainToBootstrapped(anotherClientChainId), false);
         exocoreGateway.markBootstrapOnAllChains();
