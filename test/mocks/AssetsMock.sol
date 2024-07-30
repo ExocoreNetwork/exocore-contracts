@@ -50,35 +50,38 @@ contract AssetsMock is IAssets {
         return (true, chainIds);
     }
 
-    function registerClientChain(
+    function registerOrUpdateClientChain(
         uint32 clientChainId,
         uint8 addressLength,
         string calldata name,
         string calldata metaInfo,
         string calldata signatureType
-    ) external returns (bool) {
+    ) external returns (bool, bool) {
+        bool updated = isRegisteredChain[clientChainId];
         if (!isRegisteredChain[clientChainId]) {
             isRegisteredChain[clientChainId] = true;
             chainIds.push(clientChainId);
         }
-        return true;
+        return (true, updated);
     }
 
-    function registerToken(
+    function registerOrUpdateToken(
         uint32 clientChainId,
         bytes calldata token,
         uint8 decimals,
         uint256 tvlLimit,
         string calldata name,
         string calldata metaData
-    ) external returns (bool) {
+    ) external returns (bool success, bool updated) {
         require(isRegisteredChain[clientChainId], "the chain is not registered before");
 
-        if (!isRegisteredToken[clientChainId][token]) {
+        updated = isRegisteredToken[clientChainId][token];
+
+        if (!updated) {
             isRegisteredToken[clientChainId][token] = true;
         }
 
-        return true;
+        return (true, updated);
     }
 
     function getPrincipalBalance(uint32 clientChainLzId, bytes memory token, bytes memory staker)

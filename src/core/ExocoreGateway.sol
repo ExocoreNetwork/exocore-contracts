@@ -142,20 +142,20 @@ contract ExocoreGateway is
         ) {
             revert Errors.ZeroValue();
         }
-        // signature type could be left as empty for current implementation
-        _registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
+
+        bool updated = _registerOrUpdateClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
+        // the peer is always set, regardless of `updated`
         super.setPeer(clientChainId, peer);
 
-        if (!isRegisteredClientChain[clientChainId]) {
-            isRegisteredClientChain[clientChainId] = true;
-            emit ClientChainRegistered(clientChainId);
-        } else {
+        if (updated) {
             emit ClientChainUpdated(clientChainId);
+        } else {
+            emit ClientChainRegistered(clientChainId);
         }
     }
 
     /// @notice Sets a peer on the destination chain for this contract.
-    /// @dev This is the LayerZero peer.
+    /// @dev This is the LayerZero peer. This function is only here for the modifiers.
     /// @param clientChainId The id of the client chain.
     /// @param clientChainGateway The address of the peer as bytes32.
     function setPeer(uint32 clientChainId, bytes32 clientChainGateway)
@@ -164,15 +164,11 @@ contract ExocoreGateway is
         onlyOwner
         whenNotPaused
     {
-        if (!isRegisteredClientChain[clientChainId]) {
-            revert Errors.ExocoreGatewayNotRegisteredClientChainId();
-        }
-
         super.setPeer(clientChainId, clientChainGateway);
     }
 
     /// @inheritdoc IExocoreGateway
-    function addWhitelistTokens(
+    function addOrUpdateWhitelistTokens(
         uint32 clientChainId,
         bytes32[] calldata tokens,
         uint8[] calldata decimals,
@@ -180,19 +176,43 @@ contract ExocoreGateway is
         string[] calldata names,
         string[] calldata metaData
     ) external payable onlyOwner whenNotPaused nonReentrant {
-        _addOrUpdateWhitelistTokens(clientChainId, tokens, decimals, tvlLimits, names, metaData, true);
-    }
+        _validateWhitelistTokensInput(tokens, decimals, tvlLimits, names, metaData);
 
-    /// @inheritdoc IExocoreGateway
-    function updateWhitelistedTokens(
-        uint32 clientChainId,
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData
-    ) external onlyOwner whenNotPaused {
-        _addOrUpdateWhitelistTokens(clientChainId, tokens, decimals, tvlLimits, names, metaData, false);
+        bool success;
+        bool updated;
+        for (uint256 i; i < tokens.length; i++) {
+            require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
+            require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
+            require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
+            require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
+
+            (success, updated) = ASSETS_CONTRACT.registerOrUpdateToken(
+                clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
+            );
+
+            if (success) {
+                if (!updated) {
+                    emit WhitelistTokenAdded(clientChainId, tokens[i]);
+                } else {
+                    emit WhitelistTokenUpdated(clientChainId, tokens[i]);
+                }
+            } else {
+                if (!updated) {
+                    revert AddWhitelistTokenFailed(tokens[i]);
+                } else {
+                    revert UpdateWhitelistTokenFailed(tokens[i]);
+                }
+            }
+        }
+
+        if (!updated) {
+            _sendInterchainMsg(
+                clientChainId,
+                Action.REQUEST_ADD_WHITELIST_TOKENS,
+                abi.encodePacked(uint8(tokens.length), tokens),
+                false
+            );
+        }
     }
 
     /**
@@ -228,86 +248,19 @@ contract ExocoreGateway is
         }
     }
 
-    /// @dev The internal version of addWhitelistTokens and updateWhitelistedTokens.
-    /// @param clientChainId Source client chain id
-    /// @param tokens List of token addresses
-    /// @param decimals List of token decimals (like 18)
-    /// @param tvlLimits List of TVL limits (like max supply)
-    /// @param names List of token names
-    /// @param metaData List of arbitrary meta data for each token
-    /// @param add Whether to add or update the tokens
-    /// @dev Validates that lengths are equal, <= 255, and that the chain is registered.
-    // Though this function would call precompiled contract, all precompiled contracts belong to Exocore
-    // and we could make sure its implementation does not have dangerous behavior like reentrancy.
-    // slither-disable-next-line reentrancy-no-eth
-    function _addOrUpdateWhitelistTokens(
-        uint32 clientChainId,
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData,
-        bool add
-    ) internal {
-        _validateWhitelistTokensInput(clientChainId, tokens, decimals, tvlLimits, names, metaData);
-
-        for (uint256 i; i < tokens.length; i++) {
-            require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
-            if (!add) {
-                require(isWhitelistedToken[tokens[i]], "ExocoreGateway: token has not been added to whitelist before");
-            }
-            require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
-            require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
-            require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
-
-            bool success = ASSETS_CONTRACT.registerToken(
-                clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
-            );
-
-            if (success) {
-                if (add) {
-                    isWhitelistedToken[tokens[i]] = true;
-                    emit WhitelistTokenAdded(clientChainId, tokens[i]);
-                } else {
-                    emit WhitelistTokenUpdated(clientChainId, tokens[i]);
-                }
-            } else {
-                if (add) {
-                    revert AddWhitelistTokenFailed(tokens[i]);
-                } else {
-                    revert UpdateWhitelistTokenFailed(tokens[i]);
-                }
-            }
-        }
-        if (add) {
-            _sendInterchainMsg(
-                clientChainId,
-                Action.REQUEST_ADD_WHITELIST_TOKENS,
-                abi.encodePacked(uint8(tokens.length), tokens),
-                false
-            );
-        }
-    }
-
     /// @dev Validates the input for whitelist tokens.
-    /// @param clientChainId The client chain id, which must have been previously registered.
     /// @param tokens The list of token addresses, length must be <= 255.
     /// @param decimals The list of token decimals, length must be equal to that of @param tokens.
     /// @param tvlLimits The list of token TVL limits, length must be equal to that of @param tokens.
     /// @param names The list of token names, length must be equal to that of @param tokens.
     /// @param metaData The list of token meta data, length must be equal to that of @param tokens.
     function _validateWhitelistTokensInput(
-        uint32 clientChainId,
         bytes32[] calldata tokens,
         uint8[] calldata decimals,
         uint256[] calldata tvlLimits,
         string[] calldata names,
         string[] calldata metaData
-    ) internal view {
-        if (!isRegisteredClientChain[clientChainId]) {
-            revert ClientChainIDNotRegisteredBefore(clientChainId);
-        }
-
+    ) internal pure {
         uint256 expectedLength = tokens.length;
         if (expectedLength > type(uint8).max) {
             revert WhitelistTokensListTooLong();
@@ -321,23 +274,25 @@ contract ExocoreGateway is
         }
     }
 
-    /// @dev The internal version of registerClientChain.
+    /// @dev The internal version of registerOrUpdateClientChain.
     /// @param clientChainId The client chain id.
     /// @param addressLength The length of the address type on the client chain.
     /// @param name The name of the client chain.
     /// @param metaInfo The arbitrary metadata for the client chain.
     /// @param signatureType The signature type supported by the client chain.
-    function _registerClientChain(
+    function _registerOrUpdateClientChain(
         uint32 clientChainId,
         uint8 addressLength,
         string calldata name,
         string calldata metaInfo,
         string calldata signatureType
-    ) internal {
-        bool success = ASSETS_CONTRACT.registerClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
+    ) internal returns (bool) {
+        (bool success, bool updated) =
+            ASSETS_CONTRACT.registerOrUpdateClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
         if (!success) {
             revert RegisterClientChainToExocoreFailed(clientChainId);
         }
+        return updated;
     }
 
     /// @inheritdoc OAppReceiverUpgradeable

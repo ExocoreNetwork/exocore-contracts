@@ -163,9 +163,6 @@ library Errors {
     /// @dev ExocoreGateway: failed to decode client chain ids
     error ExocoreGatewayFailedToDecodeClientChainIds();
 
-    /// @dev ExocoreGateway: client chain should be registered before setting peer to change peer address
-    error ExocoreGatewayNotRegisteredClientChainId();
-
     /// @dev ExocoreGateway: thrown when associateOperatorWithEVMStaker failed
     error AssociateOperatorFailed(uint32 clientChainId, address staker, string operator);
 
