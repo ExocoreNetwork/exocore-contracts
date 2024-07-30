@@ -2,6 +2,7 @@
 name: Forge CI to build, test and format
 
 on:
+  merge_group:
   pull_request:
   push:
     branches:
