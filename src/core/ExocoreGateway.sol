@@ -155,7 +155,8 @@ contract ExocoreGateway is
     }
 
     /// @notice Sets a peer on the destination chain for this contract.
-    /// @dev This is the LayerZero peer. This function is only here for the modifiers.
+    /// @dev This is the LayerZero peer. This function is here for the modifiers
+    ///      as well as checking the registration of the client chain id.
     /// @param clientChainId The id of the client chain.
     /// @param clientChainGateway The address of the peer as bytes32.
     function setPeer(uint32 clientChainId, bytes32 clientChainGateway)
@@ -164,9 +165,10 @@ contract ExocoreGateway is
         onlyOwner
         whenNotPaused
     {
-        // The registration of the client chain is done here and nowhere else.
-        // Elsewhere, the precompile is responsible for the checks. The precompile
-        // is not called here at all, and hence, such a check must be made manually.
+        // This check, for the registration of the client chain id, is done here and
+        // nowhere else. Elsewhere, the precompile is responsible for the checks.
+        // The precompile is not called here at all, and hence, such a check must be
+        // performed manually.
         _validateClientChainIdRegistered(clientChainId);
         super.setPeer(clientChainId, clientChainGateway);
     }
@@ -285,6 +287,8 @@ contract ExocoreGateway is
     ///      checks.
     /// @param clientChainId The client chain id.
     function _validateClientChainIdRegistered(uint32 clientChainId) internal view {
+        // TODO: check if this read-only call has the same problem as the
+        // getClientChains call, which is also read-only.
         (bool success, bool isRegistered) = ASSETS_CONTRACT.isRegisteredClientChain(clientChainId);
         if (!success) {
             revert Errors.ExocoreGatewayFailedToCheckClientChainId();
