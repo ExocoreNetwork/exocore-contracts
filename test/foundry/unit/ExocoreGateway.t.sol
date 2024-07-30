@@ -883,3 +883,53 @@ contract AssociateOperatorWithEVMStaker is SetUp {
     }
 
 }
+
+contract MarkBootstrap is SetUp {
+
+    uint32 anotherClientChainId = clientChainId;
+
+    function test_Setup() public {
+        assertEq(exocoreGateway.chainToBootstrapped(clientChainId), false);
+    }
+
+    function test_Success() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectEmit(address(exocoreGateway));
+        emit ExocoreGatewayStorage.BootstrapRequestSent(clientChainId);
+        exocoreGateway.markBootstrapOnAllChains();
+        assertEq(exocoreGateway.chainToBootstrapped(clientChainId), true);
+    }
+
+    function test_Success_Multiple() public {
+        _registerClientChain();
+        vm.startPrank(exocoreValidatorSet.addr);
+        // vm.expectEmit(address(exocoreGateway));
+        // emit ExocoreGatewayStorage.BootstrapRequestSent(clientChainId);
+        // vm.expectEmit(address(exocoreGateway));
+        // emit ExocoreGatewayStorage.BootstrapRequestSent(anotherClientChainId);
+        assertEq(exocoreGateway.chainToBootstrapped(clientChainId), false);
+        assertEq(exocoreGateway.chainToBootstrapped(anotherClientChainId), false);
+        exocoreGateway.markBootstrapOnAllChains();
+        assertEq(exocoreGateway.chainToBootstrapped(clientChainId), true);
+        assertEq(exocoreGateway.chainToBootstrapped(anotherClientChainId), true);
+    }
+
+    function _registerClientChain() internal {
+        // actual registration of chain
+        anotherClientChainId += 1;
+        bytes32 peer = bytes32(uint256(123));
+        uint8 addressLength = 20;
+        string memory name = "AnotherClientChain";
+        string memory metaInfo = "EVM compatible client chain";
+        string memory signatureType = "secp256k1";
+        // but first, set the lz thing up
+        exocoreLzEndpoint.setDestLzEndpoint(address(123), /* peer */ address(clientLzEndpoint));
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit ExocoreGatewayStorage.ClientChainRegistered(anotherClientChainId);
+        vm.startPrank(exocoreValidatorSet.addr);
+        exocoreGateway.registerOrUpdateClientChain(
+            anotherClientChainId, peer, addressLength, name, metaInfo, signatureType
+        );
+    }
+
+}

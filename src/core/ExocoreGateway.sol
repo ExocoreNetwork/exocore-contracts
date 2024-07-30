@@ -108,21 +108,17 @@ contract ExocoreGateway is
     // For manual calls, this function should be called immediately after deployment and
     // then never needs to be called again.
     function markBootstrapOnAllChains() public whenNotPaused nonReentrant {
-        (bool success, bytes memory result) =
-            ASSETS_PRECOMPILE_ADDRESS.staticcall(abi.encodeWithSelector(ASSETS_CONTRACT.getClientChains.selector));
+        (bool success, uint32[] memory chainIndices) = ASSETS_CONTRACT.getClientChains();
         if (!success) {
             revert Errors.ExocoreGatewayFailedToGetClientChainIds();
         }
-        (bool ok, uint32[] memory clientChainIds) = abi.decode(result, (bool, uint32[]));
-        if (!ok) {
-            revert Errors.ExocoreGatewayFailedToDecodeClientChainIds();
-        }
-        for (uint256 i = 0; i < clientChainIds.length; i++) {
-            uint32 clientChainId = clientChainIds[i];
-            if (!chainToBootstrapped[clientChainId]) {
-                _sendInterchainMsg(clientChainId, Action.REQUEST_MARK_BOOTSTRAP, "", true);
+        for (uint256 i = 0; i < chainIndices.length; i++) {
+            uint32 chainIndex = chainIndices[i];
+            if (!chainToBootstrapped[chainIndex]) {
+                _sendInterchainMsg(chainIndex, Action.REQUEST_MARK_BOOTSTRAP, "", true);
                 // TODO: should this be marked only upon receiving a response?
-                chainToBootstrapped[clientChainId] = true;
+                chainToBootstrapped[chainIndex] = true;
+                emit BootstrapRequestSent(chainIndex);
             }
         }
     }
@@ -287,8 +283,6 @@ contract ExocoreGateway is
     ///      checks.
     /// @param clientChainId The client chain id.
     function _validateClientChainIdRegistered(uint32 clientChainId) internal view {
-        // TODO: check if this read-only call has the same problem as the
-        // getClientChains call, which is also read-only.
         (bool success, bool isRegistered) = ASSETS_CONTRACT.isRegisteredClientChain(clientChainId);
         if (!success) {
             revert Errors.ExocoreGatewayFailedToCheckClientChainId();

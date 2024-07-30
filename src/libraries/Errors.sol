@@ -160,9 +160,6 @@ library Errors {
     /// @dev ExocoreGateway: failed to get client chain ids
     error ExocoreGatewayFailedToGetClientChainIds();
 
-    /// @dev ExocoreGateway: failed to decode client chain ids
-    error ExocoreGatewayFailedToDecodeClientChainIds();
-
     /// @dev ExocoreGateway: client chain should be registered before.
     error ExocoreGatewayNotRegisteredClientChainId();
 

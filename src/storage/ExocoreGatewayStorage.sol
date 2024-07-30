@@ -125,6 +125,10 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param staker The staker address that should be dissociated from @operator.
     event DissociateOperatorResult(bool indexed success, bytes32 indexed staker);
 
+    /// @notice Emitted when a REQUEST_MARK_BOOTSTRAP is sent to @param clientChainId.
+    /// @param clientChainId The LayerZero chain ID of chain to which it is destined.
+    event BootstrapRequestSent(uint32 clientChainId);
+
     /// @notice Thrown when the execution of a request fails
     /// @param act The action that failed.
     /// @param nonce The LayerZero nonce.
