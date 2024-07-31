@@ -183,7 +183,7 @@ contract ExocoreDeployer is Test {
             uint64(1),
             registerTokensRequestNativeFee
         );
-        exocoreGateway.addWhitelistTokens{value: registerTokensRequestNativeFee}(
+        exocoreGateway.addOrUpdateWhitelistTokens{value: registerTokensRequestNativeFee}(
             clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData
         );
 

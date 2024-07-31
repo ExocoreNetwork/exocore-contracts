@@ -17,12 +17,10 @@ While for `Vault` and `ExoCapsule`, they are deployed with upgradeable beacon pr
 
 After all contracts are deployed, before the protocol starts to work, there are a few works left to be done by contract owner to enable restaking. One of the most important tasks is to register the client chain id and meta info to Exocore to mark this client chain as valid. This is done by the contract caller calling `ExocoreGateway.registerOrUpdateClientChain` to write `clientChainId`, `addressLength`, `name`, `signatureType` and other meta data to Exocore native module to finish registration. This operation would also call `ExocoreGateway.setPeer` to enable LayerZero messaging by setting remote `ClientChainGateway` as trusted peer to send/receive messages. After finishing registration, contract owner could call `ExocoreGateway.registerOrUpdateClientChain` again to update the meta data and set new peer, or contract owner could solely call `ExocoreGateway.setPeer` to change the address of remote peer contract.
 
-## add tokens to whitelist
+## add or update tokens to whitelist
 
-Another important task before restaking being activated is to add tokens to whitelist to mark them as stake-able on both Exocore and client chain. This is done by contract owner calling `ExocoreGateway.addWhitelistTokens` to write token addresses, decimals, TVL limits and other metadata to Exocore, as well as sending a cross-chain message through layerzero to client chain to add these token addresses to the whitelist of `ClientChainGateway`. 
+Another important task before restaking being activated is to add tokens to whitelist to mark them as stake-able on both Exocore and client chain. This is done by contract owner calling `ExocoreGateway.addOrUpdateWhitelistTokens` to write token addresses, decimals, TVL limits and other metadata to Exocore, as well as sending a cross-chain message through layerzero to client chain to add these token addresses to the whitelist of `ClientChainGateway`. 
 
 Notice: contract owner must make sure the token data is correct like address, decimals and TVL limit, more importantly contract owner must ensure that for the same index, the data in different arrays like `tokens`, `decimals`, `tvlLimits` must point to the same token to be composed as complete token data.
 
-## upgrade the meta data of whitelisted tokens 
-
-After adding tokens to whitelist, contract owner could call `ExocoreGateway.updateWhitelistedTokens` to update the meta data of already whitelisted tokens, and this function would not send a cross-chain message to client chain since the whitelist of `ClientChainGateway` only stores the token addresses.
+After adding tokens to whitelist, contract owner could call `ExocoreGateway.addOrUpdateWhitelistTokens` to update the meta data of already whitelisted tokens, and this function would not send a cross-chain message to client chain since the whitelist of `ClientChainGateway` only stores the token addresses.

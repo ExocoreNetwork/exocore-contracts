@@ -49,7 +49,7 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
     /// @param names The names of the tokens, in the same order as the tokens list.
     /// @param metaData The meta information of the tokens, in the same order as the tokens list.
     /// @dev The chain must be registered before adding tokens.
-    function addWhitelistTokens(
+    function addOrUpdateWhitelistTokens(
         uint32 clientChainId,
         bytes32[] calldata tokens,
         uint8[] calldata decimals,
@@ -57,22 +57,5 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
         string[] calldata names,
         string[] calldata metaData
     ) external payable;
-
-    /// @notice Updates a list of whitelisted tokens to the client chain.
-    /// @param clientChainId The LayerZero chain id of the client chain.
-    /// @param tokens The list of token addresses to be whitelisted.
-    /// @param decimals The list of token decimals, in the same order as the tokens list.
-    /// @param tvlLimits The list of token TVL limits (typically max supply),in the same order as the tokens list.
-    /// @param names The names of the tokens, in the same order as the tokens list.
-    /// @param metaData The meta information of the tokens, in the same order as the tokens list.
-    /// @dev The chain must be registered before updating tokens, and the token as well.
-    function updateWhitelistedTokens(
-        uint32 clientChainId,
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData
-    ) external;
 
 }

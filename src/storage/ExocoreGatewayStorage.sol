@@ -47,14 +47,6 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @dev Used to ensure no repeated bootstrap requests are sent.
     mapping(uint32 clienChainId => bool) public chainToBootstrapped;
 
-    /// @notice A mapping from client chain IDs to whether the chain has been registered.
-    /// @dev Used to ensure that only registered client chains can interact with the gateway.
-    mapping(uint32 clienChainId => bool registered) public isRegisteredClientChain;
-
-    /// @notice A mapping from token address to whether the token is whitelisted.
-    /// @dev Used to ensure no duplicate tokens are added to the whitelist.
-    mapping(bytes32 token => bool whitelisted) public isWhitelistedToken;
-
     /// @notice Emitted when a precompile call fails.
     /// @param precompile Address of the precompile contract.
     /// @param nonce The LayerZero nonce
@@ -133,6 +125,10 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param staker The staker address that should be dissociated from @operator.
     event DissociateOperatorResult(bool indexed success, bytes32 indexed staker);
 
+    /// @notice Emitted when a REQUEST_MARK_BOOTSTRAP is sent to @param clientChainId.
+    /// @param clientChainId The LayerZero chain ID of chain to which it is destined.
+    event BootstrapRequestSent(uint32 clientChainId);
+
     /// @notice Thrown when the execution of a request fails
     /// @param act The action that failed.
     /// @param nonce The LayerZero nonce.
@@ -170,10 +166,6 @@ contract ExocoreGatewayStorage is GatewayStorage {
 
     /// @notice Thrown when the whitelist tokens input is invalid.
     error InvalidWhitelistTokensInput();
-
-    /// @notice Thrown when the client chain ID is not registered.
-    /// @param clientChainId The LayerZero chain ID of the client chain.
-    error ClientChainIDNotRegisteredBefore(uint32 clientChainId);
 
     /// @notice Thrown when the whitelist tokens list is too long.
     error WhitelistTokensListTooLong();

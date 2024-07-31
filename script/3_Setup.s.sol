@@ -118,7 +118,7 @@ contract SetupScript is BaseScript {
         vm.selectFork(exocore);
         uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokensBytes32.length + 2;
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
-        exocoreGateway.addWhitelistTokens{value: nativeFee}(
+        exocoreGateway.addOrUpdateWhitelistTokens{value: nativeFee}(
             clientChainId, whitelistTokensBytes32, decimals, tvlLimits, names, metaData
         );
         vm.stopBroadcast();
