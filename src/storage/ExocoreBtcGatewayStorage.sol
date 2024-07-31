@@ -65,6 +65,7 @@ contract ExocoreBtcGatewayStorage {
 
     // Mapping to store transaction information
     mapping(bytes32 => Transaction) public transactions;
+    mapping(bytes => TxInfo) public processedBtcTxs;
 
     // Mapping to store peg-out requests
     mapping(bytes32 => PegOutRequest) public pegOutRequests;

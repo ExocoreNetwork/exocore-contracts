@@ -25,8 +25,6 @@ contract ExocoreBtcGateway is
     address internal constant BTC_ADDR = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     bytes internal constant BTC_TOKEN = abi.encodePacked(bytes32(bytes20(BTC_ADDR)));
 
-    mapping(bytes => TxInfo) public processedBtcTxs;
-
     modifier onlyAuthorizedWitness() {
         if (!_isAuthorizedWitness(msg.sender)) {
             revert UnauthorizedWitness();
@@ -203,7 +201,11 @@ contract ExocoreBtcGateway is
         returns (bytes memory btcTxTag, bytes memory depositor, bytes memory exocoreAddress)
     {
         btcTxTag = _msg.txTag;
-        depositor = _msg.srcAddress;
+        depositor = btcToExocoreAddress[_msg.srcAddress];
+        if (depositor.length == 0) {
+            revert BtcAddressNotRegistered();
+        }
+        console.log("verify addr done");
 
         if (processedBtcTxs[btcTxTag].processed) {
             revert BtcTxAlreadyProcessed();
@@ -216,11 +218,6 @@ contract ExocoreBtcGateway is
         _verifySignature(_msg, signature);
 
         console.log("verify sig done, nonce: ", _msg.nonce);
-        exocoreAddress = btcToExocoreAddress[depositor];
-        if (exocoreAddress.length == 0) {
-            revert BtcAddressNotRegistered();
-        }
-        console.log("verify addr done");
     }
 
     // Function to submit a proof with InterchainMsg and signature
@@ -391,7 +388,7 @@ contract ExocoreBtcGateway is
         isValidAmount(amount)
     {
         _nextNonce(CLIENT_CHAIN_ID, withdrawer);
-        try ASSETS_CONTRACT.withdrawPrincipal(0, BTC_TOKEN, withdrawer, amount) returns (
+        try ASSETS_CONTRACT.withdrawPrincipal(CLIENT_CHAIN_ID, BTC_TOKEN, withdrawer, amount) returns (
             bool success, uint256 updatedBalance
         ) {
             if (!success) {

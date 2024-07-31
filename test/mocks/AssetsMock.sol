@@ -21,12 +21,12 @@ contract AssetsMock is IAssets {
         returns (bool success, uint256 latestAssetState)
     {
         require(assetsAddress.length == 32, "invalid asset address");
-
+        require(stakerAddress.length == 32, "invalid staker address");
         console.log("stakerAddress len: ", stakerAddress.length);
 
-        if (clientChainLzId != clientBtcChainId) {
-            require(stakerAddress.length == 32, "invalid staker address");
-        }
+        // if (clientChainLzId != clientBtcChainId) {
+        //     require(stakerAddress.length == 32, "invalid staker address");
+        // }
 
         // Validate the asset address
         // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered
@@ -51,11 +51,19 @@ contract AssetsMock is IAssets {
     ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid staker address");
-        if (bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))) {
-            require(isRegisteredToken[clientChainLzId][assetsAddress], "the token is not registered before");
-        }
+        // Validate the asset address
+        // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered
+        bool notEth = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        bool notBtc = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
+        console.log("notEth ", notEth, " notBtc", notBtc);
 
-        require(opAmount <= principalBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
+        if (notEth && notBtc) {
+            require(isRegisteredToken[clientChainLzId][assetsAddress], "the token not registered");
+        }
+        uint256 balance = principalBalances[clientChainLzId][assetsAddress][withdrawer];
+        console.log("balance", balance);
+
+        require(opAmount <= balance, "withdraw amount overflow");
 
         principalBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
 
