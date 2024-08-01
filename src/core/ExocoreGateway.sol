@@ -173,7 +173,7 @@ contract ExocoreGateway is
     /// @notice Tokens can only be normal reward-bearong LST tokens like wstETH, rETH, jitoSol...
     /// And they are not intended to be: 1) rebasing tokens like stETH, since we assume staker's
     /// balance would not change if nothing is done after deposit, 2) fee-on-transfer tokens, since we
-    /// assume Vault would count for the amount that staker transfers to it.
+    /// assume Vault would account for the amount that staker transfers to it.
     /// @notice If we want to activate client chain's native restaking, we should add the corresponding virtual
     /// token address to the whitelist, bytes32(bytes20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)) for Ethereum
     /// native restaking for example.
