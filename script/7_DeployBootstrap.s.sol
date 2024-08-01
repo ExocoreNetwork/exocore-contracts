@@ -18,6 +18,7 @@ import "forge-std/Script.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 contract DeployBootstrapOnly is BaseScript {
+
     address wstETH;
 
     function setUp() public virtual override {
@@ -57,10 +58,7 @@ contract DeployBootstrapOnly is BaseScript {
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         // bootstrap logic
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(vaultBeacon),
-            address(beaconProxyBytecode)
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
         // bootstrap implementation
         Bootstrap bootstrap = Bootstrap(
