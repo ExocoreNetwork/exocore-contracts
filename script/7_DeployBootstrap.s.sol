@@ -18,6 +18,7 @@ import "forge-std/Script.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 contract DeployBootstrapOnly is BaseScript {
+    address wstETH;
 
     function setUp() public virtual override {
         // load keys
@@ -37,12 +38,17 @@ contract DeployBootstrapOnly is BaseScript {
         beaconProxyBytecode =
             BeaconProxyBytecode(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode"));
         require(address(beaconProxyBytecode) != address(0), "Beacon proxy bytecode not found");
+        // wstETH on Sepolia
+        // https://docs.lido.fi/deployed-contracts/sepolia/
+        wstETH = stdJson.readAddress(prerequisiteContracts, ".clientChain.wstETH");
+        require(wstETH != address(0), "wstETH not found");
     }
 
     function run() public {
         vm.selectFork(clientChain);
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         whitelistTokens.push(address(restakeToken));
+        whitelistTokens.push(wstETH);
 
         // proxy deployment
         CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
@@ -51,7 +57,10 @@ contract DeployBootstrapOnly is BaseScript {
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         // bootstrap logic
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
+            address(clientChainLzEndpoint),
+            exocoreChainId,
+            address(vaultBeacon),
+            address(beaconProxyBytecode)
         );
         // bootstrap implementation
         Bootstrap bootstrap = Bootstrap(
@@ -64,8 +73,9 @@ contract DeployBootstrapOnly is BaseScript {
                             Bootstrap.initialize,
                             (
                                 exocoreValidatorSet.addr,
-                                block.timestamp + 365 days + 24 hours,
-                                24 hours,
+                                // 1 week from now
+                                block.timestamp + 168 hours,
+                                2 seconds,
                                 whitelistTokens, // vault is auto deployed
                                 address(proxyAdmin)
                             )
@@ -100,6 +110,7 @@ contract DeployBootstrapOnly is BaseScript {
         string memory clientChainContracts = "clientChainContracts";
         vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
         vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
+        vm.serializeAddress(clientChainContracts, "wstETH", wstETH);
         vm.serializeAddress(clientChainContracts, "proxyAdmin", address(proxyAdmin));
         vm.serializeAddress(clientChainContracts, "vaultImplementation", address(vaultImplementation));
         vm.serializeAddress(clientChainContracts, "vaultBeacon", address(vaultBeacon));
