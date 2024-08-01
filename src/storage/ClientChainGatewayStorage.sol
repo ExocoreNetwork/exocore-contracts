@@ -16,9 +16,6 @@ import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 /// ClientChainGateway contract. Shared items should be kept in BootstrapStorage.
 contract ClientChainGatewayStorage is BootstrapStorage {
 
-    /// @notice The nonce for outbound messages.
-    uint64 public outboundNonce;
-
     /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
     mapping(address => IExoCapsule) public ownerToCapsule;
 

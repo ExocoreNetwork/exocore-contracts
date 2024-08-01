@@ -85,17 +85,16 @@ abstract contract BaseRestakingController is
     /// @param actionArgs The encodePacked arguments for the action.
     /// @param encodedRequest The encoded request.
     function _processRequest(Action action, bytes memory actionArgs, bytes memory encodedRequest) internal {
-        outboundNonce++;
-        _registeredRequests[outboundNonce] = encodedRequest;
-        _registeredRequestActions[outboundNonce] = action;
+        uint64 requestNonce = _sendMsgToExocore(action, actionArgs);
 
-        _sendMsgToExocore(action, actionArgs);
+        _registeredRequests[requestNonce] = encodedRequest;
+        _registeredRequestActions[requestNonce] = action;
     }
 
     /// @dev Sends a message to Exocore.
     /// @param action The action to be performed.
     /// @param actionArgs The encodePacked arguments for the action.
-    function _sendMsgToExocore(Action action, bytes memory actionArgs) internal {
+    function _sendMsgToExocore(Action action, bytes memory actionArgs) internal returns (uint64) {
         bytes memory payload = abi.encodePacked(action, actionArgs);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
@@ -105,6 +104,8 @@ abstract contract BaseRestakingController is
         MessagingReceipt memory receipt =
             _lzSend(EXOCORE_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), msg.sender, false);
         emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
+
+        return receipt.nonce;
     }
 
 }
