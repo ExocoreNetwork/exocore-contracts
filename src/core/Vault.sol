@@ -34,6 +34,10 @@ contract Vault is Initializable, VaultStorage, IVault {
     /// @notice Initializes the Vault contract.
     /// @param underlyingToken_ The address of the underlying token.
     /// @param gateway_ The address of the gateway contract.
+    /// @dev Vault only works with normal ERC20 like reward-bearing LST tokens like wstETH, eETH.
+    /// And It is not intended to be used for: 1) rebasing token like stETH, since we assume staker's
+    /// balance would not change if nothing is done after deposit, 2) fee-on-transfer token, since we
+    /// assume Vault would count for the amount that staker transfers to it.
     function initialize(address underlyingToken_, address gateway_) external initializer {
         if (underlyingToken_ == address(0) || gateway_ == address(0)) {
             revert Errors.ZeroAddress();
