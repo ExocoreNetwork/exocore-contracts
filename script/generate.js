@@ -217,6 +217,8 @@ async function updateGenesisFile() {
     if (!genesisJSON.app_state.dogfood.val_set) {
       genesisJSON.app_state.dogfood.val_set = [];
     }
+    // check min_self_delegation
+    const minSelfDelegation = new Decimal(genesisJSON.app_state.dogfood.params.min_self_delegation);
     // x/delegation: associations
     if (!genesisJSON.app_state.delegation.associations) {
       genesisJSON.app_state.delegation.associations = [];
@@ -289,11 +291,16 @@ async function updateGenesisFile() {
         );
         // break;
       }
+      // only mark as validator if the amount is greater than min_self_delegation
+      if (amount.gte(minSelfDelegation)) {
       validators.push({
         public_key: operatorInfo.consensusPublicKey,
         power: amount,  // do not convert to int yet.
         operator_acc_addr: opAddressBech32,
       });
+      } else {
+        console.log(`Skipping operator ${opAddressBech32} due to insufficient self delegation.`);
+      }
       let stakerId = operatorAddress.toLowerCase() + clientChainSuffix;
       let association = {
         staker_id: stakerId,
