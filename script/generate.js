@@ -11,6 +11,7 @@ const clientChainInfo = {
   };
 
 const tokenMetaInfos = [
+  'Lido wrapped staked ETH',
   'Exocore testnet ETH',
 ];
 
@@ -37,7 +38,7 @@ const isValidBech32 = (address) => {
 
 
 // Load variables from .env file
-const { SEPOLIA_RPC, BOOTSTRAP_ADDRESS, BASE_GENESIS_FILE_PATH, RESULT_GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
+const { CLIENT_CHAIN_RPC, BOOTSTRAP_ADDRESS, BASE_GENESIS_FILE_PATH, RESULT_GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
 
 async function updateGenesisFile() {
   try {
@@ -46,7 +47,7 @@ async function updateGenesisFile() {
     const contractABI = JSON.parse(await fs.readFile(abiPath, 'utf8')).abi;
 
     // Set up Web3
-    const web3 = new Web3(SEPOLIA_RPC);
+    const web3 = new Web3(CLIENT_CHAIN_RPC);
 
     // Create contract instance
     const myContract = new web3.eth.Contract(contractABI, BOOTSTRAP_ADDRESS);
@@ -58,7 +59,7 @@ async function updateGenesisFile() {
     const genesisData = await fs.readFile(BASE_GENESIS_FILE_PATH);
     const genesisJSON = JSON.parse(genesisData);
 
-    const chainId = genesisJSON.chain_id;
+    // const chainId = genesisJSON.chain_id;
     const bootstrapped = await myContract.methods.bootstrapped().call();
     if (bootstrapped) {
       throw new Error('The contract has already been bootstrapped.');
@@ -123,7 +124,7 @@ async function updateGenesisFile() {
           decimals: token.decimals.toString(),
           total_supply: token.totalSupply.toString(),
           layer_zero_chain_id: clientChainInfo.layer_zero_chain_id,
-          // exocore_chain_index unused
+          exocore_chain_index: i.toString(), // unused
           meta_info: tokenMetaInfos[i],
         },
         // set this to 0 intentionally, since the total amount will be provided
@@ -208,24 +209,25 @@ async function updateGenesisFile() {
     if (!genesisJSON.app_state.operator.operators) {
       genesisJSON.app_state.operator.operators = [];
     }
-    // x/operator: operator_records (consensus_keys.go)
-    if (!genesisJSON.app_state.operator.operator_records) {
-      genesisJSON.app_state.operator.operator_records = [];
-    }
-    // x/dogfood: initial_val_set (validators.go)
+
+    // x/dogfood: val_set (validators.go)
     if (!genesisJSON.app_state.dogfood) {
       throw new Error('The dogfood section is missing from the genesis file.');
     }
-    if (!genesisJSON.app_state.dogfood.initial_val_set) {
-      genesisJSON.app_state.dogfood.initial_val_set = [];
+    if (!genesisJSON.app_state.dogfood.val_set) {
+      genesisJSON.app_state.dogfood.val_set = [];
+    }
+    // x/delegation: associations
+    if (!genesisJSON.app_state.delegation.associations) {
+      genesisJSON.app_state.delegation.associations = [];
     }
     const validators = [];
     const operators = [];
-    const operatorRecords = [];
-    const operatorsCount = await myContract.methods.getOperatorsCount().call();
+    const associations = [];
+    const operatorsCount = await myContract.methods.getValidatorsCount().call();
     for (let i = 0; i < operatorsCount; i++) {
       // operators
-      const operatorAddress = await myContract.methods.registeredOperators(i).call();
+      const operatorAddress = await myContract.methods.registeredValidators(i).call();
       const opAddressBech32 = await myContract.methods.ethToExocoreAddress(
         operatorAddress
       ).call();
@@ -233,7 +235,7 @@ async function updateGenesisFile() {
         console.log(`Skipping operator with invalid bech32 address: ${opAddressBech32}`);
         continue;
       }
-      const operatorInfo = await myContract.methods.operators(opAddressBech32).call();
+      const operatorInfo = await myContract.methods.validators(opAddressBech32).call();
       const operatorCleaned = {
         earnings_addr: opAddressBech32,
         // approve_addr unset
@@ -262,27 +264,22 @@ async function updateGenesisFile() {
         }
       }
       operators.push(operatorCleaned);
-      // operator_records
-      const operatorRecord = {
-        operator_address: opAddressBech32,
-        chains: [
-          {
-            chain_id: chainId,  // this is the exocore chain id
-            consensus_key: operatorInfo.consensusPublicKey,
-          }
-        ],
-      };
-      operatorRecords.push(operatorRecord);
-      // dogfood: initial_val_set
+      // dogfood: val_set
       // TODO: once the oracle module is set up, move away from this solution
       // and instead, load the asset prices into the oracle module genesis
       // and let the dogfood module pull the vote power from the rest of the system
       // at genesis.
       let amount = new Decimal(0);
+      if (exchangeRates.length != supportedTokens.length) {
+        throw new Error(
+          `The number of exchange rates (${exchangeRates.length}) 
+          does not match the number of supported tokens (${supportedTokens.length}).`
+        );
+      }
       for(let j = 0; j < supportedTokens.length; j++) {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
-        const perTokenDelegation = await myContract.methods.delegationsByOperator(
+        const perTokenDelegation = await myContract.methods.delegationsByValidator(
           opAddressBech32, tokenAddress
         ).call();
         amount = amount.plus(
@@ -295,8 +292,14 @@ async function updateGenesisFile() {
       validators.push({
         public_key: operatorInfo.consensusPublicKey,
         power: amount,  // do not convert to int yet.
+        operator_acc_addr: opAddressBech32,
       });
-      // break;
+      let stakerId = operatorAddress.toLowerCase() + clientChainSuffix;
+      let association = {
+        staker_id: stakerId,
+        operator: opAddressBech32,
+      };
+      associations.push(association);
     }
     // operators
     operators.sort((a, b) => {
@@ -309,27 +312,46 @@ async function updateGenesisFile() {
       return 0;
     });
     genesisJSON.app_state.operator.operators = operators;
-    // operator_records
-    operatorRecords.sort((a, b) => {
-      if (a.operator_address < b.operator_address) {
+    // dogfood: val_set
+    validators.sort((a, b) => {
+      // even though operator_acc_addr is unique, we have to still
+      // check for power first. this is because we pick the top N
+      // validators by power.
+      // if the powers are equal, we sort by operator_acc_addr in
+      // ascending order.
+      if (b.power.cmp(a.power) === 0) {
+        if (a.operator_acc_addr < b.operator_acc_addr) {
+          return -1;
+        }
+        if (a.operator_acc_addr > b.operator_acc_addr) {
+          return 1;
+        }
+        return 0;
+      }
+      return b.power.cmp(a.power);
+    });
+    // pick top N by vote power
+    validators.slice(0, genesisJSON.app_state.dogfood.params.max_validators);
+    let totalPower = 0;
+    validators.forEach((val) => {
+      // truncate
+      val.power = val.power.toFixed(0);
+      totalPower += parseInt(val.power, 10);
+    });
+    genesisJSON.app_state.dogfood.val_set = validators;
+    genesisJSON.app_state.dogfood.params.asset_ids = assetIds;
+    genesisJSON.app_state.dogfood.last_total_power = totalPower.toString();
+    // associations: staker_id is unique, so no further sorting is needed.
+    associations.sort((a, b) => {
+      if (a.staker_id < b.staker_id) {
         return -1;
       }
-      if (a.operator_address > b.operator_address) {
+      if (a.staker_id > b.staker_id) {
         return 1;
       }
       return 0;
     });
-    genesisJSON.app_state.operator.operator_records = operatorRecords;
-    // dogfood: initial_val_set
-    validators.sort((a, b) => {
-      return b.power.cmp(a.power);
-    });
-    validators.slice(0, genesisJSON.app_state.dogfood.params.max_validators);
-    validators.forEach((val) => {
-      val.power = val.power.toFixed(0);
-    });
-    genesisJSON.app_state.dogfood.initial_val_set = validators;
-    genesisJSON.app_state.dogfood.params.asset_ids = assetIds;
+    genesisJSON.app_state.delegation.associations = associations;
 
     // x/delegation: delegations_by_staker_asset_operator (delegation_state.go)
     if (!genesisJSON.app_state.delegation.delegations) {
@@ -339,8 +361,9 @@ async function updateGenesisFile() {
     const baseLevel = [];
     for(let i = 0; i < depositorsCount; i++) {
       const staker = await myContract.methods.depositors(i).call();
+      const stakerId = staker.toLowerCase() + clientChainSuffix;
       let level1 = {
-        staker_id: staker.toLowerCase() + clientChainSuffix,
+        staker_id: stakerId,
         delegations: [],
       }
       for(let j = 0; j < supportedTokens.length; j++) {
@@ -351,7 +374,7 @@ async function updateGenesisFile() {
           per_operator_amounts: [],
         }
         for(let k = 0; k < operatorsCount; k++) {
-          const operatorEth = await myContract.methods.registeredOperators(k).call();
+          const operatorEth = await myContract.methods.registeredValidators(k).call();
           const operator = await myContract.methods.ethToExocoreAddress(operatorEth).call();
           if (!isValidBech32(operator)) {
             console.log(`Skipping operator with invalid bech32 address: ${operator}`);
@@ -368,7 +391,6 @@ async function updateGenesisFile() {
               }
             }
             level2.per_operator_amounts.push(level3);
-            // break;
           }
         }
         level2.per_operator_amounts.sort((a, b) => {
