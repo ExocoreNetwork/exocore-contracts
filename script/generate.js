@@ -14,6 +14,12 @@ const tokenMetaInfos = [
   'Exocore testnet ETH', // first we did push exoETH
   'Lido wrapped staked ETH', // then push wstETH
 ];
+// this must be in the same order as whitelistTokens
+// they are provided because the symbol may not match what we are using from the price feeder.
+// for example, exoETH is not a real token and we are using the price feed for ETH.
+const tokenNamesForOracle = [
+  'ETH', 'wstETH' // not case sensitive
+]
 
 const exocoreBech32Prefix = 'exo';
 
@@ -101,14 +107,37 @@ async function updateGenesisFile() {
     const clientChainSuffix = '_0x' + clientChainInfo.layer_zero_chain_id.toString(16);
 
     // x/assets: tokens (client_chain_asset.go)
+    // x/oracle
     if (!genesisJSON.app_state.assets.tokens) {
       genesisJSON.app_state.assets.tokens = [];
+    }
+    if (!genesisJSON.app_state.oracle.params.tokens) {
+      throw new Error(
+        'The tokens section is missing from the oracle params.'
+      );
+    } else if (genesisJSON.app_state.oracle.params.tokens.length > 1) {
+      // remove the ETH default token
+      genesisJSON.app_state.oracle.params.tokens = genesisJSON.app_state.oracle.params.tokens.slice(0, 1);
+    }
+    if (!genesisJSON.app_state.oracle.params.token_feeders) {
+      throw new Error(
+        'The token_feeders section is missing from the oracle params.'
+      );
+    } else if (genesisJSON.app_state.oracle.params.token_feeders.length > 1) {
+      // remove the ETH default token
+      genesisJSON.app_state.oracle.params.token_feeders = genesisJSON.app_state.oracle.params.token_feeders.slice(0, 1);
     }
     const supportedTokensCount = await myContract.methods.getWhitelistedTokensCount().call();
     if (supportedTokensCount != tokenMetaInfos.length) {
       throw new Error(
         `The number of tokens in the contract (${supportedTokensCount}) 
         does not match the number of token meta infos (${tokenMetaInfos.length}).`
+      );
+    }
+    if (supportedTokensCount != tokenNamesForOracle.length) {
+      throw new Error(
+        `The number of tokens in the contract (${supportedTokensCount}) 
+        does not match the number of token names for the oracle (${tokenNamesForOracle.length}).`
       );
     }
     const decimals = [];
@@ -134,6 +163,23 @@ async function updateGenesisFile() {
       supportedTokens[i] = tokenCleaned;
       decimals.push(token.decimals);
       assetIds.push(token.tokenAddress.toLowerCase() + clientChainSuffix);
+      const oracleToken = {
+        name: tokenNamesForOracle[i],
+        chain_id: 1,  // constant intentionally
+        contract_address: token.tokenAddress,
+        active: true,
+        asset_id: token.tokenAddress.toLowerCase() + clientChainSuffix,
+      }
+      genesisJSON.app_state.oracle.params.tokens.push(oracleToken);
+      const oracleTokenFeeder = {
+        token_id: (i + 1).toString(), // first is reserved
+        rule_id: "1",
+        start_round_id: "1",
+        start_base_block: "1000000",
+        interval: "30",
+        end_block: "0",
+      }
+      genesisJSON.app_state.oracle.params.token_feeders.push(oracleTokenFeeder);
       // break;
     }
     supportedTokens.sort((a, b) => {
@@ -146,6 +192,8 @@ async function updateGenesisFile() {
       return 0;
     });
     genesisJSON.app_state.assets.tokens = supportedTokens;
+    // do not sort x/oracle params since the order is related for
+    // the token objects and the token feeders.
 
     // x/assets: deposits (staker_asset.go)
     if (!genesisJSON.app_state.assets.deposits) {
@@ -293,11 +341,11 @@ async function updateGenesisFile() {
       }
       // only mark as validator if the amount is greater than min_self_delegation
       if (amount.gte(minSelfDelegation)) {
-      validators.push({
-        public_key: operatorInfo.consensusPublicKey,
-        power: amount,  // do not convert to int yet.
-        operator_acc_addr: opAddressBech32,
-      });
+        validators.push({
+          public_key: operatorInfo.consensusPublicKey,
+          power: amount,  // do not convert to int yet.
+          operator_acc_addr: opAddressBech32,
+        });
       } else {
         console.log(`Skipping operator ${opAddressBech32} due to insufficient self delegation.`);
       }
