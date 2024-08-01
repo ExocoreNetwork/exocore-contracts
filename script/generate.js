@@ -9,10 +9,10 @@ const clientChainInfo = {
     'layer_zero_chain_id': 40161,
     'address_length': 20,
   };
-
+// this must be in the same order as whitelistTokens
 const tokenMetaInfos = [
-  'Lido wrapped staked ETH',
-  'Exocore testnet ETH',
+  'Exocore testnet ETH', // first we did push exoETH
+  'Lido wrapped staked ETH', // then push wstETH
 ];
 
 const exocoreBech32Prefix = 'exo';
