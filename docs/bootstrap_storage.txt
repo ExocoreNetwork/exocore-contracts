@@ -1,0 +1,36 @@
+| Name                          | Type                                                               | Slot | Offset | Bytes | Contract                         |
+|-------------------------------|--------------------------------------------------------------------|------|--------|-------|----------------------------------|
+| _initialized                  | uint8                                                              | 0    | 0      | 1     | src/core/Bootstrap.sol:Bootstrap |
+| _initializing                 | bool                                                               | 0    | 1      | 1     | src/core/Bootstrap.sol:Bootstrap |
+| __gap                         | uint256[50]                                                        | 1    | 0      | 1600  | src/core/Bootstrap.sol:Bootstrap |
+| _paused                       | bool                                                               | 51   | 0      | 1     | src/core/Bootstrap.sol:Bootstrap |
+| __gap                         | uint256[49]                                                        | 52   | 0      | 1568  | src/core/Bootstrap.sol:Bootstrap |
+| _owner                        | address                                                            | 101  | 0      | 20    | src/core/Bootstrap.sol:Bootstrap |
+| __gap                         | uint256[49]                                                        | 102  | 0      | 1568  | src/core/Bootstrap.sol:Bootstrap |
+| _status                       | uint256                                                            | 151  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| __gap                         | uint256[49]                                                        | 152  | 0      | 1568  | src/core/Bootstrap.sol:Bootstrap |
+| peers                         | mapping(uint32 => bytes32)                                         | 201  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| _whiteListFunctionSelectors   | mapping(enum GatewayStorage.Action => bytes4)                      | 202  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| inboundNonce                  | mapping(uint32 => mapping(bytes32 => uint64))                      | 203  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| __gap                         | uint256[40]                                                        | 204  | 0      | 1280  | src/core/Bootstrap.sol:Bootstrap |
+| exocoreSpawnTime              | uint256                                                            | 244  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| offsetDuration                | uint256                                                            | 245  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| depositsByToken               | mapping(address => uint256)                                        | 246  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| registeredValidators          | address[]                                                          | 247  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| ethToExocoreAddress           | mapping(address => string)                                         | 248  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| validators                    | mapping(string => struct IValidatorRegistry.Validator)             | 249  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| commissionEdited              | mapping(string => bool)                                            | 250  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| delegationsByValidator        | mapping(string => mapping(address => uint256))                     | 251  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| depositors                    | address[]                                                          | 252  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| isDepositor                   | mapping(address => bool)                                           | 253  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| totalDepositAmounts           | mapping(address => mapping(address => uint256))                    | 254  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| withdrawableAmounts           | mapping(address => mapping(address => uint256))                    | 255  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| delegations                   | mapping(address => mapping(string => mapping(address => uint256))) | 256  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| bootstrapped                  | bool                                                               | 257  | 0      | 1     | src/core/Bootstrap.sol:Bootstrap |
+| customProxyAdmin              | address                                                            | 257  | 1      | 20    | src/core/Bootstrap.sol:Bootstrap |
+| clientChainGatewayLogic       | address                                                            | 258  | 0      | 20    | src/core/Bootstrap.sol:Bootstrap |
+| clientChainInitializationData | bytes                                                              | 259  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| whitelistTokens               | address[]                                                          | 260  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| isWhitelistedToken            | mapping(address => bool)                                           | 261  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| tokenToVault                  | mapping(address => contract IVault)                                | 262  | 0      | 32    | src/core/Bootstrap.sol:Bootstrap |
+| __gap                         | uint256[40]                                                        | 263  | 0      | 1280  | src/core/Bootstrap.sol:Bootstrap |

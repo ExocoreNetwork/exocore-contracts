@@ -8,6 +8,8 @@ import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
 import {Errors} from "../libraries/Errors.sol";
+
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -19,6 +21,7 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 /// @dev This contract is abstract because it does not call the base constructor.
 abstract contract NativeRestakingController is
     PausableUpgradeable,
+    OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
     INativeRestakingController,
     BaseRestakingController

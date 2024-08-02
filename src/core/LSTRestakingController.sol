@@ -6,6 +6,7 @@ import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol
 import {IVault} from "../interfaces/IVault.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
@@ -14,6 +15,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 /// @notice Implementation of ILSTRestakingController, used to restake tokens.
 abstract contract LSTRestakingController is
     PausableUpgradeable,
+    OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
     ILSTRestakingController,
     BaseRestakingController

@@ -8,6 +8,8 @@ import {MessagingFee, MessagingReceipt, OAppSenderUpgradeable} from "../lzApp/OA
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
+
+import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
@@ -18,6 +20,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
 /// Bootstrap.
 abstract contract BaseRestakingController is
     PausableUpgradeable,
+    OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
     OAppSenderUpgradeable,
     IBaseRestakingController,
