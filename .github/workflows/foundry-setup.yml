@@ -36,7 +36,7 @@ jobs:
           installation_path=$(which forge)
           installation_dir=$(dirname $installation_path)
           echo "installation-dir=$installation_dir" >> "$GITHUB_OUTPUT"
-      - name: Cached Foundry toolchain
+      - name: Cache the Foundry toolchain
         uses: actions/cache/save@v3
         with:
           path: ${{ steps.find-path.outputs.installation-dir }}
