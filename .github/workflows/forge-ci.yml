@@ -81,7 +81,9 @@ jobs:
             ./broadcast
           key: ${{ runner.os }}-build-${{ github.sha }}
       - name: Test
-        run: forge test
+        run: forge test -vvv
+      - name: Set test snapshot as summary
+        run: NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
       - name: Add comment for test failure
         if: failure()
         uses: actions/github-script@v6
