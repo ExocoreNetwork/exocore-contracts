@@ -215,9 +215,6 @@ contract Bootstrap is
         Commission memory commission,
         bytes32 consensusPublicKey
     ) external beforeLocked whenNotPaused isValidBech32Address(validatorAddress) {
-        if (bytes(name).length == 0) {
-            revert Errors.BootstrapValidatorNameLengthZero();
-        }
         // ensure that there is only one validator per ethereum address
         if (bytes(ethToExocoreAddress[msg.sender]).length > 0) {
             revert Errors.BootstrapValidatorAlreadyHasAddress(msg.sender);
@@ -226,15 +223,11 @@ contract Bootstrap is
         if (bytes(validators[validatorAddress].name).length > 0) {
             revert Errors.BootstrapValidatorAlreadyRegistered();
         }
-        // check that the consensus key is not empty.
-        if (consensusPublicKey == bytes32(0)) {
-            revert Errors.ZeroValue();
+        _validateConsensusKey(consensusPublicKey);
+        // and that the name (meta info) is non-empty and unique.
+        if (bytes(name).length == 0) {
+            revert Errors.BootstrapValidatorNameLengthZero();
         }
-        // check that the consensus key is unique.
-        if (consensusPublicKeyInUse[consensusPublicKey]) {
-            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(consensusPublicKey);
-        }
-        // and that the name (meta info) is unique.
         if (validatorNameInUse[name]) {
             revert Errors.BootstrapValidatorNameAlreadyUsed();
         }
@@ -269,18 +262,11 @@ contract Bootstrap is
         if (bytes(ethToExocoreAddress[msg.sender]).length == 0) {
             revert Errors.BootstrapValidatorNotExist();
         }
-        // check that the consensus key is not empty.
-        if (newKey == bytes32(0)) {
-            revert Errors.ZeroValue();
-        }
-        // check that the consensus key is unique.
-        if (consensusPublicKeyInUse[newKey]) {
-            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(newKey);
-        }
+        _validateConsensusKey(newKey);
         bytes32 oldKey = validators[ethToExocoreAddress[msg.sender]].consensusPublicKey;
         consensusPublicKeyInUse[oldKey] = false;
-        validators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
         consensusPublicKeyInUse[newKey] = true;
+        validators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
         emit ValidatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
     }
 
@@ -312,6 +298,20 @@ contract Bootstrap is
         validators[validatorAddress].commission.rate = newRate;
         commissionEdited[validatorAddress] = true;
         emit ValidatorCommissionUpdated(newRate);
+    }
+
+    /// @notice Validates a consensus key.
+    /// @dev The validation checks include non-empty key and uniqueness.
+    /// @param key The consensus key to validate.
+    function _validateConsensusKey(bytes32 key) internal view {
+        // check that the consensus key is not empty.
+        if (key == bytes32(0)) {
+            revert Errors.ZeroValue();
+        }
+        // check that the consensus key is unique.
+        if (consensusPublicKeyInUse[key]) {
+            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(key);
+        }
     }
 
     /// @inheritdoc ILSTRestakingController
