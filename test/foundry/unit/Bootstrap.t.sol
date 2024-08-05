@@ -1136,7 +1136,13 @@ contract BootstrapTest is Test {
         assertTrue(bootstrap.offsetDuration() == offsetDuration + 1);
     }
 
-    function test17_SetOffsetDuration_GTESpawnTime() public {
+    function test17_SetOffsetDuration_GreaterThanSpawnTime() public {
+        vm.startPrank(deployer);
+        vm.expectRevert(Errors.BootstrapSpawnTimeLessThanDuration.selector);
+        bootstrap.setOffsetDuration(spawnTime + 1);
+    }
+
+    function test17_SetOffsetDuration_EqualSpawnTime() public {
         vm.startPrank(deployer);
         vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
         bootstrap.setOffsetDuration(spawnTime);
