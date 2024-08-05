@@ -215,6 +215,9 @@ contract Bootstrap is
         Commission memory commission,
         bytes32 consensusPublicKey
     ) external beforeLocked whenNotPaused isValidBech32Address(validatorAddress) {
+        if (bytes(name).length == 0) {
+            revert Errors.BootstrapValidatorNameLengthZero();
+        }
         // ensure that there is only one validator per ethereum address
         if (bytes(ethToExocoreAddress[msg.sender]).length > 0) {
             revert Errors.BootstrapValidatorAlreadyHasAddress(msg.sender);
@@ -224,11 +227,11 @@ contract Bootstrap is
             revert Errors.BootstrapValidatorAlreadyRegistered();
         }
         // check that the consensus key is unique.
-        if (consensusPublicKeyInUse(consensusPublicKey)) {
+        if (consensusPublicKeyInUse[consensusPublicKey]) {
             revert Errors.BootstrapConsensusPubkeyAlreadyUsed(consensusPublicKey);
         }
         // and that the name (meta info) is unique.
-        if (nameInUse(name)) {
+        if (validatorNameInUse[name]) {
             revert Errors.BootstrapValidatorNameAlreadyUsed();
         }
         // check that the commission is valid.
@@ -239,26 +242,9 @@ contract Bootstrap is
         validators[validatorAddress] =
             IValidatorRegistry.Validator({name: name, commission: commission, consensusPublicKey: consensusPublicKey});
         registeredValidators.push(msg.sender);
+        consensusPublicKeyInUse[consensusPublicKey] = true;
+        validatorNameInUse[name] = true;
         emit ValidatorRegistered(msg.sender, validatorAddress, name, commission, consensusPublicKey);
-    }
-
-    /// @notice Checks if the given consensus public key is already in use by any registered validator.
-    /// @dev Iterates over all validators to determine if the key is in use.
-    /// @param newKey The input key to check.
-    /// @return bool Returns `true` if the key is already in use, `false` otherwise.
-    function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
-        if (newKey == bytes32(0)) {
-            revert Errors.ZeroValue();
-        }
-        uint256 arrayLength = registeredValidators.length;
-        for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredValidators[i];
-            string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (validators[exoAddress].consensusPublicKey == newKey) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /// @notice Checks if the provided commission is valid.
@@ -274,31 +260,18 @@ contract Bootstrap is
                commission.maxChangeRate <= commission.maxRate;
     }
 
-    /// @notice Checks if the given name is already in use by any registered validator.
-    /// @dev Iterates over all validators to determine if the name is in use.
-    /// @param newName The input name to check.
-    /// @return bool Returns `true` if the name is already in use, `false` otherwise.
-    function nameInUse(string memory newName) public view returns (bool) {
-        uint256 arrayLength = registeredValidators.length;
-        for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredValidators[i];
-            string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (keccak256(abi.encodePacked(validators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /// @inheritdoc IValidatorRegistry
     function replaceKey(bytes32 newKey) external beforeLocked whenNotPaused {
         if (bytes(ethToExocoreAddress[msg.sender]).length == 0) {
             revert Errors.BootstrapValidatorNotExist();
         }
-        if (consensusPublicKeyInUse(newKey)) {
+        if (consensusPublicKeyInUse[newKey]) {
             revert Errors.BootstrapConsensusPubkeyAlreadyUsed(newKey);
         }
+        bytes32 oldKey = validators[ethToExocoreAddress[msg.sender]].consensusPublicKey;
+        consensusPublicKeyInUse[oldKey] = false;
         validators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
+        consensusPublicKeyInUse[newKey] = true;
         emit ValidatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
     }
 

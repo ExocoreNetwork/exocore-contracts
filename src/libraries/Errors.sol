@@ -100,6 +100,9 @@ library Errors {
     /// @dev Bootstrap: client chain initialization data is malformed
     error BootstrapClientChainDataMalformed();
 
+    /// @dev Bootstrap: validator name length is zero
+    error BootstrapValidatorNameLengthZero();
+
     //////////////////////////////////
     //  BootstrapLzReceiver Errors  //
     //////////////////////////////////

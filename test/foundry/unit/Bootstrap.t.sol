@@ -336,6 +336,7 @@ contract BootstrapTest is Test {
             assertTrue(keccak256(abi.encodePacked(name)) == keccak256(abi.encodePacked(names[i])));
             assertTrue(key == pubKeys[i]);
             assertTrue(thisCommision.rate == commission.rate);
+            assertTrue(bootstrap.validatorNameInUse(names[i]));
             vm.stopPrank();
         }
     }
@@ -413,6 +414,17 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
+    function test03_RegisterValidator_EmptyName() public {
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register validator
+        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory name = "";
+        bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
+        vm.startPrank(addrs[0]);
+        vm.expectRevert(Errors.BootstrapValidatorNameLengthZero.selector);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
+    }
+
     function test04_DepositThenDelegate() public {
         // since deposit and delegate are already tested, we will just do a simple success
         // check here to ensure the reentrancy modifier works.
@@ -448,6 +460,9 @@ contract BootstrapTest is Test {
         (,, consensusPublicKey) = bootstrap.validators(exo);
         assertTrue(consensusPublicKey == newKey);
         vm.stopPrank();
+        // check the key values
+        assertFalse(bootstrap.consensusPublicKeyInUse(pubKey));
+        assertTrue(bootstrap.consensusPublicKeyInUse(newKey));
     }
 
     function test05_ReplaceKey_InUseByOther() public {

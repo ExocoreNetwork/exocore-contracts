@@ -138,6 +138,14 @@ contract BootstrapStorage is GatewayStorage {
     /// this contract exceeding the limit and leading to creation failure.
     BeaconProxyBytecode public immutable BEACON_PROXY_BYTECODE;
 
+    /// @notice Mapping to keep track of the consensus keys that have been used.
+    /// @dev A mapping of consensus keys to a boolean indicating whether the key has been used.
+    mapping(bytes32 consensusKey => bool used) public consensusPublicKeyInUse;
+
+    /// @notice Mapping to keep track of the validator names that have been used.
+    /// @dev A mapping of validator names to a boolean indicating whether the name has been used.
+    mapping(string name => bool used) public validatorNameInUse;
+
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
     /* -------------------------------------------------------------------------- */
