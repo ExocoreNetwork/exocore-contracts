@@ -307,7 +307,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             revert InvalidAddWhitelistTokensRequest(expectedLength, requestPayload.length);
         }
 
-        for (uint256 i; i < count; i++) {
+        for (uint256 i; i < count; ++i) {
             uint256 start = i * TOKEN_ADDRESS_BYTES_LENGTH + 1;
             uint256 end = start + TOKEN_ADDRESS_BYTES_LENGTH;
             address token = address(bytes20(requestPayload[start:end]));

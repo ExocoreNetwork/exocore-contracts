@@ -112,7 +112,7 @@ contract ExocoreGateway is
         if (!success) {
             revert Errors.ExocoreGatewayFailedToGetClientChainIds();
         }
-        for (uint256 i = 0; i < chainIndices.length; i++) {
+        for (uint256 i = 0; i < chainIndices.length; ++i) {
             uint32 chainIndex = chainIndices[i];
             if (!chainToBootstrapped[chainIndex]) {
                 _sendInterchainMsg(chainIndex, Action.REQUEST_MARK_BOOTSTRAP, "", true);
@@ -190,7 +190,7 @@ contract ExocoreGateway is
 
         bool success;
         bool updated;
-        for (uint256 i; i < tokens.length; i++) {
+        for (uint256 i; i < tokens.length; ++i) {
             require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
             require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
             require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");

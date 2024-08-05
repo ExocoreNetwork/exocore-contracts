@@ -182,7 +182,7 @@ contract Bootstrap is
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
     function _addWhitelistTokens(address[] calldata tokens) internal {
-        for (uint256 i; i < tokens.length; i++) {
+        for (uint256 i; i < tokens.length; ++i) {
             address token = tokens[i];
             if (token == address(0)) {
                 revert Errors.ZeroAddress();

@@ -42,7 +42,7 @@ library WithdrawalContainer {
 
     function merkleizeWithdrawalContainer(bytes32[] calldata withdrawalContainer) internal pure returns (bytes32) {
         bytes32[] memory leaves = withdrawalContainer;
-        for (uint256 i; i < MERKLE_TREE_HEIGHT; i++) {
+        for (uint256 i; i < MERKLE_TREE_HEIGHT; ++i) {
             bytes32[] memory roots = new bytes32[](leaves.length / 2);
             for (uint256 j; j < leaves.length / 2; j++) {
                 roots[j] = sha256(abi.encodePacked(leaves[2 * j], leaves[2 * j + 1]));
