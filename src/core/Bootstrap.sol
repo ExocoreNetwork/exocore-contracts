@@ -130,7 +130,7 @@ contract Bootstrap is
         _validateSpawnTimeAndOffsetDuration(spawnTime_, offsetDuration);
         // technically the spawn time can be moved backwards in time as well.
         spawnTime = spawnTime_;
-        emit SpawnTimeUpdated(spawnTime_);
+        emit SpawnTimeUpdated(spawnTime);
     }
 
     /// @notice Allows the contract owner to modify the offset duration that determines
@@ -141,7 +141,7 @@ contract Bootstrap is
     function setOffsetDuration(uint256 offsetDuration_) external onlyOwner beforeLocked {
         _validateSpawnTimeAndOffsetDuration(spawnTime, offsetDuration_);
         offsetDuration = offsetDuration_;
-        emit OffsetDurationUpdated(offsetDuration_);
+        emit OffsetDurationUpdated(offsetDuration);
     }
 
     /// @dev Validates the spawn time and offset duration.
