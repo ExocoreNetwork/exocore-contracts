@@ -68,25 +68,14 @@ contract Bootstrap is
         if (owner == address(0)) {
             revert Errors.ZeroAddress();
         }
-        if (spawnTime_ <= block.timestamp) {
-            revert Errors.BootstrapSpawnTimeAlreadyPast();
-        }
-        if (offsetDuration_ == 0) {
-            revert Errors.ZeroValue();
-        }
-        if (spawnTime_ <= offsetDuration_) {
-            revert Errors.BootstrapSpawnTimeLessThanDuration();
-        }
-        uint256 lockTime = spawnTime_ - offsetDuration_;
-        if (lockTime <= block.timestamp) {
-            revert Errors.BootstrapLockTimeAlreadyPast();
-        }
+
+        _validateSpawnTimeAndOffsetDuration(spawnTime_, offsetDuration_);
+        spawnTime = spawnTime_;
+        offsetDuration = offsetDuration_;
+
         if (customProxyAdmin_ == address(0)) {
             revert Errors.ZeroAddress();
         }
-
-        exocoreSpawnTime = spawnTime_;
-        offsetDuration = offsetDuration_;
 
         _addWhitelistTokens(whitelistTokens_);
 
@@ -109,7 +98,7 @@ contract Bootstrap is
     /// @dev Returns true if the contract is locked, false otherwise.
     /// @return bool Returns `true` if the contract is locked, `false` otherwise.
     function isLocked() public view returns (bool) {
-        return block.timestamp >= exocoreSpawnTime - offsetDuration;
+        return block.timestamp >= spawnTime - offsetDuration;
     }
 
     /// @dev Modifier to restrict operations based on the contract's defined timeline, that is,
@@ -138,18 +127,9 @@ contract Bootstrap is
     /// be called before the currently set lock time has started.
     /// @param _spawnTime The new spawn time in seconds.
     function setSpawnTime(uint256 _spawnTime) external onlyOwner beforeLocked {
-        if (_spawnTime <= block.timestamp) {
-            revert Errors.BootstrapSpawnTimeAlreadyPast();
-        }
-        if (_spawnTime <= offsetDuration) {
-            revert Errors.BootstrapSpawnTimeLessThanDuration();
-        }
-        uint256 lockTime = _spawnTime - offsetDuration;
-        if (lockTime <= block.timestamp) {
-            revert Errors.BootstrapLockTimeAlreadyPast();
-        }
+        _validateSpawnTimeAndOffsetDuration(_spawnTime, offsetDuration);
         // technically the spawn time can be moved backwards in time as well.
-        exocoreSpawnTime = _spawnTime;
+        spawnTime = _spawnTime;
         emit SpawnTimeUpdated(_spawnTime);
     }
 
@@ -159,15 +139,31 @@ contract Bootstrap is
     /// before the currently set lock time has started.
     /// @param _offsetDuration The new offset duration in seconds.
     function setOffsetDuration(uint256 _offsetDuration) external onlyOwner beforeLocked {
-        if (exocoreSpawnTime <= _offsetDuration) {
+        _validateSpawnTimeAndOffsetDuration(spawnTime, _offsetDuration);
+        offsetDuration = _offsetDuration;
+        emit OffsetDurationUpdated(_offsetDuration);
+    }
+
+    /// @dev Validates the spawn time and offset duration.
+    ///      The spawn time must be in the future and greater than the offset duration.
+    ///      The difference of the two must be greater than the current time.
+    /// @param _spawnTime The new spawn time of the Exocore chain.
+    /// @param _offsetDuration The new offset duration before the spawn time.
+    function _validateSpawnTimeAndOffsetDuration(uint256 _spawnTime, uint256 _offsetDuration) internal view {
+        if (_offsetDuration == 0) {
+            revert Errors.ZeroValue();
+        }
+        // _spawnTime == 0 is included in the below check.
+        if (_spawnTime <= block.timestamp) {
+            revert Errors.BootstrapSpawnTimeAlreadyPast();
+        }
+        if (_spawnTime <= _offsetDuration) {
             revert Errors.BootstrapSpawnTimeLessThanDuration();
         }
-        uint256 lockTime = exocoreSpawnTime - _offsetDuration;
+        uint256 lockTime = _spawnTime - _offsetDuration;
         if (lockTime <= block.timestamp) {
             revert Errors.BootstrapLockTimeAlreadyPast();
         }
-        offsetDuration = _offsetDuration;
-        emit OffsetDurationUpdated(_offsetDuration);
     }
 
     /// @inheritdoc ITokenWhitelister
@@ -529,7 +525,7 @@ contract Bootstrap is
         // nonce match, which requires that inbound nonce is uint64(1).
         // TSS checks are not super clear since they can be set by anyone
         // but at this point that does not matter since it is not fully implemented anyway.
-        if (block.timestamp < exocoreSpawnTime) {
+        if (block.timestamp < spawnTime) {
             revert Errors.BootstrapNotSpawnTime();
         }
         if (bootstrapped) {

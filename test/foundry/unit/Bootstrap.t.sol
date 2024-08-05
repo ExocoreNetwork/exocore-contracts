@@ -1084,7 +1084,7 @@ contract BootstrapTest is Test {
     function test16_SetSpawnTime() public {
         vm.startPrank(deployer);
         bootstrap.setSpawnTime(block.timestamp + 35 minutes);
-        assertTrue(bootstrap.exocoreSpawnTime() == block.timestamp + 35 minutes);
+        assertTrue(bootstrap.spawnTime() == block.timestamp + 35 minutes);
     }
 
     function test16_SetSpawnTime_NotInFuture() public {

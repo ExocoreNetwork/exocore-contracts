@@ -22,8 +22,8 @@ contract BootstrapStorage is GatewayStorage {
     // time and duration
     /// @notice A timestamp representing the scheduled spawn time of the Exocore chain, which influences the contract's
     /// operational restrictions.
-    /// @dev `offsetDuration` before `exocoreSpawnTime`, the contract freezes and most actions are prohibited.
-    uint256 public exocoreSpawnTime;
+    /// @dev `offsetDuration` before `spawnTime`, the contract freezes and most actions are prohibited.
+    uint256 public spawnTime;
 
     /// @notice The amount of time before the Exocore spawn time during which operations are restricted.
     /// @dev The duration before the Exocore spawn time during which most contract operations are locked.
