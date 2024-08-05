@@ -1138,7 +1138,7 @@ contract BootstrapTest is Test {
 
     function test17_SetOffsetDuration_GTESpawnTime() public {
         vm.startPrank(deployer);
-        vm.expectRevert(Errors.BootstrapSpawnTimeLessThanDuration.selector);
+        vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
         bootstrap.setOffsetDuration(spawnTime);
     }
 

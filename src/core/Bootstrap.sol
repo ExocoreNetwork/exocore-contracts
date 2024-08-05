@@ -125,43 +125,47 @@ contract Bootstrap is
     /// @notice Allows the contract owner to modify the spawn time of the Exocore chain.
     /// @dev This function can only be called by the contract owner and must
     /// be called before the currently set lock time has started.
-    /// @param _spawnTime The new spawn time in seconds.
-    function setSpawnTime(uint256 _spawnTime) external onlyOwner beforeLocked {
-        _validateSpawnTimeAndOffsetDuration(_spawnTime, offsetDuration);
+    /// @param spawnTime_ The new spawn time in seconds.
+    function setSpawnTime(uint256 spawnTime_) external onlyOwner beforeLocked {
+        _validateSpawnTimeAndOffsetDuration(spawnTime_, offsetDuration);
         // technically the spawn time can be moved backwards in time as well.
-        spawnTime = _spawnTime;
-        emit SpawnTimeUpdated(_spawnTime);
+        spawnTime = spawnTime_;
+        emit SpawnTimeUpdated(spawnTime_);
     }
 
     /// @notice Allows the contract owner to modify the offset duration that determines
     /// the lock period before the Exocore spawn time.
     /// @dev This function can only be called by the contract owner and must be called
     /// before the currently set lock time has started.
-    /// @param _offsetDuration The new offset duration in seconds.
-    function setOffsetDuration(uint256 _offsetDuration) external onlyOwner beforeLocked {
-        _validateSpawnTimeAndOffsetDuration(spawnTime, _offsetDuration);
-        offsetDuration = _offsetDuration;
-        emit OffsetDurationUpdated(_offsetDuration);
+    /// @param offsetDuration_ The new offset duration in seconds.
+    function setOffsetDuration(uint256 offsetDuration_) external onlyOwner beforeLocked {
+        _validateSpawnTimeAndOffsetDuration(spawnTime, offsetDuration_);
+        offsetDuration = offsetDuration_;
+        emit OffsetDurationUpdated(offsetDuration_);
     }
 
     /// @dev Validates the spawn time and offset duration.
     ///      The spawn time must be in the future and greater than the offset duration.
     ///      The difference of the two must be greater than the current time.
-    /// @param _spawnTime The new spawn time of the Exocore chain.
-    /// @param _offsetDuration The new offset duration before the spawn time.
-    function _validateSpawnTimeAndOffsetDuration(uint256 _spawnTime, uint256 _offsetDuration) internal view {
-        if (_offsetDuration == 0) {
+    /// @param spawnTime_ The spawn time of the Exocore chain to validate.
+    /// @param offsetDuration_ The offset duration before the spawn time to validate.
+    function _validateSpawnTimeAndOffsetDuration(uint256 spawnTime_, uint256 offsetDuration_) internal view {
+        if (offsetDuration_ == 0) {
             revert Errors.ZeroValue();
         }
-        // _spawnTime == 0 is included in the below check.
-        if (_spawnTime <= block.timestamp) {
+        // spawnTime_ == 0 is included in the below check, since the timestamp
+        // is always greater than 0. the spawn time must not be equal to the
+        // present time either, although, when marking as bootstrapped, we do
+        // allow that case intentionally.
+        if (block.timestamp > spawnTime_) {
             revert Errors.BootstrapSpawnTimeAlreadyPast();
         }
-        if (_spawnTime <= _offsetDuration) {
+        // guard against underflow of lockTime calculation
+        if (offsetDuration_ > spawnTime_) {
             revert Errors.BootstrapSpawnTimeLessThanDuration();
         }
-        uint256 lockTime = _spawnTime - _offsetDuration;
-        if (lockTime <= block.timestamp) {
+        uint256 lockTime = spawnTime_ - offsetDuration_;
+        if (block.timestamp >= lockTime) {
             revert Errors.BootstrapLockTimeAlreadyPast();
         }
     }
