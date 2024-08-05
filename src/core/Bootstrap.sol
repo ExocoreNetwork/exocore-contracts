@@ -222,6 +222,10 @@ contract Bootstrap is
         if (bytes(validators[validatorAddress].name).length > 0) {
             revert Errors.BootstrapValidatorAlreadyRegistered();
         }
+        // check that the consensus key is not empty.
+        if (consensusPublicKey == bytes32(0)) {
+            revert Errors.ZeroValue();
+        }
         // check that the consensus key is unique.
         if (consensusPublicKeyInUse[consensusPublicKey]) {
             revert Errors.BootstrapConsensusPubkeyAlreadyUsed(consensusPublicKey);
@@ -261,6 +265,11 @@ contract Bootstrap is
         if (bytes(ethToExocoreAddress[msg.sender]).length == 0) {
             revert Errors.BootstrapValidatorNotExist();
         }
+        // check that the consensus key is not empty.
+        if (newKey == bytes32(0)) {
+            revert Errors.ZeroValue();
+        }
+        // check that the consensus key is unique.
         if (consensusPublicKeyInUse[newKey]) {
             revert Errors.BootstrapConsensusPubkeyAlreadyUsed(newKey);
         }

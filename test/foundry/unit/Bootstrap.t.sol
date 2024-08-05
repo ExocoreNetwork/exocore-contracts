@@ -425,6 +425,17 @@ contract BootstrapTest is Test {
         bootstrap.registerValidator(exo, name, commission, pubKey);
     }
 
+    function test03_RegisterValidator_ZeroConsensusKey() public {
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register validator
+        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory name = "validator1";
+        bytes32 pubKey = bytes32(0);
+        vm.startPrank(addrs[0]);
+        vm.expectRevert(Errors.ZeroValue.selector);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
+    }
+
     function test04_DepositThenDelegate() public {
         // since deposit and delegate are already tested, we will just do a simple success
         // check here to ensure the reentrancy modifier works.
@@ -489,6 +500,15 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[1]);
         bytes32 newKey = bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9);
         vm.expectRevert(Errors.BootstrapValidatorNotExist.selector);
+        bootstrap.replaceKey(newKey);
+        vm.stopPrank();
+    }
+
+    function test05_ReplaceKey_ZeroConsensusKey() public {
+        test03_RegisterValidator();
+        vm.startPrank(addrs[0]);
+        bytes32 newKey = bytes32(0);
+        vm.expectRevert(Errors.ZeroValue.selector);
         bootstrap.replaceKey(newKey);
         vm.stopPrank();
     }
