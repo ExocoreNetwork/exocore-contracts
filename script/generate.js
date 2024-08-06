@@ -65,7 +65,7 @@ async function updateGenesisFile() {
     }
 
     // Set spawn time
-    const spawnTime = await myContract.methods.exocoreSpawnTime().call();
+    const spawnTime = await myContract.methods.spawnTime().call();
     const spawnTimeInSeconds = spawnTime.toString();
     const spawnDate = new Date(spawnTimeInSeconds * 1000).toISOString();
     genesisJSON.genesis_time = spawnDate;

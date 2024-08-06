@@ -90,11 +90,12 @@ contract ClientChainGateway is
         delete clientChainGatewayLogic;
         delete clientChainInitializationData;
         // no risk keeping these but they are cheap to clear.
-        delete exocoreSpawnTime;
+        delete spawnTime;
         delete offsetDuration;
-        // previously, we tried clearing the loops but it is too expensive.
+        // previously, we tried clearing the contents of these in loops but it is too expensive.
         delete depositors;
         delete registeredValidators;
+        // mappings cannot be deleted
     }
 
     /// @notice Pauses the contract.

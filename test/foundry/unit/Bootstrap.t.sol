@@ -336,6 +336,7 @@ contract BootstrapTest is Test {
             assertTrue(keccak256(abi.encodePacked(name)) == keccak256(abi.encodePacked(names[i])));
             assertTrue(key == pubKeys[i]);
             assertTrue(thisCommision.rate == commission.rate);
+            assertTrue(bootstrap.validatorNameInUse(names[i]));
             vm.stopPrank();
         }
     }
@@ -413,6 +414,28 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
+    function test03_RegisterValidator_EmptyName() public {
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register validator
+        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory name = "";
+        bytes32 pubKey = bytes32(0x27165ec2f29a4815b7c29e47d8700845b5ae267f2d61ad29fb3939aec5540782);
+        vm.startPrank(addrs[0]);
+        vm.expectRevert(Errors.BootstrapValidatorNameLengthZero.selector);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
+    }
+
+    function test03_RegisterValidator_ZeroConsensusKey() public {
+        IValidatorRegistry.Commission memory commission = IValidatorRegistry.Commission(0, 1e18, 1e18);
+        // Register validator
+        string memory exo = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+        string memory name = "validator1";
+        bytes32 pubKey = bytes32(0);
+        vm.startPrank(addrs[0]);
+        vm.expectRevert(Errors.ZeroValue.selector);
+        bootstrap.registerValidator(exo, name, commission, pubKey);
+    }
+
     function test04_DepositThenDelegate() public {
         // since deposit and delegate are already tested, we will just do a simple success
         // check here to ensure the reentrancy modifier works.
@@ -448,6 +471,9 @@ contract BootstrapTest is Test {
         (,, consensusPublicKey) = bootstrap.validators(exo);
         assertTrue(consensusPublicKey == newKey);
         vm.stopPrank();
+        // check the key values
+        assertFalse(bootstrap.consensusPublicKeyInUse(pubKey));
+        assertTrue(bootstrap.consensusPublicKeyInUse(newKey));
     }
 
     function test05_ReplaceKey_InUseByOther() public {
@@ -474,6 +500,15 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[1]);
         bytes32 newKey = bytes32(0xe2f00b6510e16fd8cc5802a4011d6f093acbbbca7c284cad6aa2c2e474bb50f9);
         vm.expectRevert(Errors.BootstrapValidatorNotExist.selector);
+        bootstrap.replaceKey(newKey);
+        vm.stopPrank();
+    }
+
+    function test05_ReplaceKey_ZeroConsensusKey() public {
+        test03_RegisterValidator();
+        vm.startPrank(addrs[0]);
+        bytes32 newKey = bytes32(0);
+        vm.expectRevert(Errors.ZeroValue.selector);
         bootstrap.replaceKey(newKey);
         vm.stopPrank();
     }
@@ -1069,7 +1104,7 @@ contract BootstrapTest is Test {
     function test16_SetSpawnTime() public {
         vm.startPrank(deployer);
         bootstrap.setSpawnTime(block.timestamp + 35 minutes);
-        assertTrue(bootstrap.exocoreSpawnTime() == block.timestamp + 35 minutes);
+        assertTrue(bootstrap.spawnTime() == block.timestamp + 35 minutes);
     }
 
     function test16_SetSpawnTime_NotInFuture() public {
@@ -1101,9 +1136,15 @@ contract BootstrapTest is Test {
         assertTrue(bootstrap.offsetDuration() == offsetDuration + 1);
     }
 
-    function test17_SetOffsetDuration_GTESpawnTime() public {
+    function test17_SetOffsetDuration_GreaterThanSpawnTime() public {
         vm.startPrank(deployer);
         vm.expectRevert(Errors.BootstrapSpawnTimeLessThanDuration.selector);
+        bootstrap.setOffsetDuration(spawnTime + 1);
+    }
+
+    function test17_SetOffsetDuration_EqualSpawnTime() public {
+        vm.startPrank(deployer);
+        vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
         bootstrap.setOffsetDuration(spawnTime);
     }
 

@@ -22,8 +22,8 @@ contract BootstrapStorage is GatewayStorage {
     // time and duration
     /// @notice A timestamp representing the scheduled spawn time of the Exocore chain, which influences the contract's
     /// operational restrictions.
-    /// @dev `offsetDuration` before `exocoreSpawnTime`, the contract freezes and most actions are prohibited.
-    uint256 public exocoreSpawnTime;
+    /// @dev `offsetDuration` before `spawnTime`, the contract freezes and most actions are prohibited.
+    uint256 public spawnTime;
 
     /// @notice The amount of time before the Exocore spawn time during which operations are restricted.
     /// @dev The duration before the Exocore spawn time during which most contract operations are locked.
@@ -137,6 +137,14 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev We do not store bytecode of beacon proxy contract in this storage because that would cause the code size of
     /// this contract exceeding the limit and leading to creation failure.
     BeaconProxyBytecode public immutable BEACON_PROXY_BYTECODE;
+
+    /// @notice Mapping to keep track of the consensus keys that have been used.
+    /// @dev A mapping of consensus keys to a boolean indicating whether the key has been used.
+    mapping(bytes32 consensusKey => bool used) public consensusPublicKeyInUse;
+
+    /// @notice Mapping to keep track of the validator names that have been used.
+    /// @dev A mapping of validator names to a boolean indicating whether the name has been used.
+    mapping(string name => bool used) public validatorNameInUse;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */

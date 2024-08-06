@@ -70,7 +70,7 @@ contract GatewayStorage {
         if (stringBytes.length != 42) {
             return false;
         }
-        for (uint256 i = 0; i < EXO_ADDRESS_PREFIX.length; i++) {
+        for (uint256 i = 0; i < EXO_ADDRESS_PREFIX.length; ++i) {
             if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
                 return false;
             }

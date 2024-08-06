@@ -68,25 +68,14 @@ contract Bootstrap is
         if (owner == address(0)) {
             revert Errors.ZeroAddress();
         }
-        if (spawnTime_ <= block.timestamp) {
-            revert Errors.BootstrapSpawnTimeAlreadyPast();
-        }
-        if (offsetDuration_ == 0) {
-            revert Errors.ZeroValue();
-        }
-        if (spawnTime_ <= offsetDuration_) {
-            revert Errors.BootstrapSpawnTimeLessThanDuration();
-        }
-        uint256 lockTime = spawnTime_ - offsetDuration_;
-        if (lockTime <= block.timestamp) {
-            revert Errors.BootstrapLockTimeAlreadyPast();
-        }
+
+        _validateSpawnTimeAndOffsetDuration(spawnTime_, offsetDuration_);
+        spawnTime = spawnTime_;
+        offsetDuration = offsetDuration_;
+
         if (customProxyAdmin_ == address(0)) {
             revert Errors.ZeroAddress();
         }
-
-        exocoreSpawnTime = spawnTime_;
-        offsetDuration = offsetDuration_;
 
         _addWhitelistTokens(whitelistTokens_);
 
@@ -109,7 +98,7 @@ contract Bootstrap is
     /// @dev Returns true if the contract is locked, false otherwise.
     /// @return bool Returns `true` if the contract is locked, `false` otherwise.
     function isLocked() public view returns (bool) {
-        return block.timestamp >= exocoreSpawnTime - offsetDuration;
+        return block.timestamp >= spawnTime - offsetDuration;
     }
 
     /// @dev Modifier to restrict operations based on the contract's defined timeline, that is,
@@ -136,38 +125,49 @@ contract Bootstrap is
     /// @notice Allows the contract owner to modify the spawn time of the Exocore chain.
     /// @dev This function can only be called by the contract owner and must
     /// be called before the currently set lock time has started.
-    /// @param _spawnTime The new spawn time in seconds.
-    function setSpawnTime(uint256 _spawnTime) external onlyOwner beforeLocked {
-        if (_spawnTime <= block.timestamp) {
-            revert Errors.BootstrapSpawnTimeAlreadyPast();
-        }
-        if (_spawnTime <= offsetDuration) {
-            revert Errors.BootstrapSpawnTimeLessThanDuration();
-        }
-        uint256 lockTime = _spawnTime - offsetDuration;
-        if (lockTime <= block.timestamp) {
-            revert Errors.BootstrapLockTimeAlreadyPast();
-        }
+    /// @param spawnTime_ The new spawn time in seconds.
+    function setSpawnTime(uint256 spawnTime_) external onlyOwner beforeLocked {
+        _validateSpawnTimeAndOffsetDuration(spawnTime_, offsetDuration);
         // technically the spawn time can be moved backwards in time as well.
-        exocoreSpawnTime = _spawnTime;
-        emit SpawnTimeUpdated(_spawnTime);
+        spawnTime = spawnTime_;
+        emit SpawnTimeUpdated(spawnTime);
     }
 
     /// @notice Allows the contract owner to modify the offset duration that determines
     /// the lock period before the Exocore spawn time.
     /// @dev This function can only be called by the contract owner and must be called
     /// before the currently set lock time has started.
-    /// @param _offsetDuration The new offset duration in seconds.
-    function setOffsetDuration(uint256 _offsetDuration) external onlyOwner beforeLocked {
-        if (exocoreSpawnTime <= _offsetDuration) {
+    /// @param offsetDuration_ The new offset duration in seconds.
+    function setOffsetDuration(uint256 offsetDuration_) external onlyOwner beforeLocked {
+        _validateSpawnTimeAndOffsetDuration(spawnTime, offsetDuration_);
+        offsetDuration = offsetDuration_;
+        emit OffsetDurationUpdated(offsetDuration);
+    }
+
+    /// @dev Validates the spawn time and offset duration.
+    ///      The spawn time must be in the future and greater than the offset duration.
+    ///      The difference of the two must be greater than the current time.
+    /// @param spawnTime_ The spawn time of the Exocore chain to validate.
+    /// @param offsetDuration_ The offset duration before the spawn time to validate.
+    function _validateSpawnTimeAndOffsetDuration(uint256 spawnTime_, uint256 offsetDuration_) internal view {
+        if (offsetDuration_ == 0) {
+            revert Errors.ZeroValue();
+        }
+        // spawnTime_ == 0 is included in the below check, since the timestamp
+        // is always greater than 0. the spawn time must not be equal to the
+        // present time either, although, when marking as bootstrapped, we do
+        // allow that case intentionally.
+        if (block.timestamp > spawnTime_) {
+            revert Errors.BootstrapSpawnTimeAlreadyPast();
+        }
+        // guard against underflow of lockTime calculation
+        if (offsetDuration_ > spawnTime_) {
             revert Errors.BootstrapSpawnTimeLessThanDuration();
         }
-        uint256 lockTime = exocoreSpawnTime - _offsetDuration;
-        if (lockTime <= block.timestamp) {
+        uint256 lockTime = spawnTime_ - offsetDuration_;
+        if (block.timestamp >= lockTime) {
             revert Errors.BootstrapLockTimeAlreadyPast();
         }
-        offsetDuration = _offsetDuration;
-        emit OffsetDurationUpdated(_offsetDuration);
     }
 
     /// @inheritdoc ITokenWhitelister
@@ -182,7 +182,7 @@ contract Bootstrap is
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
     function _addWhitelistTokens(address[] calldata tokens) internal {
-        for (uint256 i; i < tokens.length; i++) {
+        for (uint256 i = 0; i < tokens.length; ++i) {
             address token = tokens[i];
             if (token == address(0)) {
                 revert Errors.ZeroAddress();
@@ -223,12 +223,12 @@ contract Bootstrap is
         if (bytes(validators[validatorAddress].name).length > 0) {
             revert Errors.BootstrapValidatorAlreadyRegistered();
         }
-        // check that the consensus key is unique.
-        if (consensusPublicKeyInUse(consensusPublicKey)) {
-            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(consensusPublicKey);
+        _validateConsensusKey(consensusPublicKey);
+        // and that the name (meta info) is non-empty and unique.
+        if (bytes(name).length == 0) {
+            revert Errors.BootstrapValidatorNameLengthZero();
         }
-        // and that the name (meta info) is unique.
-        if (nameInUse(name)) {
+        if (validatorNameInUse[name]) {
             revert Errors.BootstrapValidatorNameAlreadyUsed();
         }
         // check that the commission is valid.
@@ -239,26 +239,9 @@ contract Bootstrap is
         validators[validatorAddress] =
             IValidatorRegistry.Validator({name: name, commission: commission, consensusPublicKey: consensusPublicKey});
         registeredValidators.push(msg.sender);
+        consensusPublicKeyInUse[consensusPublicKey] = true;
+        validatorNameInUse[name] = true;
         emit ValidatorRegistered(msg.sender, validatorAddress, name, commission, consensusPublicKey);
-    }
-
-    /// @notice Checks if the given consensus public key is already in use by any registered validator.
-    /// @dev Iterates over all validators to determine if the key is in use.
-    /// @param newKey The input key to check.
-    /// @return bool Returns `true` if the key is already in use, `false` otherwise.
-    function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
-        if (newKey == bytes32(0)) {
-            revert Errors.ZeroValue();
-        }
-        uint256 arrayLength = registeredValidators.length;
-        for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredValidators[i];
-            string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (validators[exoAddress].consensusPublicKey == newKey) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /// @notice Checks if the provided commission is valid.
@@ -274,30 +257,15 @@ contract Bootstrap is
                commission.maxChangeRate <= commission.maxRate;
     }
 
-    /// @notice Checks if the given name is already in use by any registered validator.
-    /// @dev Iterates over all validators to determine if the name is in use.
-    /// @param newName The input name to check.
-    /// @return bool Returns `true` if the name is already in use, `false` otherwise.
-    function nameInUse(string memory newName) public view returns (bool) {
-        uint256 arrayLength = registeredValidators.length;
-        for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredValidators[i];
-            string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (keccak256(abi.encodePacked(validators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /// @inheritdoc IValidatorRegistry
     function replaceKey(bytes32 newKey) external beforeLocked whenNotPaused {
         if (bytes(ethToExocoreAddress[msg.sender]).length == 0) {
             revert Errors.BootstrapValidatorNotExist();
         }
-        if (consensusPublicKeyInUse(newKey)) {
-            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(newKey);
-        }
+        _validateConsensusKey(newKey);
+        bytes32 oldKey = validators[ethToExocoreAddress[msg.sender]].consensusPublicKey;
+        consensusPublicKeyInUse[oldKey] = false;
+        consensusPublicKeyInUse[newKey] = true;
         validators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
         emit ValidatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
     }
@@ -330,6 +298,20 @@ contract Bootstrap is
         validators[validatorAddress].commission.rate = newRate;
         commissionEdited[validatorAddress] = true;
         emit ValidatorCommissionUpdated(newRate);
+    }
+
+    /// @notice Validates a consensus key.
+    /// @dev The validation checks include non-empty key and uniqueness.
+    /// @param key The consensus key to validate.
+    function _validateConsensusKey(bytes32 key) internal view {
+        // check that the consensus key is not empty.
+        if (key == bytes32(0)) {
+            revert Errors.ZeroValue();
+        }
+        // check that the consensus key is unique.
+        if (consensusPublicKeyInUse[key]) {
+            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(key);
+        }
     }
 
     /// @inheritdoc ILSTRestakingController
@@ -556,7 +538,7 @@ contract Bootstrap is
         // nonce match, which requires that inbound nonce is uint64(1).
         // TSS checks are not super clear since they can be set by anyone
         // but at this point that does not matter since it is not fully implemented anyway.
-        if (block.timestamp < exocoreSpawnTime) {
+        if (block.timestamp < spawnTime) {
             revert Errors.BootstrapNotSpawnTime();
         }
         if (bootstrapped) {
