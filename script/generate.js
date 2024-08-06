@@ -165,10 +165,11 @@ async function updateGenesisFile() {
       assetIds.push(token.tokenAddress.toLowerCase() + clientChainSuffix);
       const oracleToken = {
         name: tokenNamesForOracle[i],
-        chain_id: 1,  // constant intentionally
+        chain_id: 1,  // constant intentionally, representing the first chain in the list
         contract_address: token.tokenAddress,
         active: true,
         asset_id: token.tokenAddress.toLowerCase() + clientChainSuffix,
+        decimal: 8, // price decimals, not token decimals
       }
       genesisJSON.app_state.oracle.params.tokens.push(oracleToken);
       const oracleTokenFeeder = {
