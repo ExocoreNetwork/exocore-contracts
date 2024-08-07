@@ -65,7 +65,7 @@ async function updateGenesisFile() {
     const genesisData = await fs.readFile(BASE_GENESIS_FILE_PATH);
     const genesisJSON = JSON.parse(genesisData);
 
-    // const chainId = genesisJSON.chain_id;
+    const height = parseInt(genesisJSON.initial_height, 10);
     const bootstrapped = await myContract.methods.bootstrapped().call();
     if (bootstrapped) {
       throw new Error('The contract has already been bootstrapped.');
@@ -176,7 +176,7 @@ async function updateGenesisFile() {
         token_id: (i + 1).toString(), // first is reserved
         rule_id: "1",
         start_round_id: "1",
-        start_base_block: "1000000",
+        start_base_block: (height + 10000).toString(),
         interval: "30",
         end_block: "0",
       }
