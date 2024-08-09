@@ -34,6 +34,12 @@ contract SetPeersAndUpgrade is BaseScript {
         ExocoreGateway gateway = ExocoreGateway(payable(exocoreGatewayAddr));
 
         vm.selectFork(exocore);
+        // Foundry rejects this transaction because it reports that isRegisteredClientChain fails, no matter what
+        // we do. Conversely, other tools like Remix and Brownie and even cast are able to report the value
+        // correctly. As a workaround, have `AssetsMock` return `true` value before running this script.
+        if (!useExocorePrecompileMock) {
+            _bindPrecompileMocks();
+        }
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         gateway.setPeer(clientChainId, bootstrapAddr.toBytes32());
         vm.stopBroadcast();
@@ -45,52 +51,14 @@ contract SetPeersAndUpgrade is BaseScript {
         bootstrap.setPeer(exocoreChainId, address(exocoreGatewayAddr).toBytes32());
         vm.stopBroadcast();
 
-        // check that peer is set (we run with --slow but even then there's some risk)
-        uint256 i = 0;
-        uint256 tries = 5;
-        bool success;
-        while (i < tries) {
-            vm.selectFork(exocore);
-            success = gateway.peers(clientChainId) == bootstrapAddr.toBytes32();
-
-            vm.selectFork(clientChain);
-            success = success && bootstrap.peers(exocoreChainId) == address(exocoreGatewayAddr).toBytes32();
-
-            if (success) {
-                break;
-            }
-
-            i++;
+        vm.selectFork(exocore);
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        // fund the gateway
+        if (exocoreGatewayAddr.balance < 1 ether) {
+            (bool sent,) = exocoreGatewayAddr.call{value: 1 ether}("");
+            require(sent, "Failed to send Ether");
         }
-        require(i < tries, "peers not set");
-
-        // the upgrade does not work via script due to the precompile issue
-        // https://github.com/ExocoreNetwork/exocore/issues/78
-        // // now that peers are set, we should upgrade the Bootstrap contract via gateway
-        // // but first allow simulation to run
-        // vm.selectFork(exocore);
-        // bytes memory mockCode = vm.getDeployedCode("ClientChainsMock.sol");
-        // vm.etch(CLIENT_CHAINS_PRECOMPILE_ADDRESS, mockCode);
-
-        // console.log("clientChainId", clientChainId);
-        // vm.startBroadcast(exocoreValidatorSet.privateKey);
-        // // fund the gateway
-        // if (exocoreGatewayAddr.balance < 1 ether) {
-        //     (bool sent,) = exocoreGatewayAddr.call{value: 1 ether}("");
-        //     require(sent, "Failed to send Ether");
-        // }
-        // // gateway.markBootstrapOnAllChains();
-
-        // instruct the user to upgrade manually
-        // this can be done even without calling x/assets UpdateParams
-        // because that parameter is not involved in this process.
-        console.log("Cross-chain upgrade command:");
-        console.log(
-            "source .env && cast send --rpc-url $EXOCORE_TESETNET_RPC",
-            exocoreGatewayAddr,
-            '"markBootstrapOnAllChains()"',
-            "--private-key $TEST_ACCOUNT_THREE_PRIVATE_KEY"
-        );
+        gateway.markBootstrapOnAllChains();
     }
 
 }
