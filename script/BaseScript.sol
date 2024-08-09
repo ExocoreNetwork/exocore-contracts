@@ -16,6 +16,10 @@ import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {ERC20PresetFixedSupply, IERC20} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
+import "../test/mocks/AssetsMock.sol";
+import "../test/mocks/ClaimRewardMock.sol";
+import "../test/mocks/DelegationMock.sol";
+
 contract BaseScript is Script {
 
     struct Player {
