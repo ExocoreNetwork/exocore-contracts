@@ -283,7 +283,8 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
      */
     function testDepositThenDelegateTo() public {
         bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        bytes memory exocoreAddress = _stringToBytes("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
+        bytes memory exocoreAddress = _addressToBytes(delegatorAddr);
+        // bytes memory exocoreAddress = _stringToBytes("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
         bytes memory operator = _stringToBytes("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC");
         // Register address
         vm.prank(validator);
@@ -294,15 +295,15 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
             srcAddress: btcAddress,
             dstAddress: _stringToBytes("tb1qqytgqkzvg48p700s46n57wfgaf04h7ca5m03qcschaawv9qqw2vsp67ku4"),
             token: btcToken,
-            amount: 50_000_000_000_000,
+            amount: 39_900_000_000_000,
             nonce: 1,
-            txTag: _stringToBytes("b2c4366e29da536bd1ca5ac1790ba1d3a5e706a2b5e2674dee2678a669432ffc-4"),
+            txTag: _stringToBytes("b2c4366e29da536bd1ca5ac1790ba1d3a5e706a2b5e2674dee2678a669432ffc-3"),
             payload: "0x"
         });
         bytes memory signature =
             hex"aa70b655593f96d19dca3ef0bfc6602b6597a3b6253de2b709b81306a09d46867f857e8a44e64f0c1be6f4ec90a66e28401e007b7efb6fd344164af8316e1f571b";
         vm.expectEmit(true, true, true, true);
-        emit DepositCompleted(_msg.txTag, btcToken, _msg.srcAddress, _msg.amount, 1000);
+        emit DepositAndDelegationCompleted(btcToken, exocoreAddress, operator, _msg.amount, 39_900_000_000_000);
         vm.prank(validator);
         exocoreBtcGateway.depositThenDelegateTo(_msg, operator, signature);
     }

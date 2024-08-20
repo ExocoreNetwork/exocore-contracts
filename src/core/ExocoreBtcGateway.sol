@@ -193,12 +193,11 @@ contract ExocoreBtcGateway is
      * @param signature The signature to verify.
      * @return btcTxTag The lowercase of BTC txid-vout.
      * @return depositor The BTC address.
-     * @return exocoreAddress The Exocore address.
      */
 
     function _processAndVerify(InterchainMsg calldata _msg, bytes calldata signature)
         internal
-        returns (bytes memory btcTxTag, bytes memory depositor, bytes memory exocoreAddress)
+        returns (bytes memory btcTxTag, bytes memory depositor)
     {
         btcTxTag = _msg.txTag;
         depositor = btcToExocoreAddress[_msg.srcAddress];
@@ -301,7 +300,7 @@ contract ExocoreBtcGateway is
         onlyAuthorizedWitness
     {
         require(authorizedWitnesses[msg.sender], "Not an authorized witness");
-        (bytes memory btcTxTag, bytes memory depositor,) = _processAndVerify(_msg, signature);
+        (bytes memory btcTxTag, bytes memory depositor) = _processAndVerify(_msg, signature);
         console.log("ASSETS_CONTRACT:", address(ASSETS_CONTRACT));
         try ASSETS_CONTRACT.depositTo(_msg.srcChainID, BTC_TOKEN, depositor, _msg.amount) returns (
             bool success, uint256 updatedBalance
@@ -487,7 +486,7 @@ contract ExocoreBtcGateway is
         isValidAmount(_msg.amount)
         onlyAuthorizedWitness
     {
-        (bytes memory btcTxHash, bytes memory depositor,) = _processAndVerify(_msg, signature);
+        (bytes memory btcTxHash, bytes memory depositor) = _processAndVerify(_msg, signature);
         _depositToAssetContract(CLIENT_CHAIN_ID, BTC_TOKEN, depositor, _msg.amount, btcTxHash, operator);
     }
 
