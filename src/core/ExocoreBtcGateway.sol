@@ -322,17 +322,17 @@ contract ExocoreBtcGateway is
     /**
      * @notice Delegates BTC to an operator.
      * @param token The token address.
-     * @param delegator The delegator's exocore address.
      * @param operator The operator's exocore address.
      * @param amount The amount to delegate.
      */
-    function delegateTo(address token, bytes calldata delegator, bytes calldata operator, uint256 amount)
+    function delegateTo(address token, bytes calldata operator, uint256 amount)
         external
         nonReentrant
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
     {
+        bytes memory delegator = abi.encodePacked(bytes32(bytes20(msg.sender)));
         _nextNonce(CLIENT_CHAIN_ID, delegator);
         try DELEGATION_CONTRACT.delegateToThroughBtcGateway(CLIENT_CHAIN_ID, BTC_TOKEN, delegator, operator, amount)
         returns (bool success) {
@@ -349,17 +349,17 @@ contract ExocoreBtcGateway is
     /**
      * @notice Undelegates BTC from an operator.
      * @param token The token address.
-     * @param delegator The delegator's exocore address.
      * @param operator The operator's exocore address.
      * @param amount The amount to undelegate.
      */
-    function undelegateFrom(address token, bytes calldata delegator, bytes calldata operator, uint256 amount)
+    function undelegateFrom(address token, bytes calldata operator, uint256 amount)
         external
         nonReentrant
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
     {
+        bytes memory delegator = abi.encodePacked(bytes32(bytes20(msg.sender)));
         _nextNonce(CLIENT_CHAIN_ID, delegator);
         try DELEGATION_CONTRACT.undelegateFromThroughBtcGateway(CLIENT_CHAIN_ID, BTC_TOKEN, delegator, operator, amount)
         returns (bool success) {
@@ -376,16 +376,16 @@ contract ExocoreBtcGateway is
     /**
      * @notice Withdraws the principal BTC.
      * @param token The token address.
-     * @param withdrawer The withdrawer's exocore address.
      * @param amount The amount to withdraw.
      */
-    function withdrawPrincipal(address token, bytes calldata withdrawer, uint256 amount)
+    function withdrawPrincipal(address token, uint256 amount)
         external
         nonReentrant
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
     {
+        bytes memory withdrawer = abi.encodePacked(bytes32(bytes20(msg.sender)));
         _nextNonce(CLIENT_CHAIN_ID, withdrawer);
         try ASSETS_CONTRACT.withdrawPrincipal(CLIENT_CHAIN_ID, BTC_TOKEN, withdrawer, amount) returns (
             bool success, uint256 updatedBalance
@@ -393,7 +393,9 @@ contract ExocoreBtcGateway is
             if (!success) {
                 revert WithdrawPrincipalFailed();
             }
-            emit WithdrawPrincipalCompleted(token, withdrawer, amount, updatedBalance);
+            (bytes32 requestId, bytes memory _btcAddress) =
+                _initiatePegOut(token, amount, withdrawer, WithdrawType.WithdrawPrincipal);
+            emit WithdrawPrincipalRequested(requestId, msg.sender, token, _btcAddress, amount, updatedBalance);
         } catch {
             emit ExocorePrecompileError(address(ASSETS_CONTRACT));
             revert WithdrawPrincipalFailed();
@@ -403,16 +405,16 @@ contract ExocoreBtcGateway is
     /**
      * @notice Withdraws the reward BTC.
      * @param token The token address.
-     * @param withdrawer The withdrawer's address.
      * @param amount The amount to withdraw.
      */
-    function withdrawReward(address token, bytes calldata withdrawer, uint256 amount)
+    function withdrawReward(address token, uint256 amount)
         external
         nonReentrant
         whenNotPaused
         isTokenWhitelisted(token)
         isValidAmount(amount)
     {
+        bytes memory withdrawer = abi.encodePacked(bytes32(bytes20(msg.sender)));
         _nextNonce(CLIENT_CHAIN_ID, withdrawer);
         try CLAIM_REWARD_CONTRACT.claimReward(CLIENT_CHAIN_ID, BTC_TOKEN, withdrawer, amount) returns (
             bool success, uint256 updatedBalance
@@ -420,7 +422,9 @@ contract ExocoreBtcGateway is
             if (!success) {
                 revert WithdrawRewardFailed();
             }
-            emit WithdrawRewardCompleted(token, withdrawer, amount, updatedBalance);
+            (bytes32 requestId, bytes memory _btcAddress) =
+                _initiatePegOut(token, amount, withdrawer, WithdrawType.WithdrawReward);
+            emit WithdrawRewardRequested(requestId, msg.sender, token, _btcAddress, amount, updatedBalance);
         } catch {
             emit ExocorePrecompileError(address(CLAIM_REWARD_CONTRACT));
             revert WithdrawRewardFailed();
@@ -428,25 +432,32 @@ contract ExocoreBtcGateway is
     }
 
     // Function to initiate a peg-out request
-    function initiatePegOut(uint256 _amount, bytes memory _btcAddress) public nonReentrant whenNotPaused {
-        require(_btcAddress.length > 0, "Invalid BTC address");
+    function _initiatePegOut(address _token, uint256 _amount, bytes memory withdrawer, WithdrawType _withdrawType)
+        internal
+        returns (bytes32 requestId, bytes memory _btcAddress)
+    {
+        _btcAddress = exocoreToBtcAddress[withdrawer];
+        if (_btcAddress.length == 0) {
+            revert BtcAddressNotRegistered();
+        }
 
-        bytes32 requestId = keccak256(abi.encodePacked(msg.sender, _amount, _btcAddress, block.number));
+        requestId = keccak256(abi.encodePacked(_token, msg.sender, _btcAddress, _amount, block.number));
+        console.log("blocknumber:", block.number);
         require(pegOutRequests[requestId].status == TxStatus.Pending, "Request already exists");
 
         pegOutRequests[requestId] = PegOutRequest({
+            token: _token,
             requester: msg.sender,
-            amount: _amount,
             btcAddress: _btcAddress,
+            amount: _amount,
+            withdrawType: _withdrawType,
             status: TxStatus.Pending,
             timestamp: block.timestamp
         });
-
-        emit PegOutRequested(requestId, msg.sender, _amount, _btcAddress);
     }
 
     // Function for witnesses to process a peg-out request
-    function processPegOut(bytes32 _requestId, bytes32 _btcTxHash)
+    function processPegOut(bytes32 _requestId, bytes32 _btcTxTag)
         public
         onlyAuthorizedWitness
         nonReentrant
@@ -456,7 +467,7 @@ contract ExocoreBtcGateway is
         require(request.status == TxStatus.Pending, "Invalid request status");
 
         request.status = TxStatus.Processed;
-        emit PegOutProcessed(_requestId, _btcTxHash);
+        emit PegOutProcessed(_requestId, _btcTxTag);
     }
 
     // Function to check and update expired peg-out requests
@@ -582,11 +593,11 @@ contract ExocoreBtcGateway is
     /**
      * @notice Increments and gets the next nonce for a given source address.
      * @param srcChainId The source chain ID.
-     * @param srcAddress The source address.
-     * @return The next nonce.
+     * @param exoSrcAddress The exocore source address.
+     * @return The next nonce for corresponding btcAddress.
      */
-    function _nextNonce(uint32 srcChainId, bytes calldata srcAddress) internal returns (uint64) {
-        bytes memory depositor = exocoreToBtcAddress[srcAddress];
+    function _nextNonce(uint32 srcChainId, bytes memory exoSrcAddress) internal returns (uint64) {
+        bytes memory depositor = exocoreToBtcAddress[exoSrcAddress];
         return inboundBytesNonce[srcChainId][depositor]++;
     }
 

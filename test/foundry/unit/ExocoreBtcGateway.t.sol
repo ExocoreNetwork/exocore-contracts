@@ -176,8 +176,8 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         uint256 amount = 1_000_000_000; // 10 BTC
         vm.expectEmit(true, true, true, true);
         emit DelegationCompleted(btcToken, delegator, operator, amount);
-        vm.prank(validator);
-        exocoreBtcGateway.delegateTo(btcToken, delegator, operator, amount);
+        vm.prank(delegatorAddr);
+        exocoreBtcGateway.delegateTo(btcToken, operator, amount);
     }
 
     /**
@@ -189,14 +189,14 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         uint256 amount = 500_000_000; // 5 BTC
 
         // Use exocoreBtcGateway's interface to set the initial delegation amount
-        vm.prank(validator); // Assume only the validator can call this function
-        exocoreBtcGateway.delegateTo(btcToken, delegator, operator, amount);
+        vm.prank(delegatorAddr); // Assume only the validator can call this function
+        exocoreBtcGateway.delegateTo(btcToken, operator, amount);
 
         vm.expectEmit(true, true, true, true);
         emit UndelegationCompleted(btcToken, delegator, operator, amount);
 
-        vm.prank(validator);
-        exocoreBtcGateway.undelegateFrom(btcToken, delegator, operator, amount);
+        vm.prank(delegatorAddr);
+        exocoreBtcGateway.undelegateFrom(btcToken, operator, amount);
 
         // Verify that the delegation amount has not changed
         vm.prank(validator);
@@ -220,24 +220,29 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
 
     function testWithdrawPrincipal() public {
         testDepositToWithFirstMessage();
+        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
         bytes memory withdrawer = _addressToBytes(delegatorAddr);
         uint256 amount = 39_900_000_000_000;
+        bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
         vm.expectEmit(true, true, true, true);
-        emit WithdrawPrincipalCompleted(btcToken, withdrawer, amount, 0);
-        vm.prank(validator);
-        exocoreBtcGateway.withdrawPrincipal(btcToken, withdrawer, amount);
+        emit WithdrawPrincipalRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 0);
+        vm.prank(delegatorAddr);
+        exocoreBtcGateway.withdrawPrincipal(btcToken, amount);
     }
     /**
      * @notice Test the withdrawReward function
      */
 
     function testWithdrawReward() public {
+        testDepositToWithFirstMessage();
         bytes memory withdrawer = _addressToBytes(delegatorAddr);
+        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
         uint256 amount = 500; // 1 BTC
+        bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
         vm.expectEmit(true, true, true, true);
-        emit WithdrawRewardCompleted(btcToken, withdrawer, amount, 1234);
-        vm.prank(validator);
-        exocoreBtcGateway.withdrawReward(btcToken, withdrawer, amount);
+        emit WithdrawRewardRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 1234);
+        vm.prank(delegatorAddr);
+        exocoreBtcGateway.withdrawReward(btcToken, amount);
     }
     /**
      * @notice Test delegateTo with invalid token
@@ -249,8 +254,8 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         uint256 amount = 1_000_000_000; // 10 BTC
         address invalidToken = address(0x1111111111111111111111111111111111111111);
         vm.expectRevert("ExocoreBtcGatewayStorage: token is not whitelisted");
-        vm.prank(validator);
-        exocoreBtcGateway.delegateTo(invalidToken, delegator, operator, amount);
+        vm.prank(delegatorAddr);
+        exocoreBtcGateway.delegateTo(invalidToken, operator, amount);
     }
     /**
      * @notice Test undelegateFrom with invalid amount
@@ -261,8 +266,8 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         bytes memory operator = _stringToBytes("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac");
         uint256 invalidAmount = 0;
         vm.expectRevert("ExocoreBtcGatewayStorage: amount should be greater than zero");
-        vm.prank(validator);
-        exocoreBtcGateway.undelegateFrom(btcToken, delegator, operator, invalidAmount);
+        vm.prank(delegatorAddr);
+        exocoreBtcGateway.undelegateFrom(btcToken, operator, invalidAmount);
     }
     /**
      * @notice Test withdrawPrincipal when paused
@@ -274,8 +279,8 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         vm.prank(exocoreBtcGateway.owner());
         exocoreBtcGateway.pause();
         vm.expectRevert("Pausable: paused");
-        vm.prank(validator);
-        exocoreBtcGateway.withdrawPrincipal(btcToken, withdrawer, amount);
+        vm.prank(delegatorAddr);
+        exocoreBtcGateway.withdrawPrincipal(btcToken, amount);
     }
 
     /**

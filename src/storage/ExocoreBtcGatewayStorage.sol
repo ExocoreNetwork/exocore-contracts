@@ -10,6 +10,13 @@ contract ExocoreBtcGatewayStorage {
         Expired
     }
 
+    // Enum to represent the WithdrawType
+    enum WithdrawType {
+        Undefined,
+        WithdrawPrincipal,
+        WithdrawReward
+    }
+
     struct TxInfo {
         bool processed;
         uint256 timestamp;
@@ -47,9 +54,11 @@ contract ExocoreBtcGatewayStorage {
 
     // Struct for peg-out requests
     struct PegOutRequest {
+        address token;
         address requester;
-        uint256 amount;
         bytes btcAddress;
+        uint256 amount;
+        WithdrawType withdrawType;
         TxStatus status;
         uint256 timestamp;
     }
@@ -79,6 +88,22 @@ contract ExocoreBtcGatewayStorage {
     mapping(uint32 eid => mapping(bytes sender => uint64 nonce)) public inboundBytesNonce;
 
     event DepositCompleted(bytes btcTxTag, address token, bytes depositor, uint256 amount, uint256 updatedBalance);
+    event WithdrawPrincipalRequested(
+        bytes32 indexed requestId,
+        address indexed requester,
+        address token,
+        bytes btcAddress,
+        uint256 amount,
+        uint256 updatedBalance
+    );
+    event WithdrawRewardRequested(
+        bytes32 indexed requestId,
+        address indexed requester,
+        address token,
+        bytes btcAddress,
+        uint256 amount,
+        uint256 updatedBalance
+    );
     event WithdrawPrincipalCompleted(address token, bytes withdrawer, uint256 amount, uint256 updatedBalance);
     event WithdrawRewardCompleted(address token, bytes withdrawer, uint256 amount, uint256 updatedBalance);
     event DelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
@@ -96,8 +121,7 @@ contract ExocoreBtcGatewayStorage {
     event BridgeFeeUpdated(uint256 newFee);
     event DepositLimitUpdated(uint256 newLimit);
     event WithdrawalLimitUpdated(uint256 newLimit);
-    event PegOutRequested(bytes32 indexed requestId, address indexed requester, uint256 amount, bytes btcAddress);
-    event PegOutProcessed(bytes32 indexed requestId, bytes32 btcTxHash);
+    event PegOutProcessed(bytes32 indexed requestId, bytes32 btcTxTag);
 
     error UnauthorizedWitness();
     error RegisterClientChainToExocoreFailed(uint32 clientChainId);
