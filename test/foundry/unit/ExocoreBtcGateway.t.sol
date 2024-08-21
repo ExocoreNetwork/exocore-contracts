@@ -92,7 +92,7 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
 
         // Check if the event is emitted correctly
         vm.expectEmit(true, true, true, true);
-        emit DepositCompleted(_msg.txTag, btcToken, exocoreAddress, _msg.amount, 39_900_000_000_000);
+        emit DepositCompleted(_msg.txTag, exocoreAddress, btcToken, btcAddress, _msg.amount, 39_900_000_000_000);
 
         // Simulate the validator calling the depositTo function
         vm.prank(validator);
@@ -133,7 +133,7 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
             hex"4eb94c22acf431262f040dbb99bec5acc6b8288c61d4acbe6a8ba7969ab0cea91613579684c664cd81dd876a385c0c493646267fbbdd58f9408d784e8b8e616d1b";
         // Check if the event is emitted correctly
         vm.expectEmit(true, true, true, true);
-        emit DepositCompleted(_msg.txTag, btcToken, exocoreAddress, _msg.amount, 49_000_000_000_000);
+        emit DepositCompleted(_msg.txTag, exocoreAddress, btcToken, btcAddress, _msg.amount, 49_000_000_000_000);
 
         // Simulate the validator calling the depositTo function
         vm.prank(validator);

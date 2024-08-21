@@ -87,25 +87,46 @@ contract ExocoreBtcGatewayStorage {
     mapping(address token => bool whitelisted) public isWhitelistedToken;
     mapping(uint32 eid => mapping(bytes sender => uint64 nonce)) public inboundBytesNonce;
 
-    event DepositCompleted(bytes btcTxTag, address token, bytes depositor, uint256 amount, uint256 updatedBalance);
+    event DepositCompleted(
+        bytes indexed btcTxTag,
+        bytes indexed depositorExoAddr,
+        address token,
+        bytes depositorBtcAddr,
+        uint256 amount,
+        uint256 updatedBalance
+    );
     event WithdrawPrincipalRequested(
         bytes32 indexed requestId,
-        address indexed requester,
+        address indexed withdrawerExoAddr,
         address token,
-        bytes btcAddress,
+        bytes withdrawerBtcAddr,
         uint256 amount,
         uint256 updatedBalance
     );
     event WithdrawRewardRequested(
         bytes32 indexed requestId,
-        address indexed requester,
+        address indexed withdrawerExoAddr,
         address token,
-        bytes btcAddress,
+        bytes withdrawerBtcAddr,
         uint256 amount,
         uint256 updatedBalance
     );
-    event WithdrawPrincipalCompleted(address token, bytes withdrawer, uint256 amount, uint256 updatedBalance);
-    event WithdrawRewardCompleted(address token, bytes withdrawer, uint256 amount, uint256 updatedBalance);
+    event WithdrawPrincipalCompleted(
+        bytes32 indexed requestId,
+        address indexed withdrawerExoAddr,
+        address token,
+        bytes withdrawer,
+        uint256 amount,
+        uint256 updatedBalance
+    );
+    event WithdrawRewardCompleted(
+        bytes32 indexed requestId,
+        address indexed withdrawerExoAddr,
+        address token,
+        bytes withdrawer,
+        uint256 amount,
+        uint256 updatedBalance
+    );
     event DelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
     event UndelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
     event DepositAndDelegationCompleted(

@@ -300,9 +300,11 @@ contract ExocoreBtcGateway is
         onlyAuthorizedWitness
     {
         require(authorizedWitnesses[msg.sender], "Not an authorized witness");
-        (bytes memory btcTxTag, bytes memory depositor) = _processAndVerify(_msg, signature);
+        (bytes memory btcTxTag, bytes memory depositorExoAddr) = _processAndVerify(_msg, signature);
+        bytes memory depositorBtcAddr = _msg.srcAddress;
         console.log("ASSETS_CONTRACT:", address(ASSETS_CONTRACT));
-        try ASSETS_CONTRACT.depositTo(_msg.srcChainID, BTC_TOKEN, depositor, _msg.amount) returns (
+        //TODO: this depositor can be exocore address or btc address.
+        try ASSETS_CONTRACT.depositTo(_msg.srcChainID, BTC_TOKEN, depositorExoAddr, _msg.amount) returns (
             bool success, uint256 updatedBalance
         ) {
             if (!success) {
@@ -311,7 +313,7 @@ contract ExocoreBtcGateway is
             }
             console.log("depositTo success");
             processedBtcTxs[btcTxTag] = TxInfo(true, block.timestamp);
-            emit DepositCompleted(btcTxTag, BTC_ADDR, depositor, _msg.amount, updatedBalance);
+            emit DepositCompleted(btcTxTag, depositorExoAddr, BTC_ADDR, depositorBtcAddr, _msg.amount, updatedBalance);
         } catch {
             console.log("depositTo Error");
             emit ExocorePrecompileError(address(ASSETS_CONTRACT));
