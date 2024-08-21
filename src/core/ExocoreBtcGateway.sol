@@ -497,8 +497,8 @@ contract ExocoreBtcGateway is
         isValidAmount(_msg.amount)
         onlyAuthorizedWitness
     {
-        (bytes memory btcTxHash, bytes memory depositor) = _processAndVerify(_msg, signature);
-        _depositToAssetContract(CLIENT_CHAIN_ID, BTC_TOKEN, depositor, _msg.amount, btcTxHash, operator);
+        (bytes memory btcTxTag, bytes memory depositor) = _processAndVerify(_msg, signature);
+        _depositToAssetContract(CLIENT_CHAIN_ID, BTC_TOKEN, depositor, _msg.amount, btcTxTag, operator);
     }
 
     /**
@@ -507,7 +507,7 @@ contract ExocoreBtcGateway is
      * @param btcToken The BTC token.
      * @param depositor The BTC address.
      * @param amount The amount to deposit.
-     * @param btcTxHash The BTC transaction hash.
+     * @param btcTxTag The BTC transaction tag.
      * @param operator The operator's address.
      */
     function _depositToAssetContract(
@@ -515,20 +515,20 @@ contract ExocoreBtcGateway is
         bytes memory btcToken,
         bytes memory depositor,
         uint256 amount,
-        bytes memory btcTxHash,
+        bytes memory btcTxTag,
         bytes memory operator
     ) internal {
         try ASSETS_CONTRACT.depositTo(clientChainId, btcToken, depositor, amount) returns (
             bool depositSuccess, uint256 updatedBalance
         ) {
             if (!depositSuccess) {
-                revert DepositFailed(btcTxHash);
+                revert DepositFailed(btcTxTag);
             }
-            processedBtcTxs[btcTxHash] = TxInfo(true, block.timestamp);
+            processedBtcTxs[btcTxTag] = TxInfo(true, block.timestamp);
             _delegateToDelegationContract(clientChainId, btcToken, depositor, operator, amount, updatedBalance);
         } catch {
             emit ExocorePrecompileError(address(ASSETS_CONTRACT));
-            revert DepositFailed(btcTxHash);
+            revert DepositFailed(btcTxTag);
         }
     }
 
