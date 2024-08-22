@@ -223,7 +223,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
             revert WithdrawalAlreadyProven(validatorPubkey, withdrawalProof.withdrawalIndex);
         }
 
-        provenWithdrawal[validatorPubkey][withdrawalProof.withdrawalIndex] = true;
+        provenWithdrawal[validatorPubkey][uint256(withdrawalContainer.getWithdrawalIndex())] = true;
 
         // Validate if validator and withdrawal proof state roots are the same
         if (validatorProof.stateRoot != withdrawalProof.stateRoot) {
