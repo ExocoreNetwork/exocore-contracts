@@ -90,7 +90,7 @@ contract ExocoreBtcGateway is
     }
 
     // Function to check if proofs are consistent
-    function _areProofsConsistent(bytes32 _txTag) internal view returns (bool) {
+    function _areProofsConsistent(bytes memory _txTag) internal view returns (bool) {
         Proof[] storage txProofs = proofs[_txTag];
         if (txProofs.length < REQUIRED_PROOFS) {
             return false;
@@ -114,7 +114,7 @@ contract ExocoreBtcGateway is
     }
 
     // Function to check and update expired transactions
-    function checkExpiredTransactions(bytes32[] calldata _txTags) public {
+    function checkExpiredTransactions(bytes[] calldata _txTags) public {
         for (uint256 i = 0; i < _txTags.length; i++) {
             Transaction storage txn = transactions[_txTags[i]];
             if (txn.status == TxStatus.Pending && block.timestamp >= txn.expiryTime) {
@@ -236,7 +236,7 @@ contract ExocoreBtcGateway is
         // Verify signature
         _verifySignature(_message, _signature);
 
-        bytes32 txTag = keccak256(_message.txTag);
+        bytes memory txTag = _message.txTag;
         Transaction storage txn = transactions[txTag];
 
         if (txn.status == TxStatus.Pending) {
@@ -265,7 +265,7 @@ contract ExocoreBtcGateway is
     }
 
     // Function to process the deposit
-    function _processDeposit(bytes32 _txTag) internal {
+    function _processDeposit(bytes memory _txTag) internal {
         Transaction storage txn = transactions[_txTag];
         require(txn.status == TxStatus.Pending, "Transaction not pending");
         require(txn.proofCount >= REQUIRED_PROOFS, "Insufficient proofs");
@@ -480,7 +480,7 @@ contract ExocoreBtcGateway is
                 request.status = TxStatus.Expired;
                 // Refund the tokens
                 // require(token.mint(request.requester, request.amount), "Token minting failed");
-                emit TransactionExpired(_requestIds[i]);
+                emit PegOutTransactionExpired(_requestIds[i]);
             }
         }
     }

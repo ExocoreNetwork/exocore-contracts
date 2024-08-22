@@ -145,8 +145,8 @@
     "inputs": [
       {
         "name": "_txTags",
-        "type": "bytes32[]",
-        "internalType": "bytes32[]"
+        "type": "bytes[]",
+        "internalType": "bytes[]"
       }
     ],
     "outputs": [],
@@ -558,8 +558,8 @@
     "inputs": [
       {
         "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "type": "bytes",
+        "internalType": "bytes"
       },
       {
         "name": "",
@@ -747,8 +747,8 @@
     "inputs": [
       {
         "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
+        "type": "bytes",
+        "internalType": "bytes"
       }
     ],
     "outputs": [
@@ -979,7 +979,7 @@
       {
         "name": "btcTxTag",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
@@ -991,7 +991,7 @@
       {
         "name": "token",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       },
       {
@@ -1033,10 +1033,10 @@
     "name": "DepositProcessed",
     "inputs": [
       {
-        "name": "txTag",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
+        "name": "btcTxTag",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
       },
       {
         "name": "recipient",
@@ -1132,13 +1132,26 @@
   },
   {
     "type": "event",
+    "name": "PegOutTransactionExpired",
+    "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": false,
+        "internalType": "bytes32"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
     "name": "ProofSubmitted",
     "inputs": [
       {
-        "name": "txTag",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
+        "name": "btcTxTag",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
       },
       {
         "name": "witness",
@@ -1207,10 +1220,10 @@
     "name": "TransactionExpired",
     "inputs": [
       {
-        "name": "txTag",
-        "type": "bytes32",
-        "indexed": true,
-        "internalType": "bytes32"
+        "name": "btcTxTag",
+        "type": "bytes",
+        "indexed": false,
+        "internalType": "bytes"
       }
     ],
     "anonymous": false
@@ -1278,11 +1291,11 @@
       {
         "name": "token",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "withdrawer",
+        "name": "withdrawerBtcAddr",
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
@@ -1321,7 +1334,7 @@
       {
         "name": "token",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       },
       {
@@ -1364,11 +1377,11 @@
       {
         "name": "token",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "withdrawer",
+        "name": "withdrawerBtcAddr",
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
@@ -1407,7 +1420,7 @@
       {
         "name": "token",
         "type": "address",
-        "indexed": false,
+        "indexed": true,
         "internalType": "address"
       },
       {
