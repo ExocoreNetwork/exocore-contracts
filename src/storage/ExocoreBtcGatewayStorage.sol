@@ -115,7 +115,7 @@ contract ExocoreBtcGatewayStorage {
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
         address token,
-        bytes withdrawer,
+        bytes withdrawerBtcAddr,
         uint256 amount,
         uint256 updatedBalance
     );
@@ -123,7 +123,7 @@ contract ExocoreBtcGatewayStorage {
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
         address token,
-        bytes withdrawer,
+        bytes withdrawerBtcAddr,
         uint256 amount,
         uint256 updatedBalance
     );
@@ -136,9 +136,9 @@ contract ExocoreBtcGatewayStorage {
     event ExocorePrecompileError(address precompileAddress);
     event WitnessAdded(address indexed witness);
     event WitnessRemoved(address indexed witness);
-    event ProofSubmitted(bytes32 indexed txTag, address indexed witness, InterchainMsg message);
-    event DepositProcessed(bytes32 indexed txTag, address indexed recipient, uint256 amount);
-    event TransactionExpired(bytes32 indexed txTag);
+    event ProofSubmitted(bytes32 indexed btcTxTag, address indexed witness, InterchainMsg message);
+    event DepositProcessed(bytes32 indexed btcTxTag, address indexed recipient, uint256 amount);
+    event TransactionExpired(bytes32 indexed btcTxTag);
     event BridgeFeeUpdated(uint256 newFee);
     event DepositLimitUpdated(uint256 newLimit);
     event WithdrawalLimitUpdated(uint256 newLimit);

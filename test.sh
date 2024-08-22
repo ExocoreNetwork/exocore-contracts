@@ -4,6 +4,7 @@
 CONTRACT_NAME="ExocoreBtcGateway"
 OUTPUT_PATH="/Users/will/go/src/github.com/ExocoreNetwork/bridge_private"
 PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+CLIENT_CHAIN_ID=111
 
 # Step 2: Update ABI
 forge inspect src/core/$CONTRACT_NAME.sol:$CONTRACT_NAME abi > $OUTPUT_PATH/src/abi/exocorebtcgateway.json
@@ -13,7 +14,6 @@ forge flatten src/core/ExocoreBtcGateway.sol | grep -v "Compiling" | grep -v "So
 
 # Step 4: Deploy the contract and capture the output
 output=$(forge create --rpc-url http://127.0.0.1:8546 \
-    --constructor-args "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266" \
     --private-key "$PRIVATE_KEY" \
     src/core/ExocoreBtcGatewayFlatten.sol:ExocoreBtcGateway)
 
@@ -46,8 +46,8 @@ cast send --rpc-url http://127.0.0.1:8546 \
     --gas-limit 1000000 \
     0x0000000000000000000000000000000000000804 \
     "depositTo(uint32,bytes,bytes,uint256)" \
-    1 \
-    0x0000000000000000000000002260fac5e5542a773aa44fbcfedf7c193bc2c599 \
+    ${CLIENT_CHAIN_ID} \
+    0x2260fac5e5542a773aa44fbcfedf7c193bc2c599000000000000000000000000 \
     0x74623170647766356172306b787232736468787732387771686a777a796e7a6c6b6472716c6778386a753373723032686b6c64716d6c6673706d306d6d68 \
     2222
 
@@ -55,6 +55,6 @@ cast send --rpc-url http://127.0.0.1:8546 \
 cast call --rpc-url http://127.0.0.1:8546 \
     0x0000000000000000000000000000000000000804 \
     "getPrincipalBalance(uint32,bytes,bytes)(uint256)" \
-    1 \
-    0x0000000000000000000000002260fac5e5542a773aa44fbcfedf7c193bc2c599 \
+    ${CLIENT_CHAIN_ID} \
+    0x2260fac5e5542a773aa44fbcfedf7c193bc2c599000000000000000000000000 \
     0x74623170647766356172306b787232736468787732387771686a777a796e7a6c6b6472716c6778386a753373723032686b6c64716d6c6673706d306d6d68

@@ -21,12 +21,11 @@ contract AssetsMock is IAssets {
         returns (bool success, uint256 latestAssetState)
     {
         require(assetsAddress.length == 32, "invalid asset address");
-        require(stakerAddress.length == 32, "invalid staker address");
         console.log("stakerAddress len: ", stakerAddress.length);
 
-        // if (clientChainLzId != clientBtcChainId) {
-        //     require(stakerAddress.length == 32, "invalid staker address");
-        // }
+        if (clientChainLzId != clientBtcChainId) {
+            require(stakerAddress.length == 32, "invalid staker address");
+        }
 
         // Validate the asset address
         // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered

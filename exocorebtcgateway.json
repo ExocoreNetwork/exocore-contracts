@@ -979,7 +979,13 @@
       {
         "name": "btcTxTag",
         "type": "bytes",
-        "indexed": false,
+        "indexed": true,
+        "internalType": "bytes"
+      },
+      {
+        "name": "depositorExoAddr",
+        "type": "bytes",
+        "indexed": true,
         "internalType": "bytes"
       },
       {
@@ -989,7 +995,7 @@
         "internalType": "address"
       },
       {
-        "name": "depositor",
+        "name": "depositorBtcAddr",
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
@@ -1258,6 +1264,18 @@
     "name": "WithdrawPrincipalCompleted",
     "inputs": [
       {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "withdrawerExoAddr",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
         "name": "token",
         "type": "address",
         "indexed": false,
@@ -1295,7 +1313,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "requester",
+        "name": "withdrawerExoAddr",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -1307,7 +1325,7 @@
         "internalType": "address"
       },
       {
-        "name": "btcAddress",
+        "name": "withdrawerBtcAddr",
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
@@ -1331,6 +1349,18 @@
     "type": "event",
     "name": "WithdrawRewardCompleted",
     "inputs": [
+      {
+        "name": "requestId",
+        "type": "bytes32",
+        "indexed": true,
+        "internalType": "bytes32"
+      },
+      {
+        "name": "withdrawerExoAddr",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
       {
         "name": "token",
         "type": "address",
@@ -1369,7 +1399,7 @@
         "internalType": "bytes32"
       },
       {
-        "name": "requester",
+        "name": "withdrawerExoAddr",
         "type": "address",
         "indexed": true,
         "internalType": "address"
@@ -1381,7 +1411,7 @@
         "internalType": "address"
       },
       {
-        "name": "btcAddress",
+        "name": "withdrawerBtcAddr",
         "type": "bytes",
         "indexed": false,
         "internalType": "bytes"
