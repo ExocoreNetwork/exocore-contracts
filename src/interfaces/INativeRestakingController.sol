@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {IBaseRestakingController} from "./IBaseRestakingController.sol";
-import {IExoCapsule} from "./IExoCapsule.sol";
 
 /// @title INativeRestakingController
 /// @author ExocoreNetwork
