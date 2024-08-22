@@ -28,7 +28,7 @@ contract DepositSetup is Test {
      *         uint256 validatorContainerRootIndex;
      *     }
      */
-    IExoCapsule.ValidatorContainerProof validatorProof;
+    BeaconChainProofs.ValidatorContainerProof validatorProof;
     bytes32 beaconBlockRoot;
 
     ExoCapsule capsule;
@@ -312,7 +312,7 @@ contract WithdrawalSetup is Test {
      *     uint256 validatorIndex;
      * }
      */
-    IExoCapsule.ValidatorContainerProof validatorProof;
+    BeaconChainProofs.ValidatorContainerProof validatorProof;
 
     bytes32[] withdrawalContainer;
     BeaconChainProofs.WithdrawalProof withdrawalProof;
@@ -466,11 +466,16 @@ contract WithdrawalSetup is Test {
         return vc[6].fromLittleEndianUint64();
     }
 
+    function _getWithdrawalIndex(bytes32[] storage wc) internal view returns (uint64) {
+        return wc[0].fromLittleEndianUint64();
+    }
+
 }
 
 contract VerifyWithdrawalProof is WithdrawalSetup {
 
     using BeaconChainProofs for bytes32;
+    using WithdrawalContainer for bytes32[];
     using stdStorage for StdStorage;
 
     function test_NonBeaconChainETHWithdraw() public {
@@ -510,7 +515,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
             abi.encodeWithSelector(
                 ExoCapsule.WithdrawalAlreadyProven.selector,
                 _getPubkey(validatorContainer),
-                withdrawalProof.withdrawalIndex
+                uint256(_getWithdrawalIndex(withdrawalContainer))
             )
         );
         capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);

@@ -161,11 +161,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @inheritdoc IExoCapsule
-    function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
-        external
-        onlyGateway
-        returns (uint256 depositAmount)
-    {
+    function verifyDepositProof(
+        bytes32[] calldata validatorContainer,
+        BeaconChainProofs.ValidatorContainerProof calldata proof
+    ) external onlyGateway returns (uint256 depositAmount) {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         Validator storage validator = _capsuleValidators[validatorPubkey];
@@ -203,7 +202,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     /// @inheritdoc IExoCapsule
     function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata validatorProof,
+        BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external onlyGateway returns (bool partialWithdrawal, uint256 withdrawalAmount) {
@@ -211,6 +210,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         Validator storage validator = _capsuleValidators[validatorPubkey];
         uint64 withdrawalEpoch = withdrawalProof.slotRoot.getWithdrawalEpoch();
         partialWithdrawal = withdrawalEpoch < validatorContainer.getWithdrawableEpoch();
+        uint256 withdrawalId = uint256(withdrawalContainer.getWithdrawalIndex());
 
         if (!validatorContainer.verifyValidatorContainerBasic()) {
             revert InvalidValidatorContainer(validatorPubkey);
@@ -219,11 +219,11 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
             revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
         }
 
-        if (provenWithdrawal[validatorPubkey][withdrawalProof.withdrawalIndex]) {
-            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalProof.withdrawalIndex);
+        if (provenWithdrawal[validatorPubkey][withdrawalId]) {
+            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalId);
         }
 
-        provenWithdrawal[validatorPubkey][uint256(withdrawalContainer.getWithdrawalIndex())] = true;
+        provenWithdrawal[validatorPubkey][withdrawalId] = true;
 
         // Validate if validator and withdrawal proof state roots are the same
         if (validatorProof.stateRoot != withdrawalProof.stateRoot) {
@@ -359,10 +359,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     /// @dev Verifies a validator container.
     /// @param validatorContainer The validator container to verify.
     /// @param proof The proof of the validator container.
-    function _verifyValidatorContainer(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
-        internal
-        view
-    {
+    function _verifyValidatorContainer(
+        bytes32[] calldata validatorContainer,
+        BeaconChainProofs.ValidatorContainerProof calldata proof
+    ) internal view {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
         bytes32 validatorContainerRoot = validatorContainer.merkleizeValidatorContainer();
         bool valid = validatorContainerRoot.isValidValidatorContainerRoot(

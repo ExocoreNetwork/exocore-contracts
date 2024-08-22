@@ -94,7 +94,7 @@ abstract contract NativeRestakingController is
     /// @param proof The proof of the validator container.
     function depositBeaconChainValidator(
         bytes32[] calldata validatorContainer,
-        IExoCapsule.ValidatorContainerProof calldata proof
+        BeaconChainProofs.ValidatorContainerProof calldata proof
     ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
         IExoCapsule capsule = _getCapsule(msg.sender);
         uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
@@ -112,7 +112,7 @@ abstract contract NativeRestakingController is
     /// @param withdrawalProof The proof of the withdrawal.
     function processBeaconChainWithdrawal(
         bytes32[] calldata validatorContainer,
-        IExoCapsule.ValidatorContainerProof calldata validatorProof,
+        BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
