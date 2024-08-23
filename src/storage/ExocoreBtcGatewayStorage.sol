@@ -89,7 +89,7 @@ contract ExocoreBtcGatewayStorage {
 
     event DepositCompleted(
         bytes btcTxTag,
-        bytes indexed depositorExoAddr,
+        bytes depositorExoAddr,
         address indexed token,
         bytes depositorBtcAddr,
         uint256 amount,

@@ -985,7 +985,7 @@
       {
         "name": "depositorExoAddr",
         "type": "bytes",
-        "indexed": true,
+        "indexed": false,
         "internalType": "bytes"
       },
       {
