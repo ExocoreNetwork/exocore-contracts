@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {IBaseRestakingController} from "./IBaseRestakingController.sol";
-import {IExoCapsule} from "./IExoCapsule.sol";
 
 /// @title INativeRestakingController
 /// @author ExocoreNetwork
@@ -35,7 +34,7 @@ interface INativeRestakingController is IBaseRestakingController {
     /// @param proof The proof needed to verify the validator container.
     function depositBeaconChainValidator(
         bytes32[] calldata validatorContainer,
-        IExoCapsule.ValidatorContainerProof calldata proof
+        BeaconChainProofs.ValidatorContainerProof calldata proof
     ) external payable;
 
     /// @notice Processes a partial withdrawal from the beacon chain to an ExoCapsule contract.
@@ -52,7 +51,7 @@ interface INativeRestakingController is IBaseRestakingController {
     /// block root.
     function processBeaconChainWithdrawal(
         bytes32[] calldata validatorContainer,
-        IExoCapsule.ValidatorContainerProof calldata validatorProof,
+        BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external payable;

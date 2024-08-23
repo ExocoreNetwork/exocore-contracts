@@ -13,6 +13,7 @@ import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
+import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
 
 import {BaseScript} from "./BaseScript.sol";
@@ -24,7 +25,7 @@ contract DepositScript is BaseScript {
     using Endian for bytes32;
 
     bytes32[] validatorContainer;
-    IExoCapsule.ValidatorContainerProof validatorProof;
+    BeaconChainProofs.ValidatorContainerProof validatorProof;
 
     uint256 internal constant GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
     uint256 internal constant SECONDS_PER_SLOT = 12;

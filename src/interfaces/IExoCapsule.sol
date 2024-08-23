@@ -9,22 +9,6 @@ import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 /// operations. It is a contract used for native restaking.
 interface IExoCapsule {
 
-    /// @notice This struct contains the information needed for validator container validity verification
-    struct ValidatorContainerProof {
-        uint256 beaconBlockTimestamp;
-        bytes32 stateRoot;
-        bytes32[] stateRootProof;
-        bytes32[] validatorContainerRootProof;
-        uint256 validatorIndex;
-    }
-
-    /// @notice This struct contains the information needed for withdrawal container proof verification
-    struct WithdrawalContainerProof {
-        uint256 beaconBlockTimestamp;
-        bytes32 stateRoot;
-        bytes32[] withdrawalContainerRootProof;
-    }
-
     /// @notice Initializes the ExoCapsule contract with the given parameters.
     /// @param gateway The address of the ClientChainGateway contract.
     /// @param capsuleOwner The address of the ExoCapsule owner.
@@ -38,9 +22,10 @@ interface IExoCapsule {
     /// @dev The container must not have been previously registered, must not be stale,
     /// must be activated at a previous epoch, must have the correct withdrawal credentials,
     /// and must have a valid container root.
-    function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
-        external
-        returns (uint256);
+    function verifyDepositProof(
+        bytes32[] calldata validatorContainer,
+        BeaconChainProofs.ValidatorContainerProof calldata proof
+    ) external returns (uint256);
 
     /// @notice Verifies the withdrawal proof and returns the partial withdrawal status and the withdrawal amount.
     /// @param validatorContainer The validator container.
@@ -55,7 +40,7 @@ interface IExoCapsule {
     /// withdrawable epoch of the validator.
     function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata validatorProof,
+        BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external returns (bool partialWithdrawal, uint256 withdrawalAmount);

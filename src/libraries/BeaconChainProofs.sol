@@ -72,6 +72,15 @@ library BeaconChainProofs {
     // slither-disable-next-line unused-state
     uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
 
+    /// @notice This struct contains the information needed for validator container validity verification
+    struct ValidatorContainerProof {
+        uint256 beaconBlockTimestamp;
+        uint256 validatorIndex;
+        bytes32 stateRoot;
+        bytes32[] stateRootProof;
+        bytes32[] validatorContainerRootProof;
+    }
+
     /// @notice This struct contains the merkle proofs and leaves needed to verify a partial/full withdrawal
     struct WithdrawalProof {
         bytes32[] withdrawalContainerRootProof;

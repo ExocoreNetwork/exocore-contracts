@@ -81,7 +81,7 @@ contract ExocoreDeployer is Test {
 
     bytes32[] validatorContainer;
     bytes32 beaconBlockRoot; // latest beacon block root
-    IExoCapsule.ValidatorContainerProof validatorProof;
+    BeaconChainProofs.ValidatorContainerProof validatorProof;
 
     bytes32[] withdrawalContainer;
     BeaconChainProofs.WithdrawalProof withdrawalProof;
