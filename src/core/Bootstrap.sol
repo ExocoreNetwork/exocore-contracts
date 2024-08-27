@@ -447,7 +447,7 @@ contract Bootstrap is
         // validator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
-        uint256 withdrawable = withdrawableAmounts[msg.sender][token];
+        uint256 withdrawable = withdrawableAmounts[user][token];
         if (withdrawable < amount) {
             revert Errors.BootstrapInsufficientWithdrawableBalance();
         }
