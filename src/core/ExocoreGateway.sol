@@ -606,7 +606,7 @@ contract ExocoreGateway is
     }
 
     /// @inheritdoc IExocoreGateway
-    function quote(uint32 srcChainid, bytes memory _message) public view returns (uint256 nativeFee) {
+    function quote(uint32 srcChainid, bytes calldata _message) public view returns (uint256 nativeFee) {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();
