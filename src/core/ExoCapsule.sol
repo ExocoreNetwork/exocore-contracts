@@ -268,11 +268,14 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @notice Withdraws the nonBeaconChainETHBalance
-    /// @dev This function must be called through the gateway. @param amount must be greater than
+    /// @dev This function must be called through the gateway. @param amountToWithdraw can not be greater than
     /// the available nonBeaconChainETHBalance.
-    /// @param recipient The destination address to which the ETH are sent.
+    /// @param recipient The payable destination address to which the ETH are sent.
     /// @param amountToWithdraw The amount to withdraw.
-    function withdrawNonBeaconChainETHBalance(address recipient, uint256 amountToWithdraw) external onlyGateway {
+    function withdrawNonBeaconChainETHBalance(address payable recipient, uint256 amountToWithdraw)
+        external
+        onlyGateway
+    {
         require(
             amountToWithdraw <= nonBeaconChainETHBalance,
             "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"

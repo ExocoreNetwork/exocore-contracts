@@ -509,7 +509,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
         vm.stopPrank();
 
         address recipient = vm.addr(2);
-        capsule.withdrawNonBeaconChainETHBalance(recipient, 0.2 ether);
+        capsule.withdrawNonBeaconChainETHBalance(payable(recipient), 0.2 ether);
         assertEq(recipient.balance, 0.2 ether);
         assertEq(capsule.nonBeaconChainETHBalance(), 0.3 ether);
 
@@ -518,7 +518,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
                 "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
             )
         );
-        capsule.withdrawNonBeaconChainETHBalance(recipient, 0.5 ether);
+        capsule.withdrawNonBeaconChainETHBalance(payable(recipient), 0.5 ether);
     }
 
     function test_processFullWithdrawal_success() public setValidatorContainerAndTimestampForFullWithdrawal {

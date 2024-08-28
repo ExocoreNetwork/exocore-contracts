@@ -130,4 +130,18 @@ abstract contract NativeRestakingController is
         }
     }
 
+    /// @notice Withdraws the nonBeaconChainETHBalance from the ExoCapsule contract.
+    /// @dev @param amountToWithdraw can not be greater than the available nonBeaconChainETHBalance.
+    /// @param recipient The payable destination address to which the ETH are sent.
+    /// @param amountToWithdraw The amount to withdraw.
+    function withdrawNonBeaconChainETHFromCapsule(address payable recipient, uint256 amountToWithdraw)
+        external
+        whenNotPaused
+        nonReentrant
+        nativeRestakingEnabled
+    {
+        IExoCapsule capsule = _getCapsule(msg.sender);
+        capsule.withdrawNonBeaconChainETHBalance(recipient, amountToWithdraw);
+    }
+
 }
