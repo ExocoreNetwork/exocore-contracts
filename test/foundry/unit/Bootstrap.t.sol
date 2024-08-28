@@ -16,6 +16,7 @@ import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
 import {GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
+import "src/libraries/Errors.sol";
 
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
@@ -1189,6 +1190,52 @@ contract BootstrapTest is Test {
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.VaultWithdrawalAmountExceeds.selector);
         bootstrap.claim(address(myToken), amounts[0] + 5, addrs[0]);
+    }
+
+    function test23_RevertWhen_Deposit_WithEther() public {
+        vm.startPrank(addrs[0]);
+        vm.deal(addrs[0], 1 ether);
+        vm.expectRevert(Errors.NonZeroValue.selector);
+        bootstrap.deposit{value: 0.1 ether}(address(myToken), amounts[0]);
+        vm.stopPrank();
+    }
+
+    function test23_RevertWhen_WithdrawPrincipalFromExocore_WithEther() public {
+        vm.startPrank(addrs[0]);
+        vm.deal(addrs[0], 1 ether);
+        vm.expectRevert(Errors.NonZeroValue.selector);
+        bootstrap.withdrawPrincipalFromExocore{value: 0.1 ether}(address(myToken), amounts[0]);
+        vm.stopPrank();
+    }
+
+    function test23_RevertWhen_DelegateTo_WithEther() public {
+        vm.startPrank(addrs[0]);
+        vm.deal(addrs[0], 1 ether);
+        vm.expectRevert(Errors.NonZeroValue.selector);
+        bootstrap.delegateTo{value: 0.1 ether}(
+            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]
+        );
+        vm.stopPrank();
+    }
+
+    function test23_RevertWhen_UndelegateFrom_WithEther() public {
+        vm.startPrank(addrs[0]);
+        vm.deal(addrs[0], 1 ether);
+        vm.expectRevert(Errors.NonZeroValue.selector);
+        bootstrap.undelegateFrom{value: 0.1 ether}(
+            "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]
+        );
+        vm.stopPrank();
+    }
+
+    function test23_RevertWhen_DepositThenDelegateTo_WithEther() public {
+        vm.startPrank(addrs[0]);
+        vm.deal(addrs[0], 1 ether);
+        vm.expectRevert(Errors.NonZeroValue.selector);
+        bootstrap.depositThenDelegateTo{value: 0.1 ether}(
+            address(myToken), amounts[0], "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac"
+        );
+        vm.stopPrank();
     }
 
 }

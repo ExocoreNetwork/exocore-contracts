@@ -325,6 +325,9 @@ contract Bootstrap is
         isValidAmount(amount)
         nonReentrant // interacts with Vault
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _deposit(msg.sender, token, amount);
     }
 
@@ -365,6 +368,9 @@ contract Bootstrap is
         isValidAmount(amount)
         nonReentrant // interacts with Vault
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _withdraw(msg.sender, token, amount);
     }
 
@@ -428,6 +434,9 @@ contract Bootstrap is
         isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _delegateTo(msg.sender, validator, token, amount);
     }
 
@@ -470,6 +479,9 @@ contract Bootstrap is
         isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _undelegateFrom(msg.sender, validator, token, amount);
     }
 
@@ -518,6 +530,9 @@ contract Bootstrap is
         isValidBech32Address(validator)
         nonReentrant // because it interacts with vault in deposit
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _deposit(msg.sender, token, amount);
         _delegateTo(msg.sender, validator, token, amount);
     }
