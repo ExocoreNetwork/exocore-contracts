@@ -77,15 +77,8 @@ contract DepositSetup is Test {
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(phantomCapsule).code);
         capsule = ExoCapsule(payable(capsuleAddress));
-        assertEq(bytes32(capsule.capsuleWithdrawalCredentials()), _getWithdrawalCredentials(validatorContainer));
 
-        stdstore.target(capsuleAddress).sig("gateway()").checked_write(bytes32(uint256(uint160(address(this)))));
-
-        stdstore.target(capsuleAddress).sig("capsuleOwner()").checked_write(bytes32(uint256(uint160(capsuleOwner))));
-
-        stdstore.target(capsuleAddress).sig("beaconOracle()").checked_write(
-            bytes32(uint256(uint160(address(beaconOracle))))
-        );
+        capsule.initialize(address(this), capsuleOwner, address(beaconOracle));
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
@@ -110,6 +103,33 @@ contract DepositSetup is Test {
 
     function _getExitEpoch(bytes32[] storage vc) internal view returns (uint64) {
         return vc[6].fromLittleEndianUint64();
+    }
+
+}
+
+contract Initialize is DepositSetup {
+
+    using stdStorage for StdStorage;
+
+    function test_success_CapsuleInitialized() public {
+        // Assert that the gateway is set correctly
+        assertEq(address(capsule.gateway()), address(this));
+
+        // Assert that the capsule owner is set correctly
+        assertEq(capsule.capsuleOwner(), capsuleOwner);
+
+        // Assert that the beacon oracle is set correctly
+        assertEq(address(capsule.beaconOracle()), address(beaconOracle));
+
+        // Assert that the reentrancy guard is not entered
+        uint256 NOT_ENTERED = 1;
+        bytes32 reentrancyStatusSlot = bytes32(uint256(1));
+        uint256 status = uint256(vm.load(address(capsule), reentrancyStatusSlot));
+
+        assertEq(status, NOT_ENTERED);
+
+        // Assert that the capsule withdrawal credentials are set correctly
+        assertEq(bytes32(capsule.capsuleWithdrawalCredentials()), _getWithdrawalCredentials(validatorContainer));
     }
 
 }

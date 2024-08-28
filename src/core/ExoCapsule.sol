@@ -157,6 +157,8 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         beaconOracle = IBeaconChainOracle(beaconOracle_);
         capsuleOwner = capsuleOwner_;
 
+        __ReentrancyGuard_init_unchained();
+
         emit RestakingActivated(capsuleOwner);
     }
 
