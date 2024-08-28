@@ -89,6 +89,7 @@ contract Bootstrap is
         // set can not sign without the chain, the owner is likely to be an EOA or a
         // contract controlled by one.
         _transferOwnership(owner);
+        __OAppCore_init_unchained(owner);
         __Pausable_init_unchained();
         __ReentrancyGuard_init_unchained();
     }
