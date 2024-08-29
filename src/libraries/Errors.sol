@@ -23,6 +23,9 @@ library Errors {
     /// @dev Thrown when passed-in amount is zero
     error ZeroAmount();
 
+    /// @dev Thrown when the passed-in value is not zero
+    error NonZeroValue();
+
     /// @dev Thrown wehn the passed-in value is zero
     /// @dev This is used when the value in question is not an amount
     error ZeroValue();

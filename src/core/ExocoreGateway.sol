@@ -600,13 +600,14 @@ contract ExocoreGateway is
         ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
+        address refundAddress = payByApp ? address(this) : msg.sender;
         MessagingReceipt memory receipt =
-            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), msg.sender, payByApp);
+            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), refundAddress, payByApp);
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
     /// @inheritdoc IExocoreGateway
-    function quote(uint32 srcChainid, bytes memory _message) public view returns (uint256 nativeFee) {
+    function quote(uint32 srcChainid, bytes calldata _message) public view returns (uint256 nativeFee) {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();

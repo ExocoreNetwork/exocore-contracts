@@ -11,9 +11,9 @@ interface IExoCapsule {
 
     /// @notice Initializes the ExoCapsule contract with the given parameters.
     /// @param gateway The address of the ClientChainGateway contract.
-    /// @param capsuleOwner The address of the ExoCapsule owner.
+    /// @param capsuleOwner The payable address of the ExoCapsule owner.
     /// @param beaconOracle The address of the BeaconOracle contract.
-    function initialize(address gateway, address capsuleOwner, address beaconOracle) external;
+    function initialize(address gateway, address payable capsuleOwner, address beaconOracle) external;
 
     /// @notice Verifies the deposit proof and returns the amount of deposit.
     /// @param validatorContainer The validator container.
@@ -45,11 +45,16 @@ interface IExoCapsule {
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external returns (bool partialWithdrawal, uint256 withdrawalAmount);
 
-    /// @notice Allows the owner to withdraw the specified amount to the recipient.
+    /// @notice Allows the owner to withdraw the specified unlocked staked ETH to the recipient.
     /// @dev The amount must be available in the withdrawable balance.
     /// @param amount The amount to withdraw.
     /// @param recipient The recipient address.
     function withdraw(uint256 amount, address payable recipient) external;
+
+    /// @notice Withdraws the nonBeaconChainETHBalance
+    /// @param recipient The payable destination address to which the ETH are sent.
+    /// @param amountToWithdraw The amount to withdraw.
+    function withdrawNonBeaconChainETHBalance(address payable recipient, uint256 amountToWithdraw) external;
 
     /// @notice Updates the principal balance of the ExoCapsule.
     /// @param lastlyUpdatedPrincipalBalance The final principal balance.

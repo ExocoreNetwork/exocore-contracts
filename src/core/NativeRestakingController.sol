@@ -63,6 +63,7 @@ abstract contract NativeRestakingController is
     }
 
     /// @notice Creates a new ExoCapsule contract for the message sender.
+    /// @notice The message sender must be payable
     /// @return The address of the newly created ExoCapsule contract.
     // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
     // array, so it would not cause collision for encodePacked
@@ -82,7 +83,7 @@ abstract contract NativeRestakingController is
 
         // we follow check-effects-interactions pattern to write state before external call
         ownerToCapsule[msg.sender] = capsule;
-        capsule.initialize(address(this), msg.sender, BEACON_ORACLE_ADDRESS);
+        capsule.initialize(address(this), payable(msg.sender), BEACON_ORACLE_ADDRESS);
 
         emit CapsuleCreated(msg.sender, address(capsule));
 
@@ -128,6 +129,20 @@ abstract contract NativeRestakingController is
 
             _processRequest(Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, actionArgs, encodedRequest);
         }
+    }
+
+    /// @notice Withdraws the nonBeaconChainETHBalance from the ExoCapsule contract.
+    /// @dev @param amountToWithdraw can not be greater than the available nonBeaconChainETHBalance.
+    /// @param recipient The payable destination address to which the ETH are sent.
+    /// @param amountToWithdraw The amount to withdraw.
+    function withdrawNonBeaconChainETHFromCapsule(address payable recipient, uint256 amountToWithdraw)
+        external
+        whenNotPaused
+        nonReentrant
+        nativeRestakingEnabled
+    {
+        IExoCapsule capsule = _getCapsule(msg.sender);
+        capsule.withdrawNonBeaconChainETHBalance(recipient, amountToWithdraw);
     }
 
 }

@@ -89,6 +89,7 @@ contract Bootstrap is
         // set can not sign without the chain, the owner is likely to be an EOA or a
         // contract controlled by one.
         _transferOwnership(owner);
+        __OAppCore_init_unchained(owner);
         __Pausable_init_unchained();
         __ReentrancyGuard_init_unchained();
     }
@@ -325,6 +326,9 @@ contract Bootstrap is
         isValidAmount(amount)
         nonReentrant // interacts with Vault
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _deposit(msg.sender, token, amount);
     }
 
@@ -365,6 +369,9 @@ contract Bootstrap is
         isValidAmount(amount)
         nonReentrant // interacts with Vault
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _withdraw(msg.sender, token, amount);
     }
 
@@ -428,6 +435,9 @@ contract Bootstrap is
         isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _delegateTo(msg.sender, validator, token, amount);
     }
 
@@ -447,7 +457,7 @@ contract Bootstrap is
         // validator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
-        uint256 withdrawable = withdrawableAmounts[msg.sender][token];
+        uint256 withdrawable = withdrawableAmounts[user][token];
         if (withdrawable < amount) {
             revert Errors.BootstrapInsufficientWithdrawableBalance();
         }
@@ -470,6 +480,9 @@ contract Bootstrap is
         isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _undelegateFrom(msg.sender, validator, token, amount);
     }
 
@@ -518,6 +531,9 @@ contract Bootstrap is
         isValidBech32Address(validator)
         nonReentrant // because it interacts with vault in deposit
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _deposit(msg.sender, token, amount);
         _delegateTo(msg.sender, validator, token, amount);
     }

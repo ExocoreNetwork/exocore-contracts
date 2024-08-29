@@ -148,7 +148,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @inheritdoc IExoCapsule
-    function initialize(address gateway_, address capsuleOwner_, address beaconOracle_) external initializer {
+    function initialize(address gateway_, address payable capsuleOwner_, address beaconOracle_) external initializer {
         require(gateway_ != address(0), "ExoCapsule: gateway address can not be empty");
         require(capsuleOwner_ != address(0), "ExoCapsule: capsule owner address can not be empty");
         require(beaconOracle_ != address(0), "ExoCapsule: beacon chain oracle address should not be empty");
@@ -156,6 +156,8 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         gateway = INativeRestakingController(gateway_);
         beaconOracle = IBeaconChainOracle(beaconOracle_);
         capsuleOwner = capsuleOwner_;
+
+        __ReentrancyGuard_init_unchained();
 
         emit RestakingActivated(capsuleOwner);
     }
@@ -266,11 +268,14 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @notice Withdraws the nonBeaconChainETHBalance
-    /// @dev This function must be called through the gateway. @param amount must be greater than
+    /// @dev This function must be called through the gateway. @param amountToWithdraw can not be greater than
     /// the available nonBeaconChainETHBalance.
-    /// @param recipient The destination address to which the ETH are sent.
+    /// @param recipient The payable destination address to which the ETH are sent.
     /// @param amountToWithdraw The amount to withdraw.
-    function withdrawNonBeaconChainETHBalance(address recipient, uint256 amountToWithdraw) external onlyGateway {
+    function withdrawNonBeaconChainETHBalance(address payable recipient, uint256 amountToWithdraw)
+        external
+        onlyGateway
+    {
         require(
             amountToWithdraw <= nonBeaconChainETHBalance,
             "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
@@ -346,10 +351,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @dev Sends @param amountWei of ETH to the @param recipient.
-    /// @param recipient The address of the recipient.
+    /// @param recipient The address of the payable recipient.
     /// @param amountWei The amount of ETH to send, in wei.
     // slither-disable-next-line arbitrary-send-eth
-    function _sendETH(address recipient, uint256 amountWei) internal nonReentrant {
+    function _sendETH(address payable recipient, uint256 amountWei) internal nonReentrant {
         (bool sent,) = recipient.call{value: amountWei}("");
         if (!sent) {
             revert WithdrawalFailure(capsuleOwner, recipient, amountWei);

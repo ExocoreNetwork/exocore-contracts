@@ -18,6 +18,7 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "src/core/ClientChainGateway.sol";
+import "src/storage/ClientChainGatewayStorage.sol";
 
 import "src/core/ExoCapsule.sol";
 import "src/core/ExocoreGateway.sol";
@@ -270,6 +271,81 @@ contract Initialize is SetUp {
 
     function test_Bootstrapped() public {
         assertTrue(clientGateway.bootstrapped());
+    }
+
+}
+
+contract withdrawNonBeaconChainETHFromCapsule is SetUp {
+
+    using stdStorage for StdStorage;
+
+    address payable user;
+    address payable capsuleAddress;
+    uint256 depositAmount = 1 ether;
+    uint256 withdrawAmount = 0.5 ether;
+
+    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    function setUp() public override {
+        super.setUp();
+
+        // we use this hacking way to add virtual staked ETH to the whitelist to enable native restaking
+        bytes32 whitelistedSlot = bytes32(
+            stdstore.target(address(clientGatewayLogic)).sig("isWhitelistedToken(address)").with_key(
+                VIRTUAL_STAKED_ETH_ADDRESS
+            ).find()
+        );
+        vm.store(address(clientGateway), whitelistedSlot, bytes32(uint256(1)));
+
+        user = payable(players[0].addr);
+        vm.deal(user, 10 ether);
+
+        // 1. User creates capsule through ClientChainGateway
+        vm.prank(user);
+        capsuleAddress = payable(clientGateway.createExoCapsule());
+    }
+
+    function test_success_withdrawNonBeaconChainETH() public {
+        // 2. User directly transfers some ETH to created capsule
+        vm.prank(user);
+        (bool success,) = capsuleAddress.call{value: depositAmount}("");
+        require(success, "ETH transfer failed");
+
+        uint256 userBalanceBefore = user.balance;
+        uint256 capsuleBalanceBefore = capsuleAddress.balance;
+
+        // 3. User withdraws ETH by calling withdrawNonBeaconChainETHFromCapsule
+        vm.prank(user);
+        clientGateway.withdrawNonBeaconChainETHFromCapsule(user, withdrawAmount);
+
+        // Assert balance changes
+        assertEq(user.balance, userBalanceBefore + withdrawAmount, "User balance didn't increase correctly");
+        assertEq(
+            capsuleAddress.balance, capsuleBalanceBefore - withdrawAmount, "Capsule balance didn't decrease correctly"
+        );
+    }
+
+    function test_revert_capsuleNotFound() public {
+        address payable userWithoutCapsule = payable(address(0x123));
+
+        vm.prank(userWithoutCapsule);
+        vm.expectRevert(ClientChainGatewayStorage.CapsuleNotExist.selector);
+        clientGateway.withdrawNonBeaconChainETHFromCapsule(userWithoutCapsule, withdrawAmount);
+    }
+
+    function test_revert_insufficientBalance() public {
+        // User directly transfers some ETH to created capsule
+        vm.prank(user);
+        (bool success,) = capsuleAddress.call{value: depositAmount}("");
+        require(success, "ETH transfer failed");
+
+        uint256 excessiveWithdrawAmount = 2 ether;
+
+        vm.prank(user);
+        vm.expectRevert(
+            "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
+        );
+        clientGateway.withdrawNonBeaconChainETHFromCapsule(user, excessiveWithdrawAmount);
     }
 
 }

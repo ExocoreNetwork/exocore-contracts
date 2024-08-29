@@ -115,7 +115,7 @@ contract ClientChainGateway is
     }
 
     /// @inheritdoc IClientChainGateway
-    function quote(bytes memory _message) public view returns (uint256 nativeFee) {
+    function quote(bytes calldata _message) public view returns (uint256 nativeFee) {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();

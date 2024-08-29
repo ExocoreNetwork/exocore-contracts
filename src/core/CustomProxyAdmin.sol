@@ -32,7 +32,7 @@ contract CustomProxyAdmin is Initializable, ProxyAdmin {
     /// @param implementation The address of the new implementation contract.
     /// @param data The data to be passed to the new implementation contract.
     /// @dev This function can only be called by the proxy to upgrade itself, exactly once.
-    function changeImplementation(address proxy, address implementation, bytes memory data) public virtual {
+    function changeImplementation(address proxy, address implementation, bytes calldata data) public virtual {
         if (msg.sender != bootstrapper) {
             revert Errors.CustomProxyAdminOnlyCalledFromBootstrapper();
         }
