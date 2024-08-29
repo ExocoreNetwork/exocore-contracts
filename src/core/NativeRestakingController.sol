@@ -63,6 +63,7 @@ abstract contract NativeRestakingController is
     }
 
     /// @notice Creates a new ExoCapsule contract for the message sender.
+    /// @notice The message sender must be payable
     /// @return The address of the newly created ExoCapsule contract.
     // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
     // array, so it would not cause collision for encodePacked
@@ -82,7 +83,7 @@ abstract contract NativeRestakingController is
 
         // we follow check-effects-interactions pattern to write state before external call
         ownerToCapsule[msg.sender] = capsule;
-        capsule.initialize(address(this), msg.sender, BEACON_ORACLE_ADDRESS);
+        capsule.initialize(address(this), payable(msg.sender), BEACON_ORACLE_ADDRESS);
 
         emit CapsuleCreated(msg.sender, address(capsule));
 

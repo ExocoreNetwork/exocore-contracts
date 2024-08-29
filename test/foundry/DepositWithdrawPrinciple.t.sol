@@ -461,7 +461,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         assertEq(address(clientGateway.ownerToCapsule(depositor.addr)), address(capsule));
 
         /// initialize replaced capsule
-        capsule.initialize(address(clientGateway), depositor.addr, address(beaconOracle));
+        capsule.initialize(address(clientGateway), payable(depositor.addr), address(beaconOracle));
     }
 
     function _testNativeWithdraw(Player memory withdrawer, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)

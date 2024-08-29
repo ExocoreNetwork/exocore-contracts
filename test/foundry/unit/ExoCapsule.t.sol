@@ -33,7 +33,7 @@ contract DepositSetup is Test {
 
     ExoCapsule capsule;
     IBeaconChainOracle beaconOracle;
-    address capsuleOwner;
+    address payable capsuleOwner;
 
     uint256 constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
     /// @notice The number of slots each epoch in the beacon chain
@@ -70,7 +70,7 @@ contract DepositSetup is Test {
         beaconOracle = IBeaconChainOracle(address(0x123));
         vm.etch(address(beaconOracle), bytes("aabb"));
 
-        capsuleOwner = address(0x125);
+        capsuleOwner = payable(address(0x125));
 
         ExoCapsule phantomCapsule = new ExoCapsule();
 
@@ -284,7 +284,7 @@ contract VerifyDepositProof is DepositSetup {
         vm.store(address(anotherCapsule), gatewaySlot, bytes32(uint256(uint160(address(this)))));
 
         bytes32 ownerSlot = bytes32(stdstore.target(address(anotherCapsule)).sig("capsuleOwner()").find());
-        vm.store(address(anotherCapsule), ownerSlot, bytes32(uint256(uint160(capsuleOwner))));
+        vm.store(address(anotherCapsule), ownerSlot, bytes32(uint256(uint160(address(capsuleOwner)))));
 
         bytes32 beaconOraclerSlot = bytes32(stdstore.target(address(anotherCapsule)).sig("beaconOracle()").find());
         vm.store(address(anotherCapsule), beaconOraclerSlot, bytes32(uint256(uint160(address(beaconOracle)))));

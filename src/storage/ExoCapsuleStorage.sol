@@ -59,7 +59,7 @@ contract ExoCapsuleStorage {
     uint256 public nonBeaconChainETHBalance;
 
     /// @notice The owner of the ExoCapsule.
-    address public capsuleOwner;
+    address payable public capsuleOwner;
 
     /// @notice The address of the NativeRestakingController contract.
     INativeRestakingController public gateway;

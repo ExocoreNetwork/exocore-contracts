@@ -11,9 +11,9 @@ interface IExoCapsule {
 
     /// @notice Initializes the ExoCapsule contract with the given parameters.
     /// @param gateway The address of the ClientChainGateway contract.
-    /// @param capsuleOwner The address of the ExoCapsule owner.
+    /// @param capsuleOwner The payable address of the ExoCapsule owner.
     /// @param beaconOracle The address of the BeaconOracle contract.
-    function initialize(address gateway, address capsuleOwner, address beaconOracle) external;
+    function initialize(address gateway, address payable capsuleOwner, address beaconOracle) external;
 
     /// @notice Verifies the deposit proof and returns the amount of deposit.
     /// @param validatorContainer The validator container.
