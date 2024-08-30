@@ -3,6 +3,8 @@ pragma solidity ^0.8.19;
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+
+import {Origin} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 
@@ -275,7 +277,7 @@ contract Initialize is SetUp {
 
 }
 
-contract withdrawNonBeaconChainETHFromCapsule is SetUp {
+contract WithdrawNonBeaconChainETHFromCapsule is SetUp {
 
     using stdStorage for StdStorage;
 
@@ -346,6 +348,61 @@ contract withdrawNonBeaconChainETHFromCapsule is SetUp {
             "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
         );
         clientGateway.withdrawNonBeaconChainETHFromCapsule(user, excessiveWithdrawAmount);
+    }
+
+}
+
+contract WithdrawalPrincipalFromExocore is SetUp {
+
+    using stdStorage for StdStorage;
+    using AddressCast for address;
+
+    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    uint256 constant WITHDRAWAL_AMOUNT = 1 ether;
+
+    address payable user;
+
+    function setUp() public override {
+        super.setUp();
+
+        user = payable(players[0].addr);
+        vm.deal(user, 10 ether);
+
+        bytes32[] memory tokens = new bytes32[](2);
+        tokens[0] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        tokens[1] = bytes32(bytes20(address(restakeToken)));
+
+        // Simulate adding VIRTUAL_STAKED_ETH_ADDRESS to whitelist via lzReceive
+        bytes memory message =
+            abi.encodePacked(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKENS, uint8(tokens.length), tokens);
+        Origin memory origin = Origin({srcEid: exocoreChainId, sender: address(exocoreGateway).toBytes32(), nonce: 1});
+
+        vm.prank(address(clientChainLzEndpoint));
+        clientGateway.lzReceive(origin, bytes32(0), message, address(0), bytes(""));
+        // assert that VIRTUAL_STAKED_ETH_ADDRESS and restake token is whitelisted
+        assertTrue(clientGateway.isWhitelistedToken(VIRTUAL_STAKED_ETH_ADDRESS));
+        assertTrue(clientGateway.isWhitelistedToken(address(restakeToken)));
+    }
+
+    function test_revert_withdrawVirtualStakedETH() public {
+        // Try to withdraw VIRTUAL_STAKED_ETH
+        vm.prank(user);
+        vm.expectRevert(BootstrapStorage.VaultNotExist.selector);
+        clientGateway.withdrawPrincipalFromExocore(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
+    }
+
+    function test_revert_withdrawNonWhitelistedToken() public {
+        address nonWhitelistedToken = address(0x1234);
+
+        vm.prank(players[0].addr);
+        vm.expectRevert("BootstrapStorage: token is not whitelisted");
+        clientGateway.withdrawPrincipalFromExocore(nonWhitelistedToken, WITHDRAWAL_AMOUNT);
+    }
+
+    function test_revert_withdrawZeroAmount() public {
+        vm.prank(user);
+        vm.expectRevert("BootstrapStorage: amount should be greater than zero");
+        clientGateway.withdrawPrincipalFromExocore(address(restakeToken), 0);
     }
 
 }

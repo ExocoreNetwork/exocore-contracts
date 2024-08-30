@@ -48,6 +48,10 @@ abstract contract LSTRestakingController is
         whenNotPaused
         nonReentrant
     {
+        // If we can get the vault, the token cannot be VIRTUAL_STAKED_ETH_ADDRESS, so that staker cannot bypass the
+        // beacon chain merkle proof check to withdraw natively staked ETH
+        _getVault(token);
+
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principalAmount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, principalAmount);
