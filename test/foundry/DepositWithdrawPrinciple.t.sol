@@ -111,7 +111,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
         lastlyUpdatedPrincipalBalance += depositAmount;
-        uint64 depositResponseNonce = 2;
+        uint64 depositResponseNonce = 3;
         bytes memory depositResponsePayload =
             abi.encodePacked(GatewayStorage.Action.RESPOND, depositRequestNonce, true, lastlyUpdatedPrincipalBalance);
         uint256 depositResponseNativeFee = exocoreGateway.quote(clientChainId, depositResponsePayload);
@@ -196,7 +196,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
-        uint64 withdrawResponseNonce = 3;
+        uint64 withdrawResponseNonce = 4;
         lastlyUpdatedPrincipalBalance -= withdrawAmount;
         bytes memory withdrawResponsePayload =
             abi.encodePacked(GatewayStorage.Action.RESPOND, withdrawRequestNonce, true, lastlyUpdatedPrincipalBalance);
@@ -344,7 +344,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // endpoint
 
         /// exocore gateway should return response message to exocore network layerzero endpoint
-        uint64 depositResponseNonce = 2;
+        uint64 depositResponseNonce = 3;
         lastlyUpdatedPrincipalBalance += depositAmount;
         bytes memory depositResponsePayload =
             abi.encodePacked(GatewayStorage.Action.RESPOND, depositRequestNonce, true, lastlyUpdatedPrincipalBalance);
@@ -512,7 +512,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.stopPrank();
 
         /// exocore gateway should return response message to exocore network layerzero endpoint
-        uint64 withdrawResponseNonce = 3;
+        uint64 withdrawResponseNonce = 4;
         lastlyUpdatedPrincipalBalance -= withdrawalAmount;
         bytes memory withdrawResponsePayload =
             abi.encodePacked(GatewayStorage.Action.RESPOND, withdrawRequestNonce, true, lastlyUpdatedPrincipalBalance);

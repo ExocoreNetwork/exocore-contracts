@@ -175,73 +175,51 @@ contract ExocoreGatewayMock is
         super.setPeer(clientChainId, clientChainGateway);
     }
 
-    // Though this function would call precompiled contract, all precompiled contracts belong to Exocore
-    // and we could make sure its implementation does not have dangerous behavior like reentrancy.
-    // slither-disable-next-line reentrancy-no-eth
-    function addOrUpdateWhitelistTokens(
+    function addOrUpdateWhitelistToken(
         uint32 clientChainId,
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData
+        bytes32 token,
+        uint8 decimals,
+        uint256 tvlLimit,
+        string calldata name,
+        string calldata metaData,
+        string calldata oracleInfo
     ) external payable onlyOwner whenNotPaused nonReentrant {
-        _validateWhitelistTokensInput(tokens, decimals, tvlLimits, names, metaData);
+        require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
+        require(tvlLimit > 0, "ExocoreGateway: tvl limit should not be zero");
+        require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
+        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
 
-        bool success;
-        bool updated;
-        for (uint256 i; i < tokens.length; i++) {
-            require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
-            require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
-            require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
-            require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
+        (bool success, bool updated) = ASSETS_CONTRACT.registerOrUpdateTokens(
+            clientChainId,
+            abi.encodePacked(token), // convert to bytes from bytes32
+            decimals,
+            tvlLimit,
+            name,
+            metaData,
+            oracleInfo
+        );
 
-            (success, updated) = ASSETS_CONTRACT.registerOrUpdateTokens(
-                clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
-            );
-
-            if (success) {
-                if (!updated) {
-                    emit WhitelistTokenAdded(clientChainId, tokens[i]);
-                } else {
-                    emit WhitelistTokenUpdated(clientChainId, tokens[i]);
+        if (success) {
+            if (!updated) {
+                if (msg.value == 0) {
+                    revert Errors.ZeroValue();
                 }
+                emit WhitelistTokenAdded(clientChainId, token);
+                _sendInterchainMsg(
+                    clientChainId,
+                    Action.REQUEST_ADD_WHITELIST_TOKEN,
+                    abi.encodePacked(token), // convert for decoding it on the receiving end
+                    false
+                );
             } else {
-                if (!updated) {
-                    revert AddWhitelistTokenFailed(tokens[i]);
-                } else {
-                    revert UpdateWhitelistTokenFailed(tokens[i]);
+                if (msg.value != 0) {
+                    revert Errors.NonZeroValue();
                 }
+                emit WhitelistTokenUpdated(clientChainId, token);
             }
-        }
-
-        if (!updated) {
-            _sendInterchainMsg(
-                clientChainId,
-                Action.REQUEST_ADD_WHITELIST_TOKENS,
-                abi.encodePacked(uint8(tokens.length), tokens),
-                false
-            );
-        }
-    }
-
-    function _validateWhitelistTokensInput(
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData
-    ) internal pure {
-        uint256 expectedLength = tokens.length;
-        if (expectedLength > type(uint8).max) {
-            revert WhitelistTokensListTooLong();
-        }
-
-        if (
-            decimals.length != expectedLength || tvlLimits.length != expectedLength || names.length != expectedLength
-                || metaData.length != expectedLength
-        ) {
-            revert InvalidWhitelistTokensInput();
+        } else {
+            // if the precompile call didn't succeed, we don't know if it is an update.
+            revert AddOrUpdateWhitelistTokenFailed(token);
         }
     }
 

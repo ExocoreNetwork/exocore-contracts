@@ -1,9 +1,11 @@
 pragma solidity ^0.8.19;
 
-import "../src/interfaces/IClientChainGateway.sol";
+import {GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
+import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
+
 import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";
 
 import {BaseScript} from "./BaseScript.sol";
@@ -86,41 +88,53 @@ contract SetupScript is BaseScript {
         exocoreGateway.registerOrUpdateClientChain(
             clientChainId, address(clientGateway).toBytes32(), 20, "ClientChain", "EVM compatible network", "secp256k1"
         );
-        vm.stopBroadcast();
 
         // 3. adding tokens to the whtielist of both Exocore and client chain gateway to enable restaking
 
         // first we read decimals from client chain ERC20 token contract to prepare for token data
-        vm.selectFork(clientChain);
         bytes32[] memory whitelistTokensBytes32 = new bytes32[](2);
         uint8[] memory decimals = new uint8[](2);
         uint256[] memory tvlLimits = new uint256[](2);
         string[] memory names = new string[](2);
-        string[] memory metaData = new string[](2);
+        string[] memory metaDatas = new string[](2);
+        string[] memory oracleInfos = new string[](2);
 
         // this stands for LST restaking for restakeToken
         whitelistTokensBytes32[0] = bytes32(bytes20(address(restakeToken)));
         decimals[0] = restakeToken.decimals();
         tvlLimits[0] = 1e10 ether;
         names[0] = "RestakeToken";
-        metaData[0] = "ERC20 LST token";
+        metaDatas[0] = "ERC20 LST token";
+        oracleInfos[0] = "{'a': 'b'}";
 
         // this stands for Native Restaking for ETH
         whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         decimals[1] = 18;
         tvlLimits[1] = 1e8 ether;
         names[1] = "StakedETH";
-        metaData[1] = "natively staked ETH on Ethereum";
-        vm.stopBroadcast();
+        metaDatas[1] = "natively staked ETH on Ethereum";
+        oracleInfos[1] = "{'b': 'a'}";
 
         // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking,
         // and this would also add token addresses to client chain gateway's whitelist
-        vm.selectFork(exocore);
-        uint256 messageLength = TOKEN_ADDRESS_BYTES_LENGTH * whitelistTokensBytes32.length + 2;
-        uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(messageLength));
-        exocoreGateway.addOrUpdateWhitelistTokens{value: nativeFee}(
-            clientChainId, whitelistTokensBytes32, decimals, tvlLimits, names, metaData
-        );
+        uint256 nativeFee;
+        for (uint256 i = 0; i < whitelistTokensBytes32.length; i++) {
+            nativeFee = exocoreGateway.quote(
+                clientChainId,
+                abi.encodePacked(
+                    GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i])
+                )
+            );
+            exocoreGateway.addOrUpdateWhitelistToken{value: nativeFee}(
+                clientChainId,
+                whitelistTokensBytes32[i],
+                decimals[i],
+                tvlLimits[i],
+                names[i],
+                metaDatas[i],
+                oracleInfos[i]
+            );
+        }
         vm.stopBroadcast();
     }
 

@@ -156,13 +156,9 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param clientChainId The LayerZero chain ID of the client chain.
     error RegisterClientChainToExocoreFailed(uint32 clientChainId);
 
-    /// @notice Thrown when a whitelist token addition fails
+    /// @notice Thrown when a whitelist token addition or update fails
     /// @param token The address of the token.
-    error AddWhitelistTokenFailed(bytes32 token);
-
-    /// @notice Thrown when a whitelist token update fails
-    /// @param token The address of the token.
-    error UpdateWhitelistTokenFailed(bytes32 token);
+    error AddOrUpdateWhitelistTokenFailed(bytes32 token);
 
     /// @notice Thrown when the whitelist tokens input is invalid.
     error InvalidWhitelistTokensInput();

@@ -195,10 +195,10 @@ contract Bootstrap is
             whitelistTokens.push(token);
             isWhitelistedToken[token] = true;
 
-            // deploy the corresponding vault if not deployed before
-            if (address(tokenToVault[token]) == address(0)) {
-                _deployVault(token);
-            }
+            // tokens cannot be removed from the whitelist. hence, if the token is not in the
+            // whitelist, it means that it is missing a vault. we do not need to check for a
+            // pre-existing vault.
+            _deployVault(token);
 
             emit WhitelistTokenAdded(token);
         }

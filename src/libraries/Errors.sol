@@ -23,11 +23,10 @@ library Errors {
     /// @dev Thrown when passed-in amount is zero
     error ZeroAmount();
 
-    /// @dev Thrown when the passed-in value is not zero
+    /// @dev Thrown when the passed-in msg.value is not zero but should be
     error NonZeroValue();
 
-    /// @dev Thrown wehn the passed-in value is zero
-    /// @dev This is used when the value in question is not an amount
+    /// @dev Thrown when the passed-in msg.value is zero but should not be
     error ZeroValue();
 
     /// @dev Index out of array bounds
@@ -124,7 +123,7 @@ library Errors {
     error ClientChainGatewayAddWhitelistTooManyTokens();
 
     /// @dev ClientChainGateway: token should not be whitelisted before
-    error ClientChainGatewayAlreadyWhitelisted();
+    error ClientChainGatewayAlreadyWhitelisted(address token);
 
     //////////////////////////////////////
     //  ClientGatewayLzReceiver Errors  //

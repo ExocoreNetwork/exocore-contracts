@@ -65,6 +65,7 @@ interface IAssets {
     /// maxSupply if there is no limit
     /// @param name is the name of the token
     /// @param metaData is the arbitrary metadata of the token
+    /// @param oracleInfo is the oracle information of the token
     /// @return success if the token registration is successful
     /// @return updated whether the token was added or updated
     function registerOrUpdateTokens(
@@ -73,7 +74,8 @@ interface IAssets {
         uint8 decimals,
         uint256 tvlLimit,
         string calldata name,
-        string calldata metaData
+        string calldata metaData,
+        string calldata oracleInfo
     ) external returns (bool success, bool updated);
 
     /// QUERIES

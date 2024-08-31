@@ -71,7 +71,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // endpoint
 
         // exocore gateway should return response message to exocore network layerzero endpoint
-        uint64 withdrawResponseNonce = 2;
+        uint64 withdrawResponseNonce = 3;
         bytes memory withdrawResponsePayload =
             abi.encodePacked(GatewayStorage.Action.RESPOND, withdrawRequestNonce, true, uint256(1234));
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
