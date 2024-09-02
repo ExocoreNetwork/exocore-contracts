@@ -84,7 +84,9 @@ interface IAssets {
     /// maxSupply if there is no limit
     /// @param metaData is the arbitrary metadata of the token
     /// @return success if the token update is successful
-    /// @dev The token must previously be registered before updating.
+    /// @dev The token must previously be registered before updating
+    /// @dev Pass a tvlLimit of 0 to disable any deposits of the token
+    /// @dev Pass en empty metadata to keep the existing metadata
     function updateToken(uint32 clientChainId, bytes calldata token, uint256 tvlLimit, string calldata metaData)
         external
         returns (bool success);

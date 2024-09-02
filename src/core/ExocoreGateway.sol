@@ -228,7 +228,7 @@ contract ExocoreGateway is
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
         // setting tvlLimit to 0 is allowed as a way to disable the token
-        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
+        // empty metaData indicates that the token's metadata should not be updated
         bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), tvlLimit, metaData);
         if (success) {
             emit WhitelistTokenUpdated(clientChainId, token);

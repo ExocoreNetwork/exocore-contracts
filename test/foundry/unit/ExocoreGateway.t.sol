@@ -676,12 +676,6 @@ contract UpdateWhitelistTokens is SetUp {
         exocoreGateway.updateWhitelistToken(0, tokenDetails.tokenAddress, tokenDetails.tvlLimit, tokenDetails.metaData);
     }
 
-    function test_RevertUpdateWhen_HasZeroMetadata() public {
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert("ExocoreGateway: meta data cannot be empty");
-        exocoreGateway.updateWhitelistToken(clientChainId, tokenDetails.tokenAddress, tokenDetails.tvlLimit, "");
-    }
-
     function test_Success_UpdateWhitelistToken() public {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectEmit(address(exocoreGateway));
