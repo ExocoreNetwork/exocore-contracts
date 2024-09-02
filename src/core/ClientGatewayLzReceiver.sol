@@ -311,10 +311,10 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         }
         isWhitelistedToken[token] = true;
         whitelistTokens.push(token);
-        // deploy the corresponding vault, if required
+        // since tokens cannot be removed from the whitelist, it is not possible for a vault
+        // to already exist. however, we should still ensure that a vault is not deployed for
+        // restaking native staked eth
         if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
-            // since it is no longer possible to remove a token from the whitelist, the check for existing vault
-            // is not necessary.
             _deployVault(token);
         }
         emit WhitelistTokenAdded(token);

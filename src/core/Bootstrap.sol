@@ -197,8 +197,11 @@ contract Bootstrap is
 
             // tokens cannot be removed from the whitelist. hence, if the token is not in the
             // whitelist, it means that it is missing a vault. we do not need to check for a
-            // pre-existing vault.
-            _deployVault(token);
+            // pre-existing vault. however, we still do ensure that the vault is not deployed
+            // for restaking natively staked ETH.
+            if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
+                _deployVault(token);
+            }
 
             emit WhitelistTokenAdded(token);
         }

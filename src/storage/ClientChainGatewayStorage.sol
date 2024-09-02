@@ -34,9 +34,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @dev The length of the token address in bytes.
     uint256 internal constant TOKEN_ADDRESS_BYTES_LENGTH = 32;
 
-    /// @dev The (virtual) address for staked ETH.
-    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
     /// @dev The address of the ETHPOS deposit contract.
     IETHPOSDeposit internal constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
 
