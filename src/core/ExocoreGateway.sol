@@ -186,9 +186,6 @@ contract ExocoreGateway is
         string calldata metaData,
         string calldata oracleInfo
     ) external payable onlyOwner whenNotPaused nonReentrant {
-        if (msg.value == 0) {
-            revert Errors.ZeroValue();
-        }
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
         require(tvlLimit > 0, "ExocoreGateway: tvl limit should not be zero");
