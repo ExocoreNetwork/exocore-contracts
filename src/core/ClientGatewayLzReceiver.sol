@@ -316,6 +316,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                 isWhitelistedToken[token] = true;
                 whitelistTokens.push(token);
 
+                // do not deploy the vault for the virtual token address representing natively staked ETH
                 // deploy the corresponding vault if not deployed before
                 if (token != VIRTUAL_STAKED_ETH_ADDRESS && address(tokenToVault[token]) == address(0)) {
                     _deployVault(token);

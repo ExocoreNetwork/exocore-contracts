@@ -195,8 +195,9 @@ contract Bootstrap is
             whitelistTokens.push(token);
             isWhitelistedToken[token] = true;
 
+            // do not deploy the vault for the virtual token address representing natively staked ETH
             // deploy the corresponding vault if not deployed before
-            if (address(tokenToVault[token]) == address(0)) {
+            if (token != VIRTUAL_STAKED_ETH_ADDRESS && address(tokenToVault[token]) == address(0)) {
                 _deployVault(token);
             }
 
