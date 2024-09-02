@@ -207,4 +207,7 @@ library Errors {
     /// @dev Vault: total principal unlock amount is larger than the total deposited amount
     error VaultTotalUnlockPrincipalExceedsDeposit();
 
+    /// @dev Vault: forbid to deploy vault for the virtual token address representing natively staked ETH
+    error ForbidToDeployVault();
+
 }

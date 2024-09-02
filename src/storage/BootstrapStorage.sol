@@ -5,6 +5,8 @@ import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
 import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
 import {IVault} from "../interfaces/IVault.sol";
+
+import {Errors} from "../libraries/Errors.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -145,6 +147,9 @@ contract BootstrapStorage is GatewayStorage {
     /// @notice Mapping to keep track of the validator names that have been used.
     /// @dev A mapping of validator names to a boolean indicating whether the name has been used.
     mapping(string name => bool used) public validatorNameInUse;
+
+    /// @dev The (virtual) address for staked ETH.
+    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -335,6 +340,10 @@ contract BootstrapStorage is GatewayStorage {
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision
     function _deployVault(address underlyingToken) internal returns (IVault) {
+        if (underlyingToken == VIRTUAL_STAKED_ETH_ADDRESS) {
+            revert Errors.ForbidToDeployVault();
+        }
+
         Vault vault = Vault(
             Create2.deploy(
                 0,
