@@ -530,6 +530,7 @@ contract AddWhitelistTokens is SetUp {
     uint256 nativeFee;
 
     error IncorrectNativeFee(uint256 amount);
+
     event WhitelistTokenAdded(uint32 clientChainId, bytes32 token);
 
     function setUp() public virtual override {
@@ -558,7 +559,13 @@ contract AddWhitelistTokens is SetUp {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert(abi.encodeWithSelector(IncorrectNativeFee.selector, uint256(0)));
         exocoreGateway.addWhitelistToken{value: 0}(
-            clientChainId, bytes32(bytes20(address(restakeToken))), 18, type(uint256).max, "name", "metadata", "oracleInfo"
+            clientChainId,
+            bytes32(bytes20(address(restakeToken))),
+            18,
+            type(uint256).max,
+            "name",
+            "metadata",
+            "oracleInfo"
         );
     }
 
