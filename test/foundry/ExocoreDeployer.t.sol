@@ -183,7 +183,7 @@ contract ExocoreDeployer is Test {
                 uint64(i) + 1, // nonce
                 nativeFee
             );
-            exocoreGateway.addOrUpdateWhitelistToken{value: nativeFee}(
+            exocoreGateway.addWhitelistToken{value: nativeFee}(
                 clientChainId, whitelistTokens[i], decimals[i], tvlLimits[i], names[i], metaDatas[i], oracleInfos[i]
             );
         }

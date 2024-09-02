@@ -177,7 +177,7 @@ contract ExocoreGateway is
     /// @notice If we want to activate client chain's native restaking, we should add the corresponding virtual
     /// token address to the whitelist, bytes32(bytes20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)) for Ethereum
     /// native restaking for example.
-    function addOrUpdateWhitelistToken(
+    function addWhitelistToken(
         uint32 clientChainId,
         bytes32 token,
         uint8 decimals,
@@ -186,13 +186,17 @@ contract ExocoreGateway is
         string calldata metaData,
         string calldata oracleInfo
     ) external payable onlyOwner whenNotPaused nonReentrant {
+        if (msg.value == 0) {
+            revert Errors.ZeroValue();
+        }
+        require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
         require(tvlLimit > 0, "ExocoreGateway: tvl limit should not be zero");
         require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
         require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
         require(bytes(oracleInfo).length != 0, "ExocoreGateway: oracleInfo cannot be empty");
 
-        (bool success, bool updated) = ASSETS_CONTRACT.registerOrUpdateTokens(
+        bool success = ASSETS_CONTRACT.registerToken(
             clientChainId,
             abi.encodePacked(token), // convert to bytes from bytes32
             decimals,
@@ -201,28 +205,35 @@ contract ExocoreGateway is
             metaData,
             oracleInfo
         );
-
         if (success) {
-            if (!updated) {
-                if (msg.value == 0) {
-                    revert Errors.ZeroValue();
-                }
-                emit WhitelistTokenAdded(clientChainId, token);
-                _sendInterchainMsg(
-                    clientChainId,
-                    Action.REQUEST_ADD_WHITELIST_TOKEN,
-                    abi.encodePacked(token), // convert for decoding it on the receiving end
-                    false
-                );
-            } else {
-                if (msg.value != 0) {
-                    revert Errors.NonZeroValue();
-                }
-                emit WhitelistTokenUpdated(clientChainId, token);
-            }
+            emit WhitelistTokenAdded(clientChainId, token);
+            _sendInterchainMsg(
+                clientChainId,
+                Action.REQUEST_ADD_WHITELIST_TOKEN,
+                abi.encodePacked(token), // convert for decoding it on the receiving end
+                false
+            );
         } else {
-            // if the precompile call didn't succeed, we don't know if it is an update.
-            revert AddOrUpdateWhitelistTokenFailed(token);
+            revert AddWhitelistTokenFailed(clientChainId, token);
+        }
+    }
+
+    /// @inheritdoc IExocoreGateway
+    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 tvlLimit, string calldata metaData)
+        external
+        onlyOwner
+        whenNotPaused
+        nonReentrant
+    {
+        require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
+        require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
+        // setting tvlLimit to 0 is allowed as a way to disable the token
+        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
+        bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), tvlLimit, metaData);
+        if (success) {
+            emit WhitelistTokenUpdated(clientChainId, token);
+        } else {
+            revert UpdateWhitelistTokenFailed(clientChainId, token);
         }
     }
 

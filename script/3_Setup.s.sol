@@ -125,7 +125,7 @@ contract SetupScript is BaseScript {
                     GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i])
                 )
             );
-            exocoreGateway.addOrUpdateWhitelistToken{value: nativeFee}(
+            exocoreGateway.addWhitelistToken{value: nativeFee}(
                 clientChainId,
                 whitelistTokensBytes32[i],
                 decimals[i],

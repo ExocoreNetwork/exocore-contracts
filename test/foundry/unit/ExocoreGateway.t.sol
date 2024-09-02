@@ -113,6 +113,18 @@ contract SetUp is Test {
         deal(address(exocoreGateway), 1e22);
     }
 
+    function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
+        if (fromClientChainToExocore) {
+            uid = GUID.generate(
+                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+            );
+        } else {
+            uid = GUID.generate(
+                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
+            );
+        }
+    }
+
 }
 
 contract Pausable is SetUp {
@@ -527,7 +539,7 @@ contract AddWhitelistTokens is SetUp {
     function test_RevertWhen_CallerNotOwner() public {
         vm.startPrank(deployer.addr);
         vm.expectRevert("Ownable: caller is not the owner");
-        exocoreGateway.addOrUpdateWhitelistToken{value: nativeFee}(
+        exocoreGateway.addWhitelistToken{value: nativeFee}(
             clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo"
         );
     }
@@ -536,7 +548,15 @@ contract AddWhitelistTokens is SetUp {
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreGateway.pause();
         vm.expectRevert("Pausable: paused");
-        exocoreGateway.addOrUpdateWhitelistToken{value: nativeFee}(
+        exocoreGateway.addWhitelistToken{value: nativeFee}(
+            clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo"
+        );
+    }
+
+    function test_RevertWhen_ZeroValue() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectRevert(Errors.ZeroValue.selector);
+        exocoreGateway.addWhitelistToken{value: 0}(
             clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo"
         );
     }
@@ -544,7 +564,7 @@ contract AddWhitelistTokens is SetUp {
     function test_RevertWhen_HasZeroAddressToken() public {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ExocoreGateway: token cannot be zero address");
-        exocoreGateway.addOrUpdateWhitelistToken{value: nativeFee}(
+        exocoreGateway.addWhitelistToken{value: nativeFee}(
             clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo"
         );
     }
@@ -552,7 +572,7 @@ contract AddWhitelistTokens is SetUp {
     function test_RevertWhen_HasZeroTVMLimit() public {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ExocoreGateway: tvl limit should not be zero");
-        exocoreGateway.addOrUpdateWhitelistToken{value: nativeFee}(
+        exocoreGateway.addWhitelistToken{value: nativeFee}(
             clientChainId, bytes32(bytes20(address(restakeToken))), 18, 0, "name", "metadata", "oracleInfo"
         );
     }
@@ -562,7 +582,7 @@ contract AddWhitelistTokens is SetUp {
         vm.expectEmit(address(exocoreGateway));
         emit WhitelistTokenAdded(clientChainId, bytes32(bytes20(address(restakeToken))));
         emit MessageSent(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false), 1, nativeFee);
-        exocoreGateway.addOrUpdateWhitelistToken{value: nativeFee}(
+        exocoreGateway.addWhitelistToken{value: nativeFee}(
             clientChainId,
             bytes32(bytes20(address(restakeToken))),
             18,
@@ -574,21 +594,9 @@ contract AddWhitelistTokens is SetUp {
         vm.stopPrank();
     }
 
-    function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
-        if (fromClientChainToExocore) {
-            uid = GUID.generate(
-                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
-            );
-        } else {
-            uid = GUID.generate(
-                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
-            );
-        }
-    }
-
 }
 
-contract UpdateWhitelistTokens is AddWhitelistTokens {
+contract UpdateWhitelistTokens is SetUp {
 
     struct TokenDetails {
         bytes32 tokenAddress;
@@ -601,10 +609,29 @@ contract UpdateWhitelistTokens is AddWhitelistTokens {
 
     TokenDetails tokenDetails;
 
+    event WhitelistTokenAdded(uint32 clientChainId, bytes32 token);
     event WhitelistTokenUpdated(uint32 clientChainId, bytes32 token);
 
     function setUp() public virtual override {
         super.setUp();
+        // the below code is intentionally repeated here, instead of inheriting it from AddWhitelistTokens
+        // this is done to not conflate the tests of AddWhitelistTokens with UpdateWhitelistTokens
+        uint256 MESSAGE_LENGTH = 1 + 32; // action + token address as bytes32
+        uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(MESSAGE_LENGTH));
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectEmit(address(exocoreGateway));
+        emit WhitelistTokenAdded(clientChainId, bytes32(bytes20(address(restakeToken))));
+        emit MessageSent(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false), 1, nativeFee);
+        exocoreGateway.addWhitelistToken{value: nativeFee}(
+            clientChainId,
+            bytes32(bytes20(address(restakeToken))),
+            18,
+            1e8 ether,
+            "RestakeToken",
+            "ERC20 LST token",
+            "oracleInfo"
+        );
+        vm.stopPrank();
         tokenDetails = TokenDetails({
             tokenAddress: bytes32(bytes20(address(restakeToken))),
             decimals: 18,
@@ -621,79 +648,46 @@ contract UpdateWhitelistTokens is AddWhitelistTokens {
     }
 
     function test_RevertUpdateWhen_CallerNotOwner() public {
-        test_Success_AddWhiteListToken(); // focus only on updates
         vm.startPrank(deployer.addr);
         vm.expectRevert("Ownable: caller is not the owner");
-        exocoreGateway.addOrUpdateWhitelistToken{value: 0}(
-            clientChainId,
-            tokenDetails.tokenAddress,
-            tokenDetails.decimals,
-            tokenDetails.tvlLimit,
-            tokenDetails.name,
-            tokenDetails.metaData,
-            tokenDetails.oracleInfo
+        exocoreGateway.updateWhitelistToken(
+            clientChainId, tokenDetails.tokenAddress, tokenDetails.tvlLimit, tokenDetails.metaData
         );
     }
 
     function test_RevertUpdateWhen_Paused() public {
-        test_Success_AddWhiteListToken(); // focus only on updates
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreGateway.pause();
         vm.expectRevert("Pausable: paused");
-        exocoreGateway.addOrUpdateWhitelistToken{value: 0}(
-            clientChainId,
-            tokenDetails.tokenAddress,
-            tokenDetails.decimals,
-            tokenDetails.tvlLimit,
-            tokenDetails.name,
-            tokenDetails.metaData,
-            tokenDetails.oracleInfo
+        exocoreGateway.updateWhitelistToken(
+            clientChainId, tokenDetails.tokenAddress, tokenDetails.tvlLimit, tokenDetails.metaData
         );
     }
 
-    function test_RevertUpdateWhen_HasZeroTVMLimit() public {
-        test_Success_AddWhiteListToken(); // focus only on updates
+    function test_RevertUpdateWhen_HasZeroAddress() public {
         vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert("ExocoreGateway: tvl limit should not be zero");
-        exocoreGateway.addOrUpdateWhitelistToken{value: 0}(
-            clientChainId,
-            tokenDetails.tokenAddress,
-            tokenDetails.decimals,
-            0,
-            tokenDetails.name,
-            tokenDetails.metaData,
-            tokenDetails.oracleInfo
-        );
+        vm.expectRevert("ExocoreGateway: token cannot be zero address");
+        exocoreGateway.updateWhitelistToken(clientChainId, bytes32(0), tokenDetails.tvlLimit, tokenDetails.metaData);
+    }
+
+    function test_RevertUpdateWhen_HasZeroChainId() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectRevert("ExocoreGateway: client chain id cannot be zero");
+        exocoreGateway.updateWhitelistToken(0, tokenDetails.tokenAddress, tokenDetails.tvlLimit, tokenDetails.metaData);
+    }
+
+    function test_RevertUpdateWhen_HasZeroMetadata() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectRevert("ExocoreGateway: meta data cannot be empty");
+        exocoreGateway.updateWhitelistToken(clientChainId, tokenDetails.tokenAddress, tokenDetails.tvlLimit, "");
     }
 
     function test_Success_UpdateWhitelistToken() public {
-        test_Success_AddWhiteListToken(); // focus only on updates
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectEmit(address(exocoreGateway));
         emit WhitelistTokenUpdated(clientChainId, tokenDetails.tokenAddress);
-        exocoreGateway.addOrUpdateWhitelistToken{value: 0}(
-            clientChainId,
-            tokenDetails.tokenAddress,
-            tokenDetails.decimals,
-            tokenDetails.tvlLimit * 5,
-            tokenDetails.name,
-            tokenDetails.metaData,
-            tokenDetails.oracleInfo
-        );
-    }
-
-    function test_RevertUpdate_NonZeroValue() public {
-        test_Success_AddWhiteListToken(); // focus only on updates
-        vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert(Errors.NonZeroValue.selector);
-        exocoreGateway.addOrUpdateWhitelistToken{value: nativeFee}(
-            clientChainId,
-            tokenDetails.tokenAddress,
-            tokenDetails.decimals,
-            tokenDetails.tvlLimit * 5,
-            tokenDetails.name,
-            tokenDetails.metaData,
-            tokenDetails.oracleInfo
+        exocoreGateway.updateWhitelistToken(
+            clientChainId, tokenDetails.tokenAddress, tokenDetails.tvlLimit * 5, "new metadata"
         );
     }
 

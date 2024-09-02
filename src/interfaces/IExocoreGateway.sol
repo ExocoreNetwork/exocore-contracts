@@ -50,11 +50,10 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
     /// @param metaData The meta information of the token.
     /// @param oracleInfo The oracle information of the token.
     /// @dev The chain must be registered before adding tokens.
-    /// @dev This function is payable because it sends a message to the client chain if
-    ///      the token is not already registered.
+    /// @dev This function is payable because it sends a message to the client chain.
     /// @dev Previously, we tried to use this function for multiple tokens, but that
     ///      results in too many local variables (stack too deep).
-    function addOrUpdateWhitelistToken(
+    function addWhitelistToken(
         uint32 clientChainId,
         bytes32 token,
         uint8 decimals,
@@ -63,5 +62,15 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
         string calldata metaData,
         string calldata oracleInfo
     ) external payable;
+
+    /// @notice Updates the parameters for a whitelisted token on the client chain.
+    /// @param clientChainId The LayerZero chain id of the client chain.
+    /// @param token The token address to be updated.
+    /// @param tvlLimit The new TVL limit of the token.
+    /// @param metaData The new meta information of the token.
+    /// @dev The token must exist in the whitelist before updating.
+    /// @dev Since this function does not send a cross chain message, it is not payable.
+    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 tvlLimit, string calldata metaData)
+        external;
 
 }
