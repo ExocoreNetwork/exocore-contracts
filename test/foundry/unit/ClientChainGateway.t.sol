@@ -373,14 +373,24 @@ contract WithdrawalPrincipalFromExocore is SetUp {
         tokens[1] = bytes32(bytes20(address(restakeToken)));
 
         // Simulate adding VIRTUAL_STAKED_ETH_ADDRESS to whitelist via lzReceive
-        bytes memory message =
-            abi.encodePacked(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKENS, uint8(tokens.length), tokens);
-        Origin memory origin = Origin({srcEid: exocoreChainId, sender: address(exocoreGateway).toBytes32(), nonce: 1});
+        bytes memory message = abi.encodePacked(
+                GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN,
+                abi.encodePacked(tokens[0])
+            );
+        Origin memory origin = Origin({
+            srcEid: exocoreChainId, sender: address(exocoreGateway).toBytes32(), nonce: 1
+        });
 
         vm.prank(address(clientChainLzEndpoint));
         clientGateway.lzReceive(origin, bytes32(0), message, address(0), bytes(""));
         // assert that VIRTUAL_STAKED_ETH_ADDRESS and restake token is whitelisted
         assertTrue(clientGateway.isWhitelistedToken(VIRTUAL_STAKED_ETH_ADDRESS));
+        origin.nonce = 2;
+        message = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(tokens[1])
+        );
+        vm.prank(address(clientChainLzEndpoint));
+        clientGateway.lzReceive(origin, bytes32(0), message, address(0), bytes(""));
         assertTrue(clientGateway.isWhitelistedToken(address(restakeToken)));
     }
 
