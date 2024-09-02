@@ -63,7 +63,9 @@ contract Bootstrap is
         uint256 spawnTime_,
         uint256 offsetDuration_,
         address[] calldata whitelistTokens_,
-        address customProxyAdmin_
+        address customProxyAdmin_,
+        address clientChainGatewayLogic_,
+        bytes calldata clientChainInitializationData_
     ) external initializer {
         if (owner == address(0)) {
             revert Errors.ZeroAddress();
@@ -83,6 +85,7 @@ contract Bootstrap is
 
         customProxyAdmin = customProxyAdmin_;
         bootstrapped = false;
+        _setClientChainGatewayLogic(clientChainGatewayLogic_, clientChainInitializationData_);
 
         // msg.sender is not the proxy admin but the transparent proxy itself, and hence,
         // cannot be used here. we must require a separate owner. since the Exocore validator
@@ -546,6 +549,7 @@ contract Bootstrap is
     /// initialization data must be set. The contract must not have been bootstrapped before.
     /// Once it is marked bootstrapped, the implementation of the contract is upgraded to the
     /// client chain gateway logic contract.
+    /// @dev This call can never fail, since such failures are not handled by ExocoreGateway.
     function markBootstrapped() public onlyCalledFromThis whenNotPaused {
         // whenNotPaused is applied so that the upgrade does not proceed without unpausing it.
         // LZ checks made so far include:
@@ -553,23 +557,24 @@ contract Bootstrap is
         // correct address on remote (peer match)
         // chainId match
         // nonce match, which requires that inbound nonce is uint64(1).
-        // TSS checks are not super clear since they can be set by anyone
-        // but at this point that does not matter since it is not fully implemented anyway.
         if (block.timestamp < spawnTime) {
-            revert Errors.BootstrapNotSpawnTime();
+            // technically never possible unless the block producer does some time-based shenanigans.
+            emit BootstrapNotTimeYet();
+            return;
         }
-        if (bootstrapped) {
-            revert Errors.BootstrapAlreadyBootstrapped();
-        }
-        if (clientChainGatewayLogic == address(0)) {
-            revert Errors.ZeroAddress();
-        }
-        ICustomProxyAdmin(customProxyAdmin).changeImplementation(
+        // bootstrapped = true is only actioned by the clientchaingateway after upgrade
+        // so no need to check for that here
+        try ICustomProxyAdmin(customProxyAdmin).changeImplementation(
             // address(this) is storage address and not logic address. so it is a proxy.
             ITransparentUpgradeableProxy(address(this)),
             clientChainGatewayLogic,
             clientChainInitializationData
-        );
+        ) {
+            emit Bootstrapped();
+        } catch {
+            // to allow retries, never fail
+            emit BootstrapUpgradeFailed();
+        }
         emit Bootstrapped();
     }
 
@@ -584,9 +589,22 @@ contract Bootstrap is
         public
         onlyOwner
     {
+        _setClientChainGatewayLogic(_clientChainGatewayLogic, _clientChainInitializationData);
+    }
+
+    /// @dev Internal version of `setClientChainGatewayLogic`.
+    /// @param _clientChainGatewayLogic The address of the new client chain gateway logic
+    /// contract.
+    /// @param _clientChainInitializationData The initialization data to be used when setting up
+    /// the new logic contract.
+    function _setClientChainGatewayLogic(
+        address _clientChainGatewayLogic,
+        bytes calldata _clientChainInitializationData
+    ) internal {
         if (_clientChainGatewayLogic == address(0)) {
             revert Errors.ZeroAddress();
         }
+        // selector is 4 bytes long
         if (_clientChainInitializationData.length < 4) {
             revert Errors.BootstrapClientChainDataMalformed();
         }

@@ -100,6 +100,21 @@ contract BootstrapTest is Test {
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
+        // set up the upgrade params
+        // deploy capsule implementation contract that has logics called by proxy
+        capsuleImplementation = new ExoCapsule();
+        // deploy the capsule beacon that store the implementation contract address
+        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
+            address(clientChainLzEndpoint),
+            exocoreChainId,
+            address(0x1),
+            address(vaultBeacon),
+            address(capsuleBeacon),
+            address(beaconProxyBytecode)
+        );
+        // we could also use encodeWithSelector and supply .initialize.selector instead.
+        bytes memory initialization = abi.encodeCall(clientGatewayLogic.initialize, (payable(exocoreValidatorSet)));
         // then the params + proxy
         spawnTime = block.timestamp + 1 hours;
         offsetDuration = 30 minutes;
@@ -111,7 +126,15 @@ contract BootstrapTest is Test {
                         address(proxyAdmin),
                         abi.encodeCall(
                             bootstrap.initialize,
-                            (deployer, spawnTime, offsetDuration, whitelistTokens, address(proxyAdmin))
+                            (
+                                deployer,
+                                spawnTime,
+                                offsetDuration,
+                                whitelistTokens,
+                                address(proxyAdmin),
+                                address(clientGatewayLogic),
+                                initialization
+                            )
                         )
                     )
                 )
@@ -133,25 +156,6 @@ contract BootstrapTest is Test {
         // now set the gateway address for Exocore.
         clientChainLzEndpoint.setDestLzEndpoint(undeployedExocoreGateway, undeployedExocoreLzEndpoint);
         bootstrap.setPeer(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)));
-        // lastly set up the upgrade params
-
-        // deploy capsule implementation contract that has logics called by proxy
-        capsuleImplementation = new ExoCapsule();
-
-        // deploy the capsule beacon that store the implementation contract address
-        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
-
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(0x1),
-            address(vaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
-        );
-        // we could also use encodeWithSelector and supply .initialize.selector instead.
-        bytes memory initialization = abi.encodeCall(clientGatewayLogic.initialize, (payable(exocoreValidatorSet)));
-        bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
         vm.stopPrank();
     }
 
@@ -1005,7 +1009,15 @@ contract BootstrapTest is Test {
                         address(proxyAdmin),
                         abi.encodeCall(
                             bootstrap.initialize,
-                            (address(0x0), spawnTime, offsetDuration, whitelistTokens, address(proxyAdmin))
+                            (
+                                address(0x0),
+                                spawnTime,
+                                offsetDuration,
+                                whitelistTokens,
+                                address(proxyAdmin),
+                                address(0x1),
+                                bytes("123456")
+                            )
                         )
                     )
                 )
@@ -1028,7 +1040,15 @@ contract BootstrapTest is Test {
                         address(proxyAdmin),
                         abi.encodeCall(
                             bootstrap.initialize,
-                            (deployer, block.timestamp - 10, offsetDuration, whitelistTokens, address(proxyAdmin))
+                            (
+                                deployer,
+                                block.timestamp - 10,
+                                offsetDuration,
+                                whitelistTokens,
+                                address(proxyAdmin),
+                                address(0x1),
+                                bytes("123456")
+                            )
                         )
                     )
                 )
@@ -1049,7 +1069,16 @@ contract BootstrapTest is Test {
                         address(bootstrapLogic),
                         address(proxyAdmin),
                         abi.encodeCall(
-                            bootstrap.initialize, (deployer, spawnTime, 0, whitelistTokens, address(proxyAdmin))
+                            bootstrap.initialize,
+                            (
+                                deployer,
+                                spawnTime,
+                                0,
+                                whitelistTokens,
+                                address(proxyAdmin),
+                                address(0x1),
+                                bytes("123456")
+                            )
                         )
                     )
                 )
@@ -1070,7 +1099,10 @@ contract BootstrapTest is Test {
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
                         address(proxyAdmin),
-                        abi.encodeCall(bootstrap.initialize, (deployer, 21, 22, whitelistTokens, address(proxyAdmin)))
+                        abi.encodeCall(
+                            bootstrap.initialize,
+                            (deployer, 21, 22, whitelistTokens, address(proxyAdmin), address(0x1), bytes("123456"))
+                        )
                     )
                 )
             )
@@ -1090,7 +1122,10 @@ contract BootstrapTest is Test {
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
                         address(proxyAdmin),
-                        abi.encodeCall(bootstrap.initialize, (deployer, 21, 9, whitelistTokens, address(proxyAdmin)))
+                        abi.encodeCall(
+                            bootstrap.initialize,
+                            (deployer, 21, 9, whitelistTokens, address(proxyAdmin), address(0x1), bytes("123456"))
+                        )
                     )
                 )
             )
@@ -1110,7 +1145,76 @@ contract BootstrapTest is Test {
                         address(bootstrapLogic),
                         address(proxyAdmin),
                         abi.encodeCall(
-                            bootstrap.initialize, (deployer, spawnTime, offsetDuration, whitelistTokens, address(0x0))
+                            bootstrap.initialize,
+                            (
+                                deployer,
+                                spawnTime,
+                                offsetDuration,
+                                whitelistTokens,
+                                address(0x0),
+                                address(0x1),
+                                bytes("123456")
+                            )
+                        )
+                    )
+                )
+            )
+        );
+    }
+
+    function test15_Initialize_GatewayZero() public {
+        vm.startPrank(deployer);
+        Bootstrap bootstrapLogic = new Bootstrap(
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
+        );
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        Bootstrap(
+            payable(
+                address(
+                    new TransparentUpgradeableProxy(
+                        address(bootstrapLogic),
+                        address(proxyAdmin),
+                        abi.encodeCall(
+                            bootstrap.initialize,
+                            (
+                                deployer,
+                                spawnTime,
+                                offsetDuration,
+                                whitelistTokens,
+                                address(proxyAdmin),
+                                address(0x0),
+                                bytes("123456")
+                            )
+                        )
+                    )
+                )
+            )
+        );
+    }
+
+    function test15_Initialize_GatewayLogicZero() public {
+        vm.startPrank(deployer);
+        Bootstrap bootstrapLogic = new Bootstrap(
+            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
+        );
+        vm.expectRevert(Errors.BootstrapClientChainDataMalformed.selector);
+        Bootstrap(
+            payable(
+                address(
+                    new TransparentUpgradeableProxy(
+                        address(bootstrapLogic),
+                        address(proxyAdmin),
+                        abi.encodeCall(
+                            bootstrap.initialize,
+                            (
+                                deployer,
+                                spawnTime,
+                                offsetDuration,
+                                whitelistTokens,
+                                address(proxyAdmin),
+                                address(0x1),
+                                bytes("")
+                            )
                         )
                     )
                 )

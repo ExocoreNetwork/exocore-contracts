@@ -227,6 +227,15 @@ contract BootstrapStorage is GatewayStorage {
     /// trigger this event.
     event Bootstrapped();
 
+    /// @notice Emitted when a mark bootstrap call is received before the spawn time.
+    /// @dev This event is triggered when a mark bootstrap call is received before the spawn time.
+    event BootstrapNotTimeYet();
+
+    /// @notice Emitted if the bootstrap upgrade to client chain gateway fails.
+    /// @dev This event is triggered if the upgrade from Bootstrap to Client Chain Gateway fails. It is not an error
+    /// intentionally to prevent blocking the system.
+    event BootstrapUpgradeFailed();
+
     /// @notice Emitted when the client chain gateway logic + implementation are updated.
     /// @dev This event is triggered whenever the client chain gateway logic and implementation are updated. It may be
     /// used, before bootstrapping is complete, to upgrade the client chain gateway logic for upgrades or other bugs.

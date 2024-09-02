@@ -29,6 +29,8 @@ contract CorrectBootstrapErrors is BaseScript {
     address wstETH;
     address proxyAddress;
     address proxyAdmin;
+    address clientGatewayLogic;
+    bytes initialization;
 
     function setUp() public virtual override {
         // load keys
@@ -62,6 +64,9 @@ contract CorrectBootstrapErrors is BaseScript {
         require(address(vaultImplementation) != address(0), "vault implementation should not be empty");
         vaultBeacon = UpgradeableBeacon(stdJson.readAddress(deployed, ".clientChain.vaultBeacon"));
         require(address(vaultBeacon) != address(0), "vault beacon should not be empty");
+        clientGatewayLogic = stdJson.readAddress(deployed, ".clientChain.clientGatewayLogic");
+        require(clientGatewayLogic != address(0), "client gateway should not be empty");
+        initialization = abi.encodeCall(ClientChainGateway.initialize, (payable(exocoreValidatorSet.addr)));
     }
 
     function run() public {
@@ -81,7 +86,9 @@ contract CorrectBootstrapErrors is BaseScript {
                 block.timestamp + 168 hours,
                 2 seconds,
                 emptyList,
-                address(proxyAdmin)
+                address(proxyAdmin),
+                address(clientGateway),
+                initialization
             )
         );
         proxyAdmin.upgradeAndCall(ITransparentUpgradeableProxy(proxyAddress), address(bootstrapLogic), data);

@@ -107,20 +107,25 @@ contract ExocoreGatewayMock is
     // setPeer) or be triggered by Golang after the contract is deployed.
     // For manual calls, this function should be called immediately after deployment and
     // then never needs to be called again.
-    function markBootstrapOnAllChains() public whenNotPaused nonReentrant {
-        (bool success, bytes memory result) =
-            ASSETS_PRECOMPILE_ADDRESS.staticcall(abi.encodeWithSelector(ASSETS_CONTRACT.getClientChains.selector));
-        require(success, "ExocoreGateway: failed to get client chain ids");
-        (bool ok, uint32[] memory clientChainIds) = abi.decode(result, (bool, uint32[]));
-        require(ok, "ExocoreGateway: failed to decode client chain ids");
-        for (uint256 i = 0; i < clientChainIds.length; i++) {
-            uint32 clientChainId = clientChainIds[i];
-            if (!chainToBootstrapped[clientChainId]) {
-                _sendInterchainMsg(clientChainId, Action.REQUEST_MARK_BOOTSTRAP, "", true);
-                // TODO: should this be marked only upon receiving a response?
-                chainToBootstrapped[clientChainId] = true;
-            }
+    function markBootstrapOnAllChains() public payable whenNotPaused nonReentrant {
+        (bool success, uint32[] memory chainIndices) = ASSETS_CONTRACT.getClientChains();
+        if (!success) {
+            revert Errors.ExocoreGatewayFailedToGetClientChainIds();
         }
+        for (uint256 i = 0; i < chainIndices.length; ++i) {
+            _markBootstrap(chainIndices[i]);
+        }
+    }
+
+    function markBootstrap(uint32 chainIndex) public payable whenNotPaused nonReentrant {
+        _markBootstrap(chainIndex);
+    }
+
+    function _markBootstrap(uint32 chainIndex) internal {
+        // we don't track that a request was sent to a chain to allow for retrials
+        // if the transaction fails on the destination chain
+        _sendInterchainMsg(chainIndex, Action.REQUEST_MARK_BOOTSTRAP, "", false);
+        emit BootstrapRequestSent(chainIndex);
     }
 
     /**

@@ -130,7 +130,9 @@ contract DeployContracts is Script {
                                 block.timestamp + 3 minutes,
                                 1 seconds,
                                 whitelistTokens,
-                                address(proxyAdmin)
+                                address(proxyAdmin),
+                                address(0x1), // these values don't matter for the localnet generate.js test
+                                bytes("123456")
                             )
                         )
                     )
