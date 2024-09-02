@@ -103,20 +103,6 @@ contract ExocoreGatewayMock is
         _unpause();
     }
 
-    // TODO: call this function automatically, either within the initializer (which requires
-    // setPeer) or be triggered by Golang after the contract is deployed.
-    // For manual calls, this function should be called immediately after deployment and
-    // then never needs to be called again.
-    function markBootstrapOnAllChains() public payable whenNotPaused nonReentrant {
-        (bool success, uint32[] memory chainIndices) = ASSETS_CONTRACT.getClientChains();
-        if (!success) {
-            revert Errors.ExocoreGatewayFailedToGetClientChainIds();
-        }
-        for (uint256 i = 0; i < chainIndices.length; ++i) {
-            _markBootstrap(chainIndices[i]);
-        }
-    }
-
     function markBootstrap(uint32 chainIndex) public payable whenNotPaused nonReentrant {
         _markBootstrap(chainIndex);
     }
