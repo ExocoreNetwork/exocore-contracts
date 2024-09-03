@@ -3,12 +3,12 @@
 
 // global constants include the chain information
 const clientChainInfo = {
-    'name': 'Sepolia',
-    'meta_info': 'Ethereum-testnet known as Sepolia',
-    'finalization_blocks': 10,
-    'layer_zero_chain_id': 40161,
-    'address_length': 20,
-  };
+  'name': 'Sepolia',
+  'meta_info': 'Ethereum-testnet known as Sepolia',
+  'finalization_blocks': 10,
+  'layer_zero_chain_id': 40161,
+  'address_length': 20,
+};
 // this must be in the same order as whitelistTokens
 const tokenMetaInfos = [
   'Exocore testnet ETH', // first we did push exoETH
@@ -45,6 +45,20 @@ const isValidBech32 = (address) => {
 
 // Load variables from .env file
 const { CLIENT_CHAIN_RPC, BOOTSTRAP_ADDRESS, BASE_GENESIS_FILE_PATH, RESULT_GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
+
+const { keccak256 } = require('js-sha3');
+
+function generateAVSAddr(chainID) {
+  const ChainIDPrefix = 'chain-id-prefix';
+  const hash = keccak256(ChainIDPrefix + chainID);
+
+  return '0x' + hash.slice(-40);
+}
+
+function getJoinedStoreKey(...keys) {
+  const joinedString = keys.join('/');
+  return joinedString;
+}
 
 async function updateGenesisFile() {
   try {
@@ -160,6 +174,10 @@ async function updateGenesisFile() {
         // by the deposits
         staking_total_amount: "0",
       };
+      // total amount should be set because the initialization won't set it.
+      const deposit_amount = await myContract.methods.depositsByToken(token.tokenAddress).call();
+      tokenCleaned.staking_total_amount = deposit_amount;
+
       supportedTokens[i] = tokenCleaned;
       decimals.push(token.decimals);
       assetIds.push(token.tokenAddress.toLowerCase() + clientChainSuffix);
@@ -212,11 +230,14 @@ async function updateGenesisFile() {
         const depositValue = await myContract.methods.totalDepositAmounts(
           stakerAddress, tokenAddress
         ).call();
+        const withdrawableValue = await myContract.methods.withdrawableAmounts(
+          stakerAddress, tokenAddress
+        ).call();
         const depositByStakerForAsset = {
           asset_id: tokenAddress.toLowerCase() + clientChainSuffix,
           info: {
             total_deposit_amount: depositValue.toString(),
-            withdrawable_amount: depositValue.toString(),
+            withdrawable_amount: withdrawableValue.toString(),
             wait_unbonding_amount: "0",
           }
         };
@@ -254,6 +275,69 @@ async function updateGenesisFile() {
     });
     genesisJSON.app_state.assets.deposits = deposits;
 
+    // x/assets: assets state of the operators
+    const validatorCount = await myContract.methods.getValidatorsCount().call();
+    const operator_assets = [];
+    for (let i = 0; i < validatorCount; i++) {
+      const validatorEthAddress = await myContract.methods.registeredValidators(i).call();
+      const validatorExoAddress = await myContract.methods.ethToExocoreAddress(validatorEthAddress).call();
+      const assetsByOperator = [];
+      for (let j = 0; j < supportedTokensCount; j++) {
+        // do not reuse the older array since it has been sorted.
+        const tokenAddress =
+          (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
+        const delegationValue = await myContract.methods.delegationsByValidator(
+          validatorExoAddress, tokenAddress
+        ).call();
+        const totalShare = new Decimal(delegationValue.toString());
+        let stakerId = validatorEthAddress.toLowerCase() + clientChainSuffix;
+        const selfDelegation = await myContract.methods.delegations(
+          stakerId, validatorExoAddress, tokenAddress
+        ).call();
+        const selfShare = new Decimal(selfDelegation.toString());
+
+        const assetsByOperatorForAsset = {
+          asset_id: tokenAddress.toLowerCase() + clientChainSuffix,
+          info: {
+            total_amount: delegationValue.toString(),
+            wait_unbonding_amount: "0",
+            total_share: totalShare.toString(),
+            operator_share: selfShare.toString(),
+          }
+        };
+        assetsByOperator.push(assetsByOperatorForAsset);
+        // break;
+      }
+      // sort for determinism
+      assetsByOperator.sort((a, b) => {
+        // the asset_id is guaranteed to be unique, so no further sorting is needed.
+        if (a.asset_id < b.asset_id) {
+          return -1;
+        }
+        if (a.asset_id > b.asset_id) {
+          return 1;
+        }
+        return 0;
+      });
+      const assetsByOperatorWrapped = {
+        operator: validatorExoAddress,
+        assets_state: assetsByOperator
+      };
+      operator_assets.push(assetsByOperatorWrapped);
+    }
+    // sort for determinism
+    operator_assets.sort((a, b) => {
+      // the operator address is guaranteed to be unique, so no further sorting is needed.
+      if (a.operator < b.operator) {
+        return -1;
+      }
+      if (a.operator > b.operator) {
+        return 1;
+      }
+      return 0;
+    });
+    genesisJSON.app_state.assets.operator_assets = operator_assets;
+
     // x/operator: operators (operator.go)
     if (!genesisJSON.app_state.operator.operators) {
       genesisJSON.app_state.operator.operators = [];
@@ -276,6 +360,14 @@ async function updateGenesisFile() {
     const operators = [];
     const associations = [];
     const operatorsCount = await myContract.methods.getValidatorsCount().call();
+    let dogfoodUSDValue = new Decimal(0);
+    const operator_records = [];
+    const opt_states = [];
+    const avs_usd_values = [];
+    const operator_usd_values = [];
+    const chain_id = genesisJSON.chain_id;
+    const dogfoodAddr = generateAVSAddr(chain_id);
+
     for (let i = 0; i < operatorsCount; i++) {
       // operators
       const operatorAddress = await myContract.methods.registeredValidators(i).call();
@@ -287,7 +379,7 @@ async function updateGenesisFile() {
         continue;
       }
       const operatorInfo = await myContract.methods.validators(opAddressBech32).call();
-      const operatorCleaned = {
+      const operator_info = {
         earnings_addr: opAddressBech32,
         // approve_addr unset
         operator_meta_info: operatorInfo.name,
@@ -314,6 +406,10 @@ async function updateGenesisFile() {
           update_time: spawnDate,
         }
       }
+      const operatorCleaned = {
+        operator_address: opAddressBech32,
+        operator_info: operator_info
+      }
       operators.push(operatorCleaned);
       // dogfood: val_set
       // TODO: once the oracle module is set up, move away from this solution
@@ -321,19 +417,26 @@ async function updateGenesisFile() {
       // and let the dogfood module pull the vote power from the rest of the system
       // at genesis.
       let amount = new Decimal(0);
+      let totalAmount = new Decimal(0);
       if (exchangeRates.length != supportedTokens.length) {
         throw new Error(
           `The number of exchange rates (${exchangeRates.length}) 
           does not match the number of supported tokens (${supportedTokens.length}).`
         );
       }
-      for(let j = 0; j < supportedTokens.length; j++) {
+      for (let j = 0; j < supportedTokens.length; j++) {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
+        const selfDelegationAmount = await myContract.methods.delegations(operatorAddress, opAddressBech32, tokenAddress).call();
+        amount = amount.plus(
+          new Decimal(selfDelegationAmount.toString()).
+            div('1e' + decimals[j]).
+            mul(exchangeRates[j].toString())
+        );
         const perTokenDelegation = await myContract.methods.delegationsByValidator(
           opAddressBech32, tokenAddress
         ).call();
-        amount = amount.plus(
+        totalAmount = totalAmount.plus(
           new Decimal(perTokenDelegation.toString()).
             div('1e' + decimals[j]).
             mul(exchangeRates[j].toString())
@@ -347,6 +450,38 @@ async function updateGenesisFile() {
           power: amount,  // do not convert to int yet.
           operator_acc_addr: opAddressBech32,
         });
+        // set the consensus key, opted info, and USD value for the valid operators and dogfood AVS.
+        // consensus public key
+        const chains = [];
+        chains.push({
+          chain_id: chain_id,
+          consensus_key: operatorInfo.consensusPublicKey,
+        });
+        operator_records.push({
+          operator_address: opAddressBech32,
+          chains: chains
+        });
+        // opted info
+        const key = getJoinedStoreKey(opAddressBech32, dogfoodAddr);
+        const DefaultOptedOutHeight = BigInt("18446744073709551615");
+        opt_states.push({
+          key: key,
+          opt_info: {
+            opted_in_height: height,
+            opted_out_height: DefaultOptedOutHeight.toString(),
+          }
+        });
+        // USD value for the operators
+        const usdValuekey = getJoinedStoreKey(dogfoodAddr, opAddressBech32);
+        operator_usd_values.push({
+          key: usdValuekey,
+          opted_usd_value: {
+            self_usd_value: amount.toString(),
+            total_usd_value: totalAmount.toString(),
+            active_usd_value: totalAmount.toString(),
+          }
+        });
+        dogfoodUSDValue = dogfoodUSDValue.plus(totalAmount);
       } else {
         console.log(`Skipping operator ${opAddressBech32} due to insufficient self delegation.`);
       }
@@ -359,15 +494,56 @@ async function updateGenesisFile() {
     }
     // operators
     operators.sort((a, b) => {
-      if (a.earnings_addr < b.earnings_addr) {
+      if (a.operator_address < b.operator_address) {
         return -1;
       }
-      if (a.earnings_addr > b.earnings_addr) {
+      if (a.operator_address > b.operator_address) {
+        return 1;
+      }
+      return 0;
+    });
+    // operator_records
+    operator_records.sort((a, b) => {
+      if (a.operator_address < b.operator_address) {
+        return -1;
+      }
+      if (a.operator_address > b.operator_address) {
+        return 1;
+      }
+      return 0;
+    });
+    // opt_states
+    opt_states.sort((a, b) => {
+      if (a.key < b.key) {
+        return -1;
+      }
+      if (a.key > b.key) {
+        return 1;
+      }
+      return 0;
+    });
+    // avs_usd_values
+    avs_usd_values.push({
+      avs_addr: dogfoodAddr,
+      value: {
+        amount: dogfoodUSDValue.toString(),
+      },
+    });
+    // operator_usd_values
+    operator_usd_values.sort((a, b) => {
+      if (a.key < b.key) {
+        return -1;
+      }
+      if (a.key > b.key) {
         return 1;
       }
       return 0;
     });
     genesisJSON.app_state.operator.operators = operators;
+    genesisJSON.app_state.operator.operator_records = operator_records;
+    genesisJSON.app_state.operator.opt_states = opt_states;
+    genesisJSON.app_state.operator.avs_usd_values = avs_usd_values;
+    genesisJSON.app_state.operator.operator_usd_values = operator_usd_values;
     // dogfood: val_set
     validators.sort((a, b) => {
       // even though operator_acc_addr is unique, we have to still
@@ -414,22 +590,19 @@ async function updateGenesisFile() {
       genesisJSON.app_state.delegation.delegations = [];
     }
     // iterate over all stakers, then all assets, then all operators
-    const baseLevel = [];
-    for(let i = 0; i < depositorsCount; i++) {
+    const delegation_states = [];
+    const stakers_by_operator = [];
+    const stakerListMap = new Map();
+    for (let i = 0; i < depositorsCount; i++) {
       const staker = await myContract.methods.depositors(i).call();
       const stakerId = staker.toLowerCase() + clientChainSuffix;
-      let level1 = {
-        staker_id: stakerId,
-        delegations: [],
-      }
-      for(let j = 0; j < supportedTokens.length; j++) {
+
+      for (let j = 0; j < supportedTokens.length; j++) {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
-        let level2 = {
-          asset_id: tokenAddress.toLowerCase() + clientChainSuffix,
-          per_operator_amounts: [],
-        }
-        for(let k = 0; k < operatorsCount; k++) {
+        const assetId = tokenAddress.toLowerCase() + clientChainSuffix;
+
+        for (let k = 0; k < operatorsCount; k++) {
           const operatorEth = await myContract.methods.registeredValidators(k).call();
           const operator = await myContract.methods.ethToExocoreAddress(operatorEth).call();
           if (!isValidBech32(operator)) {
@@ -440,50 +613,54 @@ async function updateGenesisFile() {
             staker, operator, tokenAddress
           ).call();
           if (amount.toString() > 0) {
-            let level3 = {
-              key: operator,
-              value: {
-                amount: amount.toString()
-              }
+            const key = getJoinedStoreKey(stakerId, assetId, operator);
+            const share = new Decimal(amount.toString());
+            delegation_states.push({
+              key: key,
+              states: {
+                undelegatable_share: share.toString,
+              },
+            });
+
+            //map key
+            const mapKey = getJoinedStoreKey(operator, assetId);
+            if (!stakerListMap.has(mapKey)) {
+              stakerListMap.set(mapKey, []);
             }
-            level2.per_operator_amounts.push(level3);
+            stakerListMap.get(mapKey).push(stakerId);
           }
         }
-        level2.per_operator_amounts.sort((a, b) => {
-          if (a.key < b.key) {
-            return -1;
-          }
-          if (a.key > b.key) {
-            return 1;
-          }
-          return 0;
-        });
-        level1.delegations.push(level2);
         // break;
       }
-      level1.delegations.sort((a, b) => {
-        if (a.asset_id < b.asset_id) {
-          return -1;
-        }
-        if (a.asset_id > b.asset_id) {
-          return 1;
-        }
-        return 0;
-      });
-      baseLevel.push(level1);
       // break;
     }
-    baseLevel.sort((a, b) => {
-      // the staker_id is guaranteed to be unique, so no further sorting is needed.
-      if (a.staker_id < b.staker_id) {
+    delegation_states.sort((a, b) => {
+      if (a.key < b.key) {
         return -1;
       }
-      if (a.staker_id > b.staker_id) {
+      if (a.key > b.key) {
         return 1;
       }
       return 0;
     });
-    genesisJSON.app_state.delegation.delegations = baseLevel;
+
+    stakerListMap.forEach((value, key) => {
+      stakers_by_operator.push({
+        key:key,
+        stakers:value,
+      });
+    });
+    stakers_by_operator.sort((a, b) => {
+      if (a.key < b.key) {
+        return -1;
+      }
+      if (a.key > b.key) {
+        return 1;
+      }
+      return 0;
+    });
+    genesisJSON.app_state.delegation.delegation_states = delegation_states;
+    genesisJSON.app_state.delegation.stakers_by_operator = stakers_by_operator;
 
     await fs.writeFile(RESULT_GENESIS_FILE_PATH, JSON.stringify(genesisJSON, null, 2));
     console.log('Genesis file updated successfully.');
