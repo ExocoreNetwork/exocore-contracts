@@ -236,6 +236,11 @@ contract BootstrapStorage is GatewayStorage {
     /// intentionally to prevent blocking the system.
     event BootstrapUpgradeFailed();
 
+    /// @notice Emitted when the contract is already bootstrapped.
+    /// @dev This event is triggered when the contract is already bootstrapped and an attempt is made to bootstrap it
+    /// again. It is not an error intentionally to prevent blocking the system.
+    event BootstrappedAlready();
+
     /// @notice Emitted when the client chain gateway logic + implementation are updated.
     /// @dev This event is triggered whenever the client chain gateway logic and implementation are updated. It may be
     /// used, before bootstrapping is complete, to upgrade the client chain gateway logic for upgrades or other bugs.

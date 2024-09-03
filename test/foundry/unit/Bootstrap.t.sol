@@ -58,6 +58,7 @@ contract BootstrapTest is Test {
     address exocoreValidatorSet = vm.addr(uint256(0x8));
     address undeployedExocoreGateway = vm.addr(uint256(0x9));
     address undeployedExocoreLzEndpoint = vm.addr(uint256(0xb));
+    address constant lzActor = address(0x20);
 
     IVault vaultImplementation;
     IExoCapsule capsuleImplementation;
@@ -889,36 +890,35 @@ contract BootstrapTest is Test {
     }
 
     function test12_MarkBootstrapped() public {
+        // go after spawn time
         vm.warp(spawnTime + 1);
-        vm.startPrank(address(0x20));
+        _markBootstrapped(1, true);
+    }
+
+    function _markBootstrapped(uint64 nonce, bool success) internal {
+        vm.startPrank(lzActor);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(1)),
+            Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), nonce),
             address(bootstrap),
             generateUID(1),
             abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             bytes("")
         );
         vm.stopPrank();
-        assertTrue(bootstrap.bootstrapped());
-        // ensure that it cannot be upgraded ever again.
-        assertTrue(bootstrap.customProxyAdmin() == address(0));
-        assertTrue(proxyAdmin.bootstrapper() == address(0));
-        assertTrue(bootstrap.owner() == exocoreValidatorSet);
-        // getDepositorsCount is no longer a function so can't check the count.
-        // assertTrue(bootstrap.getDepositorsCount() == 0);
+        if (success) {
+            assertTrue(bootstrap.bootstrapped());
+            // no more upgrades are possible
+            assertTrue(bootstrap.customProxyAdmin() == address(0));
+            assertTrue(proxyAdmin.bootstrapper() == address(0));
+            assertTrue(bootstrap.owner() == exocoreValidatorSet);
+        } else {
+            assertFalse(bootstrap.bootstrapped());
+        }
     }
 
     function test12_MarkBootstrapped_NotTime() public {
-        vm.startPrank(address(0x20));
-        clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(1)),
-            address(bootstrap),
-            generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
-            bytes("")
-        );
-        vm.stopPrank();
-        assertFalse(bootstrap.bootstrapped());
+        // spawn time is 1 hour later, so this will fail.
+        _markBootstrapped(1, false);
     }
 
     function test12_MarkBootstrapped_AlreadyBootstrapped() public {
@@ -940,11 +940,19 @@ contract BootstrapTest is Test {
     }
 
     function test12_MarkBootstrapped_DirectCall() public {
-        vm.startPrank(address(0x20));
+        // can be any adddress but for clarity use non lz actor
+        vm.startPrank(address(0x21));
         vm.warp(spawnTime + 2);
         vm.expectRevert(Errors.BootstrapLzReceiverOnlyCalledFromThis.selector);
         bootstrap.markBootstrapped();
         vm.stopPrank();
+    }
+
+    function test12_MarkBootstrapped_FailThenSucceed() public {
+        vm.warp(spawnTime - 5);
+        _markBootstrapped(1, false);
+        vm.warp(spawnTime + 1);
+        _markBootstrapped(2, true);
     }
 
     function test13_OperationAllowed() public {

@@ -563,7 +563,11 @@ contract Bootstrap is
             return;
         }
         // bootstrapped = true is only actioned by the clientchaingateway after upgrade
-        // so no need to check for that here
+        // so no need to check for that here but better to be safe.
+        if (bootstrapped) {
+            emit BootstrappedAlready();
+            return;
+        }
         try ICustomProxyAdmin(customProxyAdmin).changeImplementation(
             // address(this) is storage address and not logic address. so it is a proxy.
             ITransparentUpgradeableProxy(address(this)),
@@ -575,7 +579,6 @@ contract Bootstrap is
             // to allow retries, never fail
             emit BootstrapUpgradeFailed();
         }
-        emit Bootstrapped();
     }
 
     /// @notice Sets a new client chain gateway logic and its initialization data.
