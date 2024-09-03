@@ -959,6 +959,8 @@ contract BootstrapTest is Test {
         _markBootstrapped(2, true);
         // silently succeeds and does not block the system after bootstrapping
         vm.warp(spawnTime + 10);
+        vm.expectEmit(address(bootstrap));
+        emit BootstrapStorage.BootstrappedAlready();
         _markBootstrapped(3, true);
     }
 
