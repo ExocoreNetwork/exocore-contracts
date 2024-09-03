@@ -648,11 +648,6 @@ contract UpdateWhitelistTokens is SetUp {
             metaData: "ERC20 LST token",
             oracleInfo: "oracleInfo"
         });
-        // since we are inheriting add whitelist token, the test
-        // test_Success_AddWhiteListToken() will run.
-        // if we add a token to whitelist here, that test will fail.
-        // hence, we call test_Success_AddWhiteListToken() in each
-        // test case.
     }
 
     function test_RevertUpdateWhen_CallerNotOwner() public {
