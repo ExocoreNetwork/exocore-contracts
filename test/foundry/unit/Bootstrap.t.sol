@@ -900,7 +900,7 @@ contract BootstrapTest is Test {
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), nonce),
             address(bootstrap),
-            generateUID(1),
+            generateUID(nonce),
             abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
             bytes("")
         );
@@ -922,17 +922,11 @@ contract BootstrapTest is Test {
     }
 
     function test12_MarkBootstrapped_AlreadyBootstrapped() public {
-        test12_MarkBootstrapped();
-        vm.startPrank(address(clientChainLzEndpoint));
+        vm.warp(spawnTime + 1);
+        _markBootstrapped(1, true);
         vm.expectEmit(address(bootstrap));
         emit BootstrapStorage.BootstrappedAlready();
-        bootstrap.lzReceive(
-            Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), uint64(2)),
-            generateUID(1),
-            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
-            address(0),
-            bytes("")
-        );
+        _markBootstrapped(2, true);
         vm.stopPrank();
     }
 
