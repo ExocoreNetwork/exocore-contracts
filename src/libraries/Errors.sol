@@ -93,12 +93,6 @@ library Errors {
     /// @dev Bootstrap: no ether required for delegation/undelegation
     error BootstrapNoEtherForDelegation();
 
-    /// @dev Bootstrap: not yet in the bootstrap time
-    error BootstrapNotSpawnTime();
-
-    /// @dev Bootstrap: not yet bootstrapped
-    error BootstrapAlreadyBootstrapped();
-
     /// @dev Bootstrap: client chain initialization data is malformed
     error BootstrapClientChainDataMalformed();
 

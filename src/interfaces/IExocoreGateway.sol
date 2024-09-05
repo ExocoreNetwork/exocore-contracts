@@ -73,4 +73,11 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
     function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 tvlLimit, string calldata metaData)
         external;
 
+    /// @notice Marks the network as bootstrapped, on the client chain.
+    /// @dev Causes an upgrade of the Bootstrap contract to the ClientChainGateway contract.
+    /// @dev Only works if LZ infrastructure is set up and SetPeer has been called.
+    /// @dev This is payable because it requires a fee to be paid to LZ.
+    /// @param clientChainId The LayerZero chain id of the client chain.
+    function markBootstrap(uint32 clientChainId) external payable;
+
 }

@@ -71,6 +71,8 @@ contract ClientChainGateway is
 
         _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKEN] =
             this.afterReceiveAddWhitelistTokenRequest.selector;
+        // overwrite the bootstrap function selector
+        _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.afterReceiveMarkBootstrapRequest.selector;
 
         bootstrapped = true;
 
@@ -82,8 +84,6 @@ contract ClientChainGateway is
 
     /// @dev Clears the bootstrap data.
     function _clearBootstrapData() internal {
-        // mandatory to clear!
-        delete _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP];
         // the set below is recommended to clear, so that any possibilities of upgrades
         // can then be removed.
         delete customProxyAdmin;

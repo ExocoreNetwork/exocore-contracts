@@ -98,29 +98,20 @@ contract ExocoreGateway is
         _unpause();
     }
 
-    /// @notice Marks the bootstrap on all chains.
-    /// @dev This function obtains a list of client chain ids from the precompile, and then
-    /// sends a `REQUEST_MARK_BOOTSTRAP` to all of them. In response, the Bootstrap contract
-    /// on those chains should upgrade itself to the ClientChainGateway contract.
-    /// This function should be the first to be called after the LZ infrastructure is ready.
-    // TODO: call this function automatically, either within the initializer (which requires
-    // setPeer) or be triggered by Golang after the contract is deployed.
-    // For manual calls, this function should be called immediately after deployment and
-    // then never needs to be called again.
-    function markBootstrapOnAllChains() public whenNotPaused nonReentrant {
-        (bool success, uint32[] memory chainIndices) = ASSETS_CONTRACT.getClientChains();
-        if (!success) {
-            revert Errors.ExocoreGatewayFailedToGetClientChainIds();
-        }
-        for (uint256 i = 0; i < chainIndices.length; ++i) {
-            uint32 chainIndex = chainIndices[i];
-            if (!chainToBootstrapped[chainIndex]) {
-                _sendInterchainMsg(chainIndex, Action.REQUEST_MARK_BOOTSTRAP, "", true);
-                // TODO: should this be marked only upon receiving a response?
-                chainToBootstrapped[chainIndex] = true;
-                emit BootstrapRequestSent(chainIndex);
-            }
-        }
+    /// @notice Sends a request to mark the bootstrap on a chain.
+    /// @param chainIndex The index of the chain.
+    /// @dev This function is useful if the bootstrap failed on a chain and needs to be retried.
+    function markBootstrap(uint32 chainIndex) public payable whenNotPaused nonReentrant {
+        _markBootstrap(chainIndex);
+    }
+
+    /// @dev Internal function to mark the bootstrap on a chain.
+    /// @param chainIndex The index of the chain.
+    function _markBootstrap(uint32 chainIndex) internal {
+        // we don't track that a request was sent to a chain to allow for retrials
+        // if the transaction fails on the destination chain
+        _sendInterchainMsg(chainIndex, Action.REQUEST_MARK_BOOTSTRAP, "", false);
+        emit BootstrapRequestSent(chainIndex);
     }
 
     /// @inheritdoc IExocoreGateway

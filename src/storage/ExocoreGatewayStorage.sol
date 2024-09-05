@@ -43,10 +43,6 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @dev The msg.value for all the destination chains.
     uint128 internal constant DESTINATION_MSG_VALUE = 0;
 
-    /// @notice A mapping from client chain IDs to whether the chain has been bootstrapped.
-    /// @dev Used to ensure no repeated bootstrap requests are sent.
-    mapping(uint32 clienChainId => bool) public chainToBootstrapped;
-
     /// @notice Emitted when a precompile call fails.
     /// @param precompile Address of the precompile contract.
     /// @param nonce The LayerZero nonce
