@@ -69,8 +69,8 @@ contract ClientChainGateway is
             revert Errors.ZeroAddress();
         }
 
-        _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] =
-            this.afterReceiveAddWhitelistTokensRequest.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKEN] =
+            this.afterReceiveAddWhitelistTokenRequest.selector;
         // overwrite the bootstrap function selector
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.afterReceiveMarkBootstrapRequest.selector;
 

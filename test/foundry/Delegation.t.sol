@@ -120,7 +120,7 @@ contract DelegateTest is ExocoreDeployer {
         // 2. second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
-        uint64 delegateResponseNonce = 2;
+        uint64 delegateResponseNonce = 3;
         bytes memory delegateResponsePayload =
             abi.encodePacked(GatewayStorage.Action.RESPOND, delegateRequestNonce, true);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, delegateResponsePayload);
@@ -243,7 +243,7 @@ contract DelegateTest is ExocoreDeployer {
         // 2. second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
-        uint64 undelegateResponseNonce = 3;
+        uint64 undelegateResponseNonce = 4;
         bytes memory undelegateResponsePayload =
             abi.encodePacked(GatewayStorage.Action.RESPOND, undelegateRequestNonce, true);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, undelegateResponsePayload);

@@ -41,22 +41,37 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
         string calldata signatureType
     ) external;
 
-    /// @notice Adds a list of whitelisted tokens to the client chain.
+    /// @notice Add a single whitelisted token to the client chain.
     /// @param clientChainId The LayerZero chain id of the client chain.
-    /// @param tokens The list of token addresses to be whitelisted.
-    /// @param decimals The list of token decimals, in the same order as the tokens list.
-    /// @param tvlLimits The list of token TVL limits (typically max supply),in the same order as the tokens list.
-    /// @param names The names of the tokens, in the same order as the tokens list.
-    /// @param metaData The meta information of the tokens, in the same order as the tokens list.
+    /// @param token The token address to be whitelisted.
+    /// @param decimals The decimals of the token.
+    /// @param tvlLimit The TVL limit of the token.
+    /// @param name The name of the token.
+    /// @param metaData The meta information of the token.
+    /// @param oracleInfo The oracle information of the token.
     /// @dev The chain must be registered before adding tokens.
-    function addOrUpdateWhitelistTokens(
+    /// @dev This function is payable because it sends a message to the client chain.
+    /// @dev Previously, we tried to use this function for multiple tokens, but that
+    ///      results in too many local variables (stack too deep).
+    function addWhitelistToken(
         uint32 clientChainId,
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData
+        bytes32 token,
+        uint8 decimals,
+        uint256 tvlLimit,
+        string calldata name,
+        string calldata metaData,
+        string calldata oracleInfo
     ) external payable;
+
+    /// @notice Updates the parameters for a whitelisted token on the client chain.
+    /// @param clientChainId The LayerZero chain id of the client chain.
+    /// @param token The token address to be updated.
+    /// @param tvlLimit The new TVL limit of the token.
+    /// @param metaData The new meta information of the token.
+    /// @dev The token must exist in the whitelist before updating.
+    /// @dev Since this function does not send a cross chain message, it is not payable.
+    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 tvlLimit, string calldata metaData)
+        external;
 
     /// @notice Marks the network as bootstrapped, on the client chain.
     /// @dev Causes an upgrade of the Bootstrap contract to the ClientChainGateway contract.

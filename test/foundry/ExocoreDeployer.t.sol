@@ -136,56 +136,57 @@ contract ExocoreDeployer is Test {
         uint8[] memory decimals = new uint8[](2);
         uint256[] memory tvlLimits = new uint256[](2);
         string[] memory names = new string[](2);
-        string[] memory metaData = new string[](2);
+        string[] memory metaDatas = new string[](2);
+        string[] memory oracleInfos = new string[](2);
+        bytes[] memory payloads = new bytes[](2);
+        bytes32[] memory requestIds = new bytes32[](2);
 
         whitelistTokens.push(bytes32(bytes20(address(restakeToken))));
         decimals[0] = 18;
         tvlLimits[0] = 1e8 ether;
         names[0] = "RestakeToken";
-        metaData[0] = "ERC20 LST token";
+        metaDatas[0] = "ERC20 LST token";
+        oracleInfos[0] = "{'a': 'b'}";
 
         whitelistTokens.push(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
         decimals[1] = 18;
         tvlLimits[1] = 1e8 ether;
         names[1] = "NativeStakedETH";
-        metaData[1] = "natively staked ETH on Ethereum";
+        metaDatas[1] = "natively staked ETH on Ethereum";
+        oracleInfos[1] = "{'b': 'a'}";
 
         // -- add whitelist tokens workflow test --
 
-        vm.startPrank(exocoreValidatorSet.addr);
-
         // first user call exocore gateway to add whitelist tokens
-
-        // estimate l0 relay fee that the user should pay
-        bytes memory registerTokensRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKENS,
-            uint8(whitelistTokens.length),
-            bytes32(bytes20(address(restakeToken))),
-            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))
-        );
-        uint256 registerTokensRequestNativeFee = clientGateway.quote(registerTokensRequestPayload);
-        bytes32 registerTokensRequestId = generateUID(1, false);
-
-        // exocore layerzero endpoint should emit the message packet including whitelist tokens payload.
-        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
-        emit NewPacket(
-            clientChainId,
-            address(exocoreGateway),
-            address(clientGateway).toBytes32(),
-            uint64(1),
-            registerTokensRequestPayload
-        );
-        // exocore gateway gateway should emit MessageSent event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(
-            GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKENS,
-            registerTokensRequestId,
-            uint64(1),
-            registerTokensRequestNativeFee
-        );
-        exocoreGateway.addOrUpdateWhitelistTokens{value: registerTokensRequestNativeFee}(
-            clientChainId, whitelistTokens, decimals, tvlLimits, names, metaData
-        );
+        vm.startPrank(exocoreValidatorSet.addr);
+        uint256 nativeFee;
+        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+            // estimate the fee from the payload
+            payloads[i] = abi.encodePacked(
+                GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i])
+            );
+            nativeFee = exocoreGateway.quote(clientChainId, payloads[i]);
+            requestIds[i] = generateUID(uint64(i + 1), false);
+            // gateway should emit the packet for the outgoing message
+            vm.expectEmit(address(exocoreLzEndpoint));
+            emit NewPacket(
+                clientChainId,
+                address(exocoreGateway),
+                address(clientGateway).toBytes32(),
+                uint64(i) + 1, // nonce
+                payloads[i]
+            );
+            vm.expectEmit(address(exocoreGateway));
+            emit MessageSent(
+                GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN,
+                requestIds[i],
+                uint64(i) + 1, // nonce
+                nativeFee
+            );
+            exocoreGateway.addWhitelistToken{value: nativeFee}(
+                clientChainId, whitelistTokens[i], decimals[i], tvlLimits[i], names[i], metaDatas[i], oracleInfos[i]
+            );
+        }
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
@@ -195,15 +196,24 @@ contract ExocoreDeployer is Test {
             keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(vaultBeacon), ""))),
             address(clientGateway)
         );
-        vm.expectEmit(true, true, true, true, address(clientGateway));
+        vm.expectEmit(address(clientGateway));
         emit VaultCreated(address(restakeToken), expectedVault);
         emit WhitelistTokenAdded(address(restakeToken));
-        emit WhitelistTokenAdded(VIRTUAL_STAKED_ETH_ADDRESS);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), uint64(1)),
             address(clientGateway),
-            registerTokensRequestId,
-            registerTokensRequestPayload,
+            requestIds[0],
+            payloads[0],
+            bytes("")
+        );
+
+        vm.expectEmit(address(clientGateway));
+        emit WhitelistTokenAdded(VIRTUAL_STAKED_ETH_ADDRESS);
+        clientChainLzEndpoint.lzReceive(
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), uint64(2)),
+            address(clientGateway),
+            requestIds[1],
+            payloads[1],
             bytes("")
         );
 

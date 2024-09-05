@@ -290,41 +290,34 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         }
     }
 
-    /// @notice Called after an add-whitelist-tokens response is received.
+    /// @notice Called after an add-whitelist-token response is received.
     /// @param requestPayload The request payload.
     // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
     // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
-    function afterReceiveAddWhitelistTokensRequest(bytes calldata requestPayload)
+    function afterReceiveAddWhitelistTokenRequest(bytes calldata requestPayload)
         public
         onlyCalledFromThis
         whenNotPaused
     {
-        uint8 count = uint8(requestPayload[0]);
-        uint256 expectedLength = count * TOKEN_ADDRESS_BYTES_LENGTH + 1;
-        if (requestPayload.length != expectedLength) {
-            revert InvalidAddWhitelistTokensRequest(expectedLength, requestPayload.length);
+        address token = address(bytes20(abi.decode(requestPayload, (bytes32))));
+        if (token == address(0)) {
+            revert Errors.ZeroAddress();
         }
-
-        for (uint256 i = 0; i < count; ++i) {
-            uint256 start = i * TOKEN_ADDRESS_BYTES_LENGTH + 1;
-            uint256 end = start + TOKEN_ADDRESS_BYTES_LENGTH;
-            address token = address(bytes20(requestPayload[start:end]));
-
-            if (!isWhitelistedToken[token]) {
-                isWhitelistedToken[token] = true;
-                whitelistTokens.push(token);
-
-                // do not deploy the vault for the virtual token address representing natively staked ETH
-                // deploy the corresponding vault if not deployed before
-                if (token != VIRTUAL_STAKED_ETH_ADDRESS && address(tokenToVault[token]) == address(0)) {
-                    _deployVault(token);
-                }
-
-                emit WhitelistTokenAdded(token);
-            }
+        if (isWhitelistedToken[token]) {
+            // grave error, should never happen
+            revert Errors.ClientChainGatewayAlreadyWhitelisted(token);
         }
+        isWhitelistedToken[token] = true;
+        whitelistTokens.push(token);
+        // since tokens cannot be removed from the whitelist, it is not possible for a vault
+        // to already exist. however, we should still ensure that a vault is not deployed for
+        // restaking native staked eth
+        if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
+            _deployVault(token);
+        }
+        emit WhitelistTokenAdded(token);
     }
 
     /// @notice Called after a mark-bootstrap response is received.

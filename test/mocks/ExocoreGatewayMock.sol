@@ -166,73 +166,62 @@ contract ExocoreGatewayMock is
         super.setPeer(clientChainId, clientChainGateway);
     }
 
-    // Though this function would call precompiled contract, all precompiled contracts belong to Exocore
-    // and we could make sure its implementation does not have dangerous behavior like reentrancy.
-    // slither-disable-next-line reentrancy-no-eth
-    function addOrUpdateWhitelistTokens(
+    function addWhitelistToken(
         uint32 clientChainId,
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData
+        bytes32 token,
+        uint8 decimals,
+        uint256 tvlLimit,
+        string calldata name,
+        string calldata metaData,
+        string calldata oracleInfo
     ) external payable onlyOwner whenNotPaused nonReentrant {
-        _validateWhitelistTokensInput(tokens, decimals, tvlLimits, names, metaData);
-
-        bool success;
-        bool updated;
-        for (uint256 i; i < tokens.length; i++) {
-            require(tokens[i] != bytes32(0), "ExocoreGateway: token cannot be zero address");
-            require(tvlLimits[i] > 0, "ExocoreGateway: tvl limit should not be zero");
-            require(bytes(names[i]).length != 0, "ExocoreGateway: name cannot be empty");
-            require(bytes(metaData[i]).length != 0, "ExocoreGateway: meta data cannot be empty");
-
-            (success, updated) = ASSETS_CONTRACT.registerOrUpdateTokens(
-                clientChainId, abi.encodePacked(tokens[i]), decimals[i], tvlLimits[i], names[i], metaData[i]
-            );
-
-            if (success) {
-                if (!updated) {
-                    emit WhitelistTokenAdded(clientChainId, tokens[i]);
-                } else {
-                    emit WhitelistTokenUpdated(clientChainId, tokens[i]);
-                }
-            } else {
-                if (!updated) {
-                    revert AddWhitelistTokenFailed(tokens[i]);
-                } else {
-                    revert UpdateWhitelistTokenFailed(tokens[i]);
-                }
-            }
+        if (msg.value == 0) {
+            revert Errors.ZeroValue();
         }
+        require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
+        require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
+        require(tvlLimit > 0, "ExocoreGateway: tvl limit should not be zero");
+        require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
+        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
+        require(bytes(oracleInfo).length != 0, "ExocoreGateway: oracleInfo cannot be empty");
 
-        if (!updated) {
+        bool success = ASSETS_CONTRACT.registerToken(
+            clientChainId,
+            abi.encodePacked(token), // convert to bytes from bytes32
+            decimals,
+            tvlLimit,
+            name,
+            metaData,
+            oracleInfo
+        );
+        if (success) {
+            emit WhitelistTokenAdded(clientChainId, token);
             _sendInterchainMsg(
                 clientChainId,
-                Action.REQUEST_ADD_WHITELIST_TOKENS,
-                abi.encodePacked(uint8(tokens.length), tokens),
+                Action.REQUEST_ADD_WHITELIST_TOKEN,
+                abi.encodePacked(token), // convert for decoding it on the receiving end
                 false
             );
+        } else {
+            revert AddWhitelistTokenFailed(clientChainId, token);
         }
     }
 
-    function _validateWhitelistTokensInput(
-        bytes32[] calldata tokens,
-        uint8[] calldata decimals,
-        uint256[] calldata tvlLimits,
-        string[] calldata names,
-        string[] calldata metaData
-    ) internal pure {
-        uint256 expectedLength = tokens.length;
-        if (expectedLength > type(uint8).max) {
-            revert WhitelistTokensListTooLong();
-        }
-
-        if (
-            decimals.length != expectedLength || tvlLimits.length != expectedLength || names.length != expectedLength
-                || metaData.length != expectedLength
-        ) {
-            revert InvalidWhitelistTokensInput();
+    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 tvlLimit, string calldata metaData)
+        external
+        onlyOwner
+        whenNotPaused
+        nonReentrant
+    {
+        require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
+        require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
+        // setting tvlLimit to 0 is allowed as a way to disable the token
+        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
+        bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), tvlLimit, metaData);
+        if (success) {
+            emit WhitelistTokenUpdated(clientChainId, token);
+        } else {
+            revert UpdateWhitelistTokenFailed(clientChainId, token);
         }
     }
 

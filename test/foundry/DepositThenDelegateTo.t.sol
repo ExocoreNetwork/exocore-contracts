@@ -46,7 +46,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         deal(address(exocoreGateway), 1e22);
 
         uint64 requestLzNonce = 1;
-        uint64 responseLzNonce = 2;
+        uint64 responseLzNonce = 3; // 2 tokens are whitelisted, 3 is response
         uint256 delegateAmount = 10_000;
 
         // before all operations we should add whitelist tokens
@@ -85,7 +85,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         deal(address(exocoreGateway), 1e22);
 
         uint64 requestLzNonce = 1;
-        uint64 responseLzNonce = 2;
+        uint64 responseLzNonce = 3;
         uint256 delegateAmount = 10_000;
 
         // before all operations we should add whitelist tokens
