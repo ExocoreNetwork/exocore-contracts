@@ -60,6 +60,21 @@ contract DeployBootstrapOnly is BaseScript {
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
+        // client chain constructor (upgrade details)
+        capsuleImplementation = new ExoCapsule();
+        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
+            address(clientChainLzEndpoint),
+            exocoreChainId,
+            address(beaconOracle),
+            address(vaultBeacon),
+            address(capsuleBeacon),
+            address(beaconProxyBytecode)
+        );
+        // then the client chain initialization
+        address[] memory emptyList;
+        bytes memory initialization =
+            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr, emptyList);
         // bootstrap implementation
         Bootstrap bootstrap = Bootstrap(
             payable(
@@ -75,7 +90,9 @@ contract DeployBootstrapOnly is BaseScript {
                                 block.timestamp + 168 hours,
                                 2 seconds,
                                 whitelistTokens, // vault is auto deployed
-                                address(proxyAdmin)
+                                address(proxyAdmin),
+                                address(clientGatewayLogic),
+                                initialization
                             )
                         )
                     )
@@ -85,23 +102,6 @@ contract DeployBootstrapOnly is BaseScript {
 
         // initialize proxyAdmin with bootstrap address
         proxyAdmin.initialize(address(bootstrap));
-
-        // now, focus on the client chain constructor
-        capsuleImplementation = new ExoCapsule();
-        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(beaconOracle),
-            address(vaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
-        );
-        // then the client chain initialization
-        address[] memory emptyList;
-        bytes memory initialization =
-            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr, emptyList);
-        bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
 
         vm.stopBroadcast();
 

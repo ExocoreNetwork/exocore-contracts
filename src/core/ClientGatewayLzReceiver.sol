@@ -327,4 +327,12 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         }
     }
 
+    /// @notice Called after a mark-bootstrap response is received.
+    /// @dev Since the contract is already bootstrapped (if we are here), there is nothing to do.
+    /// @dev Failing this, however, will cause a nonce mismatch resulting in a system halt.
+    ///      Hence, we silently ignore this call.
+    function afterReceiveMarkBootstrapRequest() public onlyCalledFromThis whenNotPaused {
+        emit BootstrappedAlready();
+    }
+
 }
