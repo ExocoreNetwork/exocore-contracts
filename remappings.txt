@@ -10,3 +10,4 @@ forge-std/=lib/forge-std/src/
 @layerzerolabs/lz-evm-messagelib-v2=lib/LayerZero-v2/messagelib/
 @beacon-oracle=lib/eigenlayer-beacon-oracle/
 solidity-bytes-utils/=lib/solidity-bytes-utils/
+@safe-contracts/=lib/safe-smart-account/contracts/
