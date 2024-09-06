@@ -71,6 +71,7 @@ contract CorrectBootstrapErrors is BaseScript {
 
     function run() public {
         address[] memory emptyList;
+        uint256[] memory emptyListUint;
 
         vm.selectFork(clientChain);
         vm.startBroadcast(exocoreValidatorSet.privateKey);
@@ -86,6 +87,7 @@ contract CorrectBootstrapErrors is BaseScript {
                 block.timestamp + 168 hours,
                 2 seconds,
                 emptyList,
+                emptyListUint,
                 address(proxyAdmin),
                 address(clientGateway),
                 initialization

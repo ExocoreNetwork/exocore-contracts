@@ -582,4 +582,143 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         );
     }
 
+    function test_DepositTvlLimits() public {
+        test_AddWhitelistTokens();
+
+        address addr = players[0].addr;
+        deal(addr, 1e22); // for gas
+        vm.startPrank(exocoreValidatorSet.addr);
+        restakeToken.transfer(addr, 1_000_000);
+        vm.stopPrank();
+
+        // must be divisble by 4 to avoid rounding errors
+        uint256 balance = restakeToken.balanceOf(addr);
+        uint256 principalBalance = 0;
+        uint256 withdrawAmount = balance / 4;
+
+        vm.startPrank(addr);
+        restakeToken.approve(address(vault), type(uint256).max);
+        bytes memory payload = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_DEPOSIT,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), balance)
+        );
+        uint256 nativeFee = clientGateway.quote(payload);
+        clientGateway.deposit{value: nativeFee}(address(restakeToken), balance);
+        vm.stopPrank();
+
+        // execute the LZ response
+        uint64 requestNonce = 1;
+        uint64 responseNonce = 3;
+        principalBalance += balance;
+        bytes memory responsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, requestNonce++, true, principalBalance);
+        bytes32 responseId = generateUID(responseNonce, false);
+        clientChainLzEndpoint.lzReceive(
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), responseNonce++),
+            address(clientGateway),
+            responseId,
+            responsePayload,
+            bytes("")
+        );
+
+        assertTrue(vault.getConsumedTvl() == balance);
+
+        // reduce the TVL limit below the total deposited amount
+        address[] memory whitelistTokens = new address[](1);
+        whitelistTokens[0] = address(restakeToken);
+        uint256[] memory tvlLimits = new uint256[](1);
+        tvlLimits[0] = balance / 2;
+
+        vm.startPrank(exocoreValidatorSet.addr);
+        clientGateway.updateTvlLimits(whitelistTokens, tvlLimits);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == balance);
+        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+
+        // now attempt to withdraw, which should go through
+        vm.startPrank(addr);
+        payload = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), withdrawAmount)
+        );
+        nativeFee = clientGateway.quote(payload);
+        clientGateway.withdrawPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
+        assertTrue(vault.getConsumedTvl() == balance); // no change till claimed
+        // we have to execute the msg received from Exocore before we can claim
+        principalBalance -= withdrawAmount;
+        responsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, requestNonce++, true, principalBalance);
+        responseId = generateUID(responseNonce, false);
+        clientChainLzEndpoint.lzReceive(
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), responseNonce++),
+            address(clientGateway),
+            responseId,
+            responsePayload,
+            bytes("")
+        );
+        clientGateway.claim(address(restakeToken), withdrawAmount, addr);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == balance - withdrawAmount);
+        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+
+        // try to deposit, which will fail
+        vm.startPrank(addr);
+        vm.expectRevert(Errors.VaultTvlLimitExceeded.selector);
+        clientGateway.deposit(address(restakeToken), withdrawAmount);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == balance - withdrawAmount);
+        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+
+        // withdraw to get just below tvl limit
+        withdrawAmount = vault.getConsumedTvl() - vault.getTvlLimit() + 1;
+        principalBalance -= withdrawAmount;
+        vm.startPrank(addr);
+        payload = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), withdrawAmount)
+        );
+        nativeFee = clientGateway.quote(payload);
+        clientGateway.withdrawPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
+        responsePayload = abi.encodePacked(GatewayStorage.Action.RESPOND, requestNonce++, true, principalBalance);
+        responseId = generateUID(responseNonce, false);
+        clientChainLzEndpoint.lzReceive(
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), responseNonce++),
+            address(clientGateway),
+            responseId,
+            responsePayload,
+            bytes("")
+        );
+        clientGateway.claim(address(restakeToken), withdrawAmount, addr);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == tvlLimits[0] - 1);
+        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+
+        // // then deposit a single unit, which should go through
+        uint256 depositAmount = 1;
+        vm.startPrank(addr);
+        payload = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_DEPOSIT,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), depositAmount)
+        );
+        nativeFee = clientGateway.quote(payload);
+        clientGateway.deposit{value: nativeFee}(address(restakeToken), depositAmount);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == tvlLimits[0]);
+        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+
+        // no more deposits should be allowed
+        vm.startPrank(addr);
+        vm.expectRevert(Errors.VaultTvlLimitExceeded.selector);
+        // no need to provide fee here because it will fail before the fee check
+        clientGateway.deposit(address(restakeToken), 1);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == tvlLimits[0]);
+        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+    }
+
 }

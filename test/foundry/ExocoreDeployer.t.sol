@@ -134,26 +134,29 @@ contract ExocoreDeployer is Test {
         deal(exocoreValidatorSet.addr, 1e22);
 
         uint8[] memory decimals = new uint8[](2);
-        uint256[] memory tvlLimits = new uint256[](2);
+        uint256[] memory supplies = new uint256[](2);
         string[] memory names = new string[](2);
         string[] memory metaDatas = new string[](2);
         string[] memory oracleInfos = new string[](2);
         bytes[] memory payloads = new bytes[](2);
+        uint256[] memory tvlLimits = new uint256[](2);
         bytes32[] memory requestIds = new bytes32[](2);
 
         whitelistTokens.push(bytes32(bytes20(address(restakeToken))));
         decimals[0] = 18;
-        tvlLimits[0] = 1e8 ether;
+        supplies[0] = 1e8 ether;
         names[0] = "RestakeToken";
         metaDatas[0] = "ERC20 LST token";
         oracleInfos[0] = "{'a': 'b'}";
+        tvlLimits[0] = restakeToken.totalSupply() / 20;
 
         whitelistTokens.push(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
         decimals[1] = 18;
-        tvlLimits[1] = 1e8 ether;
+        supplies[1] = 1e8 ether;
         names[1] = "NativeStakedETH";
         metaDatas[1] = "natively staked ETH on Ethereum";
         oracleInfos[1] = "{'b': 'a'}";
+        tvlLimits[1] = 0; // no limit for native staked ETH
 
         // -- add whitelist tokens workflow test --
 
@@ -163,7 +166,7 @@ contract ExocoreDeployer is Test {
         for (uint256 i = 0; i < whitelistTokens.length; i++) {
             // estimate the fee from the payload
             payloads[i] = abi.encodePacked(
-                GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i])
+                GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i], tvlLimits[i])
             );
             nativeFee = exocoreGateway.quote(clientChainId, payloads[i]);
             requestIds[i] = generateUID(uint64(i + 1), false);
@@ -184,7 +187,14 @@ contract ExocoreDeployer is Test {
                 nativeFee
             );
             exocoreGateway.addWhitelistToken{value: nativeFee}(
-                clientChainId, whitelistTokens[i], decimals[i], tvlLimits[i], names[i], metaDatas[i], oracleInfos[i]
+                clientChainId,
+                whitelistTokens[i],
+                decimals[i],
+                supplies[i],
+                names[i],
+                metaDatas[i],
+                oracleInfos[i],
+                tvlLimits[i]
             );
         }
 
@@ -221,7 +231,9 @@ contract ExocoreDeployer is Test {
         vault = Vault(address(clientGateway.tokenToVault(address(restakeToken))));
         assertEq(address(vault), expectedVault);
         assertTrue(clientGateway.isWhitelistedToken(address(restakeToken)));
+        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
         assertTrue(clientGateway.isWhitelistedToken(VIRTUAL_STAKED_ETH_ADDRESS));
+        assertTrue(address(clientGateway.tokenToVault(address(VIRTUAL_STAKED_ETH_ADDRESS))) == address(0));
 
         vm.stopPrank();
     }

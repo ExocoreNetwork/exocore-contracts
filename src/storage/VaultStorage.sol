@@ -27,6 +27,12 @@ contract VaultStorage {
     /// @notice Address of the underlying token.
     IERC20 public underlyingToken;
 
+    /// @notice TVL limit for the vault.
+    uint256 public tvlLimit;
+
+    /// @notice Consumed TVL.
+    uint256 public consumedTvl;
+
     /// @notice Address of the gateway contract.
     ILSTRestakingController public gateway;
 
@@ -51,6 +57,10 @@ contract VaultStorage {
     /// @param dst The address of the recipient.
     /// @param amount The amount withdrawn.
     event WithdrawalSuccess(address src, address dst, uint256 amount);
+
+    /// @notice Emitted upon the TVL limit being updated.
+    /// @param newTvlLimit The new TVL limit.
+    event TvlLimitUpdated(uint256 newTvlLimit);
 
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;

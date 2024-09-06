@@ -301,7 +301,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         onlyCalledFromThis
         whenNotPaused
     {
-        address token = address(bytes20(abi.decode(requestPayload, (bytes32))));
+        (bytes32 tokenAsBytes32, uint256 tvlLimit) = abi.decode(requestPayload, (bytes32, uint256));
+        address token = address(bytes20(tokenAsBytes32));
         if (token == address(0)) {
             revert Errors.ZeroAddress();
         }
@@ -315,7 +316,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         // to already exist. however, we should still ensure that a vault is not deployed for
         // restaking native staked eth
         if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
-            _deployVault(token);
+            _deployVault(token, tvlLimit);
         }
         emit WhitelistTokenAdded(token);
     }

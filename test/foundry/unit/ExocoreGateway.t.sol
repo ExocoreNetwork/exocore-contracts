@@ -526,7 +526,7 @@ contract AddWhitelistTokens is SetUp {
     using stdStorage for StdStorage;
     using AddressCast for address;
 
-    uint256 MESSAGE_LENGTH = 1 + 32; // action + token address as bytes32
+    uint256 MESSAGE_LENGTH = 1 + 32 + 32; // action + token address as bytes32 + uint256 tvl limit
     uint256 nativeFee;
 
     error IncorrectNativeFee(uint256 amount);
@@ -542,7 +542,7 @@ contract AddWhitelistTokens is SetUp {
         vm.startPrank(deployer.addr);
         vm.expectRevert("Ownable: caller is not the owner");
         exocoreGateway.addWhitelistToken{value: nativeFee}(
-            clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo"
+            clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo", 0
         );
     }
 
@@ -551,7 +551,7 @@ contract AddWhitelistTokens is SetUp {
         exocoreGateway.pause();
         vm.expectRevert("Pausable: paused");
         exocoreGateway.addWhitelistToken{value: nativeFee}(
-            clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo"
+            clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo", 0
         );
     }
 
@@ -565,7 +565,8 @@ contract AddWhitelistTokens is SetUp {
             type(uint256).max,
             "name",
             "metadata",
-            "oracleInfo"
+            "oracleInfo",
+            0
         );
     }
 
@@ -573,15 +574,15 @@ contract AddWhitelistTokens is SetUp {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ExocoreGateway: token cannot be zero address");
         exocoreGateway.addWhitelistToken{value: nativeFee}(
-            clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo"
+            clientChainId, bytes32(0), 18, type(uint256).max, "name", "metadata", "oracleInfo", 0
         );
     }
 
-    function test_RevertWhen_HasZeroTVMLimit() public {
+    function test_RevertWhen_HasZeroSupply() public {
         vm.startPrank(exocoreValidatorSet.addr);
-        vm.expectRevert("ExocoreGateway: tvl limit should not be zero");
+        vm.expectRevert("ExocoreGateway: total supply should not be zero");
         exocoreGateway.addWhitelistToken{value: nativeFee}(
-            clientChainId, bytes32(bytes20(address(restakeToken))), 18, 0, "name", "metadata", "oracleInfo"
+            clientChainId, bytes32(bytes20(address(restakeToken))), 18, 0, "name", "metadata", "oracleInfo", 0
         );
     }
 
@@ -597,7 +598,8 @@ contract AddWhitelistTokens is SetUp {
             1e8 ether,
             "RestakeToken",
             "ERC20 LST token",
-            "oracleInfo"
+            "oracleInfo",
+            5000 * 1e18
         );
         vm.stopPrank();
     }
@@ -609,7 +611,7 @@ contract UpdateWhitelistTokens is SetUp {
     struct TokenDetails {
         bytes32 tokenAddress;
         uint8 decimals;
-        uint256 tvlLimit;
+        uint256 totalSupply;
         string name;
         string metaData;
         string oracleInfo;
@@ -624,7 +626,7 @@ contract UpdateWhitelistTokens is SetUp {
         super.setUp();
         // the below code is intentionally repeated here, instead of inheriting it from AddWhitelistTokens
         // this is done to not conflate the tests of AddWhitelistTokens with UpdateWhitelistTokens
-        uint256 MESSAGE_LENGTH = 1 + 32; // action + token address as bytes32
+        uint256 MESSAGE_LENGTH = 1 + 32 + 32; // action + token address as bytes32 + uint256
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(MESSAGE_LENGTH));
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectEmit(address(exocoreGateway));
@@ -637,13 +639,14 @@ contract UpdateWhitelistTokens is SetUp {
             1e8 ether,
             "RestakeToken",
             "ERC20 LST token",
-            "oracleInfo"
+            "oracleInfo",
+            5000 * 1e18
         );
         vm.stopPrank();
         tokenDetails = TokenDetails({
             tokenAddress: bytes32(bytes20(address(restakeToken))),
             decimals: 18,
-            tvlLimit: 1e8 ether,
+            totalSupply: 1e8 ether,
             name: "RestakeToken",
             metaData: "ERC20 LST token",
             oracleInfo: "oracleInfo"
@@ -654,7 +657,7 @@ contract UpdateWhitelistTokens is SetUp {
         vm.startPrank(deployer.addr);
         vm.expectRevert("Ownable: caller is not the owner");
         exocoreGateway.updateWhitelistToken(
-            clientChainId, tokenDetails.tokenAddress, tokenDetails.tvlLimit, tokenDetails.metaData
+            clientChainId, tokenDetails.tokenAddress, tokenDetails.totalSupply, tokenDetails.metaData
         );
     }
 
@@ -663,20 +666,22 @@ contract UpdateWhitelistTokens is SetUp {
         exocoreGateway.pause();
         vm.expectRevert("Pausable: paused");
         exocoreGateway.updateWhitelistToken(
-            clientChainId, tokenDetails.tokenAddress, tokenDetails.tvlLimit, tokenDetails.metaData
+            clientChainId, tokenDetails.tokenAddress, tokenDetails.totalSupply, tokenDetails.metaData
         );
     }
 
     function test_RevertUpdateWhen_HasZeroAddress() public {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ExocoreGateway: token cannot be zero address");
-        exocoreGateway.updateWhitelistToken(clientChainId, bytes32(0), tokenDetails.tvlLimit, tokenDetails.metaData);
+        exocoreGateway.updateWhitelistToken(clientChainId, bytes32(0), tokenDetails.totalSupply, tokenDetails.metaData);
     }
 
     function test_RevertUpdateWhen_HasZeroChainId() public {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert("ExocoreGateway: client chain id cannot be zero");
-        exocoreGateway.updateWhitelistToken(0, tokenDetails.tokenAddress, tokenDetails.tvlLimit, tokenDetails.metaData);
+        exocoreGateway.updateWhitelistToken(
+            0, tokenDetails.tokenAddress, tokenDetails.totalSupply, tokenDetails.metaData
+        );
     }
 
     function test_Success_UpdateWhitelistToken() public {
@@ -684,7 +689,7 @@ contract UpdateWhitelistTokens is SetUp {
         vm.expectEmit(address(exocoreGateway));
         emit WhitelistTokenUpdated(clientChainId, tokenDetails.tokenAddress);
         exocoreGateway.updateWhitelistToken(
-            clientChainId, tokenDetails.tokenAddress, tokenDetails.tvlLimit * 5, "new metadata"
+            clientChainId, tokenDetails.tokenAddress, tokenDetails.totalSupply * 5, "new metadata"
         );
     }
 

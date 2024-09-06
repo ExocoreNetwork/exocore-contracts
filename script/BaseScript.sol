@@ -39,7 +39,7 @@ contract BaseScript is Script {
     string exocoreRPCURL;
 
     address[] whitelistTokens;
-    address[] vaults;
+    uint256[] tvlLimits;
 
     IClientChainGateway clientGateway;
     IVault vault;

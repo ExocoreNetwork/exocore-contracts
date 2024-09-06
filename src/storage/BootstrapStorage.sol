@@ -126,6 +126,12 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev Maps token addresses to their corresponding vault contracts.
     mapping(address token => IVault vault) public tokenToVault;
 
+    /// @notice Use this mapping to set a TVL limit for each token. This limit is used to restrict the total value
+    /// locked, per token, in the contract.
+    /// @dev Maps token addresses to their respective TVL limits.
+    /// @dev A tvl limit for natively restaked tokens is not imposed.
+    mapping(address token => uint256 tvlLimit) public tokenToTvlLimit;
+
     /// @notice Used to identify the specific Exocore chain this contract interacts with for cross-chain
     /// functionalities.
     /// @dev Stores the Layer Zero chain ID of the Exocore chain.
@@ -349,11 +355,12 @@ contract BootstrapStorage is GatewayStorage {
     /// @notice Deploys a new vault for the given underlying token.
     /// @dev Uses the Create2 opcode to deploy the vault.
     /// @param underlyingToken The address of the underlying token.
+    /// @param tvlLimit The TVL limit for the vault.
     /// @return The address of the newly deployed vault.
     // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision
-    function _deployVault(address underlyingToken) internal returns (IVault) {
+    function _deployVault(address underlyingToken, uint256 tvlLimit) internal returns (IVault) {
         if (underlyingToken == VIRTUAL_STAKED_ETH_ADDRESS) {
             revert Errors.ForbidToDeployVault();
         }
@@ -367,11 +374,38 @@ contract BootstrapStorage is GatewayStorage {
                 abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(VAULT_BEACON), ""))
             )
         );
-        vault.initialize(underlyingToken, address(this));
+        vault.initialize(underlyingToken, tvlLimit, address(this));
         emit VaultCreated(underlyingToken, address(vault));
 
         tokenToVault[underlyingToken] = vault;
         return vault;
+    }
+
+    /// @dev Internal version of updateTvlLimits; shared between Bootstrap and ClientChainGateway
+    /// @param tokens The list of token addresses for which the TVL is being updated.
+    /// @param tvlLimits The new TVL in the same order as the token addresses.
+    function _updateTvlLimits(address[] calldata tokens, uint256[] calldata tvlLimits) internal {
+        if (tokens.length != tvlLimits.length) {
+            revert Errors.ArrayLengthMismatch();
+        }
+        for (uint256 i = 0; i < tokens.length; ++i) {
+            address token = tokens[i];
+            uint256 tvlLimit = tvlLimits[i];
+            if (!isWhitelistedToken[token]) {
+                revert Errors.TokenNotWhitelisted(token);
+            }
+            if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+                revert Errors.NoTvlLimitForNativeRestaking();
+            }
+            IVault vault = _getVault(token);
+            vault.setTvlLimit(tvlLimit);
+        }
+    }
+
+    /// @dev Internal version of getWhitelistedTokensCount; shared between Bootstrap and ClientChainGateway
+    /// @dev Looks a bit redundant because it is, but at least this way, the implementation is shared.
+    function _getWhitelistedTokensCount() internal view returns (uint256) {
+        return whitelistTokens.length;
     }
 
 }

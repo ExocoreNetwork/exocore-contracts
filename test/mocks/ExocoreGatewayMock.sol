@@ -170,26 +170,29 @@ contract ExocoreGatewayMock is
         uint32 clientChainId,
         bytes32 token,
         uint8 decimals,
-        uint256 tvlLimit,
+        uint256 totalSupply,
         string calldata name,
         string calldata metaData,
-        string calldata oracleInfo
+        string calldata oracleInfo,
+        uint256 tvlLimit
     ) external payable onlyOwner whenNotPaused nonReentrant {
         if (msg.value == 0) {
             revert Errors.ZeroValue();
         }
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        require(tvlLimit > 0, "ExocoreGateway: tvl limit should not be zero");
+        require(totalSupply > 0, "ExocoreGateway: total supply should not be zero");
         require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
         require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
         require(bytes(oracleInfo).length != 0, "ExocoreGateway: oracleInfo cannot be empty");
+        // setting a tvl limit of 0 is psermitted to add an inactive token, which will be later
+        // activated on the client chain
 
         bool success = ASSETS_CONTRACT.registerToken(
             clientChainId,
             abi.encodePacked(token), // convert to bytes from bytes32
             decimals,
-            tvlLimit,
+            totalSupply,
             name,
             metaData,
             oracleInfo
@@ -197,17 +200,14 @@ contract ExocoreGatewayMock is
         if (success) {
             emit WhitelistTokenAdded(clientChainId, token);
             _sendInterchainMsg(
-                clientChainId,
-                Action.REQUEST_ADD_WHITELIST_TOKEN,
-                abi.encodePacked(token), // convert for decoding it on the receiving end
-                false
+                clientChainId, Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(token, tvlLimit), false
             );
         } else {
             revert AddWhitelistTokenFailed(clientChainId, token);
         }
     }
 
-    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 tvlLimit, string calldata metaData)
+    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 totalSupply, string calldata metaData)
         external
         onlyOwner
         whenNotPaused
@@ -215,9 +215,9 @@ contract ExocoreGatewayMock is
     {
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        // setting tvlLimit to 0 is allowed as a way to disable the token
-        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
-        bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), tvlLimit, metaData);
+        require(totalSupply > 0, "ExocoreGateway: total supply should not be zero");
+        // empty metaData indicates that the token's metadata should not be updated
+        bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), totalSupply, metaData);
         if (success) {
             emit WhitelistTokenUpdated(clientChainId, token);
         } else {
