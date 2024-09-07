@@ -63,6 +63,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         assertEq(principalBalanceBefore - withdrawAmount, vault.principalBalances(depositor.addr));
         assertEq(withdrawableBefore + withdrawAmount, vault.getWithdrawableBalance(depositor.addr));
+        _validateNonces();
     }
 
     function _testLSTDeposit(Player memory depositor, uint256 depositAmount, uint256 lastlyUpdatedPrincipalBalance)
@@ -312,6 +313,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);
         assertEq(principalBalanceBefore - withdrawalAmount, capsule.principalBalance());
         assertEq(withdrawableBefore + withdrawalAmount, capsule.withdrawableBalance());
+        _validateNonces();
     }
 
     function _testNativeDeposit(Player memory depositor, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
@@ -860,6 +862,39 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         consumedTvl += depositAmount;
         vm.stopPrank();
 
+        // execute the deposit request on Exocore
+        principalBalance += depositAmount;
+        responsePayload =
+            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, principalBalance);
+        responseId = generateUID(outboundNonces[exocoreChainId], false);
+        vm.expectEmit(address(exocoreGateway));
+        emit MessageSent(
+            GatewayStorage.Action.RESPOND,
+            responseId,
+            outboundNonces[exocoreChainId]++,
+            exocoreGateway.quote(clientChainId, responsePayload)
+        );
+        vm.expectEmit(address(exocoreGateway));
+        emit MessageExecuted(GatewayStorage.Action.REQUEST_DEPOSIT, inboundNonces[exocoreChainId]++);
+        exocoreLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
+            address(exocoreGateway),
+            requestId,
+            requestPayload,
+            bytes("")
+        );
+
+        // handle the response on the client chain
+        vm.expectEmit(address(clientGateway));
+        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
+        clientChainLzEndpoint.lzReceive(
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
+            address(clientGateway),
+            responseId,
+            responsePayload,
+            bytes("")
+        );
+
         assertTrue(vault.getConsumedTvl() == consumedTvl);
         assertTrue(vault.getTvlLimit() == newTvlLimit);
 
@@ -872,6 +907,8 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         assertTrue(vault.getConsumedTvl() == newTvlLimit);
         assertTrue(vault.getTvlLimit() == newTvlLimit);
+
+        _validateNonces();
     }
 
 }

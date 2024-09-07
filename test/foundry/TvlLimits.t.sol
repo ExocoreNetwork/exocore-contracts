@@ -31,6 +31,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         vm.prank(exocoreValidatorSet.addr);
         clientGateway.updateTvlLimit(address(restakeToken), tvlLimit);
         assertTrue(vault.getTvlLimit() == tvlLimit);
+        _validateNonces();
     }
 
     // a decrease in tvl limit does not require LZ fee
@@ -41,6 +42,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert(Errors.NonZeroValue.selector);
         clientGateway.updateTvlLimit{value: 5}(address(restakeToken), tvlLimit);
+        _validateNonces();
     }
 
     // for a token that is not whitelisted, nothing should happen
@@ -50,6 +52,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotWhitelisted.selector, addr));
         clientGateway.updateTvlLimit(addr, 500);
         vm.stopPrank();
+        _validateNonces();
     }
 
     // native restaking does not have a TVL limit
@@ -58,6 +61,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         vm.expectRevert(Errors.NoTvlLimitForNativeRestaking.selector);
         clientGateway.updateTvlLimit(VIRTUAL_STAKED_ETH_ADDRESS, 500);
         vm.stopPrank();
+        _validateNonces();
     }
 
     // whitelist tokens should be added before updating tvl limits
@@ -69,6 +73,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectRevert(Errors.ClientChainGatewayTokenAdditionViaExocore.selector);
         clientGateway.addWhitelistTokens(tokens, tvlLimits);
+        _validateNonces();
     }
 
     // helper function to increase the tvl limit
@@ -162,10 +167,12 @@ contract TvlLimitsTest is ExocoreDeployer {
 
     function test_IncreaseTvlLimit() public {
         _testTvlLimitIncreaseE2E(20, true);
+        _validateNonces();
     }
 
     function test_IncreaseTvlLimit_TooHigh() public {
         _testTvlLimitIncreaseE2E(21, false);
+        _validateNonces();
     }
 
     function test_IncreaseTvlLimit_SupplyDecrease() public {
@@ -179,6 +186,9 @@ contract TvlLimitsTest is ExocoreDeployer {
         _handleTvlLimitResponseOnClientChain(success, responseId, responsePayload);
         IVault vault = clientGateway.tokenToVault(address(restakeToken));
         assertTrue(vault.getTvlLimit() == prevLimit * (success ? limitFactor : uint256(1)));
+        // we don't call this here, since a proposed supply decrease is in flight and not yet
+        // executed on the client chain
+        // _validateNonces();
     }
 
     function test_IncreaseTotalSupply() public {
@@ -186,6 +196,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         uint256 newSupply = restakeToken.totalSupply() + 1;
         vm.prank(exocoreValidatorSet.addr);
         exocoreGateway.updateWhitelistToken(clientChainId, bytes32(bytes20(address(restakeToken))), newSupply, "");
+        _validateNonces();
     }
 
     function _decreaseTotalSupplyOnExocore(uint256 newSupply) internal returns (bytes32, bytes memory) {
@@ -255,6 +266,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         (bool supplied2, uint256 gotSupply) = exocoreGateway.getTotalSupply(clientChainId, tokenAddr);
         assertTrue(supplied2);
         assertTrue(newSupply == gotSupply);
+        _validateNonces();
     }
 
     function test_DecreaseTotalSupply_TooLow() public {
@@ -270,6 +282,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         (bool supplied2, uint256 gotSupply) = exocoreGateway.getTotalSupply(clientChainId, tokenAddr);
         assertTrue(supplied2);
         assertTrue(prevSupply == gotSupply);
+        _validateNonces();
     }
 
     function test_DecreaseTotalSupply_TvlLimitIncrease() public {
@@ -286,6 +299,9 @@ contract TvlLimitsTest is ExocoreDeployer {
         (bool supplied2, uint256 gotSupply) = exocoreGateway.getTotalSupply(clientChainId, tokenAddr);
         assertTrue(supplied2);
         assertTrue(prevSupply == gotSupply);
+        // we don't call this here, since a proposed tvl limit increase is in flight and not yet
+        // executed on Exocore
+        // _validateNonces();
     }
 
 }

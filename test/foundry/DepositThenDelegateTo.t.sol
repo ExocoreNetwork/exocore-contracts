@@ -62,6 +62,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
         (bytes32 requestId, bytes memory requestPayload) = _testRequest(delegator, operatorAddress, delegateAmount);
         _testResponse(requestId, requestPayload, delegator, relayer, operatorAddress, delegateAmount);
+        _validateNonces();
     }
 
     function test_BalanceUpdatedWhen_DepositThenDelegateToResponseNotSuccess() public {
@@ -89,6 +90,9 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
         (bytes32 requestId, bytes memory requestPayload) = _testRequest(delegator, operatorAddress, delegateAmount);
         _testFailureResponse(delegator, relayer, delegateAmount);
+        // this cannot be called here because we have artificially failed the delegation and avoided the
+        // inboundNonce increment on Exocore
+        // _validateNonces();
     }
 
     function _testRequest(address delegator, string memory operatorAddress, uint256 delegateAmount)
