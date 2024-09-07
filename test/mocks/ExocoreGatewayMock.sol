@@ -239,7 +239,7 @@ contract ExocoreGatewayMock is
         } else {
             require(bytes(metaData).length == 0, "ExocoreGateway: metadata should be empty for supply decrease");
             // supply decrease is only permitted if tvl limit <= total supply
-            supplyDecreaseInFlight[clientChainId][token] = true;
+            supplyDecreasesInFlight[clientChainId][token]++;
             uint64 requestNonce = _sendInterchainMsg(
                 clientChainId, Action.REQUEST_VALIDATE_LIMITS, abi.encodePacked(token, totalSupply), false
             );
@@ -328,7 +328,7 @@ contract ExocoreGatewayMock is
             emit WhitelistTokenNotUpdated(clientChainId, token);
         }
         delete _registeredRequests[lzNonce];
-        supplyDecreaseInFlight[clientChainId][token] = false;
+        supplyDecreasesInFlight[clientChainId][token]--;
         return;
     }
 
@@ -347,7 +347,7 @@ contract ExocoreGatewayMock is
             srcChainId,
             Action.RESPOND,
             abi.encodePacked(
-                lzNonce, success && tvlLimit <= totalSupply && !supplyDecreaseInFlight[srcChainId][bytes32(token)]
+                lzNonce, success && tvlLimit <= totalSupply && supplyDecreasesInFlight[srcChainId][bytes32(token)] == 0
             ),
             true
         );

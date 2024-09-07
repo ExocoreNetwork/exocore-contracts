@@ -240,7 +240,7 @@ contract ExocoreGateway is
         } else {
             require(bytes(metaData).length == 0, "ExocoreGateway: metadata should be empty for supply decrease");
             // supply decrease is only permitted if tvl limit <= total supply
-            supplyDecreaseInFlight[clientChainId][token] = true;
+            supplyDecreasesInFlight[clientChainId][token]++;
             uint64 requestNonce = _sendInterchainMsg(
                 clientChainId, Action.REQUEST_VALIDATE_LIMITS, abi.encodePacked(token, totalSupply), false
             );
@@ -383,7 +383,7 @@ contract ExocoreGateway is
             emit WhitelistTokenNotUpdated(clientChainId, token);
         }
         delete _registeredRequests[lzNonce];
-        supplyDecreaseInFlight[clientChainId][token] = false;
+        supplyDecreasesInFlight[clientChainId][token]--;
         return;
     }
 
@@ -398,16 +398,16 @@ contract ExocoreGateway is
     {
         _validatePayloadLength(payload, VALIDATE_LIMITS_REQUEST_LENGTH, Action.REQUEST_VALIDATE_LIMITS);
 
-        bytes memory token = payload[:32];
+        bytes32 token = bytes32(payload[:32]);
         uint256 tvlLimit = uint256(bytes32(payload[32:64]));
 
-        (bool success, uint256 totalSupply) = ASSETS_CONTRACT.getTotalSupply(srcChainId, token);
+        (bool success, uint256 totalSupply) = ASSETS_CONTRACT.getTotalSupply(srcChainId, abi.encodePacked(token));
 
         _sendInterchainMsg(
             srcChainId,
             Action.RESPOND,
             abi.encodePacked(
-                lzNonce, success && tvlLimit <= totalSupply && !supplyDecreaseInFlight[srcChainId][bytes32(token)]
+                lzNonce, success && tvlLimit <= totalSupply && supplyDecreasesInFlight[srcChainId][token] == 0
             ),
             true
         );

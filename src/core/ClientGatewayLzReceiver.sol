@@ -109,7 +109,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                     vault.setTvlLimit(tvlLimit);
                 }
                 // remove the lock regardless of success
-                tvlLimitIncreaseInFlight[token] = false;
+                tvlLimitIncreasesInFlight[token]--;
             }
         } else if (_expectBalanceResponse(requestAct)) {
             (address token, address staker,, uint256 amount) = _decodeCachedRequest(requestAct, cachedRequest);

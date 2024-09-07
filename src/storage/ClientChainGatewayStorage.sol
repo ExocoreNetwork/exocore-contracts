@@ -16,11 +16,6 @@ import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 /// ClientChainGateway contract. Shared items should be kept in BootstrapStorage.
 contract ClientChainGatewayStorage is BootstrapStorage {
 
-    /// @notice Mapping to indicate whether a message to update the tvl limit is currently in flight.
-    /// @dev This is used to ensure that a tvl increase and a total supply decrease aren't applied together, since
-    /// we need to keep tvl <= total supply.
-    mapping(address token => bool isInFlight) public tvlLimitIncreaseInFlight;
-
     /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
     mapping(address => IExoCapsule) public ownerToCapsule;
 
@@ -29,6 +24,11 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     /// @dev Mapping of request IDs to their corresponding request actions.
     mapping(uint64 => Action) internal _registeredRequestActions;
+
+    /// @notice Mapping to indicate the number of messages to increase the TVL limit that are currently in flight.
+    /// @dev This is used to ensure that a tvl increase and a total supply decrease aren't applied together, since
+    /// we need to keep tvl <= total supply.
+    mapping(address token => uint256 count) public tvlLimitIncreasesInFlight;
 
     /// @notice The address of the beacon chain oracle.
     address public immutable BEACON_ORACLE_ADDRESS;

@@ -81,6 +81,7 @@ contract TvlLimitsTest is ExocoreDeployer {
         internal
         returns (uint256, bytes32, bytes memory)
     {
+        uint256 before = clientGateway.tvlLimitIncreasesInFlight(address(restakeToken));
         IVault vault = clientGateway.tokenToVault(address(restakeToken));
         assertTrue(address(vault) != address(0));
         uint256 tvlLimit = vault.getTvlLimit();
@@ -97,6 +98,8 @@ contract TvlLimitsTest is ExocoreDeployer {
             GatewayStorage.Action.REQUEST_VALIDATE_LIMITS, requestId, outboundNonces[clientChainId]++, nativeFee
         );
         clientGateway.updateTvlLimit{value: nativeFee}(address(restakeToken), proposedTvlLimit);
+        uint256 afterVal = clientGateway.tvlLimitIncreasesInFlight(address(restakeToken));
+        assertTrue(afterVal == before + 1);
         return (tvlLimit, requestId, payload);
     }
 
@@ -136,6 +139,7 @@ contract TvlLimitsTest is ExocoreDeployer {
     function _handleTvlLimitResponseOnClientChain(bool success, bytes32 responseId, bytes memory responsePayload)
         internal
     {
+        uint256 before = clientGateway.tvlLimitIncreasesInFlight(address(restakeToken));
         vm.expectEmit(address(clientGateway));
         emit RequestFinished(
             GatewayStorage.Action.REQUEST_VALIDATE_LIMITS,
@@ -153,6 +157,8 @@ contract TvlLimitsTest is ExocoreDeployer {
             bytes("")
         );
         vm.stopPrank();
+        uint256 afterVal = clientGateway.tvlLimitIncreasesInFlight(address(restakeToken));
+        assertTrue(afterVal == before - 1);
     }
 
     function _testTvlLimitIncreaseE2E(uint256 limitFactor, bool success) internal {
@@ -200,20 +206,20 @@ contract TvlLimitsTest is ExocoreDeployer {
     }
 
     function _decreaseTotalSupplyOnExocore(uint256 newSupply) internal returns (bytes32, bytes memory) {
+        bytes32 tokenAddr = bytes32(bytes20(address(restakeToken)));
+        uint256 before = exocoreGateway.supplyDecreasesInFlight(clientChainId, tokenAddr);
         vm.startPrank(exocoreValidatorSet.addr);
-        bytes memory payload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_VALIDATE_LIMITS,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken))), newSupply)
-        );
+        bytes memory payload =
+            abi.encodePacked(GatewayStorage.Action.REQUEST_VALIDATE_LIMITS, abi.encodePacked(tokenAddr, newSupply));
         uint256 nativeFee = exocoreGateway.quote(clientChainId, payload);
         bytes32 requestId = generateUID(outboundNonces[exocoreChainId], false);
         vm.expectEmit(address(exocoreGateway));
         emit MessageSent(
             GatewayStorage.Action.REQUEST_VALIDATE_LIMITS, requestId, outboundNonces[exocoreChainId]++, nativeFee
         );
-        exocoreGateway.updateWhitelistToken{value: nativeFee}(
-            clientChainId, bytes32(bytes20(address(restakeToken))), newSupply, ""
-        );
+        exocoreGateway.updateWhitelistToken{value: nativeFee}(clientChainId, tokenAddr, newSupply, "");
+        uint256 afterVal = exocoreGateway.supplyDecreasesInFlight(clientChainId, tokenAddr);
+        assertTrue(afterVal == before + 1);
         return (requestId, payload);
     }
 
@@ -242,6 +248,8 @@ contract TvlLimitsTest is ExocoreDeployer {
     }
 
     function _handleSupplyResponseOnExocore(bool success, bytes32 responseId, bytes memory responsePayload) internal {
+        bytes32 tokenAddr = bytes32(bytes20(address(restakeToken)));
+        uint256 before = exocoreGateway.supplyDecreasesInFlight(clientChainId, tokenAddr);
         vm.expectEmit(address(exocoreGateway));
         emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[exocoreChainId]++);
         exocoreLzEndpoint.lzReceive(
@@ -251,6 +259,8 @@ contract TvlLimitsTest is ExocoreDeployer {
             responsePayload,
             bytes("")
         );
+        uint256 afterVal = exocoreGateway.supplyDecreasesInFlight(clientChainId, tokenAddr);
+        assertTrue(afterVal == before - 1);
     }
 
     function test_DecreaseTotalSupply() public {

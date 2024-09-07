@@ -149,6 +149,7 @@ contract ClientChainGateway is
             bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), tvlLimit);
             bytes memory encodedRequest = abi.encode(token, tvlLimit);
             _processRequest(Action.REQUEST_VALIDATE_LIMITS, actionArgs, encodedRequest);
+            tvlLimitIncreasesInFlight[token]++;
         }
     }
 
@@ -182,7 +183,7 @@ contract ClientChainGateway is
         (address token, uint256 newSupply) = _decodeTokenUint256(requestPayload, false);
         IVault vault = _getVault(token);
         uint256 tvlLimit = vault.getTvlLimit();
-        bool success = tvlLimit <= newSupply && !tvlLimitIncreaseInFlight[token];
+        bool success = tvlLimit <= newSupply && tvlLimitIncreasesInFlight[token] == 0;
         _sendMsgToExocore(Action.RESPOND, abi.encodePacked(lzNonce, success));
     }
 

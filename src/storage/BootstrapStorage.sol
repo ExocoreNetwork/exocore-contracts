@@ -126,12 +126,6 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev Maps token addresses to their corresponding vault contracts.
     mapping(address token => IVault vault) public tokenToVault;
 
-    /// @notice Use this mapping to set a TVL limit for each token. This limit is used to restrict the total value
-    /// locked, per token, in the contract.
-    /// @dev Maps token addresses to their respective TVL limits.
-    /// @dev A tvl limit for natively restaked tokens is not imposed.
-    mapping(address token => uint256 tvlLimit) public tokenToTvlLimit;
-
     /// @notice Used to identify the specific Exocore chain this contract interacts with for cross-chain
     /// functionalities.
     /// @dev Stores the Layer Zero chain ID of the Exocore chain.

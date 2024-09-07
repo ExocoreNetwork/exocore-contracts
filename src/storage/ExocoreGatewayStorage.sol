@@ -8,10 +8,11 @@ import {GatewayStorage} from "./GatewayStorage.sol";
 /// @author ExocoreNetwork
 contract ExocoreGatewayStorage is GatewayStorage {
 
-    /// @notice Maps a chain ID to the token address to whether a supply decrease is in flight.
+    /// @notice Maps a chain ID to the token address to the number of messages containing a supply decrease
+    /// validation that are in flight.
     /// @dev It is used to ensure that a tvl increase and a total supply decrease aren't applied together, since
     /// we need to keep tvl <= total supply.
-    mapping(uint32 chainId => mapping(bytes32 token => bool)) public supplyDecreaseInFlight;
+    mapping(uint32 chainId => mapping(bytes32 token => uint64 count)) public supplyDecreasesInFlight;
 
     /// @dev Mapping of request IDs to their corresponding request data.
     mapping(uint64 => bytes) internal _registeredRequests;
