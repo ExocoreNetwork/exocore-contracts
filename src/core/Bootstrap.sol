@@ -206,7 +206,6 @@ contract Bootstrap is
             if (isWhitelistedToken[token]) {
                 revert Errors.BootstrapAlreadyWhitelisted(token);
             }
-
             whitelistTokens.push(token);
             isWhitelistedToken[token] = true;
 
@@ -215,6 +214,11 @@ contract Bootstrap is
             // pre-existing vault. however, we still do ensure that the vault is not deployed
             // for restaking natively staked ETH.
             if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
+                // during bootstrap phase, ensure that the tvl limit <= total supply of the token
+                uint256 totalSupply = ERC20(token).totalSupply();
+                if (tvlLimit > totalSupply) {
+                    revert Errors.BootstrapTvlLimitExceedsTotalSupply();
+                }
                 _deployVault(token, tvlLimit);
             }
 
@@ -228,13 +232,19 @@ contract Bootstrap is
     }
 
     /// @inheritdoc ITokenWhitelister
-    function updateTvlLimits(address[] calldata tokens, uint256[] calldata tvlLimits)
-        external
-        beforeLocked
-        onlyOwner
-        whenNotPaused
-    {
-        _updateTvlLimits(tokens, tvlLimits);
+    function updateTvlLimit(address token, uint256 tvlLimit) external payable beforeLocked onlyOwner whenNotPaused {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
+        if (!isWhitelistedToken[token]) {
+            revert Errors.TokenNotWhitelisted(token);
+        }
+        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+            revert Errors.NoTvlLimitForNativeRestaking();
+        }
+        IVault vault = _getVault(token);
+        // no checks for Bootstrap phase
+        vault.setTvlLimit(tvlLimit);
     }
 
     /// @inheritdoc IValidatorRegistry

@@ -352,12 +352,8 @@ contract BootstrapTest is Test {
         address addr = addrs[0];
         uint256 balance = myToken.balanceOf(addr);
         // reduce the TVL limit
-        vm.startPrank(deployer);
-        address[] memory whitelistTokens = new address[](1);
-        whitelistTokens[0] = address(myToken);
-        uint256[] memory tvlLimits = new uint256[](1);
-        tvlLimits[0] = balance / 2;
-        bootstrap.updateTvlLimits(whitelistTokens, tvlLimits);
+        vm.prank(deployer);
+        bootstrap.updateTvlLimit(address(myToken), balance / 2);
         // first approve the vault for more than the TVL limit to ensure that the error
         // cause isn't due to lack of approval
         vm.startPrank(addr);
@@ -366,6 +362,7 @@ contract BootstrapTest is Test {
         // now attempt to deposit
         vm.expectRevert(Errors.VaultTvlLimitExceeded.selector);
         bootstrap.deposit(address(myToken), balance);
+        vm.stopPrank();
     }
 
     // This tests whether the TVL limit is enforced correctly when the TVL limit is updated
@@ -385,17 +382,14 @@ contract BootstrapTest is Test {
         assertTrue(vault.getConsumedTvl() == balance);
 
         // reduce the TVL limit below the total deposited amount
-        address[] memory whitelistTokens = new address[](1);
-        whitelistTokens[0] = address(myToken);
-        uint256[] memory tvlLimits = new uint256[](1);
-        tvlLimits[0] = balance / 2;
+        uint256 newTvlLimit = balance / 2;
 
         vm.startPrank(deployer);
-        bootstrap.updateTvlLimits(whitelistTokens, tvlLimits);
+        bootstrap.updateTvlLimit(address(myToken), newTvlLimit);
         vm.stopPrank();
 
         assertTrue(vault.getConsumedTvl() == balance);
-        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
 
         // now attempt to withdraw, which should go through
         vm.startPrank(addr);
@@ -404,7 +398,7 @@ contract BootstrapTest is Test {
         vm.stopPrank();
 
         assertTrue(vault.getConsumedTvl() == balance - withdrawAmount);
-        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
 
         // try to deposit, which will fail
         vm.startPrank(addr);
@@ -413,7 +407,7 @@ contract BootstrapTest is Test {
         vm.stopPrank();
 
         assertTrue(vault.getConsumedTvl() == balance - withdrawAmount);
-        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
 
         // withdraw to get just below tvl limit
         withdrawAmount = vault.getConsumedTvl() - vault.getTvlLimit() + 1;
@@ -422,16 +416,16 @@ contract BootstrapTest is Test {
         bootstrap.claim(address(myToken), withdrawAmount, addr);
         vm.stopPrank();
 
-        assertTrue(vault.getConsumedTvl() == tvlLimits[0] - 1);
-        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+        assertTrue(vault.getConsumedTvl() == newTvlLimit - 1);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
 
         // then deposit a single unit, which should go through
         vm.startPrank(addr);
         bootstrap.deposit(address(myToken), 1);
         vm.stopPrank();
 
-        assertTrue(vault.getConsumedTvl() == tvlLimits[0]);
-        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+        assertTrue(vault.getConsumedTvl() == newTvlLimit);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
 
         // no more deposits should be allowed
         vm.startPrank(addr);
@@ -439,8 +433,8 @@ contract BootstrapTest is Test {
         bootstrap.deposit(address(myToken), 1);
         vm.stopPrank();
 
-        assertTrue(vault.getConsumedTvl() == tvlLimits[0]);
-        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+        assertTrue(vault.getConsumedTvl() == newTvlLimit);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
     }
 
     function test03_RegisterValidator() public {
@@ -716,24 +710,17 @@ contract BootstrapTest is Test {
 
     function test07_UpdateTvlLimits() public {
         IVault vault = bootstrap.tokenToVault(address(myToken));
-        address[] memory whitelistTokens = new address[](1);
-        whitelistTokens[0] = address(myToken);
-        uint256[] memory tvlLimits = new uint256[](1);
-        tvlLimits[0] = vault.getTvlLimit() * 2; // double the TVL limit
-        vm.startPrank(deployer);
-        bootstrap.updateTvlLimits(whitelistTokens, tvlLimits);
-        vm.stopPrank();
-        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
+        uint256 newLimit = vault.getTvlLimit() * 2; // double the TVL limit
+        vm.prank(deployer);
+        bootstrap.updateTvlLimit(address(myToken), newLimit);
+        assertTrue(vault.getTvlLimit() == newLimit);
     }
 
     function test07_UpdateTvlLimits_NotWhitelisted() public {
-        address[] memory whitelistTokens = new address[](1);
-        whitelistTokens[0] = address(0xa);
-        uint256[] memory tvlLimits = new uint256[](1);
-        tvlLimits[0] = 500;
         vm.startPrank(deployer);
-        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotWhitelisted.selector, whitelistTokens[0]));
-        bootstrap.updateTvlLimits(whitelistTokens, tvlLimits);
+        address addr = address(0xa);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotWhitelisted.selector, addr));
+        bootstrap.updateTvlLimit(addr, 5);
         vm.stopPrank();
     }
 
@@ -746,7 +733,7 @@ contract BootstrapTest is Test {
         // first add token to whitelist
         bootstrap.addWhitelistTokens(whitelistTokens, tvlLimits);
         vm.expectRevert(Errors.NoTvlLimitForNativeRestaking.selector);
-        bootstrap.updateTvlLimits(whitelistTokens, tvlLimits);
+        bootstrap.updateTvlLimit(whitelistTokens[0], tvlLimits[0] * 2);
         vm.stopPrank();
     }
 
@@ -823,18 +810,12 @@ contract BootstrapTest is Test {
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
     }
 
-    function test09_DelegateTo_NotEnoughBlance() public {
+    function test09_DelegateTo_NotEnoughBalance() public {
         test03_RegisterValidator();
-        vm.startPrank(deployer);
-        address[] memory addedWhitelistTokens = new address[](1);
-        addedWhitelistTokens[0] = address(0xa);
-        uint256[] memory addedTvlLimits = new uint256[](1);
-        addedTvlLimits[0] = 1000 * 10 ** 18;
-        bootstrap.addWhitelistTokens(addedWhitelistTokens, addedTvlLimits);
-        vm.stopPrank();
+        MyToken myToken = test01_AddWhitelistToken();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
-        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
+        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
     function test09_DelegateTo_ZeroAmount() public {
@@ -919,16 +900,10 @@ contract BootstrapTest is Test {
 
     function test10_UndelegateFrom_NotEnoughBalance() public {
         test03_RegisterValidator();
-        vm.startPrank(deployer);
-        address[] memory addedWhitelistTokens = new address[](1);
-        addedWhitelistTokens[0] = address(0xa);
-        uint256[] memory addedTvlLimits = new uint256[](1);
-        addedTvlLimits[0] = 1000 * 10 ** 18;
-        bootstrap.addWhitelistTokens(addedWhitelistTokens, addedTvlLimits);
-        vm.stopPrank();
+        MyToken myToken = test01_AddWhitelistToken();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
-        bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
+        bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
     function test10_UndelegateFrom_ZeroAmount() public {

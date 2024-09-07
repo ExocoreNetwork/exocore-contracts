@@ -109,6 +109,9 @@ library Errors {
     /// @dev Bootstrap: validator name length is zero
     error BootstrapValidatorNameLengthZero();
 
+    /// @dev Bootstrap: TVL limit exceeds total supply
+    error BootstrapTvlLimitExceedsTotalSupply();
+
     //////////////////////////////////
     //  BootstrapLzReceiver Errors  //
     //////////////////////////////////
@@ -215,5 +218,8 @@ library Errors {
 
     /// @dev Vault: forbid to deploy vault for the virtual token address representing natively staked ETH
     error ForbidToDeployVault();
+
+    /// @dev Vault TVL limit exceeds total supply
+    error VaultTvlLimitExceedsTotalSupply();
 
 }

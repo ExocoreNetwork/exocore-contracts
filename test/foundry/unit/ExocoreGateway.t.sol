@@ -590,6 +590,7 @@ contract AddWhitelistTokens is SetUp {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectEmit(address(exocoreGateway));
         emit WhitelistTokenAdded(clientChainId, bytes32(bytes20(address(restakeToken))));
+        vm.expectEmit(address(exocoreGateway));
         emit MessageSent(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false), 1, nativeFee);
         exocoreGateway.addWhitelistToken{value: nativeFee}(
             clientChainId,
@@ -631,6 +632,7 @@ contract UpdateWhitelistTokens is SetUp {
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectEmit(address(exocoreGateway));
         emit WhitelistTokenAdded(clientChainId, bytes32(bytes20(address(restakeToken))));
+        vm.expectEmit(address(exocoreGateway));
         emit MessageSent(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false), 1, nativeFee);
         exocoreGateway.addWhitelistToken{value: nativeFee}(
             clientChainId,

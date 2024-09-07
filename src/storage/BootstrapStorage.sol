@@ -381,27 +381,6 @@ contract BootstrapStorage is GatewayStorage {
         return vault;
     }
 
-    /// @dev Internal version of updateTvlLimits; shared between Bootstrap and ClientChainGateway
-    /// @param tokens The list of token addresses for which the TVL is being updated.
-    /// @param tvlLimits The new TVL in the same order as the token addresses.
-    function _updateTvlLimits(address[] calldata tokens, uint256[] calldata tvlLimits) internal {
-        if (tokens.length != tvlLimits.length) {
-            revert Errors.ArrayLengthMismatch();
-        }
-        for (uint256 i = 0; i < tokens.length; ++i) {
-            address token = tokens[i];
-            uint256 tvlLimit = tvlLimits[i];
-            if (!isWhitelistedToken[token]) {
-                revert Errors.TokenNotWhitelisted(token);
-            }
-            if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
-                revert Errors.NoTvlLimitForNativeRestaking();
-            }
-            IVault vault = _getVault(token);
-            vault.setTvlLimit(tvlLimit);
-        }
-    }
-
     /// @dev Internal version of getWhitelistedTokensCount; shared between Bootstrap and ClientChainGateway
     /// @dev Looks a bit redundant because it is, but at least this way, the implementation is shared.
     function _getWhitelistedTokensCount() internal view returns (uint256) {

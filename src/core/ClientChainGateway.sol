@@ -3,6 +3,8 @@ pragma solidity ^0.8.19;
 
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
+import {IVault} from "../interfaces/IVault.sol";
+
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {MessagingFee, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
@@ -73,6 +75,7 @@ contract ClientChainGateway is
 
         _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKEN] =
             this.afterReceiveAddWhitelistTokenRequest.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_VALIDATE_LIMITS] = this.afterReceiveValidateLimitsRequest.selector;
         // overwrite the bootstrap function selector
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.afterReceiveMarkBootstrapRequest.selector;
 
@@ -121,12 +124,32 @@ contract ClientChainGateway is
     }
 
     /// @inheritdoc ITokenWhitelister
-    function updateTvlLimits(address[] calldata tokens, uint256[] calldata tvlLimits)
-        external
-        onlyOwner
-        whenNotPaused
-    {
-        _updateTvlLimits(tokens, tvlLimits);
+    function updateTvlLimit(address token, uint256 tvlLimit) external payable onlyOwner whenNotPaused {
+        if (!isWhitelistedToken[token]) {
+            // grave error, should never happen
+            revert Errors.TokenNotWhitelisted(token);
+        }
+        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+            // not possible to set a TVL limit for native restaking
+            revert Errors.NoTvlLimitForNativeRestaking();
+        }
+        IVault vault = _getVault(token);
+        uint256 previousLimit = vault.getTvlLimit();
+        if (tvlLimit <= previousLimit) {
+            // reduction of TVL limit is always allowed.
+            if (msg.value > 0) {
+                revert Errors.NonZeroValue();
+            }
+            vault.setTvlLimit(tvlLimit);
+        } else {
+            // queue message to Exocore for validation that the tvlLimit <= totalSupply.
+            // to remove a configured tvl limit, set it (close to) the total supply (as on Exocore).
+            // note that, since each message has an increasing nonce, multiple tvl updates may be in flight at once.
+            // they will be processed in order.
+            bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), tvlLimit);
+            bytes memory encodedRequest = abi.encode(token, tvlLimit);
+            _processRequest(Action.REQUEST_VALIDATE_LIMITS, actionArgs, encodedRequest);
+        }
     }
 
     /// @inheritdoc IClientChainGateway
@@ -147,6 +170,20 @@ contract ClientChainGateway is
         returns (uint64 senderVersion, uint64 receiverVersion)
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
+    }
+
+    /// @notice Called after a validate-limits request is received.
+    /// @dev It checks that the proposed total supply >= tvlLimit.
+    function afterReceiveValidateLimitsRequest(uint64 lzNonce, bytes calldata requestPayload)
+        public
+        onlyCalledFromThis
+        whenNotPaused
+    {
+        (address token, uint256 newSupply) = _decodeTokenUint256(requestPayload, false);
+        IVault vault = _getVault(token);
+        uint256 tvlLimit = vault.getTvlLimit();
+        bool success = tvlLimit <= newSupply && !tvlLimitIncreaseInFlight[token];
+        _sendMsgToExocore(Action.RESPOND, abi.encodePacked(lzNonce, success));
     }
 
 }

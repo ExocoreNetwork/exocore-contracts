@@ -107,12 +107,12 @@ contract SetupScript is BaseScript {
         names[0] = "RestakeToken";
         metaDatas[0] = "ERC20 LST token";
         oracleInfos[0] = "{'a': 'b'}";
-        tvlLimits[0] = restakeToken.totalSupply() / 5; // in phases of 20%
+        tvlLimits[0] = supplies[0] / 5; // in phases of 20%
 
         // this stands for Native Restaking for ETH
         whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         decimals[1] = 18;
-        supplies[1] = type(uint256).max; // no supply limit for native restaking
+        supplies[1] = 0; // irrelevant for native restaking
         names[1] = "StakedETH";
         metaDatas[1] = "natively staked ETH on Ethereum";
         oracleInfos[1] = "{'b': 'a'}";

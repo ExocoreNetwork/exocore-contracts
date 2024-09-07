@@ -48,10 +48,12 @@ interface IVault {
 
     /// @notice Gets the TVL limit for the vault.
     /// @return The TVL limit for the vault.
+    // This is a function so that IVault can be used in other contracts without importing the Vault contract.
     function getTvlLimit() external returns (uint256);
 
     /// @notice Gets the total value locked in the vault.
     /// @return The total value locked in the vault.
+    // This is a function so that IVault can be used in other contracts without importing the Vault contract.
     function getConsumedTvl() external returns (uint256);
 
 }

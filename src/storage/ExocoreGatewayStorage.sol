@@ -8,6 +8,14 @@ import {GatewayStorage} from "./GatewayStorage.sol";
 /// @author ExocoreNetwork
 contract ExocoreGatewayStorage is GatewayStorage {
 
+    /// @notice Maps a chain ID to the token address to whether a supply decrease is in flight.
+    /// @dev It is used to ensure that a tvl increase and a total supply decrease aren't applied together, since
+    /// we need to keep tvl <= total supply.
+    mapping(uint32 chainId => mapping(bytes32 token => bool)) public supplyDecreaseInFlight;
+
+    /// @dev Mapping of request IDs to their corresponding request data.
+    mapping(uint64 => bytes) internal _registeredRequests;
+
     /// @dev The length of a deposit request, in bytes.
     // bytes32 token + bytes32 depositor + uint256 amount
     uint256 internal constant DEPOSIT_REQUEST_LENGTH = 96;
@@ -35,6 +43,10 @@ contract ExocoreGatewayStorage is GatewayStorage {
     uint256 internal constant ASSOCIATE_OPERATOR_REQUEST_LENGTH = 74;
     // bytes32 staker
     uint256 internal constant DISSOCIATE_OPERATOR_REQUEST_LENGTH = 32;
+    // bytes32 token + uint256 newTvlLimit
+    uint256 internal constant VALIDATE_LIMITS_REQUEST_LENGTH = 64;
+    // uint64 lzNonce + bool success
+    uint256 internal constant VALIDATE_LIMITS_RESPONSE_LENGTH = 9;
 
     // constants used for layerzero messaging
     /// @dev The gas limit for all the destination chains.
@@ -65,6 +77,12 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param clientChainId The LayerZero chain ID of the client chain.
     /// @param token The address of the token.
     event WhitelistTokenUpdated(uint32 clientChainId, bytes32 token);
+
+    /// @notice Emitted when a token update is not applied because the supply would be lower
+    /// than the TVL limit, or, there's a TVL reduction in flight.
+    /// @param clientChainId The LayerZero chain ID of the client chain.
+    /// @param token The address of the token.
+    event WhitelistTokenNotUpdated(uint32 clientChainId, bytes32 token);
 
     /* --------- asset operations results and staking operations results -------- */
     /// @notice Emitted when reward is withdrawn.
@@ -125,6 +143,11 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param clientChainId The LayerZero chain ID of chain to which it is destined.
     event BootstrapRequestSent(uint32 clientChainId);
 
+    /// @dev Emitted when, after a response from the client chain, the token update fails.
+    /// @param clientChainId The LayerZero chain ID of the client chain.
+    /// @param token The address of the token.
+    event UpdateWhitelistTokenFailedOnResponse(uint32 clientChainId, bytes32 token);
+
     /// @notice Thrown when the execution of a request fails
     /// @param act The action that failed.
     /// @param nonce The LayerZero nonce.
@@ -173,6 +196,9 @@ contract ExocoreGatewayStorage is GatewayStorage {
 
     /// @notice Thrown when dissociateOperatorFromEVMStaker failed
     error DissociateOperatorFailed(uint32 clientChainId, address staker);
+
+    /// @dev Thrown when the gateway fails to retrieve the total supply of a token.
+    error FailedToGetTotalSupply(uint32 clientChainId, bytes32 token);
 
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;

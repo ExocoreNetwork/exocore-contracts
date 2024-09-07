@@ -18,6 +18,7 @@ contract GatewayStorage {
         REQUEST_ADD_WHITELIST_TOKEN,
         REQUEST_ASSOCIATE_OPERATOR,
         REQUEST_DISSOCIATE_OPERATOR,
+        REQUEST_VALIDATE_LIMITS,
         RESPOND
     }
     /// @notice the human readable prefix for Exocore bech32 encoded address.
@@ -39,6 +40,11 @@ contract GatewayStorage {
     /// @param nonce The nonce associated with the message.
     /// @param nativeFee The native fee paid for the message.
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
+
+    /// @notice Emitted when a message is received and successfully executed.
+    /// @param act The action being performed.
+    /// @param nonce The nonce associated with the message.
+    event MessageExecuted(Action indexed act, uint64 nonce);
 
     /// @notice Error thrown when an unsupported request is made.
     /// @param act The unsupported action.

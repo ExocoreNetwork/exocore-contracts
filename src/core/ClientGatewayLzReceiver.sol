@@ -67,11 +67,12 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             }
 
             (bool success, bytes memory reason) =
-                address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
+                address(this).call(abi.encodePacked(selector_, abi.encode(_origin.nonce, payload[1:])));
             if (!success) {
                 revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
         }
+        emit MessageExecuted(act, _origin.nonce);
     }
 
     /// @inheritdoc OAppReceiverUpgradeable
@@ -100,6 +101,16 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
         if (_expectBasicResponse(requestAct)) {
             success = _decodeBasicResponse(response);
+            if (requestAct == Action.REQUEST_VALIDATE_LIMITS) {
+                (address token,,, uint256 tvlLimit) = _decodeCachedRequest(requestAct, cachedRequest);
+                if (success) {
+                    // since the request was sent by us, the token can never be native restaking and must be whitelisted
+                    IVault vault = _getVault(token);
+                    vault.setTvlLimit(tvlLimit);
+                }
+                // remove the lock regardless of success
+                tvlLimitIncreaseInFlight[token] = false;
+            }
         } else if (_expectBalanceResponse(requestAct)) {
             (address token, address staker,, uint256 amount) = _decodeCachedRequest(requestAct, cachedRequest);
             (success, updatedBalance) = _decodeBalanceResponse(response);
@@ -177,7 +188,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     // Basic response only includes request execution status, no other informations like balance update
     // and it is typically the response of a staking only operations.
     function _expectBasicResponse(Action action) internal pure returns (bool) {
-        return action == Action.REQUEST_DELEGATE_TO || action == Action.REQUEST_UNDELEGATE_FROM;
+        return action == Action.REQUEST_DELEGATE_TO || action == Action.REQUEST_UNDELEGATE_FROM
+            || action == Action.REQUEST_VALIDATE_LIMITS;
     }
 
     /// @dev Checks if the action is a balance response.
@@ -229,6 +241,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             (token, staker, amount) = abi.decode(cachedRequest, (address, address, uint256));
         } else if (_isStakingOperationRequest(requestAct)) {
             (token, staker, operator, amount) = abi.decode(cachedRequest, (address, address, string, uint256));
+        } else if (requestAct == Action.REQUEST_VALIDATE_LIMITS) {
+            (token, amount) = abi.decode(cachedRequest, (address, uint256));
         } else {
             revert UnsupportedRequest(requestAct);
         }
@@ -296,20 +310,12 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
-    function afterReceiveAddWhitelistTokenRequest(bytes calldata requestPayload)
+    function afterReceiveAddWhitelistTokenRequest(uint64, bytes calldata requestPayload)
         public
         onlyCalledFromThis
         whenNotPaused
     {
-        (bytes32 tokenAsBytes32, uint256 tvlLimit) = abi.decode(requestPayload, (bytes32, uint256));
-        address token = address(bytes20(tokenAsBytes32));
-        if (token == address(0)) {
-            revert Errors.ZeroAddress();
-        }
-        if (isWhitelistedToken[token]) {
-            // grave error, should never happen
-            revert Errors.ClientChainGatewayAlreadyWhitelisted(token);
-        }
+        (address token, uint256 tvlLimit) = _decodeTokenUint256(requestPayload, true);
         isWhitelistedToken[token] = true;
         whitelistTokens.push(token);
         // since tokens cannot be removed from the whitelist, it is not possible for a vault
@@ -325,8 +331,26 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     /// @dev Since the contract is already bootstrapped (if we are here), there is nothing to do.
     /// @dev Failing this, however, will cause a nonce mismatch resulting in a system halt.
     ///      Hence, we silently ignore this call.
-    function afterReceiveMarkBootstrapRequest() public onlyCalledFromThis whenNotPaused {
+    function afterReceiveMarkBootstrapRequest(uint64) public onlyCalledFromThis whenNotPaused {
         emit BootstrappedAlready();
+    }
+
+    function _decodeTokenUint256(bytes calldata payload, bool failIfWhitelisted)
+        internal
+        view
+        returns (address, uint256)
+    {
+        (bytes32 tokenAsBytes32, uint256 value) = abi.decode(payload, (bytes32, uint256));
+        address token = address(bytes20(tokenAsBytes32));
+        if (token == address(0)) {
+            // cannot happen since ExocoreGateway checks for this
+            revert Errors.ZeroAddress();
+        }
+        if ((failIfWhitelisted) && (isWhitelistedToken[token])) {
+            // grave error, should never happen
+            revert Errors.ClientChainGatewayAlreadyWhitelisted(token);
+        }
+        return (token, value);
     }
 
 }

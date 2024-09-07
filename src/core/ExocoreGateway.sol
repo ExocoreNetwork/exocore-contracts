@@ -86,6 +86,7 @@ contract ExocoreGateway is
             this.requestAssociateOperatorWithStaker.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DISSOCIATE_OPERATOR] =
             this.requestDissociateOperatorFromStaker.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_VALIDATE_LIMITS] = this.requestValidateLimits.selector;
     }
 
     /// @notice Pauses the contract.
@@ -184,6 +185,7 @@ contract ExocoreGateway is
         require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
         require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
         require(bytes(oracleInfo).length != 0, "ExocoreGateway: oracleInfo cannot be empty");
+        require(totalSupply >= tvlLimit, "ExocoreGateway: total supply should be greater than or equal to TVL limit");
         // setting a TVL limit of 0 is permitted to simply add an inactive token, which may
         // be activated later by updating the TVL limit on the client chain
 
@@ -209,20 +211,56 @@ contract ExocoreGateway is
     /// @inheritdoc IExocoreGateway
     function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 totalSupply, string calldata metaData)
         external
+        payable
         onlyOwner
         whenNotPaused
         nonReentrant
     {
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        require(totalSupply > 0, "ExocoreGateway: total supply should not be zero");
+        // it is possible to set total supply to 0 if the tvl limit on the client chain gateway is 0, and if there
+        // are no deposits at all.
         // empty metaData indicates that the token's metadata should not be updated
-        bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), totalSupply, metaData);
-        if (success) {
-            emit WhitelistTokenUpdated(clientChainId, token);
-        } else {
-            revert UpdateWhitelistTokenFailed(clientChainId, token);
+        (bool success, uint256 previousSupply) = ASSETS_CONTRACT.getTotalSupply(clientChainId, abi.encodePacked(token));
+        if (!success) {
+            // safe to revert since this is not an LZ message so far
+            revert FailedToGetTotalSupply(clientChainId, token);
         }
+        if (totalSupply >= previousSupply) {
+            // supply increase is always permitted without any checks
+            if (msg.value > 0) {
+                revert Errors.NonZeroValue();
+            }
+            success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), totalSupply, metaData);
+            if (success) {
+                emit WhitelistTokenUpdated(clientChainId, token);
+            } else {
+                revert UpdateWhitelistTokenFailed(clientChainId, token);
+            }
+        } else {
+            require(bytes(metaData).length == 0, "ExocoreGateway: metadata should be empty for supply decrease");
+            // supply decrease is only permitted if tvl limit <= total supply
+            supplyDecreaseInFlight[clientChainId][token] = true;
+            uint64 requestNonce = _sendInterchainMsg(
+                clientChainId, Action.REQUEST_VALIDATE_LIMITS, abi.encodePacked(token, totalSupply), false
+            );
+            // there is only one type of outgoing request for which we expect a response so no need to store
+            // too much information
+            _registeredRequests[requestNonce] = abi.encode(token, totalSupply);
+        }
+    }
+
+    /// @inheritdoc IExocoreGateway
+    // This is just a helper function to get the total supply (as stored in Exocore's precompiles) of a token
+    // that lives on the client chain. Slither doesn't seem to appreciate that this function just forwards the call
+    // to the precompile, and hence, it thinks that the return value is unused.
+    // slither-disable-next-line unused-return
+    function getTotalSupply(uint32 clientChainId, bytes32 token)
+        external
+        view
+        returns (bool success, uint256 totalSupply)
+    {
+        return ASSETS_CONTRACT.getTotalSupply(clientChainId, abi.encodePacked(token));
     }
 
     /**
@@ -305,16 +343,74 @@ contract ExocoreGateway is
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
         Action act = Action(uint8(payload[0]));
-        bytes4 selector_ = _whiteListFunctionSelectors[act];
-        if (selector_ == bytes4(0)) {
-            revert UnsupportedRequest(act);
+        if (act == Action.RESPOND) {
+            _handleResponse(_origin.srcEid, payload[1:]);
+        } else {
+            bytes4 selector_ = _whiteListFunctionSelectors[act];
+            if (selector_ == bytes4(0)) {
+                revert UnsupportedRequest(act);
+            }
+
+            (bool success, bytes memory responseOrReason) =
+                address(this).call(abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, payload[1:])));
+            if (!success) {
+                revert RequestExecuteFailed(act, _origin.nonce, responseOrReason);
+            }
         }
 
-        (bool success, bytes memory responseOrReason) =
-            address(this).call(abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, payload[1:])));
-        if (!success) {
-            revert RequestExecuteFailed(act, _origin.nonce, responseOrReason);
+        emit MessageExecuted(act, _origin.nonce);
+    }
+
+    /// @dev Handles the response provided by the client chain to an outgoing LZ message.
+    /// @param response The response, without the action byte in the beginning.
+    // The only call made by this function is to a precompiled contract, and hence, there is no need to worry about
+    // reentrancy attacks.
+    // slither-disable-next-line reentrancy-no-eth
+    function _handleResponse(uint32 clientChainId, bytes calldata response) internal {
+        // only one type of response is supported
+        _validatePayloadLength(response, VALIDATE_LIMITS_RESPONSE_LENGTH, Action.RESPOND);
+        uint64 lzNonce = uint64(bytes8(response[0:8]));
+        (bytes32 token, uint256 totalSupply) = abi.decode(_registeredRequests[lzNonce], (bytes32, uint256));
+        if (uint8(bytes1(response[8])) == 1) {
+            // the validation succeeded, so apply the edit to total supply
+            bool updated = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), totalSupply, "");
+            if (!updated) {
+                emit UpdateWhitelistTokenFailedOnResponse(clientChainId, token);
+            } else {
+                emit WhitelistTokenUpdated(clientChainId, token);
+            }
+        } else {
+            emit WhitelistTokenNotUpdated(clientChainId, token);
         }
+        delete _registeredRequests[lzNonce];
+        supplyDecreaseInFlight[clientChainId][token] = false;
+        return;
+    }
+
+    /// @notice Responds to a validate-limits request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
+    function requestValidateLimits(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
+        _validatePayloadLength(payload, VALIDATE_LIMITS_REQUEST_LENGTH, Action.REQUEST_VALIDATE_LIMITS);
+
+        bytes memory token = payload[:32];
+        uint256 tvlLimit = uint256(bytes32(payload[32:64]));
+
+        (bool success, uint256 totalSupply) = ASSETS_CONTRACT.getTotalSupply(srcChainId, token);
+
+        _sendInterchainMsg(
+            srcChainId,
+            Action.RESPOND,
+            abi.encodePacked(
+                lzNonce, success && tvlLimit <= totalSupply && !supplyDecreaseInFlight[srcChainId][bytes32(token)]
+            ),
+            true
+        );
     }
 
     /// @notice Responds to a deposit request from a client chain.
@@ -567,6 +663,7 @@ contract ExocoreGateway is
     function _sendInterchainMsg(uint32 srcChainId, Action act, bytes memory actionArgs, bool payByApp)
         internal
         whenNotPaused
+        returns (uint64)
     {
         bytes memory payload = abi.encodePacked(act, actionArgs);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
@@ -578,6 +675,8 @@ contract ExocoreGateway is
         MessagingReceipt memory receipt =
             _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), refundAddress, payByApp);
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
+
+        return receipt.nonce;
     }
 
     /// @inheritdoc IExocoreGateway

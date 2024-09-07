@@ -62,6 +62,10 @@ contract VaultStorage {
     /// @param newTvlLimit The new TVL limit.
     event TvlLimitUpdated(uint256 newTvlLimit);
 
+    /// @notice Emitted when the TVL limit consumed so far changes.
+    /// @param consumed The total amount consumed, including the current transaction.
+    event ConsumedTvlChanged(uint256 consumed);
+
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;
 

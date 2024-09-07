@@ -11,6 +11,7 @@ contract AssetsMock is IAssets {
     uint32[] internal chainIds;
     mapping(uint32 chainId => bool registered) public isRegisteredChain;
     mapping(uint32 chainId => mapping(bytes token => bool registered)) public isRegisteredToken;
+    mapping(uint32 chainId => mapping(bytes token => uint256 totalSuppy)) public totalSupplies;
 
     function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
         external
@@ -69,7 +70,7 @@ contract AssetsMock is IAssets {
         uint32 clientChainId,
         bytes calldata token,
         uint8 decimals,
-        uint256 tvlLimit,
+        uint256 totalSupply,
         string calldata name,
         string calldata metaData,
         string calldata oracleInfo
@@ -80,11 +81,11 @@ contract AssetsMock is IAssets {
             return false;
         }
         isRegisteredToken[clientChainId][token] = true;
-
+        totalSupplies[clientChainId][token] = totalSupply;
         return true;
     }
 
-    function updateToken(uint32 clientChainId, bytes calldata token, uint256 tvlLimit, string calldata metaData)
+    function updateToken(uint32 clientChainId, bytes calldata token, uint256 totalSupply, string calldata metaData)
         external
         returns (bool success)
     {
@@ -93,6 +94,8 @@ contract AssetsMock is IAssets {
         if (!isRegisteredToken[clientChainId][token]) {
             return false;
         }
+
+        totalSupplies[clientChainId][token] = totalSupply;
 
         return true;
     }
@@ -111,6 +114,17 @@ contract AssetsMock is IAssets {
 
     function isRegisteredClientChain(uint32 clientChainID) external view returns (bool, bool) {
         return (true, isRegisteredChain[clientChainID]);
+    }
+
+    function getTotalSupply(uint32 clientChainId, bytes calldata token)
+        external
+        view
+        returns (bool success, uint256 totalSupply)
+    {
+        if (!isRegisteredToken[clientChainId][token]) {
+            return (false, 0);
+        }
+        return (true, totalSupplies[clientChainId][token]);
     }
 
 }

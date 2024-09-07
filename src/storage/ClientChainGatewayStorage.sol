@@ -16,6 +16,11 @@ import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 /// ClientChainGateway contract. Shared items should be kept in BootstrapStorage.
 contract ClientChainGatewayStorage is BootstrapStorage {
 
+    /// @notice Mapping to indicate whether a message to update the tvl limit is currently in flight.
+    /// @dev This is used to ensure that a tvl increase and a total supply decrease aren't applied together, since
+    /// we need to keep tvl <= total supply.
+    mapping(address token => bool isInFlight) public tvlLimitIncreaseInFlight;
+
     /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
     mapping(address => IExoCapsule) public ownerToCapsule;
 
