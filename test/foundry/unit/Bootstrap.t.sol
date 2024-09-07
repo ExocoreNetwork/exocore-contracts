@@ -737,6 +737,14 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
+    function test07_UpdateTvlLimit_TooHigh() public {
+        IVault vault = bootstrap.tokenToVault(address(myToken));
+        uint256 newLimit = myToken.totalSupply() + 1;
+        vm.prank(deployer);
+        vm.expectRevert(Errors.BootstrapTvlLimitExceedsTotalSupply.selector);
+        bootstrap.updateTvlLimit(address(myToken), newLimit);
+    }
+
     function test08_ExocoreAddressIsValid() public {
         assertTrue(bootstrap.isValidExocoreAddress("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac"));
     }

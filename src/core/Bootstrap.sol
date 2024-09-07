@@ -243,7 +243,9 @@ contract Bootstrap is
             revert Errors.NoTvlLimitForNativeRestaking();
         }
         IVault vault = _getVault(token);
-        // no checks for Bootstrap phase
+        if (tvlLimit > ERC20(vault.getUnderlyingToken()).totalSupply()) {
+            revert Errors.BootstrapTvlLimitExceedsTotalSupply();
+        }
         vault.setTvlLimit(tvlLimit);
     }
 
