@@ -315,7 +315,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         onlyCalledFromThis
         whenNotPaused
     {
-        (address token, uint256 tvlLimit) = _decodeTokenUint256(requestPayload, true);
+        (address token, uint256 tvlLimit) = _decodeTokenUint256(requestPayload, false);
         isWhitelistedToken[token] = true;
         whitelistTokens.push(token);
         // since tokens cannot be removed from the whitelist, it is not possible for a vault
@@ -335,7 +335,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit BootstrappedAlready();
     }
 
-    function _decodeTokenUint256(bytes calldata payload, bool failIfWhitelisted)
+    function _decodeTokenUint256(bytes calldata payload, bool shouldBeWhitelisted)
         internal
         view
         returns (address, uint256)
@@ -346,9 +346,14 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             // cannot happen since ExocoreGateway checks for this
             revert Errors.ZeroAddress();
         }
-        if ((failIfWhitelisted) && (isWhitelistedToken[token])) {
-            // grave error, should never happen
-            revert Errors.ClientChainGatewayAlreadyWhitelisted(token);
+        if (isWhitelistedToken[token] != shouldBeWhitelisted) {
+            if (shouldBeWhitelisted) {
+                // we are receiving a request to edit the total supply of a non-whitelist token
+                revert Errors.TokenNotWhitelisted(token);
+            } else {
+                // we are receiving a request to whitelist a token that is already whitelisted
+                revert Errors.ClientChainGatewayAlreadyWhitelisted(token);
+            }
         }
         return (token, value);
     }

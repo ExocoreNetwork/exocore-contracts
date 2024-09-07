@@ -180,10 +180,16 @@ contract ClientChainGateway is
         onlyCalledFromThis
         whenNotPaused
     {
-        (address token, uint256 newSupply) = _decodeTokenUint256(requestPayload, false);
-        IVault vault = _getVault(token);
-        uint256 tvlLimit = vault.getTvlLimit();
-        bool success = tvlLimit <= newSupply && tvlLimitIncreasesInFlight[token] == 0;
+        (address token, uint256 newSupply) = _decodeTokenUint256(requestPayload, true);
+        bool success = false;
+        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+            // native restaking has no tvl limit hence no need to limit the supply changes.
+            success = true;
+        } else {
+            IVault vault = _getVault(token);
+            uint256 tvlLimit = vault.getTvlLimit();
+            success = tvlLimit <= newSupply && tvlLimitIncreasesInFlight[token] == 0;
+        }
         _sendMsgToExocore(Action.RESPOND, abi.encodePacked(lzNonce, success));
     }
 
