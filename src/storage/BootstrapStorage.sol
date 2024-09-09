@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
 import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
 import {IVault} from "../interfaces/IVault.sol";
+import {BeaconProxyBytecode} from "../utils/BeaconProxyBytecode.sol";
 
 import {Errors} from "../libraries/Errors.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";

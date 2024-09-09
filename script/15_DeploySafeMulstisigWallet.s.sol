@@ -1,12 +1,15 @@
 pragma solidity ^0.8.13;
 
 import {BaseScript} from "./BaseScript.sol";
-import "@safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+
 import "@safe-contracts/GnosisSafeL2.sol";
-import "forge-std/StdJson.sol";
+import "@safe-contracts/proxies/GnosisSafeProxyFactory.sol";
+
 import "forge-std/Script.sol";
+import "forge-std/StdJson.sol";
 
 contract CreateMultisigScript is BaseScript {
+
     using stdJson for string;
 
     function setUp() public override {
@@ -65,4 +68,5 @@ contract CreateMultisigScript is BaseScript {
 
         vm.stopBroadcast();
     }
+
 }
