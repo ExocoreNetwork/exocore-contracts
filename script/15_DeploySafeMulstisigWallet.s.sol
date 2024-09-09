@@ -1,31 +1,46 @@
 pragma solidity ^0.8.13;
 
-import "forge-std/Script.sol";
+import {BaseScript} from "./BaseScript.sol";
 import "@safe-contracts/proxies/GnosisSafeProxyFactory.sol";
-import "@safe-contracts/GnosisSafe.sol";
+import "@safe-contracts/GnosisSafeL2.sol";
+import "forge-std/StdJson.sol";
+import "forge-std/Script.sol";
 
-contract CreateMultisigScript is Script {
-    function setUp() public {}
+contract CreateMultisigScript is BaseScript {
+    using stdJson for string;
+
+    function setUp() public override {
+        super.setUp();
+
+        exocore = vm.createSelectFork(exocoreRPCURL);
+        _topUpPlayer(exocore, address(0), exocoreGenesis, deployer.addr, 2 ether);
+    }
 
     function run() public {
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        vm.startBroadcast(deployerPrivateKey);
+        vm.selectFork(exocore);
+        vm.startBroadcast(deployer.privateKey);
 
-        // Load deployed contract addresses
-        GnosisSafeProxyFactory proxyFactory = GnosisSafeProxyFactory(0xd92Eb22d59D2736C12ef8e009833b98dB812BC5F);
-        GnosisSafe safeSingleton = GnosisSafe(payable(0xE28848a95D96dFc200A48f976b32B726253a8e14));
+        // Read deployed Safe contracts from JSON file
+        string memory json = vm.readFile("script/safe_contracts_on_exocore.json");
 
-        // Set up owners (replace with actual addresses)
+        address proxyFactoryAddress = json.readAddress(".GnosisSafeProxyFactory");
+        address safeSingletonAddress = json.readAddress(".GnosisSafeL2");
+        address fallbackHandlerAddress = json.readAddress(".CompatibilityFallbackHandler");
+
+        GnosisSafeProxyFactory proxyFactory = GnosisSafeProxyFactory(proxyFactoryAddress);
+        GnosisSafeL2 safeSingleton = GnosisSafeL2(payable(safeSingletonAddress));
+
+        // Set up owners
         address[] memory owners = new address[](3);
-        owners[0] = address(0x1111111111111111111111111111111111111111);
-        owners[1] = address(0x2222222222222222222222222222222222222222);
-        owners[2] = address(0x3333333333333333333333333333333333333333);
+        owners[0] = deployer.addr;
+        owners[1] = exocoreValidatorSet.addr;
+        owners[2] = relayer.addr;
 
         // Set up Safe parameters
         uint256 threshold = 2;
         address to = address(0);
         bytes memory data = "";
-        address fallbackHandler = 0x820ed29524601172Fe4aec900Bc48432067CBCDF; // CompatibilityFallbackHandler
+        address fallbackHandler = fallbackHandlerAddress;
         address paymentToken = address(0);
         uint256 payment = 0;
         address payable paymentReceiver = payable(address(0));
