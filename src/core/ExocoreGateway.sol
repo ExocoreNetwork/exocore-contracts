@@ -246,7 +246,7 @@ contract ExocoreGateway is
             );
             // there is only one type of outgoing request for which we expect a response so no need to store
             // too much information
-            _registeredRequests[requestNonce] = abi.encode(token, totalSupply);
+            _registeredRequests[clientChainId][requestNonce] = abi.encode(token, totalSupply);
         }
     }
 
@@ -370,7 +370,8 @@ contract ExocoreGateway is
         // only one type of response is supported
         _validatePayloadLength(response, VALIDATE_LIMITS_RESPONSE_LENGTH, Action.RESPOND);
         uint64 lzNonce = uint64(bytes8(response[0:8]));
-        (bytes32 token, uint256 totalSupply) = abi.decode(_registeredRequests[lzNonce], (bytes32, uint256));
+        (bytes32 token, uint256 totalSupply) =
+            abi.decode(_registeredRequests[clientChainId][lzNonce], (bytes32, uint256));
         if (uint8(bytes1(response[8])) == 1) {
             // the validation succeeded, so apply the edit to total supply
             bool updated = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), totalSupply, "");
@@ -382,7 +383,7 @@ contract ExocoreGateway is
         } else {
             emit WhitelistTokenNotUpdated(clientChainId, token);
         }
-        delete _registeredRequests[lzNonce];
+        delete _registeredRequests[clientChainId][lzNonce];
         supplyDecreasesInFlight[clientChainId][token]--;
         return;
     }

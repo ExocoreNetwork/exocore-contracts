@@ -14,8 +14,8 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// we need to keep tvl <= total supply.
     mapping(uint32 chainId => mapping(bytes32 token => uint64 count)) public supplyDecreasesInFlight;
 
-    /// @dev Mapping of request IDs to their corresponding request data.
-    mapping(uint64 => bytes) internal _registeredRequests;
+    /// @dev Mapping of client chain IDs to nonces to their corresponding request data.
+    mapping(uint32 chainId => mapping(uint64 nonce => bytes)) internal _registeredRequests;
 
     /// @dev The length of a deposit request, in bytes.
     // bytes32 token + bytes32 depositor + uint256 amount
