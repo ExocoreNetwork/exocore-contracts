@@ -216,7 +216,4 @@ library Errors {
     /// @dev Vault: forbid to deploy vault for the virtual token address representing natively staked ETH
     error ForbidToDeployVault();
 
-    /// @dev Vault TVL limit exceeds total supply
-    error VaultTvlLimitExceedsTotalSupply();
-
 }

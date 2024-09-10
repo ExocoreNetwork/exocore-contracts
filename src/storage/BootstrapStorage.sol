@@ -281,14 +281,12 @@ contract BootstrapStorage is GatewayStorage {
     /// @param symbol The symbol of the token.
     /// @param tokenAddress The contract address of the token.
     /// @param decimals The number of decimals the token uses.
-    /// @param totalSupply The total supply of the token.
     /// @param depositAmount The total amount of the token deposited into the contract.
     struct TokenInfo {
         string name;
         string symbol;
         address tokenAddress;
         uint8 decimals;
-        uint256 totalSupply;
         uint256 depositAmount;
     }
 

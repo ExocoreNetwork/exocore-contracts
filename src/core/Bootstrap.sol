@@ -681,7 +681,6 @@ contract Bootstrap is
             symbol: token.symbol(),
             tokenAddress: tokenAddress,
             decimals: token.decimals(),
-            totalSupply: token.totalSupply(),
             depositAmount: depositsByToken[tokenAddress]
         });
     }
