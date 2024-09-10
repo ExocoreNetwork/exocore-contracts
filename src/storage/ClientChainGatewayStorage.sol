@@ -25,11 +25,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @dev Mapping of request IDs to their corresponding request actions.
     mapping(uint64 => Action) internal _registeredRequestActions;
 
-    /// @notice Mapping to indicate the number of messages to increase the TVL limit that are currently in flight.
-    /// @dev This is used to ensure that a tvl increase and a total supply decrease aren't applied together, since
-    /// we need to keep tvl <= total supply.
-    mapping(address token => uint256 count) public tvlLimitIncreasesInFlight;
-
     /// @notice The address of the beacon chain oracle.
     address public immutable BEACON_ORACLE_ADDRESS;
 

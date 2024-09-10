@@ -89,31 +89,22 @@ abstract contract BaseRestakingController is
     /// @param encodedRequest The encoded request.
     function _processRequest(Action action, bytes memory actionArgs, bytes memory encodedRequest) internal {
         uint64 requestNonce = _sendMsgToExocore(action, actionArgs);
-        if (action != Action.RESPOND) {
-            _registeredRequests[requestNonce] = encodedRequest;
-            _registeredRequestActions[requestNonce] = action;
-        }
+        _registeredRequests[requestNonce] = encodedRequest;
+        _registeredRequestActions[requestNonce] = action;
     }
 
     /// @dev Sends a message to Exocore.
     /// @param action The action to be performed.
     /// @param actionArgs The encodePacked arguments for the action.
     function _sendMsgToExocore(Action action, bytes memory actionArgs) internal returns (uint64) {
-        bool payByApp = action == Action.RESPOND;
         bytes memory payload = abi.encodePacked(action, actionArgs);
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(EXOCORE_CHAIN_ID, payload, options, false);
 
-        MessagingReceipt memory receipt = _lzSend(
-            EXOCORE_CHAIN_ID,
-            payload,
-            options,
-            MessagingFee(fee.nativeFee, 0),
-            payByApp ? address(this) : msg.sender,
-            payByApp
-        );
+        MessagingReceipt memory receipt =
+            _lzSend(EXOCORE_CHAIN_ID, payload, options, MessagingFee(fee.nativeFee, 0), msg.sender, false);
         emit MessageSent(action, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
 
         return receipt.nonce;

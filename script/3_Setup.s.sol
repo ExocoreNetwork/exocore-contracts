@@ -103,7 +103,6 @@ contract SetupScript is BaseScript {
         // this stands for LST restaking for restakeToken
         whitelistTokensBytes32[0] = bytes32(bytes20(address(restakeToken)));
         decimals[0] = restakeToken.decimals();
-        supplies[0] = restakeToken.totalSupply();
         names[0] = "RestakeToken";
         metaDatas[0] = "ERC20 LST token";
         oracleInfos[0] = "{'a': 'b'}";
@@ -112,7 +111,6 @@ contract SetupScript is BaseScript {
         // this stands for Native Restaking for ETH
         whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         decimals[1] = 18;
-        supplies[1] = 0; // irrelevant for native restaking
         names[1] = "StakedETH";
         metaDatas[1] = "natively staked ETH on Ethereum";
         oracleInfos[1] = "{'b': 'a'}";
@@ -132,7 +130,6 @@ contract SetupScript is BaseScript {
                 clientChainId,
                 whitelistTokensBytes32[i],
                 decimals[i],
-                supplies[i],
                 names[i],
                 metaDatas[i],
                 oracleInfos[i],

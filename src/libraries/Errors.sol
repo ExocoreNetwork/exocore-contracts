@@ -109,9 +109,6 @@ library Errors {
     /// @dev Bootstrap: validator name length is zero
     error BootstrapValidatorNameLengthZero();
 
-    /// @dev Bootstrap: TVL limit exceeds total supply
-    error BootstrapTvlLimitExceedsTotalSupply();
-
     //////////////////////////////////
     //  BootstrapLzReceiver Errors  //
     //////////////////////////////////

@@ -164,7 +164,6 @@ contract ExocoreDeployer is Test {
 
         whitelistTokens.push(bytes32(bytes20(address(restakeToken))));
         decimals[0] = 18;
-        supplies[0] = restakeToken.totalSupply();
         names[0] = "RestakeToken";
         metaDatas[0] = "ERC20 LST token";
         oracleInfos[0] = "{'a': 'b'}";
@@ -172,7 +171,6 @@ contract ExocoreDeployer is Test {
 
         whitelistTokens.push(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
         decimals[1] = 18;
-        supplies[1] = 1e8 ether;
         names[1] = "NativeStakedETH";
         metaDatas[1] = "natively staked ETH on Ethereum";
         oracleInfos[1] = "{'b': 'a'}";
@@ -208,14 +206,7 @@ contract ExocoreDeployer is Test {
                 nativeFee
             );
             exocoreGateway.addWhitelistToken{value: nativeFee}(
-                clientChainId,
-                whitelistTokens[i],
-                decimals[i],
-                supplies[i],
-                names[i],
-                metaDatas[i],
-                oracleInfos[i],
-                tvlLimits[i]
+                clientChainId, whitelistTokens[i], decimals[i], names[i], metaDatas[i], oracleInfos[i], tvlLimits[i]
             );
         }
 

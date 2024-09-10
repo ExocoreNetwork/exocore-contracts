@@ -214,11 +214,9 @@ contract Bootstrap is
             // pre-existing vault. however, we still do ensure that the vault is not deployed
             // for restaking natively staked ETH.
             if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
-                // during bootstrap phase, ensure that the tvl limit <= total supply of the token
-                uint256 totalSupply = ERC20(token).totalSupply();
-                if (tvlLimit > totalSupply) {
-                    revert Errors.BootstrapTvlLimitExceedsTotalSupply();
-                }
+                // setting a tvlLimit higher than the supply is permitted.
+                // it allows for some margin for minting of the token, and lets us use
+                // a value of type(uint256).max to indicate no limit.
                 _deployVault(token, tvlLimit);
             }
 
@@ -232,10 +230,7 @@ contract Bootstrap is
     }
 
     /// @inheritdoc ITokenWhitelister
-    function updateTvlLimit(address token, uint256 tvlLimit) external payable beforeLocked onlyOwner whenNotPaused {
-        if (msg.value > 0) {
-            revert Errors.NonZeroValue();
-        }
+    function updateTvlLimit(address token, uint256 tvlLimit) external beforeLocked onlyOwner whenNotPaused {
         if (!isWhitelistedToken[token]) {
             revert Errors.TokenNotWhitelisted(token);
         }
@@ -243,9 +238,6 @@ contract Bootstrap is
             revert Errors.NoTvlLimitForNativeRestaking();
         }
         IVault vault = _getVault(token);
-        if (tvlLimit > ERC20(vault.getUnderlyingToken()).totalSupply()) {
-            revert Errors.BootstrapTvlLimitExceedsTotalSupply();
-        }
         vault.setTvlLimit(tvlLimit);
     }
 

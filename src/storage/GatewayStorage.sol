@@ -18,7 +18,6 @@ contract GatewayStorage {
         REQUEST_ADD_WHITELIST_TOKEN,
         REQUEST_ASSOCIATE_OPERATOR,
         REQUEST_DISSOCIATE_OPERATOR,
-        REQUEST_VALIDATE_LIMITS,
         RESPOND
     }
     /// @notice the human readable prefix for Exocore bech32 encoded address.

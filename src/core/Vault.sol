@@ -14,7 +14,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
 /// @author ExocoreNetwork
 /// @notice Implementation of IVault, used to store user tokens. Each Vault is unique to an
 /// underlying token and is controlled by a gateway.
-contract Vault is Initializable, IVault, VaultStorage {
+contract Vault is Initializable, VaultStorage, IVault {
 
     using SafeERC20 for IERC20;
 
@@ -131,8 +131,10 @@ contract Vault is Initializable, IVault, VaultStorage {
     }
 
     /// @inheritdoc IVault
-    // The caller must ensure that tvlLimit <= totalSupply as on Exocore.
     function setTvlLimit(uint256 tvlLimit_) external onlyGateway {
+        // We don't validate the TVL limit <= total supply since transfers will fail if
+        // we actually consume the TVL limit. On the plus side, this approach also allows
+        // using an infinite tvl limit by setting it to type(uin256).max
         tvlLimit = tvlLimit_;
         emit TvlLimitUpdated(tvlLimit);
     }

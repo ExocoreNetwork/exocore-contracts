@@ -20,6 +20,6 @@ interface ITokenWhitelister {
     /// @dev The token must be whitelisted before.
     /// @param token The token address.
     /// @param tvlLimit The new TVL limit for the token.
-    function updateTvlLimit(address token, uint256 tvlLimit) external payable;
+    function updateTvlLimit(address token, uint256 tvlLimit) external;
 
 }

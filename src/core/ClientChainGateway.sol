@@ -75,7 +75,6 @@ contract ClientChainGateway is
 
         _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKEN] =
             this.afterReceiveAddWhitelistTokenRequest.selector;
-        _whiteListFunctionSelectors[Action.REQUEST_VALIDATE_LIMITS] = this.afterReceiveValidateLimitsRequest.selector;
         // overwrite the bootstrap function selector
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.afterReceiveMarkBootstrapRequest.selector;
 
@@ -124,7 +123,7 @@ contract ClientChainGateway is
     }
 
     /// @inheritdoc ITokenWhitelister
-    function updateTvlLimit(address token, uint256 tvlLimit) external payable onlyOwner whenNotPaused {
+    function updateTvlLimit(address token, uint256 tvlLimit) external onlyOwner whenNotPaused {
         if (!isWhitelistedToken[token]) {
             // grave error, should never happen
             revert Errors.TokenNotWhitelisted(token);
@@ -134,23 +133,7 @@ contract ClientChainGateway is
             revert Errors.NoTvlLimitForNativeRestaking();
         }
         IVault vault = _getVault(token);
-        uint256 previousLimit = vault.getTvlLimit();
-        if (tvlLimit <= previousLimit) {
-            // reduction of TVL limit is always allowed.
-            if (msg.value > 0) {
-                revert Errors.NonZeroValue();
-            }
-            vault.setTvlLimit(tvlLimit);
-        } else {
-            // queue message to Exocore for validation that the tvlLimit <= totalSupply.
-            // to remove a configured tvl limit, set it (close to) the total supply (as on Exocore).
-            // note that, since each message has an increasing nonce, multiple tvl updates may be in flight at once.
-            // they will be processed in order.
-            bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), tvlLimit);
-            bytes memory encodedRequest = abi.encode(token, tvlLimit);
-            _processRequest(Action.REQUEST_VALIDATE_LIMITS, actionArgs, encodedRequest);
-            tvlLimitIncreasesInFlight[token]++;
-        }
+        vault.setTvlLimit(tvlLimit);
     }
 
     /// @inheritdoc IClientChainGateway
@@ -171,26 +154,6 @@ contract ClientChainGateway is
         returns (uint64 senderVersion, uint64 receiverVersion)
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
-    }
-
-    /// @notice Called after a validate-limits request is received.
-    /// @dev It checks that the proposed total supply >= tvlLimit.
-    function afterReceiveValidateLimitsRequest(uint64 lzNonce, bytes calldata requestPayload)
-        public
-        onlyCalledFromThis
-        whenNotPaused
-    {
-        (address token, uint256 newSupply) = _decodeTokenUint256(requestPayload, true);
-        bool success = false;
-        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
-            // native restaking has no tvl limit hence no need to limit the supply changes.
-            success = true;
-        } else {
-            IVault vault = _getVault(token);
-            uint256 tvlLimit = vault.getTvlLimit();
-            success = tvlLimit <= newSupply && tvlLimitIncreasesInFlight[token] == 0;
-        }
-        _sendMsgToExocore(Action.RESPOND, abi.encodePacked(lzNonce, success));
     }
 
 }

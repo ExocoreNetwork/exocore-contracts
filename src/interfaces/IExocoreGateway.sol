@@ -45,20 +45,16 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
     /// @param clientChainId The LayerZero chain id of the client chain.
     /// @param token The token address to be whitelisted.
     /// @param decimals The decimals of the token.
-    /// @param totalSupply The total supply of the token.
     /// @param name The name of the token.
     /// @param metaData The meta information of the token.
     /// @param oracleInfo The oracle information of the token.
     /// @param tvlLimit The TVL limit of the token to set on the client chain.
     /// @dev The chain must be registered before adding tokens.
     /// @dev This function is payable because it sends a message to the client chain.
-    /// @dev The @param totalSupply should be set accurately, since that is the only point where deposits can fail and
-    /// produce a system halt.
     function addWhitelistToken(
         uint32 clientChainId,
         bytes32 token,
         uint8 decimals,
-        uint256 totalSupply,
         string calldata name,
         string calldata metaData,
         string calldata oracleInfo,
@@ -68,25 +64,9 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
     /// @notice Updates the parameters for a whitelisted token on the client chain.
     /// @param clientChainId The LayerZero chain id of the client chain.
     /// @param token The address of the token to be updated.
-    /// @param totalSupply The new total supply of the token.
     /// @param metaData The new meta information of the token.
     /// @dev The token must exist in the whitelist before updating.
-    /// @dev Since this function may send a cross chain message to validate that totalSupply >= tvlLimit, it is payable.
-    /// @dev The @param totalSupply should be set accurately, since that is the only point where deposits can fail and
-    /// produce a system halt.
-    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 totalSupply, string calldata metaData)
-        external
-        payable;
-
-    /// @dev Returns the token total supply for a given token on a client chain.
-    /// @return success true if the query is successful
-    /// @param clientChainId The LayerZero chain id of the client chain.
-    /// @param token The address of the token on the client chain as a bytes32.
-    /// @return totalSupply the total supply of the token
-    function getTotalSupply(uint32 clientChainId, bytes32 token)
-        external
-        view
-        returns (bool success, uint256 totalSupply);
+    function updateWhitelistToken(uint32 clientChainId, bytes32 token, string calldata metaData) external;
 
     /// @notice Marks the network as bootstrapped, on the client chain.
     /// @dev Causes an upgrade of the Bootstrap contract to the ClientChainGateway contract.
