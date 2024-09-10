@@ -10,12 +10,13 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 
 import {EndpointV2Mock} from "../../test/mocks/EndpointV2Mock.sol";
 
-import "../../src/core/BeaconProxyBytecode.sol";
 import {Bootstrap} from "../../src/core/Bootstrap.sol";
-import {CustomProxyAdmin} from "../../src/core/CustomProxyAdmin.sol";
+
 import {Vault} from "../../src/core/Vault.sol";
 import {IValidatorRegistry} from "../../src/interfaces/IValidatorRegistry.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
+import "../../src/utils/BeaconProxyBytecode.sol";
+import {CustomProxyAdmin} from "../../src/utils/CustomProxyAdmin.sol";
 import {MyToken} from "../../test/foundry/unit/MyToken.sol";
 
 // Technically this is used for testing but it is marked as a script
