@@ -154,7 +154,6 @@ contract ExocoreDeployer is Test {
         deal(exocoreValidatorSet.addr, 1e22);
 
         uint8[] memory decimals = new uint8[](2);
-        uint256[] memory supplies = new uint256[](2);
         string[] memory names = new string[](2);
         string[] memory metaDatas = new string[](2);
         string[] memory oracleInfos = new string[](2);
