@@ -31,7 +31,7 @@ import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpoint
 import "src/interfaces/IExoCapsule.sol";
 import "src/interfaces/IVault.sol";
 
-import "src/core/BeaconProxyBytecode.sol";
+import "src/utils/BeaconProxyBytecode.sol";
 
 contract SetUp is Test {
 

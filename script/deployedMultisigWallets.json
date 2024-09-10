@@ -1,0 +1,18 @@
+{
+    "holesky": {
+        "multisig": "0x9A7b23a0BB29F77BaBB8add484b34c02EfD327BE",
+        "signers": [
+            "0x481E020DB4709e6EdDbf8134D41b866c6Fc8555e",
+            "0x3583fF95f96b356d716881C871aF7Eb55ea34a93",
+            "0xA1dfab3234f49e02e04E6C56a021F1a497CD0f82"
+        ]
+    },
+    "exocore": {
+        "multisig": "0xF27865277D8Cc608F279B3C09719A9Ceaa25A58f",
+        "signers": [
+            "0x481E020DB4709e6EdDbf8134D41b866c6Fc8555e",
+            "0x3583fF95f96b356d716881C871aF7Eb55ea34a93",
+            "0xA1dfab3234f49e02e04E6C56a021F1a497CD0f82"
+        ]
+    }
+}

@@ -3,8 +3,9 @@ pragma solidity ^0.8.0;
 
 import {Bootstrap} from "src/core/Bootstrap.sol";
 import {ClientChainGateway} from "src/core/ClientChainGateway.sol";
-import {CustomProxyAdmin} from "src/core/CustomProxyAdmin.sol";
+
 import {Vault} from "src/core/Vault.sol";
+import {CustomProxyAdmin} from "src/utils/CustomProxyAdmin.sol";
 
 import {IValidatorRegistry} from "src/interfaces/IValidatorRegistry.sol";
 
@@ -28,9 +29,9 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 import "src/libraries/Errors.sol";
 
-import "src/core/BeaconProxyBytecode.sol";
 import "src/core/ExoCapsule.sol";
 import "src/storage/GatewayStorage.sol";
+import "src/utils/BeaconProxyBytecode.sol";
 
 contract BootstrapTest is Test {
 

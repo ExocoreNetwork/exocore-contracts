@@ -3,12 +3,13 @@ pragma solidity ^0.8.19;
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "../src/core/BeaconProxyBytecode.sol";
 import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
-import {CustomProxyAdmin} from "../src/core/CustomProxyAdmin.sol";
+
 import "../src/core/ExoCapsule.sol";
 import {Vault} from "../src/core/Vault.sol";
+import "../src/utils/BeaconProxyBytecode.sol";
+import {CustomProxyAdmin} from "../src/utils/CustomProxyAdmin.sol";
 
 import {BaseScript} from "./BaseScript.sol";
 import {ILayerZeroEndpointV2} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";

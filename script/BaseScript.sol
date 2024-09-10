@@ -1,10 +1,10 @@
 pragma solidity ^0.8.19;
 
-import "../src/core/BeaconProxyBytecode.sol";
 import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExoCapsule.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
+import "../src/utils/BeaconProxyBytecode.sol";
 
 import "../src/interfaces/precompiles/IAssets.sol";
 import "../src/interfaces/precompiles/IClaimReward.sol";

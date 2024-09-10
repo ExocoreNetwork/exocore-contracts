@@ -32,8 +32,8 @@ import "../mocks/ClaimRewardMock.sol";
 import "../mocks/DelegationMock.sol";
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
 
-import "src/core/BeaconProxyBytecode.sol";
 import "src/core/ExoCapsule.sol";
+import "src/utils/BeaconProxyBytecode.sol";
 
 import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
