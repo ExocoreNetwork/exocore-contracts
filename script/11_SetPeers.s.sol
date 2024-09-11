@@ -35,9 +35,6 @@ contract SetPeersAndUpgrade is BaseScript {
         ExocoreGateway gateway = ExocoreGateway(payable(exocoreGatewayAddr));
 
         vm.selectFork(exocore);
-        // Foundry rejects this transaction because it reports that isRegisteredClientChain fails, no matter what
-        // we do. Conversely, other tools like Remix and Brownie and even cast are able to report the value
-        // correctly. As a workaround, have `AssetsMock` return `true` value before running this script.
         if (!useExocorePrecompileMock) {
             _bindPrecompileMocks();
         }

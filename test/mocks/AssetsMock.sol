@@ -12,6 +12,11 @@ contract AssetsMock is IAssets {
     mapping(uint32 chainId => bool registered) public isRegisteredChain;
     mapping(uint32 chainId => mapping(bytes token => bool registered)) public isRegisteredToken;
 
+    constructor(uint32 clientChainId) {
+        isRegisteredChain[clientChainId] = true;
+        chainIds.push(clientChainId);
+    }
+
     function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
         external
         returns (bool success, uint256 latestAssetState)
