@@ -158,7 +158,7 @@ contract ExocoreDeployer is Test {
         string[] memory metaDatas = new string[](2);
         string[] memory oracleInfos = new string[](2);
         bytes[] memory payloads = new bytes[](2);
-        uint256[] memory tvlLimits = new uint256[](2);
+        uint128[] memory tvlLimits = new uint128[](2);
         bytes32[] memory requestIds = new bytes32[](2);
 
         whitelistTokens.push(bytes32(bytes20(address(restakeToken))));
@@ -166,7 +166,7 @@ contract ExocoreDeployer is Test {
         names[0] = "RestakeToken";
         metaDatas[0] = "ERC20 LST token";
         oracleInfos[0] = "{'a': 'b'}";
-        tvlLimits[0] = restakeToken.totalSupply() / 20;
+        tvlLimits[0] = uint128(restakeToken.totalSupply() / 20);
 
         whitelistTokens.push(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
         decimals[1] = 18;

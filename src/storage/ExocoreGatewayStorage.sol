@@ -140,12 +140,6 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param reason The reason for the failure.
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
 
-    /// @notice Thrown when the request length is invalid.
-    /// @param act The action that failed.
-    /// @param expectedLength The expected length of the request.
-    /// @param actualLength The actual length of the request.
-    error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
-
     /// @notice Thrown when a deposit request fails.
     /// @param srcChainId The source chain ID.
     /// @param lzNonce The LayerZero nonce.

@@ -58,6 +58,12 @@ contract GatewayStorage {
     /// @param actualNonce The actual nonce received.
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
 
+    /// @notice Thrown when the request length is invalid.
+    /// @param act The action that failed.
+    /// @param expectedLength The expected length of the request.
+    /// @param actualLength The actual length of the request.
+    error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
+
     /// @notice Ensures the provided address is a valid exo Bech32 encoded address.
     /// @param addressToValidate The address to check.
     modifier isValidBech32Address(string calldata addressToValidate) {
@@ -95,6 +101,16 @@ contract GatewayStorage {
             revert UnexpectedInboundNonce(expectedNonce, nonce);
         }
         inboundNonce[srcChainId][srcAddress] = nonce;
+    }
+
+    /// @dev Validates the payload length, that it matches the expected length.
+    /// @param payload The payload to validate.
+    /// @param expectedLength The expected length of the payload.
+    /// @param action The action that the payload is for.
+    function _validatePayloadLength(bytes calldata payload, uint256 expectedLength, Action action) internal pure {
+        if (payload.length != expectedLength) {
+            revert InvalidRequestLength(action, expectedLength, payload.length);
+        }
     }
 
 }

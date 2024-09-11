@@ -526,7 +526,7 @@ contract AddWhitelistTokens is SetUp {
     using stdStorage for StdStorage;
     using AddressCast for address;
 
-    uint256 MESSAGE_LENGTH = 1 + 32 + 32; // action + token address as bytes32 + uint256 tvl limit
+    uint256 MESSAGE_LENGTH = 1 + 32 + 16; // action + token address as bytes32 + uint128 tvl limit
     uint256 nativeFee;
 
     error IncorrectNativeFee(uint256 amount);
@@ -610,7 +610,7 @@ contract UpdateWhitelistTokens is SetUp {
         super.setUp();
         // the below code is intentionally repeated here, instead of inheriting it from AddWhitelistTokens
         // this is done to not conflate the tests of AddWhitelistTokens with UpdateWhitelistTokens
-        uint256 MESSAGE_LENGTH = 1 + 32 + 32; // action + token address as bytes32 + uint256
+        uint256 MESSAGE_LENGTH = 1 + 32 + 16; // action + token address as bytes32 + uint128
         uint256 nativeFee = exocoreGateway.quote(clientChainId, new bytes(MESSAGE_LENGTH));
         vm.startPrank(exocoreValidatorSet.addr);
         vm.expectEmit(address(exocoreGateway));

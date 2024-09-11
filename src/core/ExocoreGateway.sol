@@ -175,7 +175,7 @@ contract ExocoreGateway is
         string calldata name,
         string calldata metaData,
         string calldata oracleInfo,
-        uint256 tvlLimit
+        uint128 tvlLimit
     ) external payable onlyOwner whenNotPaused nonReentrant {
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
@@ -544,16 +544,6 @@ contract ExocoreGateway is
         }
 
         emit DissociateOperatorResult(result, bytes32(staker));
-    }
-
-    /// @dev Validates the payload length, that it matches the expected length.
-    /// @param payload The payload to validate.
-    /// @param expectedLength The expected length of the payload.
-    /// @param action The action that the payload is for.
-    function _validatePayloadLength(bytes calldata payload, uint256 expectedLength, Action action) private pure {
-        if (payload.length != expectedLength) {
-            revert InvalidRequestLength(action, expectedLength, payload.length);
-        }
     }
 
     /// @dev Sends an interchain message to the client chain.

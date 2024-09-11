@@ -173,7 +173,7 @@ contract ExocoreGatewayMock is
         string calldata name,
         string calldata metaData,
         string calldata oracleInfo,
-        uint256 tvlLimit
+        uint128 tvlLimit
     ) external payable onlyOwner whenNotPaused nonReentrant {
         if (msg.value == 0) {
             revert Errors.ZeroValue();
@@ -399,12 +399,6 @@ contract ExocoreGatewayMock is
         } catch {
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, updatedBalance), true);
-        }
-    }
-
-    function _validatePayloadLength(bytes calldata payload, uint256 expectedLength, Action action) private pure {
-        if (payload.length != expectedLength) {
-            revert InvalidRequestLength(action, expectedLength, payload.length);
         }
     }
 

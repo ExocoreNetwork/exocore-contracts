@@ -51,6 +51,8 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
     /// @param tvlLimit The TVL limit of the token to set on the client chain.
     /// @dev The chain must be registered before adding tokens.
     /// @dev This function is payable because it sends a message to the client chain.
+    /// @dev The tvlLimit is a `uint128` so that it can work on Solana easily. Within this uint,
+    /// we can fit 1 trillion tokens with 18 decimals.
     function addWhitelistToken(
         uint32 clientChainId,
         bytes32 token,
@@ -58,7 +60,7 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
         string calldata name,
         string calldata metaData,
         string calldata oracleInfo,
-        uint256 tvlLimit
+        uint128 tvlLimit
     ) external payable;
 
     /// @notice Updates the parameters for a whitelisted token on the client chain.

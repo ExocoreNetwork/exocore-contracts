@@ -73,9 +73,13 @@ contract AssetsMock is IAssets {
         string calldata metaData,
         string calldata oracleInfo
     ) external returns (bool success) {
-        require(isRegisteredChain[clientChainId], "the chain is not registered before");
+        if (!isRegisteredChain[clientChainId]) {
+            // chain not registered
+            return false;
+        }
 
         if (isRegisteredToken[clientChainId][token]) {
+            // token already registered
             return false;
         }
         isRegisteredToken[clientChainId][token] = true;
@@ -86,9 +90,13 @@ contract AssetsMock is IAssets {
         external
         returns (bool success)
     {
-        require(isRegisteredChain[clientChainId], "the chain is not registered before");
+        if (!isRegisteredChain[clientChainId]) {
+            // chain not registered
+            return false;
+        }
 
         if (!isRegisteredToken[clientChainId][token]) {
+            // token not registered
             return false;
         }
 

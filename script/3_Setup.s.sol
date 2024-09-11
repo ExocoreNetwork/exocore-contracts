@@ -97,7 +97,7 @@ contract SetupScript is BaseScript {
         string[] memory names = new string[](2);
         string[] memory metaDatas = new string[](2);
         string[] memory oracleInfos = new string[](2);
-        uint256[] memory tvlLimits = new uint256[](2);
+        uint128[] memory tvlLimits = new uint128[](2);
 
         // this stands for LST restaking for restakeToken
         whitelistTokensBytes32[0] = bytes32(bytes20(address(restakeToken)));
@@ -105,7 +105,7 @@ contract SetupScript is BaseScript {
         names[0] = "RestakeToken";
         metaDatas[0] = "ERC20 LST token";
         oracleInfos[0] = "{'a': 'b'}";
-        tvlLimits[0] = restakeToken.totalSupply() / 5; // in phases of 20%
+        tvlLimits[0] = uint128(restakeToken.totalSupply() / 5); // in phases of 20%
 
         // this stands for Native Restaking for ETH
         whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
