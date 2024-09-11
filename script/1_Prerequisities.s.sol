@@ -43,7 +43,7 @@ contract PrerequisitiesScript is BaseScript {
         if (useExocorePrecompileMock) {
             vm.selectFork(exocore);
             vm.startBroadcast(deployer.privateKey);
-            assetsMock = address(new AssetsMock());
+            assetsMock = address(new AssetsMock(clientChainId));
             delegationMock = address(new DelegationMock());
             claimRewardMock = address(new ClaimRewardMock());
             vm.stopBroadcast();

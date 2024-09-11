@@ -15,12 +15,13 @@ import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {ERC20PresetFixedSupply, IERC20} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
+import {StdCheats} from "forge-std/StdCheats.sol";
 
 import "../test/mocks/AssetsMock.sol";
 import "../test/mocks/ClaimRewardMock.sol";
 import "../test/mocks/DelegationMock.sol";
 
-contract BaseScript is Script {
+contract BaseScript is Script, StdCheats {
 
     struct Player {
         uint256 privateKey;
@@ -121,15 +122,24 @@ contract BaseScript is Script {
     }
 
     function _bindPrecompileMocks() internal {
-        // bind precompile mock contracts code to constant precompile address so that local simulation could pass
-        bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
-        vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
-
-        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
-        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
-
-        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
-        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+        uint256 previousFork = type(uint256).max;
+        try vm.activeFork() returns (uint256 forkId) {
+            previousFork = forkId;
+        } catch {
+            // ignore
+        }
+        // choose the fork to ensure no client chain simulation is impacted
+        vm.selectFork(exocore);
+        // even with --skip-simulation, some transactions fail. this helps work around that limitation
+        // but it isn't perfect. if you face too much trouble, try calling the function(s) directly
+        // with cast or remix.
+        deployCodeTo("AssetsMock.sol", abi.encode(clientChainId), ASSETS_PRECOMPILE_ADDRESS);
+        deployCodeTo("DelegationMock.sol", DELEGATION_PRECOMPILE_ADDRESS);
+        deployCodeTo("ClaimRewardMock.sol", CLAIM_REWARD_PRECOMPILE_ADDRESS);
+        // go to the original fork, if one was selected
+        if (previousFork != type(uint256).max) {
+            vm.selectFork(previousFork);
+        }
     }
 
     function _topUpPlayer(
