@@ -48,7 +48,7 @@ contract DeployContracts is Script {
     uint8[2] decimals = [18, 6];
     address[] whitelistTokens;
     uint256[] tvlLimits;
-    Vault[] vaults;
+    IVault[] vaults;
     CustomProxyAdmin proxyAdmin;
 
     IVault vaultImplementation;
@@ -145,11 +145,17 @@ contract DeployContracts is Script {
         );
         vm.stopBroadcast();
         console.log("Bootstrap address: ", address(bootstrap));
+        // set the vaults
+        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+            IVault vault = bootstrap.tokenToVault(whitelistTokens[i]);
+            vaults.push(vault);
+        }
+
     }
 
     function approveAndDeposit() private {
         // amounts deposited by each validators, for the tokens 1 and 2.
-        uint256[2] memory validatorAmounts = [1500 * 10 ** decimals[0], 2000 * 10 ** decimals[1]];
+        uint256[2] memory validatorAmounts = [1500 * 10 ** decimals[0], 2000 * 10 ** decimals[1]];       
         // stakerAmounts - keep divisible by 3 for delegate
         uint256[2] memory stakerAmounts = [300 * 10 ** decimals[0], 600 * 10 ** decimals[1]];
         for (uint256 i = 0; i < whitelistTokens.length; i++) {

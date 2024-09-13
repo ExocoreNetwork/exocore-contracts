@@ -646,8 +646,8 @@ async function updateGenesisFile() {
 
     stakerListMap.forEach((value, key) => {
       stakers_by_operator.push({
-        key:key,
-        stakers:value,
+        key: key,
+        stakers: value,
       });
     });
     stakers_by_operator.sort((a, b) => {
