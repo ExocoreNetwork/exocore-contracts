@@ -8,9 +8,11 @@ contract GatewayStorage {
 
     /// @notice Enum representing various actions that can be performed.
     enum Action {
-        REQUEST_DEPOSIT,
-        REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
-        REQUEST_WITHDRAW_REWARD_FROM_EXOCORE,
+        REQUEST_DEPOSIT_LST,
+        REQUEST_DEPOSIT_NST,
+        REQUEST_WITHDRAW_LST,
+        REQUEST_WITHDRAW_NST,
+        REQUEST_CLAIM_REWARD,
         REQUEST_DELEGATE_TO,
         REQUEST_UNDELEGATE_FROM,
         REQUEST_DEPOSIT_THEN_DELEGATE_TO,

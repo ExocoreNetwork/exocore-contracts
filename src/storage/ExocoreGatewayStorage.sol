@@ -8,37 +8,41 @@ import {GatewayStorage} from "./GatewayStorage.sol";
 /// @author ExocoreNetwork
 contract ExocoreGatewayStorage is GatewayStorage {
 
-    /// @dev The length of a deposit request, in bytes.
+    /// @dev The length of a deposit LST request payload, in bytes.
     // bytes32 token + bytes32 depositor + uint256 amount
-    uint256 internal constant DEPOSIT_REQUEST_LENGTH = 96;
+    uint256 internal constant DEPOSIT_LST_PAYLOAD_LENGTH = 96;
 
-    /// @dev The length of a delegate request, in bytes.
+    /// @dev The length of a deposit NST request payload, in bytes.
+    // bytes32 validator-id + bytes32 depositor + uint256 amount
+    uint256 internal constant DEPOSIT_NST_PAYLOAD_LENGTH = 96;
+
+    /// @dev The length of a delegate request payload, in bytes.
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
-    uint256 internal constant DELEGATE_REQUEST_LENGTH = 138;
+    uint256 internal constant DELEGATE_PAYLOAD_LENGTH = 138;
 
-    /// @dev The length of an undelegate request, in bytes.
+    /// @dev The length of an undelegate request payload, in bytes.
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
-    uint256 internal constant UNDELEGATE_REQUEST_LENGTH = 138;
+    uint256 internal constant UNDELEGATE_PAYLOAD_LENGTH = 138;
 
-    /// @dev The length of a withdraw principal request, in bytes.
+    /// @dev The length of a withdraw LST request payload, in bytes.
     // bytes32 token + bytes32 withdrawer + uint256 amount
-    uint256 internal constant WITHDRAW_PRINCIPAL_REQUEST_LENGTH = 96;
+    uint256 internal constant WITHDRAW_LST_PAYLOAD_LENGTH = 96;
+
+    /// @dev The length of a withdraw NST request payload, in bytes.
+    // bytes32 validator-id + bytes32 withdrawer + uint256 amount
+    uint256 internal constant WITHDRAW_NST_PAYLOAD_LENGTH = 96;
 
     /// @dev The length of a claim reward request, in bytes.
     // bytes32 token + bytes32 withdrawer + uint256 amount
-    uint256 internal constant CLAIM_REWARD_REQUEST_LENGTH = 96;
+    uint256 internal constant CLAIM_REWARD_PAYLOAD_LENGTH = 96;
 
     /// @dev The length of a deposit-then-delegate request, in bytes.
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
-    uint256 internal constant DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH = DELEGATE_REQUEST_LENGTH;
-
-    /// @dev The length of an associate operator request, in bytes.
+    uint256 internal constant DEPOSIT_THEN_DELEGATE_PAYLOAD_LENGTH = DELEGATE_PAYLOAD_LENGTH;
     // bytes32 staker + bytes(42) operator
-    uint256 internal constant ASSOCIATE_OPERATOR_REQUEST_LENGTH = 74;
-
-    /// @dev The length of a dissociate operator request, in bytes.
+    uint256 internal constant ASSOCIATE_OPERATOR_PAYLOAD_LENGTH = 74;
     // bytes32 staker
-    uint256 internal constant DISSOCIATE_OPERATOR_REQUEST_LENGTH = 32;
+    uint256 internal constant DISSOCIATE_OPERATOR_PAYLOAD_LENGTH = 32;
 
     // constants used for layerzero messaging
     /// @dev The gas limit for all the destination chains.

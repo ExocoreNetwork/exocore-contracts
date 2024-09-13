@@ -36,7 +36,7 @@ abstract contract LSTRestakingController is
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, amount);
 
-        _processRequest(Action.REQUEST_DEPOSIT, actionArgs, encodedRequest);
+        _processRequest(Action.REQUEST_DEPOSIT_LST, actionArgs, encodedRequest);
     }
 
     /// @inheritdoc ILSTRestakingController
@@ -56,7 +56,7 @@ abstract contract LSTRestakingController is
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principalAmount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, principalAmount);
 
-        _processRequest(Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, actionArgs, encodedRequest);
+        _processRequest(Action.REQUEST_WITHDRAW_LST, actionArgs, encodedRequest);
     }
 
     /// @inheritdoc ILSTRestakingController
@@ -70,7 +70,7 @@ abstract contract LSTRestakingController is
     {
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), rewardAmount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, rewardAmount);
-        _processRequest(Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, actionArgs, encodedRequest);
+        _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
     }
 
     /// @inheritdoc ILSTRestakingController
@@ -90,7 +90,7 @@ abstract contract LSTRestakingController is
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
-        _processRequest(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, actionArgs, encodedRequest);
+        _processRequest(Action.REQUEST_DEPOSIT_LST_THEN_DELEGATE, actionArgs, encodedRequest);
     }
 
 }

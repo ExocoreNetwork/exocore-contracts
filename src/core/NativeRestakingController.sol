@@ -100,10 +100,11 @@ abstract contract NativeRestakingController is
         IExoCapsule capsule = _getCapsule(msg.sender);
         uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
 
+        bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(msg.sender)), depositValue);
-        bytes memory encodedRequest = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue);
-        _processRequest(Action.REQUEST_DEPOSIT, actionArgs, encodedRequest);
+            abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), depositValue);
+        bytes memory encodedRequest = abi.encode(validatorPubkey, msg.sender, depositValue);
+        _processRequest(Action.REQUEST_DEPOSIT_NST, actionArgs, encodedRequest);
     }
 
     /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Exocore.
@@ -122,12 +123,13 @@ abstract contract NativeRestakingController is
             capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
         if (!partialWithdrawal) {
             // request full withdraw
+            bytes32 validatorPubkey = validatorContainer.getPubkey();
             bytes memory actionArgs = abi.encodePacked(
-                bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(msg.sender)), withdrawalAmount
+                validatorPubkey, bytes32(bytes20(msg.sender)), withdrawalAmount
             );
-            bytes memory encodedRequest = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, withdrawalAmount);
+            bytes memory encodedRequest = abi.encode(validatorPubkey, msg.sender, withdrawalAmount);
 
-            _processRequest(Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, actionArgs, encodedRequest);
+            _processRequest(Action.REQUEST_WITHDRAW_NST, actionArgs, encodedRequest);
         }
     }
 

@@ -23,7 +23,21 @@ interface IAssets {
     /// @param assetsAddress The client chain asset address
     /// @param stakerAddress The staker address
     /// @param opAmount The amount to deposit
-    function depositTo(uint32 clientChainID, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
+    function depositLST(uint32 clientChainID, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
+        external
+        returns (bool success, uint256 latestAssetState);
+
+    /// TRANSACTIONS
+    /// @dev deposit the client chain assets for the staker,
+    /// that will change the state in deposit module
+    /// Note that this address cannot be a module account.
+    /// @param clientChainID is the layerZero chainID if it is supported.
+    //  It might be allocated by Exocore when the client chain isn't supported
+    //  by layerZero
+    /// @param validatorId The id for validator, usually the validator's pubkey
+    /// @param stakerAddress The staker address
+    /// @param opAmount The amount to deposit
+    function depositNST(uint32 clientChainID, bytes memory validatorId, bytes memory stakerAddress, uint256 opAmount)
         external
         returns (bool success, uint256 latestAssetState);
 
@@ -35,9 +49,24 @@ interface IAssets {
     /// @param assetsAddress The client chain asset Address
     /// @param withdrawAddress The withdraw address
     /// @param opAmount The withdraw amount
-    function withdrawPrincipal(
+    function withdrawLST(
         uint32 clientChainID,
         bytes memory assetsAddress,
+        bytes memory withdrawAddress,
+        uint256 opAmount
+    ) external returns (bool success, uint256 latestAssetState);
+
+    /// @dev withdraw To the staker, that will change the state in withdraw module
+    /// Note that this address cannot be a module account.
+    /// @param clientChainID is the layerZero chainID if it is supported.
+    //  It might be allocated by Exocore when the client chain isn't supported
+    //  by layerZero
+    /// @param validatorId The id for validator, usually the validator's pubkey
+    /// @param withdrawAddress The withdraw address
+    /// @param opAmount The withdraw amount
+    function withdrawNST(
+        uint32 clientChainID,
+        bytes memory validatorId,
         bytes memory withdrawAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
