@@ -4,6 +4,8 @@ pragma solidity ^0.8.19;
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
+import {Action} from "../storage/GatewayStorage.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 
@@ -79,13 +81,6 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @param success Whether the request was successful on Exocore.
     event RequestFinished(Action indexed action, uint64 indexed requestId, bool indexed success);
 
-    /* -------------------------------------------------------------------------- */
-    /*                                   Errors                                   */
-    /* -------------------------------------------------------------------------- */
-
-    /// @notice Error thrown when the ExoCapsule does not exist.
-    error CapsuleNotExist();
-
     /// @notice Initializes the ClientChainGatewayStorage contract.
     /// @param exocoreChainId_ The chain ID of the Exocore chain.
     /// @param beaconOracleAddress_ The address of the beacon chain oracle.
@@ -117,7 +112,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     function _getCapsule(address owner) internal view returns (IExoCapsule) {
         IExoCapsule capsule = ownerToCapsule[owner];
         if (address(capsule) == address(0)) {
-            revert CapsuleNotExist();
+            revert Errors.CapsuleNotExist();
         }
         return capsule;
     }

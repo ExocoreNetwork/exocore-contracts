@@ -1,29 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {Errors} from "../libraries/Errors.sol";
+
+/// @notice Enum representing various actions that can be performed.
+enum Action {
+    REQUEST_DEPOSIT_LST,
+    REQUEST_DEPOSIT_NST,
+    REQUEST_WITHDRAW_LST,
+    REQUEST_WITHDRAW_NST,
+    REQUEST_CLAIM_REWARD,
+    REQUEST_DELEGATE_TO,
+    REQUEST_UNDELEGATE_FROM,
+    REQUEST_DEPOSIT_THEN_DELEGATE_TO,
+    REQUEST_MARK_BOOTSTRAP,
+    REQUEST_ADD_WHITELIST_TOKEN,
+    REQUEST_ASSOCIATE_OPERATOR,
+    REQUEST_DISSOCIATE_OPERATOR,
+    RESPOND
+}
+
 /// @title GatewayStorage
 /// @notice Storage used by both ends of the gateway contract.
 /// @dev This contract is used as the base storage and is inherited by the storage for Bootstrap and ExocoreGateway.
 contract GatewayStorage {
 
-    /// @notice Enum representing various actions that can be performed.
-    enum Action {
-        REQUEST_DEPOSIT_LST,
-        REQUEST_DEPOSIT_NST,
-        REQUEST_WITHDRAW_LST,
-        REQUEST_WITHDRAW_NST,
-        REQUEST_CLAIM_REWARD,
-        REQUEST_DELEGATE_TO,
-        REQUEST_UNDELEGATE_FROM,
-        REQUEST_DEPOSIT_THEN_DELEGATE_TO,
-        REQUEST_MARK_BOOTSTRAP,
-        REQUEST_ADD_WHITELIST_TOKEN,
-        REQUEST_ASSOCIATE_OPERATOR,
-        REQUEST_DISSOCIATE_OPERATOR,
-        RESPOND
-    }
-    /// @notice the human readable prefix for Exocore bech32 encoded address.
+    /// @dev The (virtual) address for native staking token.
+    address internal constant VIRTUAL_NST_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
+    /// @notice the human readable prefix for Exocore bech32 encoded address.
     bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
 
     /// @dev Mapping of actions to their corresponding function selectors.
@@ -41,24 +46,6 @@ contract GatewayStorage {
     /// @param nonce The nonce associated with the message.
     /// @param nativeFee The native fee paid for the message.
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
-
-    /// @notice Emitted when a message is received and successfully executed.
-    /// @param act The action being performed.
-    /// @param nonce The nonce associated with the message.
-    event MessageExecuted(Action indexed act, uint64 nonce);
-
-    /// @notice Error thrown when an unsupported request is made.
-    /// @param act The unsupported action.
-    error UnsupportedRequest(Action act);
-
-    /// @notice Error thrown when a message is received from an unexpected source chain.
-    /// @param unexpectedSrcEndpointId The unexpected source chain ID.
-    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
-
-    /// @notice Error thrown when the inbound nonce is not as expected.
-    /// @param expectedNonce The expected nonce.
-    /// @param actualNonce The actual nonce received.
-    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
 
     /// @notice Thrown when the request length is invalid.
     /// @param act The action that failed.
@@ -100,7 +87,7 @@ contract GatewayStorage {
     function _verifyAndUpdateNonce(uint32 srcChainId, bytes32 srcAddress, uint64 nonce) internal {
         uint64 expectedNonce = inboundNonce[srcChainId][srcAddress] + 1;
         if (nonce != expectedNonce) {
-            revert UnexpectedInboundNonce(expectedNonce, nonce);
+            revert Errors.UnexpectedInboundNonce(expectedNonce, nonce);
         }
         inboundNonce[srcChainId][srcAddress] = nonce;
     }

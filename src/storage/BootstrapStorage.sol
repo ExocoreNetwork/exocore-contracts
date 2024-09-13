@@ -148,9 +148,6 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev A mapping of validator names to a boolean indicating whether the name has been used.
     mapping(string name => bool used) public validatorNameInUse;
 
-    /// @dev The (virtual) address for staked ETH.
-    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
     /* -------------------------------------------------------------------------- */
@@ -257,24 +254,6 @@ contract BootstrapStorage is GatewayStorage {
     /// @param _token The address of the token that has been added to the whitelist.
     event WhitelistTokenAdded(address _token);
 
-    /* -------------------------------------------------------------------------- */
-    /*                                   Errors                                   */
-    /* -------------------------------------------------------------------------- */
-
-    /// @dev Indicates an operation failed because the specified vault does not exist.
-    error VaultNotExist();
-
-    /// @dev Indicates that an operation which is not yet supported is requested.
-    error NotYetSupported();
-
-    /// @notice This error is returned when the contract fails to execute a layer zero message due to an error in the
-    /// execution process.
-    /// @dev This error is returned when the execution of a layer zero message fails.
-    /// @param act The action for which the selector or the response function was executed, but failed.
-    /// @param nonce The nonce of the message that failed.
-    /// @param reason The reason for the failure.
-    error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
-
     /// @dev Struct to return detailed information about a token, including its name, symbol, address, decimals, total
     /// supply, and additional metadata for cross-chain operations and contextual data.
     /// @param name The name of the token.
@@ -339,7 +318,7 @@ contract BootstrapStorage is GatewayStorage {
     function _getVault(address token) internal view returns (IVault) {
         IVault vault = tokenToVault[token];
         if (address(vault) == address(0)) {
-            revert VaultNotExist();
+            revert Errors.VaultNotExist();
         }
         return vault;
     }
@@ -353,7 +332,7 @@ contract BootstrapStorage is GatewayStorage {
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision
     function _deployVault(address underlyingToken, uint256 tvlLimit) internal returns (IVault) {
-        if (underlyingToken == VIRTUAL_STAKED_ETH_ADDRESS) {
+        if (underlyingToken == VIRTUAL_NST_ADDRESS) {
             revert Errors.ForbidToDeployVault();
         }
 
