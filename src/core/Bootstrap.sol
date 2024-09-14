@@ -236,7 +236,7 @@ contract Bootstrap is
         if (!isWhitelistedToken[token]) {
             revert Errors.TokenNotWhitelisted(token);
         }
-        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+        if (token == VIRTUAL_NST_ADDRESS) {
             revert Errors.NoTvlLimitForNativeRestaking();
         }
         IVault vault = _getVault(token);

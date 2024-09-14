@@ -31,24 +31,24 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     /// @inheritdoc OAppReceiverUpgradeable
     // This function would call other functions inside this contract through low-level-call
     // slither-disable-next-line reentrancy-no-eth
-    function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
+    function _lzReceive(Origin calldata _origin, bytes calldata message) internal virtual override whenNotPaused {
         if (_origin.srcEid != EXOCORE_CHAIN_ID) {
             revert Errors.UnexpectedSourceChain(_origin.srcEid);
         }
 
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
 
-        Action act = Action(uint8(payload[0]));
+        Action act = Action(uint8(message[0]));
+        bytes calldata payload = message[1:];
         if (act == Action.RESPOND) {
-            _handleResponse(payload);
+            _handleResponse(message);
         } else {
             bytes4 selector_ = _whiteListFunctionSelectors[act];
             if (selector_ == bytes4(0)) {
                 revert Errors.UnsupportedRequest(act);
             }
 
-            (bool success, bytes memory reason) =
-                address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
+            (bool success, bytes memory reason) = address(this).call(abi.encodePacked(selector_, abi.encode(payload)));
             if (!success) {
                 revert Errors.RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
@@ -215,7 +215,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
     function afterReceiveAddWhitelistTokenRequest(bytes calldata payload) public onlyCalledFromThis whenNotPaused {
-        _validatePayloadLength(payload, ADD_TOKEN_WHITELIST_REQUEST_LENGTH, Action.REQUEST_ADD_WHITELIST_TOKEN);
+        if (payload.length != ADD_TOKEN_WHITELIST_REQUEST_LENGTH) {
+            revert Errors.InvalidMessageLength();
+        }
         (address token, uint128 tvlLimit) = _decodeTokenUint128(payload);
         isWhitelistedToken[token] = true;
         whitelistTokens.push(token);

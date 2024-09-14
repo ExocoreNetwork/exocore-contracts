@@ -54,16 +54,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
         );
         // client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-<<<<<<< HEAD
-        emit MessageSent(
-            GatewayStorage.Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE,
-            requestId,
-            outboundNonces[clientChainId]++,
-            requestNativeFee
-        );
-=======
-        emit MessageSent(Action.REQUEST_CLAIM_REWARD, requestId, withdrawRequestNonce, requestNativeFee);
->>>>>>> 68fba84 (feat: use ActionAttributes lib)
+        emit MessageSent(Action.REQUEST_CLAIM_REWARD, requestId, outboundNonces[clientChainId]++, requestNativeFee);
 
         vm.startPrank(withdrawer.addr);
         clientGateway.withdrawRewardFromExocore{value: requestNativeFee}(address(restakeToken), withdrawAmount);
@@ -74,11 +65,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
 
         // exocore gateway should return response message to exocore network layerzero endpoint
         bytes memory withdrawResponsePayload =
-<<<<<<< HEAD
-            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, uint256(1234));
-=======
-            abi.encodePacked(Action.RESPOND, withdrawRequestNonce, true, uint256(1234));
->>>>>>> 68fba84 (feat: use ActionAttributes lib)
+            abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true, uint256(1234));
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
         bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
@@ -92,7 +79,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
         );
         // exocore gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
+        emit MessageSent(Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
 
         // exocore gateway should emit WithdrawRewardResult event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
@@ -101,9 +88,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
         );
 
         vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(
-            GatewayStorage.Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, inboundNonces[exocoreChainId]++
-        );
+        emit MessageExecuted(Action.REQUEST_CLAIM_REWARD, inboundNonces[exocoreChainId]++);
 
         vm.startPrank(relayer.addr);
         exocoreLzEndpoint.lzReceive(
@@ -120,12 +105,10 @@ contract WithdrawRewardTest is ExocoreDeployer {
 
         // client chain gateway should execute the response hook and emit RequestFinished event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(
-            GatewayStorage.Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE, outboundNonces[clientChainId] - 1, true
-        );
+        emit RequestFinished(Action.REQUEST_CLAIM_REWARD, outboundNonces[clientChainId] - 1, true);
 
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
 
         vm.startPrank(relayer.addr);
         clientChainLzEndpoint.lzReceive(

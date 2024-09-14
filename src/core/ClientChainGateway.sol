@@ -129,7 +129,7 @@ contract ClientChainGateway is
             // grave error, should never happen
             revert Errors.TokenNotWhitelisted(token);
         }
-        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+        if (token == VIRTUAL_NST_ADDRESS) {
             // not possible to set a TVL limit for native restaking
             revert Errors.NoTvlLimitForNativeRestaking();
         }

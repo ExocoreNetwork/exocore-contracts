@@ -130,16 +130,9 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         );
 
         vm.expectEmit(address(clientGateway));
-<<<<<<< HEAD
         emit MessageSent(
-            GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
-            requestId,
-            outboundNonces[clientChainId]++,
-            requestNativeFee
+            Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, requestId, outboundNonces[clientChainId]++, requestNativeFee
         );
-=======
-        emit MessageSent(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, requestId, lzNonce, requestNativeFee);
->>>>>>> 68fba84 (feat: use ActionAttributes lib)
 
         vm.startPrank(delegator);
         clientGateway.depositThenDelegateTo{value: requestNativeFee}(
@@ -165,7 +158,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         uint256 delegateAmount
     ) private {
         bytes memory responsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, delegateAmount);
+            abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true, delegateAmount);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, responsePayload);
         bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
@@ -205,14 +198,10 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         );
 
         vm.expectEmit(address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
+        emit MessageSent(Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
 
         vm.expectEmit(address(exocoreGateway));
-        emit DelegateResult(
-            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), operatorAddress, delegateAmount
-        );
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, inboundNonces[exocoreChainId]++);
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, inboundNonces[exocoreChainId]++);
 
         vm.startPrank(relayer);
         exocoreLzEndpoint.lzReceive(
@@ -243,11 +232,9 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         assertEq(actualDelegateAmount, delegateAmount);
 
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(
-            GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, outboundNonces[clientChainId] - 1, true
-        );
+        emit RequestFinished(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, outboundNonces[clientChainId] - 1, true);
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
 
         vm.startPrank(relayer);
         clientChainLzEndpoint.lzReceive(
@@ -263,19 +250,18 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
     function _testFailureResponse(address delegator, address relayer, uint256 delegateAmount) private {
         // we assume delegation failed for some reason
         bool delegateSuccess = false;
-        bytes memory responsePayload = abi.encodePacked(
-            GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, delegateSuccess, delegateAmount
-        );
+        bytes memory responsePayload =
+            abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, delegateSuccess, delegateAmount);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, responsePayload);
         bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
         // request finished with successful deposit and failed delegation
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit RequestFinished(
-            GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, outboundNonces[clientChainId] - 1, delegateSuccess
+            Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, outboundNonces[clientChainId] - 1, delegateSuccess
         );
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
 
         vm.startPrank(relayer);
         clientChainLzEndpoint.lzReceive(

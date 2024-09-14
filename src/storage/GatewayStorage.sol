@@ -47,6 +47,11 @@ contract GatewayStorage {
     /// @param nativeFee The native fee paid for the message.
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
+    /// @notice Emitted when a message is received and successfully executed.
+    /// @param act The action being performed.
+    /// @param nonce The nonce associated with the message.
+    event MessageExecuted(Action indexed act, uint64 nonce);
+
     /// @notice Ensures the provided address is a valid exo Bech32 encoded address.
     /// @param addressToValidate The address to check.
     modifier isValidBech32Address(string calldata addressToValidate) {
@@ -84,16 +89,6 @@ contract GatewayStorage {
             revert Errors.UnexpectedInboundNonce(expectedNonce, nonce);
         }
         inboundNonce[srcChainId][srcAddress] = nonce;
-    }
-
-    /// @dev Validates the payload length, that it matches the expected length.
-    /// @param payload The payload to validate.
-    /// @param expectedLength The expected length of the payload.
-    /// @param action The action that the payload is for.
-    function _validatePayloadLength(bytes calldata payload, uint256 expectedLength, Action action) internal pure {
-        if (payload.length != expectedLength) {
-            revert InvalidRequestLength(action, expectedLength, payload.length);
-        }
     }
 
 }

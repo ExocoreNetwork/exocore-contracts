@@ -112,8 +112,8 @@ contract ExocoreDeployer is Test {
     event NewPacket(uint32, address, bytes32, uint64, bytes);
     event WhitelistTokenAdded(address _token);
     event VaultCreated(address underlyingToken, address vault);
-    event RequestFinished(GatewayStorage.Action indexed action, uint64 indexed requestId, bool indexed success);
-    event MessageExecuted(GatewayStorage.Action indexed act, uint64 nonce);
+    event RequestFinished(Action indexed action, uint64 indexed requestId, bool indexed success);
+    event MessageExecuted(Action indexed act, uint64 nonce);
 
     function setUp() public virtual {
         // the nonces start from 1
@@ -183,9 +183,8 @@ contract ExocoreDeployer is Test {
         for (; outboundNonces[exocoreChainId] < whitelistTokens.length + 1; outboundNonces[exocoreChainId]++) {
             uint256 i = outboundNonces[exocoreChainId] - 1; // only one var in the loop is allowed
             // estimate the fee from the payload
-            payloads[i] = abi.encodePacked(
-                GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i], tvlLimits[i])
-            );
+            payloads[i] =
+                abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i], tvlLimits[i]));
             nativeFee = exocoreGateway.quote(clientChainId, payloads[i]);
             requestIds[i] = generateUID(uint64(i + 1), false);
             // gateway should emit the packet for the outgoing message
@@ -222,7 +221,7 @@ contract ExocoreDeployer is Test {
         vm.expectEmit(address(clientGateway));
         emit WhitelistTokenAdded(address(restakeToken));
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.REQUEST_ADD_WHITELIST_TOKEN, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
@@ -234,7 +233,7 @@ contract ExocoreDeployer is Test {
         vm.expectEmit(address(clientGateway));
         emit WhitelistTokenAdded(VIRTUAL_STAKED_ETH_ADDRESS);
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.REQUEST_ADD_WHITELIST_TOKEN, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
