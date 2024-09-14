@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 import "../../src/core/ExocoreGateway.sol";
 
 import "../../src/interfaces/precompiles/IDelegation.sol";
-import "../../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 
 import "../mocks/AssetsMock.sol";
 import "../mocks/DelegationMock.sol";
@@ -23,8 +23,13 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
     // ExocoreGateway emits these two events after handling the request
     event DepositResult(bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount);
-    event DelegateResult(
-        bool indexed success, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
+    event DelegationRequestReceived(
+        bool indexed accepted,
+        bool indexed isDelegate,
+        bytes32 indexed token,
+        bytes32 delegator,
+        string operator,
+        uint256 amount
     );
 
     // emitted by the mock delegation contract
@@ -103,7 +108,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         uint256 beforeBalanceVault = restakeToken.balanceOf(address(vault));
 
         requestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
+            Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator))),
             bytes(operatorAddress),
@@ -125,12 +130,16 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         );
 
         vm.expectEmit(address(clientGateway));
+<<<<<<< HEAD
         emit MessageSent(
             GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
             requestId,
             outboundNonces[clientChainId]++,
             requestNativeFee
         );
+=======
+        emit MessageSent(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, requestId, lzNonce, requestNativeFee);
+>>>>>>> 68fba84 (feat: use ActionAttributes lib)
 
         vm.startPrank(delegator);
         clientGateway.depositThenDelegateTo{value: requestNativeFee}(
@@ -171,6 +180,16 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             outboundNonces[clientChainId] - 1,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator))),
+            operatorAddress,
+            delegateAmount
+        );
+
+        vm.expectEmit(address(exocoreGateway));
+        emit DelegationRequestReceived(
+            true,
+            true,
+            bytes32(bytes20(address(restakeToken))),
+            bytes32(bytes20(delegator)),
             operatorAddress,
             delegateAmount
         );

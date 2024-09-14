@@ -5,6 +5,8 @@ import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
+
+import {Action} from "../storage/GatewayStorage.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
 import {Errors} from "../libraries/Errors.sol";
@@ -31,7 +33,7 @@ abstract contract NativeRestakingController is
 
     /// @dev Ensures that native restaking is enabled for this contract.
     modifier nativeRestakingEnabled() {
-        if (!isWhitelistedToken[VIRTUAL_STAKED_ETH_ADDRESS]) {
+        if (!isWhitelistedToken[VIRTUAL_NST_ADDRESS]) {
             revert Errors.NativeRestakingControllerNotWhitelisted();
         }
         _;
@@ -101,9 +103,8 @@ abstract contract NativeRestakingController is
         uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
 
         bytes32 validatorPubkey = validatorContainer.getPubkey();
-        bytes memory actionArgs =
-            abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), depositValue);
-        bytes memory encodedRequest = abi.encode(validatorPubkey, msg.sender, depositValue);
+        bytes memory actionArgs = abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), depositValue);
+        bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, depositValue);
         _processRequest(Action.REQUEST_DEPOSIT_NST, actionArgs, encodedRequest);
     }
 
@@ -124,10 +125,8 @@ abstract contract NativeRestakingController is
         if (!partialWithdrawal) {
             // request full withdraw
             bytes32 validatorPubkey = validatorContainer.getPubkey();
-            bytes memory actionArgs = abi.encodePacked(
-                validatorPubkey, bytes32(bytes20(msg.sender)), withdrawalAmount
-            );
-            bytes memory encodedRequest = abi.encode(validatorPubkey, msg.sender, withdrawalAmount);
+            bytes memory actionArgs = abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), withdrawalAmount);
+            bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, withdrawalAmount);
 
             _processRequest(Action.REQUEST_WITHDRAW_NST, actionArgs, encodedRequest);
         }

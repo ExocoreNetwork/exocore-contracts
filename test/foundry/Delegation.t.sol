@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 import "../../src/core/ExocoreGateway.sol";
 
 import "../../src/interfaces/precompiles/IDelegation.sol";
-import "../../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 import "../mocks/DelegationMock.sol";
 import "./ExocoreDeployer.t.sol";
 
@@ -25,11 +25,13 @@ contract DelegateTest is ExocoreDeployer {
 
     string operatorAddress;
 
-    event DelegateResult(
-        bool indexed success, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
-    );
-    event UndelegateResult(
-        bool indexed success, bytes32 indexed token, bytes32 indexed undelegator, string operator, uint256 amount
+    event DelegationRequestReceived(
+        bool indexed accepted,
+        bool indexed isDelegate,
+        bytes32 indexed token,
+        bytes32 delegator,
+        string operator,
+        uint256 amount
     );
     event DelegateRequestProcessed(
         uint32 clientChainLzId,
@@ -90,7 +92,7 @@ contract DelegateTest is ExocoreDeployer {
 
         /// estimate the messaging fee that would be charged from user
         bytes memory delegateRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DELEGATE_TO,
+            Action.REQUEST_DELEGATE_TO,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             bytes(operatorAddress),
@@ -112,7 +114,7 @@ contract DelegateTest is ExocoreDeployer {
         /// clientGateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit MessageSent(
-            GatewayStorage.Action.REQUEST_DELEGATE_TO, requestId, outboundNonces[clientChainId]++, requestNativeFee
+            Action.REQUEST_DELEGATE_TO, requestId, outboundNonces[clientChainId]++, requestNativeFee
         );
 
         /// delegator call clientGateway to send delegation request
@@ -124,7 +126,7 @@ contract DelegateTest is ExocoreDeployer {
         // endpoint
 
         bytes memory delegateResponsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true);
+            abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, delegateResponsePayload);
         bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
@@ -151,11 +153,12 @@ contract DelegateTest is ExocoreDeployer {
 
         /// exocoreGateway should emit MessageSent event after finishing sending response
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
+        emit MessageSent(Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
 
         /// exocoreGateway contract should emit DelegateResult event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit DelegateResult(
+        emit DelegationRequestReceived(
+            true,
             true,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(delegator.addr)),
@@ -189,12 +192,12 @@ contract DelegateTest is ExocoreDeployer {
         /// event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit RequestFinished(
-            GatewayStorage.Action.REQUEST_DELEGATE_TO,
+            Action.REQUEST_DELEGATE_TO,
             outboundNonces[clientChainId] - 1, // request id
             true
         );
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
 
         /// relayer should watch the response message and relay it back to client chain
         vm.startPrank(relayer.addr);
@@ -219,7 +222,7 @@ contract DelegateTest is ExocoreDeployer {
 
         /// estimate the messaging fee that would be charged from user
         bytes memory undelegateRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_UNDELEGATE_FROM,
+            Action.REQUEST_UNDELEGATE_FROM,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             bytes(operatorAddress),
@@ -241,7 +244,7 @@ contract DelegateTest is ExocoreDeployer {
         /// clientGateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit MessageSent(
-            GatewayStorage.Action.REQUEST_UNDELEGATE_FROM, requestId, outboundNonces[clientChainId]++, requestNativeFee
+            Action.REQUEST_UNDELEGATE_FROM, requestId, outboundNonces[clientChainId]++, requestNativeFee
         );
 
         /// delegator call clientGateway to send undelegation request
@@ -253,7 +256,7 @@ contract DelegateTest is ExocoreDeployer {
         // endpoint
 
         bytes memory undelegateResponsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true);
+            abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, undelegateResponsePayload);
         bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
@@ -280,12 +283,13 @@ contract DelegateTest is ExocoreDeployer {
 
         /// exocoreGateway should emit MessageSent event after finishing sending response
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
+        emit MessageSent(Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
 
         /// exocoreGateway contract should emit UndelegateResult event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit UndelegateResult(
+        emit DelegationRequestReceived(
             true,
+            false,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(delegator.addr)),
             operatorAddress,

@@ -3,9 +3,10 @@ pragma solidity ^0.8.19;
 
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+
+import {Errors} from "../libraries/Errors.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {Action} from "../storage/GatewayStorage.sol";
-import {Errors} from "../libraries/Errors.sol";
 
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 

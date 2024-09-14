@@ -24,7 +24,7 @@ import "src/core/ExocoreGateway.sol";
 import {Vault} from "src/core/Vault.sol";
 
 import {ExocoreGatewayStorage} from "src/storage/ExocoreGatewayStorage.sol";
-import {GatewayStorage} from "src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 contract SetUp is Test {
 
@@ -52,7 +52,7 @@ contract SetUp is Test {
     event Paused(address account);
     event Unpaused(address account);
     event ExocorePrecompileError(address indexed precompile, uint64 nonce);
-    event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
+    event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
     function setUp() public virtual {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
@@ -183,8 +183,7 @@ contract LzReceive is SetUp {
     uint256 constant WITHDRAWAL_AMOUNT = 123;
     string operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
 
-    event AssociateOperatorResult(bool indexed success, bytes32 indexed staker, bytes operator);
-    event DissociateOperatorResult(bool indexed success, bytes32 indexed staker);
+    event AssociationResult(bool indexed success, bool indexed isAssociate, bytes32 indexed staker);
 
     function setUp() public override {
         super.setUp();
@@ -206,7 +205,7 @@ contract LzReceive is SetUp {
             abi.encodePacked(bytes32(bytes20(withdrawer.addr))),
             uint256(WITHDRAWAL_AMOUNT)
         );
-        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, payload);
+        bytes memory msg_ = abi.encodePacked(Action.REQUEST_WITHDRAW_LST, payload);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit ExocorePrecompileError(ASSETS_PRECOMPILE_ADDRESS, uint64(1));
@@ -225,10 +224,10 @@ contract LzReceive is SetUp {
         Player memory staker = players[0];
 
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))), bytes(operator));
-        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_ASSOCIATE_OPERATOR, payload);
+        bytes memory msg_ = abi.encodePacked(Action.REQUEST_ASSOCIATE_OPERATOR, payload);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit AssociateOperatorResult(true, bytes32(bytes20(staker.addr)), bytes(operator));
+        emit AssociationResult(true, true, bytes32(bytes20(staker.addr)));
 
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(
@@ -247,10 +246,10 @@ contract LzReceive is SetUp {
         string memory anotherOperator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f811111";
 
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))), bytes(anotherOperator));
-        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_ASSOCIATE_OPERATOR, payload);
+        bytes memory msg_ = abi.encodePacked(Action.REQUEST_ASSOCIATE_OPERATOR, payload);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit AssociateOperatorResult(false, bytes32(bytes20(staker.addr)), bytes(anotherOperator));
+        emit AssociationResult(false, true, bytes32(bytes20(staker.addr)));
 
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(
@@ -275,7 +274,7 @@ contract LzReceive is SetUp {
         uint32 anotherChainId = 123;
 
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))), bytes(anotherOperator));
-        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_ASSOCIATE_OPERATOR, payload);
+        bytes memory msg_ = abi.encodePacked(Action.REQUEST_ASSOCIATE_OPERATOR, payload);
 
         vm.startPrank(exocoreValidatorSet.addr);
         exocoreGateway.registerOrUpdateClientChain(
@@ -289,7 +288,7 @@ contract LzReceive is SetUp {
         vm.stopPrank();
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit AssociateOperatorResult(true, bytes32(bytes20(staker.addr)), bytes(anotherOperator));
+        emit AssociationResult(true, true, bytes32(bytes20(staker.addr)));
 
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(
@@ -312,10 +311,10 @@ contract LzReceive is SetUp {
         Player memory staker = players[0];
 
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))));
-        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_DISSOCIATE_OPERATOR, payload);
+        bytes memory msg_ = abi.encodePacked(Action.REQUEST_DISSOCIATE_OPERATOR, payload);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit DissociateOperatorResult(true, bytes32(bytes20(staker.addr)));
+        emit AssociationResult(true, false, bytes32(bytes20(staker.addr)));
 
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(
@@ -331,10 +330,10 @@ contract LzReceive is SetUp {
         Player memory staker = players[0];
 
         bytes memory payload = abi.encodePacked(abi.encodePacked(bytes32(bytes20(staker.addr))));
-        bytes memory msg_ = abi.encodePacked(GatewayStorage.Action.REQUEST_DISSOCIATE_OPERATOR, payload);
+        bytes memory msg_ = abi.encodePacked(Action.REQUEST_DISSOCIATE_OPERATOR, payload);
 
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit DissociateOperatorResult(false, bytes32(bytes20(staker.addr)));
+        emit AssociationResult(false, false, bytes32(bytes20(staker.addr)));
 
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(
@@ -774,8 +773,7 @@ contract MarkBootstrap is SetUp {
 
     function setUp() public virtual override {
         super.setUp();
-        nativeFee =
-            exocoreGateway.quote(clientChainId, abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""));
+        nativeFee = exocoreGateway.quote(clientChainId, abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""));
     }
 
     function test_Success() public {

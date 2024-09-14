@@ -6,7 +6,7 @@ import "../../src/core/ExocoreGateway.sol";
 import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
 import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
 
-import "../../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
 
@@ -20,9 +20,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
     using stdStorage for StdStorage;
 
     event DepositResult(bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount);
-    event WithdrawPrincipalResult(
-        bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount
-    );
+    event WithdrawalResult(bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount);
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event CapsuleCreated(address owner, address capsule);
     event StakedWithCapsule(address staker, address capsule);
@@ -78,7 +76,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         // estimate l0 relay fee that the user should pay
         bytes memory depositRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
+            Action.REQUEST_DEPOSIT_LST,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(depositor.addr)),
             depositAmount
@@ -171,7 +169,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         // estimate l0 relay fee that the user should pay
         bytes memory withdrawRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            Action.REQUEST_WITHDRAW_LST,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(withdrawer.addr)),
             withdrawAmount
@@ -227,7 +225,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             withdrawResponseNativeFee
         );
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit WithdrawPrincipalResult(
+        emit WithdrawalResult(
             true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(withdrawer.addr)), withdrawAmount
         );
         vm.expectEmit(address(exocoreGateway));
@@ -330,10 +328,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         }
 
         bytes memory depositRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
-            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
-            bytes32(bytes20(depositor.addr)),
-            depositAmount
+            Action.REQUEST_DEPOSIT_NST, _getPubkey(validatorContainer), bytes32(bytes20(depositor.addr)), depositAmount
         );
         uint256 depositRequestNativeFee = clientGateway.quote(depositRequestPayload);
         bytes32 depositRequestId = generateUID(outboundNonces[clientChainId], true);
@@ -505,8 +500,8 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
         }
         bytes memory withdrawRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
-            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
+            Action.REQUEST_WITHDRAW_NST,
+            _getPubkey(validatorContainer),
             bytes32(bytes20(withdrawer.addr)),
             withdrawalAmount
         );
@@ -565,7 +560,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         // exocore gateway should emit WithdrawPrincipalResult event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit WithdrawPrincipalResult(
+        emit WithdrawalResult(
             true, bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(withdrawer.addr)), withdrawalAmount
         );
 

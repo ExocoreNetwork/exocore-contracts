@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Action, GatewayStorage} from "./GatewayStorage.sol";
 import {Errors} from "../libraries/Errors.sol";
+import {Action, GatewayStorage} from "./GatewayStorage.sol";
 
 /// @title ExocoreGatewayStorage
 /// @notice Storage used by the ExocoreGateway contract.
@@ -95,19 +95,23 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param token The address of the token.
     /// @param withdrawer The address of the withdrawer.
     /// @param amount The amount of the token withdrawn.
-    event WithdrawalResult(
-        bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount
-    );
+    event WithdrawalResult(bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount);
 
     /// @notice Emitted upon delegation.
-    /// @param accepted Whether the delegation request was accepted, true if it is accepted and being queued, false if it is rejected.
+    /// @param accepted Whether the delegation request was accepted, true if it is accepted and being queued, false if
+    /// it is rejected.
     /// @param isDelegate Whether the delegation request is a delegate request or an undelegate request.
     /// @param token The address of the token.
     /// @param delegator The address of the delegator.
     /// @param operator The Exo account address of the operator.
     /// @param amount The amount of the token delegated.
     event DelegationRequestReceived(
-        bool indexed accepted, bool indexed isDelegate, bytes32 indexed token, bytes32 delegator, string operator, uint256 amount
+        bool indexed accepted,
+        bool indexed isDelegate,
+        bytes32 indexed token,
+        bytes32 delegator,
+        string operator,
+        uint256 amount
     );
 
     /// @notice Emitted upon handling associating operator request

@@ -27,12 +27,12 @@ contract DelegationMock is IDelegation {
         uint256 opAmount
     );
 
-    function delegateToThroughClientChain(
+    function delegate(
         uint32 clientChainLzId,
         uint64 lzNonce,
-        bytes memory assetsAddress,
-        bytes memory stakerAddress,
-        bytes memory operatorAddr,
+        bytes calldata assetsAddress,
+        bytes calldata stakerAddress,
+        bytes calldata operatorAddr,
         uint256 opAmount
     ) external returns (bool success) {
         if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainLzId)) {
@@ -49,12 +49,12 @@ contract DelegationMock is IDelegation {
         return true;
     }
 
-    function undelegateFromThroughClientChain(
+    function undelegate(
         uint32 clientChainLzId,
         uint64 lzNonce,
-        bytes memory assetsAddress,
-        bytes memory stakerAddress,
-        bytes memory operatorAddr,
+        bytes calldata assetsAddress,
+        bytes calldata stakerAddress,
+        bytes calldata operatorAddr,
         uint256 opAmount
     ) external returns (bool success) {
         if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainLzId)) {
@@ -74,7 +74,7 @@ contract DelegationMock is IDelegation {
         return true;
     }
 
-    function associateOperatorWithStaker(uint32 clientChainId, bytes memory staker, bytes memory operator)
+    function associateOperatorWithStaker(uint32 clientChainId, bytes calldata staker, bytes calldata operator)
         external
         returns (bool success)
     {
@@ -89,7 +89,10 @@ contract DelegationMock is IDelegation {
         return true;
     }
 
-    function dissociateOperatorFromStaker(uint32 clientChainId, bytes memory staker) external returns (bool success) {
+    function dissociateOperatorFromStaker(uint32 clientChainId, bytes calldata staker)
+        external
+        returns (bool success)
+    {
         if (!AssetsMock(ASSETS_PRECOMPILE_ADDRESS).isRegisteredChain(clientChainId)) {
             return false;
         }
@@ -102,7 +105,7 @@ contract DelegationMock is IDelegation {
         return true;
     }
 
-    function getDelegateAmount(address delegator, string memory operator, uint32 clientChainLzId, address token)
+    function getDelegateAmount(address delegator, string calldata operator, uint32 clientChainLzId, address token)
         public
         view
         returns (uint256)
@@ -110,7 +113,7 @@ contract DelegationMock is IDelegation {
         return delegateTo[_addressToBytes(delegator)][bytes(operator)][clientChainLzId][_addressToBytes(token)];
     }
 
-    function getAssociatedOperator(uint32 clientChainId, bytes memory staker)
+    function getAssociatedOperator(uint32 clientChainId, bytes calldata staker)
         external
         view
         returns (bytes memory operator)

@@ -47,12 +47,6 @@ contract GatewayStorage {
     /// @param nativeFee The native fee paid for the message.
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
-    /// @notice Thrown when the request length is invalid.
-    /// @param act The action that failed.
-    /// @param expectedLength The expected length of the request.
-    /// @param actualLength The actual length of the request.
-    error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
-
     /// @notice Ensures the provided address is a valid exo Bech32 encoded address.
     /// @param addressToValidate The address to check.
     modifier isValidBech32Address(string calldata addressToValidate) {

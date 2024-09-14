@@ -23,9 +23,12 @@ interface IAssets {
     /// @param assetsAddress The client chain asset address
     /// @param stakerAddress The staker address
     /// @param opAmount The amount to deposit
-    function depositLST(uint32 clientChainID, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
-        external
-        returns (bool success, uint256 latestAssetState);
+    function depositLST(
+        uint32 clientChainID,
+        bytes calldata assetsAddress,
+        bytes calldata stakerAddress,
+        uint256 opAmount
+    ) external returns (bool success, uint256 latestAssetState);
 
     /// TRANSACTIONS
     /// @dev deposit the client chain assets, native staking tokens, for the staker,
@@ -37,9 +40,12 @@ interface IAssets {
     /// @param validatorPubkey The validator's pubkey
     /// @param stakerAddress The staker address
     /// @param opAmount The amount to deposit
-    function depositNST(uint32 clientChainID, bytes memory validatorPubkey, bytes memory stakerAddress, uint256 opAmount)
-        external
-        returns (bool success, uint256 latestAssetState);
+    function depositNST(
+        uint32 clientChainID,
+        bytes calldata validatorPubkey,
+        bytes calldata stakerAddress,
+        uint256 opAmount
+    ) external returns (bool success, uint256 latestAssetState);
 
     /// @dev withdraw LST To the staker, that will change the state in withdraw module
     /// Note that this address cannot be a module account.
@@ -51,8 +57,8 @@ interface IAssets {
     /// @param opAmount The withdraw amount
     function withdrawLST(
         uint32 clientChainID,
-        bytes memory assetsAddress,
-        bytes memory withdrawAddress,
+        bytes calldata assetsAddress,
+        bytes calldata withdrawAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
 
@@ -66,8 +72,8 @@ interface IAssets {
     /// @param opAmount The withdraw amount
     function withdrawNST(
         uint32 clientChainID,
-        bytes memory validatorPubkey,
-        bytes memory withdrawAddress,
+        bytes calldata validatorPubkey,
+        bytes calldata withdrawAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
 

@@ -4,6 +4,8 @@ pragma solidity ^0.8.19;
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
 
 import {IVault} from "../interfaces/IVault.sol";
+
+import {Action} from "../storage/GatewayStorage.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -90,7 +92,7 @@ abstract contract LSTRestakingController is
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
-        _processRequest(Action.REQUEST_DEPOSIT_LST_THEN_DELEGATE, actionArgs, encodedRequest);
+        _processRequest(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, actionArgs, encodedRequest);
     }
 
 }

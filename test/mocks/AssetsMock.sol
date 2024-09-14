@@ -7,6 +7,7 @@ contract AssetsMock is IAssets {
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principalBalances;
+    mapping(bytes => mapping(bytes => bool)) public inValidatorSet;
 
     uint32[] internal chainIds;
     mapping(uint32 chainId => bool registered) public isRegisteredChain;
@@ -17,25 +18,40 @@ contract AssetsMock is IAssets {
         chainIds.push(clientChainId);
     }
 
-    function depositTo(uint32 clientChainLzId, bytes memory assetsAddress, bytes memory stakerAddress, uint256 opAmount)
-        external
-        returns (bool success, uint256 latestAssetState)
-    {
+    function depositLST(
+        uint32 clientChainLzId,
+        bytes calldata assetsAddress,
+        bytes calldata stakerAddress,
+        uint256 opAmount
+    ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
         require(stakerAddress.length == 32, "invalid staker address");
-        if (bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))) {
-            require(isRegisteredToken[clientChainLzId][assetsAddress], "the token is not registered before");
-        }
+        require(bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), "only support LST");
+        require(isRegisteredToken[clientChainLzId][assetsAddress], "the token is not registered before");
 
         principalBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
 
         return (true, principalBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
-    function withdrawPrincipal(
+    function depositNST(
         uint32 clientChainLzId,
-        bytes memory assetsAddress,
-        bytes memory withdrawer,
+        bytes calldata validatorPubkey,
+        bytes calldata stakerAddress,
+        uint256 opAmount
+    ) external returns (bool success, uint256 latestAssetState) {
+        require(stakerAddress.length == 32, "invalid staker address");
+
+        bytes memory nstAddress = abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
+        principalBalances[clientChainLzId][nstAddress][stakerAddress] += opAmount;
+        inValidatorSet[stakerAddress][validatorPubkey] = true;
+        return (true, principalBalances[clientChainLzId][nstAddress][stakerAddress]);
+    }
+
+    function withdrawLST(
+        uint32 clientChainLzId,
+        bytes calldata assetsAddress,
+        bytes calldata withdrawer,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
@@ -49,6 +65,21 @@ contract AssetsMock is IAssets {
         principalBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
 
         return (true, principalBalances[clientChainLzId][assetsAddress][withdrawer]);
+    }
+
+    function withdrawNST(
+        uint32 clientChainLzId,
+        bytes calldata validatorPubkey,
+        bytes calldata withdrawer,
+        uint256 opAmount
+    ) external returns (bool success, uint256 latestAssetState) {
+        require(withdrawer.length == 32, "invalid staker address");
+
+        bytes memory nstAddress = abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
+        require(opAmount <= principalBalances[clientChainLzId][nstAddress][withdrawer], "withdraw amount overflow");
+        principalBalances[clientChainLzId][nstAddress][withdrawer] -= opAmount;
+        inValidatorSet[withdrawer][validatorPubkey] = false;
+        return (true, principalBalances[clientChainLzId][nstAddress][withdrawer]);
     }
 
     function getClientChains() external view returns (bool, uint32[] memory) {

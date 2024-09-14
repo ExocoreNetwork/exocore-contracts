@@ -22,7 +22,9 @@ import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
 import {Errors} from "../libraries/Errors.sol";
+
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 
 /// @title Bootstrap
@@ -213,7 +215,7 @@ contract Bootstrap is
             // whitelist, it means that it is missing a vault. we do not need to check for a
             // pre-existing vault. however, we still do ensure that the vault is not deployed
             // for restaking natively staked ETH.
-            if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
+            if (token != VIRTUAL_NST_ADDRESS) {
                 // setting a tvlLimit higher than the supply is permitted.
                 // it allows for some margin for minting of the token, and lets us use
                 // a value of type(uint256).max to indicate no limit.
@@ -438,7 +440,7 @@ contract Bootstrap is
     /// @inheritdoc ILSTRestakingController
     /// @dev This is not yet supported.
     function withdrawRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
-        revert NotYetSupported();
+        revert Errors.NotYetSupported();
     }
 
     /// @inheritdoc IBaseRestakingController

@@ -25,8 +25,8 @@ interface IClaimReward {
     /// @param opAmount The reward amount
     function claimReward(
         uint32 clientChainLzId,
-        bytes memory assetsAddress,
-        bytes memory withdrawRewardAddress,
+        bytes calldata assetsAddress,
+        bytes calldata withdrawRewardAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
 

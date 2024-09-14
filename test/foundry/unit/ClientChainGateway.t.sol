@@ -25,12 +25,13 @@ import "src/storage/ClientChainGatewayStorage.sol";
 import "src/core/ExoCapsule.sol";
 import "src/core/ExocoreGateway.sol";
 import {Vault} from "src/core/Vault.sol";
-import "src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
 import "src/interfaces/IExoCapsule.sol";
 import "src/interfaces/IVault.sol";
 
+import {Errors} from "src/libraries/Errors.sol";
 import "src/utils/BeaconProxyBytecode.sol";
 
 contract SetUp is Test {
@@ -67,7 +68,7 @@ contract SetUp is Test {
 
     event Paused(address account);
     event Unpaused(address account);
-    event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
+    event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
     function setUp() public virtual {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
@@ -331,7 +332,7 @@ contract WithdrawNonBeaconChainETHFromCapsule is SetUp {
         address payable userWithoutCapsule = payable(address(0x123));
 
         vm.prank(userWithoutCapsule);
-        vm.expectRevert(ClientChainGatewayStorage.CapsuleNotExist.selector);
+        vm.expectRevert(Errors.CapsuleNotExist.selector);
         clientGateway.withdrawNonBeaconChainETHFromCapsule(userWithoutCapsule, withdrawAmount);
     }
 
@@ -394,7 +395,7 @@ contract WithdrawalPrincipalFromExocore is SetUp {
     function test_revert_withdrawVirtualStakedETH() public {
         // Try to withdraw VIRTUAL_STAKED_ETH
         vm.prank(user);
-        vm.expectRevert(BootstrapStorage.VaultNotExist.selector);
+        vm.expectRevert(Errors.VaultNotExist.selector);
         clientGateway.withdrawPrincipalFromExocore(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
     }
 

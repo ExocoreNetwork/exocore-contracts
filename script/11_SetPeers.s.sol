@@ -2,7 +2,7 @@ pragma solidity ^0.8.19;
 
 import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ExocoreGateway} from "../src/core/ExocoreGateway.sol";
-import {GatewayStorage} from "../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
 import {BaseScript} from "./BaseScript.sol";
 import "forge-std/Script.sol";
@@ -51,8 +51,7 @@ contract SetPeersAndUpgrade is BaseScript {
 
         vm.selectFork(exocore);
         vm.startBroadcast(exocoreValidatorSet.privateKey);
-        uint256 nativeFee =
-            exocoreGateway.quote(clientChainId, abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""));
+        uint256 nativeFee = exocoreGateway.quote(clientChainId, abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""));
         exocoreGateway.markBootstrap{value: nativeFee}(clientChainId);
     }
 

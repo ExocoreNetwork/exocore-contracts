@@ -6,6 +6,7 @@ import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {MessagingFee, MessagingReceipt, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
@@ -40,7 +41,7 @@ abstract contract BaseRestakingController is
         nonReentrant
     {
         require(recipient != address(0), "BaseRestakingController: recipient address cannot be empty or zero address");
-        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+        if (token == VIRTUAL_NST_ADDRESS) {
             IExoCapsule capsule = _getCapsule(msg.sender);
             capsule.withdraw(amount, payable(recipient));
         } else {

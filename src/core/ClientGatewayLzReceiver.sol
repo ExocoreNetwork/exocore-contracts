@@ -3,8 +3,11 @@ pragma solidity ^0.8.19;
 
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {IVault} from "../interfaces/IVault.sol";
+
+import {ActionAttributes} from "../libraries/ActionAttributes.sol";
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 
 import {Errors} from "../libraries/Errors.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
@@ -15,29 +18,7 @@ import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/
 /// @dev It is abstract because it does not call the base contract's constructor.
 abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUpgradeable, ClientChainGatewayStorage {
 
-    /// @dev Thrown when the response is unsupported, that is, no hook has been registered for it.
-    /// @param act The action that was unsupported.
-    error UnsupportedResponse(Action act);
-
-    /// @dev Thrown when the response received is unexpected, that is, the request payload for the id cannot be
-    /// retrieved.
-    /// @param nonce The nonce of the request.
-    error UnexpectedResponse(uint64 nonce);
-
-    /// @dev Thrown when deposit fails on the Exocore end.
-    /// @param token The token address.
-    /// @param depositor The depositor address.
-    error DepositShouldNotFailOnExocore(address token, address depositor);
-
-    /// @dev Thrown when the whitelist tokens length is invalid.
-    /// @param expectedLength The expected length of the request payload.
-    /// @param actualLength The actual length of the request payload.
-    error InvalidAddWhitelistTokensRequest(uint256 expectedLength, uint256 actualLength);
-
-    /// @notice Emitted when withdrawal fails on the Exocore end.
-    /// @param token The token address.
-    /// @param withdrawer The withdrawer address.
-    event WithdrawFailedOnExocore(address indexed token, address indexed withdrawer);
+    using ActionAttributes for Action;
 
     /// @dev Ensure that the function is called only from this contract.
     modifier onlyCalledFromThis() {
@@ -52,7 +33,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     // slither-disable-next-line reentrancy-no-eth
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override whenNotPaused {
         if (_origin.srcEid != EXOCORE_CHAIN_ID) {
-            revert UnexpectedSourceChain(_origin.srcEid);
+            revert Errors.UnexpectedSourceChain(_origin.srcEid);
         }
 
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
@@ -63,13 +44,13 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         } else {
             bytes4 selector_ = _whiteListFunctionSelectors[act];
             if (selector_ == bytes4(0)) {
-                revert UnsupportedRequest(act);
+                revert Errors.UnsupportedRequest(act);
             }
 
             (bool success, bytes memory reason) =
                 address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
             if (!success) {
-                revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
+                revert Errors.RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
         }
         emit MessageExecuted(act, _origin.nonce);
@@ -99,34 +80,28 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         bool success = false;
         uint256 updatedBalance;
 
-        if (_expectBasicResponse(requestAct)) {
+        if (requestAct.expectBasicResponse()) {
             success = _decodeBasicResponse(response);
-        } else if (_expectBalanceResponse(requestAct)) {
+        } else if (requestAct.expectBalanceResponse()) {
             (address token, address staker,, uint256 amount) = _decodeCachedRequest(requestAct, cachedRequest);
             (success, updatedBalance) = _decodeBalanceResponse(response);
 
-            if (_isPrincipalType(requestAct)) {
-                // we assume deposit request must always be successful, thus we should always update balance for deposit
-                // request
-                // Notice: Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO is a special operation that is not atomic, since
-                // deposit should always be successful while delegate could fail for some cases
-                if (success || _isDeposit(requestAct)) {
+            if (requestAct.isPrincipalType()) {
+                if (success || requestAct.isDeposit()) {
                     _updatePrincipalAssetState(requestAct, token, staker, amount, updatedBalance);
                 }
             } else {
-                // otherwise this is an operation aimed at reward since Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE is
-                // the only asset operation request that deals with reward instead of principal
                 if (success) {
                     IVault vault = _getVault(token);
 
                     vault.updateRewardBalance(staker, updatedBalance);
-                    if (_isWithdrawal(requestAct)) {
+                    if (requestAct.isWithdrawal()) {
                         vault.updateWithdrawableBalance(staker, 0, amount);
                     }
                 }
             }
         } else {
-            revert UnsupportedResponse(requestAct);
+            revert Errors.UnsupportedResponse(requestAct);
         }
 
         delete _registeredRequestActions[requestId];
@@ -149,69 +124,11 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
 
         bytes memory cachedRequest = _registeredRequests[requestId];
         if (cachedRequest.length == 0) {
-            revert UnexpectedResponse(requestId);
+            revert Errors.UnexpectedResponse(requestId);
         }
         Action requestAct = _registeredRequestActions[requestId];
 
         return (requestId, requestAct, cachedRequest);
-    }
-
-    /// @dev Checks if the action is an asset operation request.
-    /// @param action The action to check.
-    /// @return True if the action is an asset operation request, false otherwise.
-    function _isAssetOperationRequest(Action action) internal pure returns (bool) {
-        return action == Action.REQUEST_DEPOSIT || action == Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE
-            || action == Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE;
-    }
-
-    /// @dev Checks if the action is a staking operation request.
-    /// @param action The action to check.
-    /// @return True if the action is a staking operation request, false otherwise.
-    function _isStakingOperationRequest(Action action) internal pure returns (bool) {
-        return action == Action.REQUEST_DELEGATE_TO || action == Action.REQUEST_UNDELEGATE_FROM
-            || action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO;
-    }
-
-    /// @dev Checks if the action is a basic response.
-    /// @param action The action to check.
-    /// @return True if the action is a basic response, false otherwise.
-    // Basic response only includes request execution status, no other informations like balance update
-    // and it is typically the response of a staking only operations.
-    function _expectBasicResponse(Action action) internal pure returns (bool) {
-        return action == Action.REQUEST_DELEGATE_TO || action == Action.REQUEST_UNDELEGATE_FROM;
-    }
-
-    /// @dev Checks if the action is a balance response.
-    /// @param action The action to check.
-    /// @return True if the action is a balance response, false otherwise.
-    // Balance response includes not only request execution status, but also the balance update informations,
-    // so it is typically the response of an asset operation.
-    function _expectBalanceResponse(Action action) internal pure returns (bool) {
-        return action == Action.REQUEST_DEPOSIT || action == Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE
-            || action == Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE || action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO;
-    }
-
-    /// @dev Checks if the action is a principal type.
-    /// @param action The action to check.
-    /// @return True if the action is a principal type, false otherwise.
-    function _isPrincipalType(Action action) internal pure returns (bool) {
-        return action == Action.REQUEST_DEPOSIT || action == Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE
-            || action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO;
-    }
-
-    /// @dev Checks if the action is a withdrawal (both principal and reward).
-    /// @param action The action to check.
-    /// @return True if the action is a withdrawal, false otherwise.
-    function _isWithdrawal(Action action) internal pure returns (bool) {
-        return action == Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE
-            || action == Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE;
-    }
-
-    /// @dev Checks if the action is a deposit.
-    /// @param action The action to check.
-    /// @return True if the action is a deposit, false otherwise.
-    function _isDeposit(Action action) internal pure returns (bool) {
-        return action == Action.REQUEST_DEPOSIT || action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO;
     }
 
     /// @dev Decodes the cached request.
@@ -226,12 +143,12 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         pure
         returns (address token, address staker, string memory operator, uint256 amount)
     {
-        if (_isAssetOperationRequest(requestAct)) {
+        if (requestAct.isAssetOperationRequest()) {
             (token, staker, amount) = abi.decode(cachedRequest, (address, address, uint256));
-        } else if (_isStakingOperationRequest(requestAct)) {
+        } else if (requestAct.isStakingOperationRequest()) {
             (token, staker, operator, amount) = abi.decode(cachedRequest, (address, address, string, uint256));
         } else {
-            revert UnsupportedRequest(requestAct);
+            revert Errors.UnsupportedRequest(requestAct);
         }
 
         return (token, staker, operator, amount);
@@ -274,18 +191,18 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         uint256 amount,
         uint256 updatedBalance
     ) internal {
-        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+        if (token == VIRTUAL_NST_ADDRESS) {
             IExoCapsule capsule = _getCapsule(staker);
 
             capsule.updatePrincipalBalance(updatedBalance);
-            if (_isWithdrawal(requestAct)) {
+            if (requestAct.isWithdrawal()) {
                 capsule.updateWithdrawableBalance(amount);
             }
         } else {
             IVault vault = _getVault(token);
 
             vault.updatePrincipalBalance(staker, updatedBalance);
-            if (_isWithdrawal(requestAct)) {
+            if (requestAct.isWithdrawal()) {
                 vault.updateWithdrawableBalance(staker, amount, 0);
             }
         }
@@ -305,7 +222,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         // since tokens cannot be removed from the whitelist, it is not possible for a vault
         // to already exist. however, we should still ensure that a vault is not deployed for
         // restaking native staked eth. in this case, the tvlLimit is ignored.
-        if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
+        if (token != VIRTUAL_NST_ADDRESS) {
             _deployVault(token, uint256(tvlLimit));
         }
         emit WhitelistTokenAdded(token);

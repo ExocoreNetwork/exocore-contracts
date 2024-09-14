@@ -123,7 +123,7 @@ library Errors {
     /// @dev Bootstrap: validator name length is zero
     error BootstrapValidatorNameLengthZero();
 
-        /// @dev Indicates an operation failed because the specified vault does not exist.
+    /// @dev Indicates an operation failed because the specified vault does not exist.
     error VaultNotExist();
 
     /// @dev Indicates that an operation which is not yet supported is requested.
@@ -165,6 +165,30 @@ library Errors {
 
     /// @dev ClientChainLzReceiver: could only be called from this contract itself with low level call
     error ClientGatewayLzReceiverOnlyCalledFromThis();
+
+    /// @dev Thrown when the response is unsupported, that is, no hook has been registered for it.
+    /// @param act The action that was unsupported.
+    error UnsupportedResponse(Action act);
+
+    /// @dev Thrown when the response received is unexpected, that is, the request payload for the id cannot be
+    /// retrieved.
+    /// @param nonce The nonce of the request.
+    error UnexpectedResponse(uint64 nonce);
+
+    /// @dev Thrown when deposit fails on the Exocore end.
+    /// @param token The token address.
+    /// @param depositor The depositor address.
+    error DepositShouldNotFailOnExocore(address token, address depositor);
+
+    /// @dev Thrown when the whitelist tokens length is invalid.
+    /// @param expectedLength The expected length of the request payload.
+    /// @param actualLength The actual length of the request payload.
+    error InvalidAddWhitelistTokensRequest(uint256 expectedLength, uint256 actualLength);
+
+    /// @notice Emitted when withdrawal fails on the Exocore end.
+    /// @param token The token address.
+    /// @param withdrawer The withdrawer address.
+    event WithdrawFailedOnExocore(address indexed token, address indexed withdrawer);
 
     ///////////////////////////////
     //  CustomProxyAdmin Errors  //

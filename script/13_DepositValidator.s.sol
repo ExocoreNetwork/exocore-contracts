@@ -5,7 +5,7 @@ import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
-import "../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
@@ -74,7 +74,7 @@ contract DepositScript is BaseScript {
 
         vm.startBroadcast(depositor.privateKey);
         bytes memory msg_ = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
+            Action.REQUEST_DEPOSIT_LST,
             abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))),
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
             uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI

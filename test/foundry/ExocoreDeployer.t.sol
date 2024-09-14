@@ -19,7 +19,7 @@ import "../../src/core/ClientChainGateway.sol";
 import "../../src/core/ExoCapsule.sol";
 import "../../src/core/ExocoreGateway.sol";
 import {Vault} from "../../src/core/Vault.sol";
-import "src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 
 import {IVault} from "../../src/interfaces/IVault.sol";
 
@@ -108,7 +108,7 @@ contract ExocoreDeployer is Test {
         address addr;
     }
 
-    event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
+    event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
     event NewPacket(uint32, address, bytes32, uint64, bytes);
     event WhitelistTokenAdded(address _token);
     event VaultCreated(address underlyingToken, address vault);
@@ -199,7 +199,7 @@ contract ExocoreDeployer is Test {
             );
             vm.expectEmit(address(exocoreGateway));
             emit MessageSent(
-                GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN,
+                Action.REQUEST_ADD_WHITELIST_TOKEN,
                 requestIds[i],
                 uint64(i) + 1, // nonce
                 nativeFee
