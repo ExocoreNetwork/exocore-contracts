@@ -45,33 +45,30 @@ interface IExocoreGateway is IOAppReceiver, IOAppCore {
     /// @param clientChainId The LayerZero chain id of the client chain.
     /// @param token The token address to be whitelisted.
     /// @param decimals The decimals of the token.
-    /// @param tvlLimit The TVL limit of the token.
     /// @param name The name of the token.
     /// @param metaData The meta information of the token.
     /// @param oracleInfo The oracle information of the token.
+    /// @param tvlLimit The TVL limit of the token to set on the client chain.
     /// @dev The chain must be registered before adding tokens.
     /// @dev This function is payable because it sends a message to the client chain.
-    /// @dev Previously, we tried to use this function for multiple tokens, but that
-    ///      results in too many local variables (stack too deep).
+    /// @dev The tvlLimit is a `uint128` so that it can work on Solana easily. Within this uint,
+    /// we can fit 1 trillion tokens with 18 decimals.
     function addWhitelistToken(
         uint32 clientChainId,
         bytes32 token,
         uint8 decimals,
-        uint256 tvlLimit,
         string calldata name,
         string calldata metaData,
-        string calldata oracleInfo
+        string calldata oracleInfo,
+        uint128 tvlLimit
     ) external payable;
 
     /// @notice Updates the parameters for a whitelisted token on the client chain.
     /// @param clientChainId The LayerZero chain id of the client chain.
-    /// @param token The token address to be updated.
-    /// @param tvlLimit The new TVL limit of the token.
+    /// @param token The address of the token to be updated.
     /// @param metaData The new meta information of the token.
     /// @dev The token must exist in the whitelist before updating.
-    /// @dev Since this function does not send a cross chain message, it is not payable.
-    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 tvlLimit, string calldata metaData)
-        external;
+    function updateWhitelistToken(uint32 clientChainId, bytes32 token, string calldata metaData) external;
 
     /// @notice Marks the network as bootstrapped, on the client chain.
     /// @dev Causes an upgrade of the Bootstrap contract to the ClientChainGateway contract.

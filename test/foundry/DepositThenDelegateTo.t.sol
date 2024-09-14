@@ -45,8 +45,6 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         deal(delegator, 1e22);
         deal(address(exocoreGateway), 1e22);
 
-        uint64 requestLzNonce = 1;
-        uint64 responseLzNonce = 3; // 2 tokens are whitelisted, 3 is response
         uint256 delegateAmount = 10_000;
 
         // before all operations we should add whitelist tokens
@@ -62,18 +60,9 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         restakeToken.approve(address(vault), delegateAmount);
         vm.stopPrank();
 
-        (bytes32 requestId, bytes memory requestPayload) =
-            _testRequest(delegator, operatorAddress, requestLzNonce, delegateAmount);
-        _testResponse(
-            requestId,
-            requestPayload,
-            delegator,
-            relayer,
-            operatorAddress,
-            requestLzNonce,
-            responseLzNonce,
-            delegateAmount
-        );
+        (bytes32 requestId, bytes memory requestPayload) = _testRequest(delegator, operatorAddress, delegateAmount);
+        _testResponse(requestId, requestPayload, delegator, relayer, operatorAddress, delegateAmount);
+        _validateNonces();
     }
 
     function test_BalanceUpdatedWhen_DepositThenDelegateToResponseNotSuccess() public {
@@ -84,8 +73,6 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         deal(delegator, 1e22);
         deal(address(exocoreGateway), 1e22);
 
-        uint64 requestLzNonce = 1;
-        uint64 responseLzNonce = 3;
         uint256 delegateAmount = 10_000;
 
         // before all operations we should add whitelist tokens
@@ -101,12 +88,14 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         restakeToken.approve(address(vault), delegateAmount);
         vm.stopPrank();
 
-        (bytes32 requestId, bytes memory requestPayload) =
-            _testRequest(delegator, operatorAddress, requestLzNonce, delegateAmount);
-        _testFailureResponse(delegator, relayer, requestLzNonce, responseLzNonce, delegateAmount);
+        (bytes32 requestId, bytes memory requestPayload) = _testRequest(delegator, operatorAddress, delegateAmount);
+        _testFailureResponse(delegator, relayer, delegateAmount);
+        // this cannot be called here because we have artificially failed the delegation and avoided the
+        // inboundNonce increment on Exocore
+        // _validateNonces();
     }
 
-    function _testRequest(address delegator, string memory operatorAddress, uint64 lzNonce, uint256 delegateAmount)
+    function _testRequest(address delegator, string memory operatorAddress, uint256 delegateAmount)
         private
         returns (bytes32 requestId, bytes memory requestPayload)
     {
@@ -121,18 +110,27 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             delegateAmount
         );
         uint256 requestNativeFee = clientGateway.quote(requestPayload);
-        requestId = generateUID(lzNonce, true);
+        requestId = generateUID(outboundNonces[clientChainId], true);
 
         vm.expectEmit(address(restakeToken));
         emit IERC20.Transfer(delegator, address(vault), delegateAmount);
 
         vm.expectEmit(address(clientChainLzEndpoint));
         emit NewPacket(
-            exocoreChainId, address(clientGateway), address(exocoreGateway).toBytes32(), lzNonce, requestPayload
+            exocoreChainId,
+            address(clientGateway),
+            address(exocoreGateway).toBytes32(),
+            outboundNonces[clientChainId],
+            requestPayload
         );
 
         vm.expectEmit(address(clientGateway));
-        emit MessageSent(GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, requestId, lzNonce, requestNativeFee);
+        emit MessageSent(
+            GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
+            requestId,
+            outboundNonces[clientChainId]++,
+            requestNativeFee
+        );
 
         vm.startPrank(delegator);
         clientGateway.depositThenDelegateTo{value: requestNativeFee}(
@@ -155,14 +153,12 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         address delegator,
         address relayer,
         string memory operatorAddress,
-        uint64 requestLzNonce,
-        uint64 responseLzNonce,
         uint256 delegateAmount
     ) private {
         bytes memory responsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, requestLzNonce, true, delegateAmount);
+            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, delegateAmount);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, responsePayload);
-        bytes32 responseId = generateUID(responseLzNonce, false);
+        bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
         // deposit request is firstly handled and its event is firstly emitted
         vm.expectEmit(address(exocoreGateway));
@@ -172,7 +168,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         vm.expectEmit(DELEGATION_PRECOMPILE_ADDRESS);
         emit DelegateRequestProcessed(
             clientChainId,
-            requestLzNonce,
+            outboundNonces[clientChainId] - 1,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator))),
             operatorAddress,
@@ -185,21 +181,23 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
             clientChainId,
             address(exocoreGateway),
             address(clientGateway).toBytes32(),
-            responseLzNonce, // outbound nonce not inbound, only equals because it's the first tx
+            outboundNonces[exocoreChainId],
             responsePayload
         );
 
         vm.expectEmit(address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, responseLzNonce, responseNativeFee);
+        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
 
         vm.expectEmit(address(exocoreGateway));
         emit DelegateResult(
             true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), operatorAddress, delegateAmount
         );
+        vm.expectEmit(address(exocoreGateway));
+        emit MessageExecuted(GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, inboundNonces[exocoreChainId]++);
 
         vm.startPrank(relayer);
         exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), requestLzNonce),
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
             address(exocoreGateway),
             requestId,
             requestPayload,
@@ -226,11 +224,15 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         assertEq(actualDelegateAmount, delegateAmount);
 
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, requestLzNonce, true);
+        emit RequestFinished(
+            GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, outboundNonces[clientChainId] - 1, true
+        );
+        vm.expectEmit(address(clientGateway));
+        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
 
         vm.startPrank(relayer);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), responseLzNonce),
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             responseId,
             responsePayload,
@@ -239,27 +241,26 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         vm.stopPrank();
     }
 
-    function _testFailureResponse(
-        address delegator,
-        address relayer,
-        uint64 requestLzNonce,
-        uint64 responseLzNonce,
-        uint256 delegateAmount
-    ) private {
+    function _testFailureResponse(address delegator, address relayer, uint256 delegateAmount) private {
         // we assume delegation failed for some reason
         bool delegateSuccess = false;
-        bytes memory responsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, requestLzNonce, delegateSuccess, delegateAmount);
+        bytes memory responsePayload = abi.encodePacked(
+            GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, delegateSuccess, delegateAmount
+        );
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, responsePayload);
-        bytes32 responseId = generateUID(responseLzNonce, false);
+        bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
         // request finished with successful deposit and failed delegation
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, requestLzNonce, delegateSuccess);
+        emit RequestFinished(
+            GatewayStorage.Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, outboundNonces[clientChainId] - 1, delegateSuccess
+        );
+        vm.expectEmit(address(clientGateway));
+        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
 
         vm.startPrank(relayer);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), responseLzNonce),
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             responseId,
             responsePayload,

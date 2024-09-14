@@ -32,6 +32,16 @@ library Errors {
     /// @dev Index out of array bounds
     error IndexOutOfBounds();
 
+    /// @dev No TVL limit for native restaking.
+    error NoTvlLimitForNativeRestaking();
+
+    /// @dev Token not whitelisted.
+    /// @param token The address of the token that is not whitelisted
+    error TokenNotWhitelisted(address token);
+
+    /// @dev Length mismatch for token and TVL limit arrays
+    error ArrayLengthMismatch();
+
     ////////////////////////
     //  Bootstrap Errors  //
     ////////////////////////
@@ -113,11 +123,11 @@ library Errors {
     //  ClientChainGateway Errors  //
     /////////////////////////////////
 
-    /// @dev ClientChainGateway: tokens length should not execeed 255
-    error ClientChainGatewayAddWhitelistTooManyTokens();
-
     /// @dev ClientChainGateway: token should not be whitelisted before
     error ClientChainGatewayAlreadyWhitelisted(address token);
+
+    /// @dev ClientChainGateway: token addition must happen via Exocore
+    error ClientChainGatewayTokenAdditionViaExocore();
 
     //////////////////////////////////////
     //  ClientGatewayLzReceiver Errors  //
@@ -199,6 +209,9 @@ library Errors {
 
     /// @dev Vault: total principal unlock amount is larger than the total deposited amount
     error VaultTotalUnlockPrincipalExceedsDeposit();
+
+    /// @dev Vault: TVL limit exceeded.
+    error VaultTvlLimitExceeded();
 
     /// @dev Vault: forbid to deploy vault for the virtual token address representing natively staked ETH
     error ForbidToDeployVault();

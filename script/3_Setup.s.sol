@@ -94,26 +94,26 @@ contract SetupScript is BaseScript {
         // first we read decimals from client chain ERC20 token contract to prepare for token data
         bytes32[] memory whitelistTokensBytes32 = new bytes32[](2);
         uint8[] memory decimals = new uint8[](2);
-        uint256[] memory tvlLimits = new uint256[](2);
         string[] memory names = new string[](2);
         string[] memory metaDatas = new string[](2);
         string[] memory oracleInfos = new string[](2);
+        uint128[] memory tvlLimits = new uint128[](2);
 
         // this stands for LST restaking for restakeToken
         whitelistTokensBytes32[0] = bytes32(bytes20(address(restakeToken)));
         decimals[0] = restakeToken.decimals();
-        tvlLimits[0] = 1e10 ether;
         names[0] = "RestakeToken";
         metaDatas[0] = "ERC20 LST token";
         oracleInfos[0] = "{'a': 'b'}";
+        tvlLimits[0] = uint128(restakeToken.totalSupply() / 5); // in phases of 20%
 
         // this stands for Native Restaking for ETH
         whitelistTokensBytes32[1] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         decimals[1] = 18;
-        tvlLimits[1] = 1e8 ether;
         names[1] = "StakedETH";
         metaDatas[1] = "natively staked ETH on Ethereum";
         oracleInfos[1] = "{'b': 'a'}";
+        tvlLimits[1] = 0; // irrelevant for native restaking
 
         // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking,
         // and this would also add token addresses to client chain gateway's whitelist
@@ -129,10 +129,10 @@ contract SetupScript is BaseScript {
                 clientChainId,
                 whitelistTokensBytes32[i],
                 decimals[i],
-                tvlLimits[i],
                 names[i],
                 metaDatas[i],
-                oracleInfos[i]
+                oracleInfos[i],
+                tvlLimits[i]
             );
         }
         vm.stopBroadcast();

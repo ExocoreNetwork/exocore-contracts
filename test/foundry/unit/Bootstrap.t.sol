@@ -36,7 +36,6 @@ import "src/utils/BeaconProxyBytecode.sol";
 contract BootstrapTest is Test {
 
     MyToken myToken;
-    MyToken appendedToken;
     CustomProxyAdmin proxyAdmin;
     Bootstrap bootstrap;
     address[] addrs = new address[](6);
@@ -54,7 +53,7 @@ contract BootstrapTest is Test {
     uint16 exocoreChainId = 1;
     uint16 clientChainId = 2;
     address[] whitelistTokens;
-    address[] appendedWhitelistTokensForUpgrade;
+    uint256[] tvlLimits;
     NonShortCircuitEndpointV2Mock clientChainLzEndpoint;
     address exocoreValidatorSet = vm.addr(uint256(0x8));
     address undeployedExocoreGateway = vm.addr(uint256(0x9));
@@ -83,8 +82,7 @@ contract BootstrapTest is Test {
         // first deploy the token
         myToken = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
         whitelistTokens.push(address(myToken));
-        appendedToken = new MyToken("MyToken2", "MYT2", 18, addrs, 1000 * 10 ** 18);
-        appendedWhitelistTokensForUpgrade.push(address(appendedToken));
+        tvlLimits.push(myToken.totalSupply() / 20);
 
         // deploy vault implementationcontract that has logics called by proxy
         vaultImplementation = new Vault();
@@ -133,6 +131,7 @@ contract BootstrapTest is Test {
                                 spawnTime,
                                 offsetDuration,
                                 whitelistTokens,
+                                tvlLimits,
                                 address(proxyAdmin),
                                 address(clientGatewayLogic),
                                 initialization
@@ -154,7 +153,9 @@ contract BootstrapTest is Test {
             keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(vaultBeacon), ""))),
             address(bootstrap)
         );
-        assertTrue(address(bootstrap.tokenToVault(address(myToken))) == expectedVaultAddress);
+        IVault vault = bootstrap.tokenToVault(address(myToken));
+        assertTrue(address(vault) == expectedVaultAddress);
+        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
         // now set the gateway address for Exocore.
         clientChainLzEndpoint.setDestLzEndpoint(undeployedExocoreGateway, undeployedExocoreLzEndpoint);
         bootstrap.setPeer(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)));
@@ -166,31 +167,46 @@ contract BootstrapTest is Test {
         MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
         address[] memory addedWhitelistTokens = new address[](1);
         addedWhitelistTokens[0] = address(myTokenClone);
-        bootstrap.addWhitelistTokens(addedWhitelistTokens);
+        uint256[] memory addedTvlLimits = new uint256[](1);
+        addedTvlLimits[0] = myTokenClone.totalSupply() / 40;
+        bootstrap.addWhitelistTokens(addedWhitelistTokens, addedTvlLimits);
         vm.stopPrank();
         assertTrue(bootstrap.isWhitelistedToken(address(myTokenClone)));
         assertTrue(bootstrap.getWhitelistedTokensCount() == 2);
+        address expectedVaultAddress = Create2.computeAddress(
+            bytes32(uint256(uint160(address(myTokenClone)))),
+            keccak256(abi.encodePacked(BEACON_PROXY_BYTECODE, abi.encode(address(vaultBeacon), ""))),
+            address(bootstrap)
+        );
+        IVault vault = bootstrap.tokenToVault(address(myTokenClone));
+        assertTrue(address(vault) == expectedVaultAddress);
+        assertTrue(vault.getTvlLimit() == addedTvlLimits[0]);
         return myTokenClone;
     }
 
     function test01_AddWhitelistToken_AlreadyExists() public {
         vm.startPrank(deployer);
-        vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapAlreadyWhitelisted.selector, address(myToken)));
         address[] memory addedWhitelistTokens = new address[](1);
         addedWhitelistTokens[0] = address(myToken);
-        bootstrap.addWhitelistTokens(addedWhitelistTokens);
+        uint256[] memory addedTvlLimits = new uint256[](1);
+        addedTvlLimits[0] = myToken.totalSupply() / 20;
+        vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapAlreadyWhitelisted.selector, address(myToken)));
+        bootstrap.addWhitelistTokens(addedWhitelistTokens, addedTvlLimits);
         vm.stopPrank();
     }
 
     // test that the vault is not deployed for the virtual token address representing natively staked ETH
-    function test02_VaultNotDeployedForNativeStakedETH() public {
+    function test01_AddWhitelistToken_NoVaultForNativeETH() public {
         MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
 
         vm.startPrank(deployer);
         address[] memory addedWhitelistTokens = new address[](2);
         addedWhitelistTokens[0] = address(myTokenClone);
         addedWhitelistTokens[1] = VIRTUAL_STAKED_ETH_ADDRESS;
-        bootstrap.addWhitelistTokens(addedWhitelistTokens);
+        uint256[] memory addedTvlLimits = new uint256[](2);
+        addedTvlLimits[0] = myTokenClone.totalSupply() / 20;
+        addedTvlLimits[1] = 0;
+        bootstrap.addWhitelistTokens(addedWhitelistTokens, addedTvlLimits);
         vm.stopPrank();
 
         assertTrue(address(bootstrap.tokenToVault(address(myToken))) != address(0));
@@ -320,7 +336,9 @@ contract BootstrapTest is Test {
         vm.startPrank(deployer);
         address[] memory addedWhitelistTokens = new address[](1);
         addedWhitelistTokens[0] = cloneAddress;
-        bootstrap.addWhitelistTokens(addedWhitelistTokens);
+        uint256[] memory addedTvlLimits = new uint256[](1);
+        addedTvlLimits[0] = myTokenClone.totalSupply() / 20;
+        bootstrap.addWhitelistTokens(addedWhitelistTokens, addedTvlLimits);
         vm.stopPrank();
 
         // now try to deposit
@@ -329,6 +347,95 @@ contract BootstrapTest is Test {
         myTokenClone.approve(address(vault), amounts[0]);
         bootstrap.deposit(cloneAddress, amounts[0]);
         vm.stopPrank();
+    }
+
+    function test02_Deposit_MoreThanTvl() public {
+        address addr = addrs[0];
+        uint256 balance = myToken.balanceOf(addr);
+        // reduce the TVL limit
+        vm.prank(deployer);
+        bootstrap.updateTvlLimit(address(myToken), balance / 2);
+        // first approve the vault for more than the TVL limit to ensure that the error
+        // cause isn't due to lack of approval
+        vm.startPrank(addr);
+        IVault vault = IVault(bootstrap.tokenToVault(address(myToken)));
+        myToken.approve(address(vault), balance);
+        // now attempt to deposit
+        vm.expectRevert(Errors.VaultTvlLimitExceeded.selector);
+        bootstrap.deposit(address(myToken), balance);
+        vm.stopPrank();
+    }
+
+    // This tests whether the TVL limit is enforced correctly when the TVL limit is updated
+    // to less than the current TVL.
+    function test02_Deposit_ReduceTvlWithdraw() public {
+        address addr = addrs[0];
+        // must be divisble by 4 to avoid rounding errors
+        uint256 balance = myToken.balanceOf(addr);
+        uint256 withdrawAmount = balance / 4;
+        IVault vault = IVault(bootstrap.tokenToVault(address(myToken)));
+
+        vm.startPrank(addr);
+        myToken.approve(address(vault), type(uint256).max);
+        bootstrap.deposit(address(myToken), balance);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == balance);
+
+        // reduce the TVL limit below the total deposited amount
+        uint256 newTvlLimit = balance / 2;
+
+        vm.startPrank(deployer);
+        bootstrap.updateTvlLimit(address(myToken), newTvlLimit);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == balance);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
+
+        // now attempt to withdraw, which should go through
+        vm.startPrank(addr);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), withdrawAmount);
+        bootstrap.claim(address(myToken), withdrawAmount, addr);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == balance - withdrawAmount);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
+
+        // try to deposit, which will fail
+        vm.startPrank(addr);
+        vm.expectRevert(Errors.VaultTvlLimitExceeded.selector);
+        bootstrap.deposit(address(myToken), withdrawAmount);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == balance - withdrawAmount);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
+
+        // withdraw to get just below tvl limit
+        withdrawAmount = vault.getConsumedTvl() - vault.getTvlLimit() + 1;
+        vm.startPrank(addr);
+        bootstrap.withdrawPrincipalFromExocore(address(myToken), withdrawAmount);
+        bootstrap.claim(address(myToken), withdrawAmount, addr);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == newTvlLimit - 1);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
+
+        // then deposit a single unit, which should go through
+        vm.startPrank(addr);
+        bootstrap.deposit(address(myToken), 1);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == newTvlLimit);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
+
+        // no more deposits should be allowed
+        vm.startPrank(addr);
+        vm.expectRevert(Errors.VaultTvlLimitExceeded.selector);
+        bootstrap.deposit(address(myToken), 1);
+        vm.stopPrank();
+
+        assertTrue(vault.getConsumedTvl() == newTvlLimit);
+        assertTrue(vault.getTvlLimit() == newTvlLimit);
     }
 
     function test03_RegisterValidator() public {
@@ -602,29 +709,32 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test07_AddWhitelistedToken() public {
-        // any address can deploy the token
-        vm.startPrank(address(0x1));
-        MyToken myTokenClone = new MyToken("MyToken", "MYT", 18, addrs, 1000 * 10 ** 18);
-        address cloneAddress = address(myTokenClone);
-        vm.stopPrank();
-        // only the owner can add the token to the supported list
-        vm.startPrank(deployer);
-        address[] memory addedWhitelistTokens = new address[](1);
-        addedWhitelistTokens[0] = cloneAddress;
-        bootstrap.addWhitelistTokens(addedWhitelistTokens);
-        vm.stopPrank();
-        // finally, check
-        bool isSupported = bootstrap.isWhitelistedToken(cloneAddress);
-        assertTrue(isSupported);
+    function test07_UpdateTvlLimits() public {
+        IVault vault = bootstrap.tokenToVault(address(myToken));
+        uint256 newLimit = vault.getTvlLimit() * 2; // double the TVL limit
+        vm.prank(deployer);
+        bootstrap.updateTvlLimit(address(myToken), newLimit);
+        assertTrue(vault.getTvlLimit() == newLimit);
     }
 
-    function test07_AddWhitelistedToken_AlreadyWhitelisted() public {
+    function test07_UpdateTvlLimits_NotWhitelisted() public {
         vm.startPrank(deployer);
-        vm.expectRevert(abi.encodeWithSelector(Errors.BootstrapAlreadyWhitelisted.selector, address(myToken)));
-        address[] memory addedWhitelistTokens = new address[](1);
-        addedWhitelistTokens[0] = address(myToken);
-        bootstrap.addWhitelistTokens(addedWhitelistTokens);
+        address addr = address(0xa);
+        vm.expectRevert(abi.encodeWithSelector(Errors.TokenNotWhitelisted.selector, addr));
+        bootstrap.updateTvlLimit(addr, 5);
+        vm.stopPrank();
+    }
+
+    function test07_UpdateTvlLimits_NativeEth() public {
+        address[] memory whitelistTokens = new address[](1);
+        whitelistTokens[0] = VIRTUAL_STAKED_ETH_ADDRESS;
+        uint256[] memory tvlLimits = new uint256[](1);
+        tvlLimits[0] = 500;
+        vm.startPrank(deployer);
+        // first add token to whitelist
+        bootstrap.addWhitelistTokens(whitelistTokens, tvlLimits);
+        vm.expectRevert(Errors.NoTvlLimitForNativeRestaking.selector);
+        bootstrap.updateTvlLimit(whitelistTokens[0], tvlLimits[0] * 2);
         vm.stopPrank();
     }
 
@@ -701,16 +811,12 @@ contract BootstrapTest is Test {
         bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
     }
 
-    function test09_DelegateTo_NotEnoughBlance() public {
+    function test09_DelegateTo_NotEnoughBalance() public {
         test03_RegisterValidator();
-        vm.startPrank(deployer);
-        address[] memory addedWhitelistTokens = new address[](1);
-        addedWhitelistTokens[0] = address(0xa);
-        bootstrap.addWhitelistTokens(addedWhitelistTokens);
-        vm.stopPrank();
+        MyToken myToken = test01_AddWhitelistToken();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
-        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
+        bootstrap.delegateTo("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
     function test09_DelegateTo_ZeroAmount() public {
@@ -795,14 +901,10 @@ contract BootstrapTest is Test {
 
     function test10_UndelegateFrom_NotEnoughBalance() public {
         test03_RegisterValidator();
-        vm.startPrank(deployer);
-        address[] memory addedWhitelistTokens = new address[](1);
-        addedWhitelistTokens[0] = address(0xa);
-        bootstrap.addWhitelistTokens(addedWhitelistTokens);
-        vm.stopPrank();
+        MyToken myToken = test01_AddWhitelistToken();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDelegatedBalance.selector);
-        bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(0xa), amounts[0]);
+        bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
     function test10_UndelegateFrom_ZeroAmount() public {
@@ -1026,6 +1128,7 @@ contract BootstrapTest is Test {
                                 spawnTime,
                                 offsetDuration,
                                 whitelistTokens,
+                                tvlLimits,
                                 address(proxyAdmin),
                                 address(0x1),
                                 bytes("123456")
@@ -1057,6 +1160,7 @@ contract BootstrapTest is Test {
                                 block.timestamp - 10,
                                 offsetDuration,
                                 whitelistTokens,
+                                tvlLimits,
                                 address(proxyAdmin),
                                 address(0x1),
                                 bytes("123456")
@@ -1087,6 +1191,7 @@ contract BootstrapTest is Test {
                                 spawnTime,
                                 0,
                                 whitelistTokens,
+                                tvlLimits,
                                 address(proxyAdmin),
                                 address(0x1),
                                 bytes("123456")
@@ -1113,7 +1218,16 @@ contract BootstrapTest is Test {
                         address(proxyAdmin),
                         abi.encodeCall(
                             bootstrap.initialize,
-                            (deployer, 21, 22, whitelistTokens, address(proxyAdmin), address(0x1), bytes("123456"))
+                            (
+                                deployer,
+                                21,
+                                22,
+                                whitelistTokens,
+                                tvlLimits,
+                                address(proxyAdmin),
+                                address(0x1),
+                                bytes("123456")
+                            )
                         )
                     )
                 )
@@ -1136,7 +1250,16 @@ contract BootstrapTest is Test {
                         address(proxyAdmin),
                         abi.encodeCall(
                             bootstrap.initialize,
-                            (deployer, 21, 9, whitelistTokens, address(proxyAdmin), address(0x1), bytes("123456"))
+                            (
+                                deployer,
+                                21,
+                                9,
+                                whitelistTokens,
+                                tvlLimits,
+                                address(proxyAdmin),
+                                address(0x1),
+                                bytes("123456")
+                            )
                         )
                     )
                 )
@@ -1163,6 +1286,7 @@ contract BootstrapTest is Test {
                                 spawnTime,
                                 offsetDuration,
                                 whitelistTokens,
+                                tvlLimits,
                                 address(0x0),
                                 address(0x1),
                                 bytes("123456")
@@ -1193,6 +1317,7 @@ contract BootstrapTest is Test {
                                 spawnTime,
                                 offsetDuration,
                                 whitelistTokens,
+                                tvlLimits,
                                 address(proxyAdmin),
                                 address(0x0),
                                 bytes("123456")
@@ -1223,6 +1348,7 @@ contract BootstrapTest is Test {
                                 spawnTime,
                                 offsetDuration,
                                 whitelistTokens,
+                                tvlLimits,
                                 address(proxyAdmin),
                                 address(0x1),
                                 bytes("")

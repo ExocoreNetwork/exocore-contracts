@@ -89,7 +89,6 @@ abstract contract BaseRestakingController is
     /// @param encodedRequest The encoded request.
     function _processRequest(Action action, bytes memory actionArgs, bytes memory encodedRequest) internal {
         uint64 requestNonce = _sendMsgToExocore(action, actionArgs);
-
         _registeredRequests[requestNonce] = encodedRequest;
         _registeredRequestActions[requestNonce] = action;
     }

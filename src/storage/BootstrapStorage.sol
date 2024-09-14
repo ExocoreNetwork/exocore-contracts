@@ -281,14 +281,12 @@ contract BootstrapStorage is GatewayStorage {
     /// @param symbol The symbol of the token.
     /// @param tokenAddress The contract address of the token.
     /// @param decimals The number of decimals the token uses.
-    /// @param totalSupply The total supply of the token.
     /// @param depositAmount The total amount of the token deposited into the contract.
     struct TokenInfo {
         string name;
         string symbol;
         address tokenAddress;
         uint8 decimals;
-        uint256 totalSupply;
         uint256 depositAmount;
     }
 
@@ -349,11 +347,12 @@ contract BootstrapStorage is GatewayStorage {
     /// @notice Deploys a new vault for the given underlying token.
     /// @dev Uses the Create2 opcode to deploy the vault.
     /// @param underlyingToken The address of the underlying token.
+    /// @param tvlLimit The TVL limit for the vault.
     /// @return The address of the newly deployed vault.
     // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision
-    function _deployVault(address underlyingToken) internal returns (IVault) {
+    function _deployVault(address underlyingToken, uint256 tvlLimit) internal returns (IVault) {
         if (underlyingToken == VIRTUAL_STAKED_ETH_ADDRESS) {
             revert Errors.ForbidToDeployVault();
         }
@@ -367,11 +366,17 @@ contract BootstrapStorage is GatewayStorage {
                 abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(VAULT_BEACON), ""))
             )
         );
-        vault.initialize(underlyingToken, address(this));
+        vault.initialize(underlyingToken, tvlLimit, address(this));
         emit VaultCreated(underlyingToken, address(vault));
 
         tokenToVault[underlyingToken] = vault;
         return vault;
+    }
+
+    /// @dev Internal version of getWhitelistedTokensCount; shared between Bootstrap and ClientChainGateway
+    /// @dev Looks a bit redundant because it is, but at least this way, the implementation is shared.
+    function _getWhitelistedTokensCount() internal view returns (uint256) {
+        return whitelistTokens.length;
     }
 
 }

@@ -74,28 +74,34 @@ contract AssetsMock is IAssets {
         uint32 clientChainId,
         bytes calldata token,
         uint8 decimals,
-        uint256 tvlLimit,
         string calldata name,
         string calldata metaData,
         string calldata oracleInfo
     ) external returns (bool success) {
-        require(isRegisteredChain[clientChainId], "the chain is not registered before");
+        if (!isRegisteredChain[clientChainId]) {
+            // chain not registered
+            return false;
+        }
 
         if (isRegisteredToken[clientChainId][token]) {
+            // token already registered
             return false;
         }
         isRegisteredToken[clientChainId][token] = true;
-
         return true;
     }
 
-    function updateToken(uint32 clientChainId, bytes calldata token, uint256 tvlLimit, string calldata metaData)
+    function updateToken(uint32 clientChainId, bytes calldata token, string calldata metaData)
         external
         returns (bool success)
     {
-        require(isRegisteredChain[clientChainId], "the chain is not registered before");
+        if (!isRegisteredChain[clientChainId]) {
+            // chain not registered
+            return false;
+        }
 
         if (!isRegisteredToken[clientChainId][token]) {
+            // token not registered
             return false;
         }
 

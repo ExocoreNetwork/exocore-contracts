@@ -48,6 +48,7 @@ contract DeployExocoreGatewayOnly is BaseScript {
         string memory exocoreContracts = "exocoreContracts";
         vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
         vm.serializeAddress(exocoreContracts, "exocoreGatewayLogic", address(exocoreGatewayLogic));
+        vm.serializeAddress(exocoreContracts, "exocoreProxyAdmin", address(exocoreProxyAdmin));
         string memory exocoreContractsOutput =
             vm.serializeAddress(exocoreContracts, "exocoreGateway", address(exocoreGateway));
 

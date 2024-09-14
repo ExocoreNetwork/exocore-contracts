@@ -31,8 +31,12 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @dev The length of a deposit-then-delegate request, in bytes.
     // bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
     uint256 internal constant DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH = DELEGATE_REQUEST_LENGTH;
+
+    /// @dev The length of an associate operator request, in bytes.
     // bytes32 staker + bytes(42) operator
     uint256 internal constant ASSOCIATE_OPERATOR_REQUEST_LENGTH = 74;
+
+    /// @dev The length of a dissociate operator request, in bytes.
     // bytes32 staker
     uint256 internal constant DISSOCIATE_OPERATOR_REQUEST_LENGTH = 32;
 
@@ -135,12 +139,6 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param selector_ The function selector of the precompile call.
     /// @param reason The reason for the failure.
     error PrecompileCallFailed(bytes4 selector_, bytes reason);
-
-    /// @notice Thrown when the request length is invalid.
-    /// @param act The action that failed.
-    /// @param expectedLength The expected length of the request.
-    /// @param actualLength The actual length of the request.
-    error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
 
     /// @notice Thrown when a deposit request fails.
     /// @param srcChainId The source chain ID.

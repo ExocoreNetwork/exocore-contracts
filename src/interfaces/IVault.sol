@@ -39,4 +39,21 @@ interface IVault {
     /// @return The address of the underlying token.
     function getUnderlyingToken() external returns (address);
 
+    /// @notice Sets the TVL limit for the vault.
+    /// @param tvlLimit_ The new TVL limit for the vault.
+    /// @dev It is possible to reduce or increase the TVL limit. Even if the consumed TVL limit is more than the new TVL
+    /// limit, this transaction will go through and future deposits will be blocked until sufficient withdrawals are
+    /// made.
+    function setTvlLimit(uint256 tvlLimit_) external;
+
+    /// @notice Gets the TVL limit for the vault.
+    /// @return The TVL limit for the vault.
+    // This is a function so that IVault can be used in other contracts without importing the Vault contract.
+    function getTvlLimit() external returns (uint256);
+
+    /// @notice Gets the total value locked in the vault.
+    /// @return The total value locked in the vault.
+    // This is a function so that IVault can be used in other contracts without importing the Vault contract.
+    function getConsumedTvl() external returns (uint256);
+
 }

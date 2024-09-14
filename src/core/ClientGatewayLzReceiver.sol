@@ -72,6 +72,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
                 revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
             }
         }
+        emit MessageExecuted(act, _origin.nonce);
     }
 
     /// @inheritdoc OAppReceiverUpgradeable
@@ -291,31 +292,21 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     }
 
     /// @notice Called after an add-whitelist-token response is received.
-    /// @param requestPayload The request payload.
+    /// @param payload The request payload.
     // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
     // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
-    function afterReceiveAddWhitelistTokenRequest(bytes calldata requestPayload)
-        public
-        onlyCalledFromThis
-        whenNotPaused
-    {
-        address token = address(bytes20(abi.decode(requestPayload, (bytes32))));
-        if (token == address(0)) {
-            revert Errors.ZeroAddress();
-        }
-        if (isWhitelistedToken[token]) {
-            // grave error, should never happen
-            revert Errors.ClientChainGatewayAlreadyWhitelisted(token);
-        }
+    function afterReceiveAddWhitelistTokenRequest(bytes calldata payload) public onlyCalledFromThis whenNotPaused {
+        _validatePayloadLength(payload, ADD_TOKEN_WHITELIST_REQUEST_LENGTH, Action.REQUEST_ADD_WHITELIST_TOKEN);
+        (address token, uint128 tvlLimit) = _decodeTokenUint128(payload);
         isWhitelistedToken[token] = true;
         whitelistTokens.push(token);
         // since tokens cannot be removed from the whitelist, it is not possible for a vault
         // to already exist. however, we should still ensure that a vault is not deployed for
-        // restaking native staked eth
+        // restaking native staked eth. in this case, the tvlLimit is ignored.
         if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
-            _deployVault(token);
+            _deployVault(token, uint256(tvlLimit));
         }
         emit WhitelistTokenAdded(token);
     }
@@ -326,6 +317,26 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     ///      Hence, we silently ignore this call.
     function afterReceiveMarkBootstrapRequest() public onlyCalledFromThis whenNotPaused {
         emit BootstrappedAlready();
+    }
+
+    /// @dev Decodes a token and a uint128 from a payload. If the token isn't whitelisted, it
+    /// reverts.
+    /// @param payload The payload to decode.
+    /// @return token The token address
+    /// @return value The uint128 value
+    function _decodeTokenUint128(bytes calldata payload) internal view returns (address, uint128) {
+        bytes32 tokenAsBytes32 = bytes32(payload[:32]);
+        address token = address(bytes20(tokenAsBytes32));
+        if (token == address(0)) {
+            // cannot happen since the precompiles check for this
+            revert Errors.ZeroAddress();
+        }
+        if (isWhitelistedToken[token]) {
+            // we are receiving a request to whitelist a token that is already whitelisted
+            revert Errors.ClientChainGatewayAlreadyWhitelisted(token);
+        }
+        uint128 value = uint128(bytes16(payload[32:]));
+        return (token, value);
     }
 
 }

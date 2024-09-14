@@ -170,26 +170,26 @@ contract ExocoreGatewayMock is
         uint32 clientChainId,
         bytes32 token,
         uint8 decimals,
-        uint256 tvlLimit,
         string calldata name,
         string calldata metaData,
-        string calldata oracleInfo
+        string calldata oracleInfo,
+        uint128 tvlLimit
     ) external payable onlyOwner whenNotPaused nonReentrant {
         if (msg.value == 0) {
             revert Errors.ZeroValue();
         }
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        require(tvlLimit > 0, "ExocoreGateway: tvl limit should not be zero");
         require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
         require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
         require(bytes(oracleInfo).length != 0, "ExocoreGateway: oracleInfo cannot be empty");
+        // setting a tvl limit of 0 is psermitted to add an inactive token, which will be later
+        // activated on the client chain
 
         bool success = ASSETS_CONTRACT.registerToken(
             clientChainId,
             abi.encodePacked(token), // convert to bytes from bytes32
             decimals,
-            tvlLimit,
             name,
             metaData,
             oracleInfo
@@ -197,17 +197,14 @@ contract ExocoreGatewayMock is
         if (success) {
             emit WhitelistTokenAdded(clientChainId, token);
             _sendInterchainMsg(
-                clientChainId,
-                Action.REQUEST_ADD_WHITELIST_TOKEN,
-                abi.encodePacked(token), // convert for decoding it on the receiving end
-                false
+                clientChainId, Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(token, tvlLimit), false
             );
         } else {
             revert AddWhitelistTokenFailed(clientChainId, token);
         }
     }
 
-    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 tvlLimit, string calldata metaData)
+    function updateWhitelistToken(uint32 clientChainId, bytes32 token, string calldata metaData)
         external
         onlyOwner
         whenNotPaused
@@ -215,9 +212,8 @@ contract ExocoreGatewayMock is
     {
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        // setting tvlLimit to 0 is allowed as a way to disable the token
         require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
-        bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), tvlLimit, metaData);
+        bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), metaData);
         if (success) {
             emit WhitelistTokenUpdated(clientChainId, token);
         } else {
@@ -250,6 +246,7 @@ contract ExocoreGatewayMock is
         return updated;
     }
 
+    /// @inheritdoc OAppReceiverUpgradeable
     function _lzReceive(Origin calldata _origin, bytes calldata payload)
         internal
         virtual
@@ -270,6 +267,8 @@ contract ExocoreGatewayMock is
         if (!success) {
             revert RequestExecuteFailed(act, _origin.nonce, responseOrReason);
         }
+
+        emit MessageExecuted(act, _origin.nonce);
     }
 
     function requestDeposit(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
@@ -400,12 +399,6 @@ contract ExocoreGatewayMock is
         } catch {
             emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
             _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, updatedBalance), true);
-        }
-    }
-
-    function _validatePayloadLength(bytes calldata payload, uint256 expectedLength, Action action) private pure {
-        if (payload.length != expectedLength) {
-            revert InvalidRequestLength(action, expectedLength, payload.length);
         }
     }
 

@@ -40,6 +40,11 @@ contract GatewayStorage {
     /// @param nativeFee The native fee paid for the message.
     event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
+    /// @notice Emitted when a message is received and successfully executed.
+    /// @param act The action being performed.
+    /// @param nonce The nonce associated with the message.
+    event MessageExecuted(Action indexed act, uint64 nonce);
+
     /// @notice Error thrown when an unsupported request is made.
     /// @param act The unsupported action.
     error UnsupportedRequest(Action act);
@@ -52,6 +57,12 @@ contract GatewayStorage {
     /// @param expectedNonce The expected nonce.
     /// @param actualNonce The actual nonce received.
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
+
+    /// @notice Thrown when the request length is invalid.
+    /// @param act The action that failed.
+    /// @param expectedLength The expected length of the request.
+    /// @param actualLength The actual length of the request.
+    error InvalidRequestLength(Action act, uint256 expectedLength, uint256 actualLength);
 
     /// @notice Ensures the provided address is a valid exo Bech32 encoded address.
     /// @param addressToValidate The address to check.
@@ -90,6 +101,16 @@ contract GatewayStorage {
             revert UnexpectedInboundNonce(expectedNonce, nonce);
         }
         inboundNonce[srcChainId][srcAddress] = nonce;
+    }
+
+    /// @dev Validates the payload length, that it matches the expected length.
+    /// @param payload The payload to validate.
+    /// @param expectedLength The expected length of the payload.
+    /// @param action The action that the payload is for.
+    function _validatePayloadLength(bytes calldata payload, uint256 expectedLength, Action action) internal pure {
+        if (payload.length != expectedLength) {
+            revert InvalidRequestLength(action, expectedLength, payload.length);
+        }
     }
 
 }

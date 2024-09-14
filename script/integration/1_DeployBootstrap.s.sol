@@ -47,6 +47,7 @@ contract DeployContracts is Script {
     uint256[] tokenDeployers;
     uint8[2] decimals = [18, 6];
     address[] whitelistTokens;
+    uint256[] tvlLimits;
     Vault[] vaults;
     CustomProxyAdmin proxyAdmin;
 
@@ -97,6 +98,7 @@ contract DeployContracts is Script {
             vm.startBroadcast(tokenDeployers[i]);
             MyToken myToken = new MyToken(names[i], symbols[i], decimals[i], initialAddresses, initialBalances[i]);
             whitelistTokens.push(address(myToken));
+            tvlLimits.push(myToken.totalSupply() / ((i + 1) * 20));
             vm.stopBroadcast();
         }
     }
@@ -131,6 +133,7 @@ contract DeployContracts is Script {
                                 block.timestamp + 3 minutes,
                                 1 seconds,
                                 whitelistTokens,
+                                tvlLimits,
                                 address(proxyAdmin),
                                 address(0x1), // these values don't matter for the localnet generate.js test
                                 bytes("123456")

@@ -40,7 +40,7 @@ contract BaseScript is Script, StdCheats {
     string exocoreRPCURL;
 
     address[] whitelistTokens;
-    address[] vaults;
+    uint256[] tvlLimits;
 
     IClientChainGateway clientGateway;
     IVault vault;

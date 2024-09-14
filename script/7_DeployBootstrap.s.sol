@@ -50,7 +50,10 @@ contract DeployBootstrapOnly is BaseScript {
         vm.selectFork(clientChain);
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         whitelistTokens.push(address(restakeToken));
+        tvlLimits.push(restakeToken.totalSupply() / 20);
         whitelistTokens.push(wstETH);
+        // doesn't matter if it's actually ERC20PresetFixedSupply, just need the total supply
+        tvlLimits.push(ERC20PresetFixedSupply(wstETH).totalSupply() / 20);
 
         // proxy deployment
         CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
@@ -91,6 +94,7 @@ contract DeployBootstrapOnly is BaseScript {
                                 block.timestamp + 168 hours,
                                 2 seconds,
                                 whitelistTokens, // vault is auto deployed
+                                tvlLimits,
                                 address(proxyAdmin),
                                 address(clientGatewayLogic),
                                 initialization

@@ -57,12 +57,14 @@ contract Bootstrap is
     /// @param spawnTime_ The spawn time of the Exocore chain.
     /// @param offsetDuration_ The offset duration before the spawn time.
     /// @param whitelistTokens_ The list of whitelisted tokens.
+    /// @param tvlLimits_ The list of TVL limits for the tokens, in the same order as the whitelist.
     /// @param customProxyAdmin_ The address of the custom proxy admin.
     function initialize(
         address owner,
         uint256 spawnTime_,
         uint256 offsetDuration_,
         address[] calldata whitelistTokens_,
+        uint256[] calldata tvlLimits_,
         address customProxyAdmin_,
         address clientChainGatewayLogic_,
         bytes calldata clientChainInitializationData_
@@ -79,7 +81,7 @@ contract Bootstrap is
             revert Errors.ZeroAddress();
         }
 
-        _addWhitelistTokens(whitelistTokens_);
+        _addWhitelistTokens(whitelistTokens_, tvlLimits_);
 
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.markBootstrapped.selector;
 
@@ -175,26 +177,35 @@ contract Bootstrap is
     }
 
     /// @inheritdoc ITokenWhitelister
-    function addWhitelistTokens(address[] calldata tokens) external beforeLocked onlyOwner whenNotPaused {
-        _addWhitelistTokens(tokens);
+    function addWhitelistTokens(address[] calldata tokens, uint256[] calldata tvlLimits)
+        external
+        beforeLocked
+        onlyOwner
+        whenNotPaused
+    {
+        _addWhitelistTokens(tokens, tvlLimits);
     }
 
     /// @dev The internal function to add tokens to the whitelist.
     /// @param tokens The list of token addresses to be added to the whitelist.
+    /// @param tvlLimits The list of TVL limits for the corresponding tokens.
     // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
     // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
-    function _addWhitelistTokens(address[] calldata tokens) internal {
+    function _addWhitelistTokens(address[] calldata tokens, uint256[] calldata tvlLimits) internal {
+        if (tokens.length != tvlLimits.length) {
+            revert Errors.ArrayLengthMismatch();
+        }
         for (uint256 i = 0; i < tokens.length; ++i) {
             address token = tokens[i];
+            uint256 tvlLimit = tvlLimits[i];
             if (token == address(0)) {
                 revert Errors.ZeroAddress();
             }
             if (isWhitelistedToken[token]) {
                 revert Errors.BootstrapAlreadyWhitelisted(token);
             }
-
             whitelistTokens.push(token);
             isWhitelistedToken[token] = true;
 
@@ -203,7 +214,10 @@ contract Bootstrap is
             // pre-existing vault. however, we still do ensure that the vault is not deployed
             // for restaking natively staked ETH.
             if (token != VIRTUAL_STAKED_ETH_ADDRESS) {
-                _deployVault(token);
+                // setting a tvlLimit higher than the supply is permitted.
+                // it allows for some margin for minting of the token, and lets us use
+                // a value of type(uint256).max to indicate no limit.
+                _deployVault(token, tvlLimit);
             }
 
             emit WhitelistTokenAdded(token);
@@ -212,7 +226,19 @@ contract Bootstrap is
 
     /// @inheritdoc ITokenWhitelister
     function getWhitelistedTokensCount() external view returns (uint256) {
-        return whitelistTokens.length;
+        return _getWhitelistedTokensCount();
+    }
+
+    /// @inheritdoc ITokenWhitelister
+    function updateTvlLimit(address token, uint256 tvlLimit) external beforeLocked onlyOwner whenNotPaused {
+        if (!isWhitelistedToken[token]) {
+            revert Errors.TokenNotWhitelisted(token);
+        }
+        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+            revert Errors.NoTvlLimitForNativeRestaking();
+        }
+        IVault vault = _getVault(token);
+        vault.setTvlLimit(tvlLimit);
     }
 
     /// @inheritdoc IValidatorRegistry
@@ -425,6 +451,11 @@ contract Bootstrap is
         isValidAmount(amount)
         nonReentrant // because it interacts with vault
     {
+        if (recipient == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        // getting a vault for native restaked token will fail so no need to check that.
+        // if native restaking is supported in Bootstrap someday, that will change.
         IVault vault = _getVault(token);
         vault.withdraw(msg.sender, recipient, amount);
     }
@@ -650,7 +681,6 @@ contract Bootstrap is
             symbol: token.symbol(),
             tokenAddress: tokenAddress,
             decimals: token.decimals(),
-            totalSupply: token.totalSupply(),
             depositAmount: depositsByToken[tokenAddress]
         });
     }

@@ -94,6 +94,15 @@ contract ExocoreDeployer is Test {
     uint32 exocoreChainId = 2;
     uint32 clientChainId = 1;
 
+    // the nonces to use for sending messages, incremented when there is a MessageSent event
+    mapping(uint32 chainId => uint64 nextOutboundNonce) outboundNonces;
+    // the nonces to use for receiving messages, incremented when there is a MessageExecuted event
+    // the inboundNonces aren't just the outboundNonces - 1 because there may be multiple
+    // outbound messages that have not yet been executed on the destination chain
+    mapping(uint32 chainId => uint64 nextInboundNonce) inboundNonces;
+
+    bool tokensWhitelisted = false;
+
     struct Player {
         uint256 privateKey;
         address addr;
@@ -104,8 +113,15 @@ contract ExocoreDeployer is Test {
     event WhitelistTokenAdded(address _token);
     event VaultCreated(address underlyingToken, address vault);
     event RequestFinished(GatewayStorage.Action indexed action, uint64 indexed requestId, bool indexed success);
+    event MessageExecuted(GatewayStorage.Action indexed act, uint64 nonce);
 
     function setUp() public virtual {
+        // the nonces start from 1
+        outboundNonces[exocoreChainId] = 1;
+        outboundNonces[clientChainId] = 1;
+        inboundNonces[exocoreChainId] = 1;
+        inboundNonces[clientChainId] = 1;
+
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
         players.push(Player({privateKey: uint256(0x2), addr: vm.addr(uint256(0x2))}));
         players.push(Player({privateKey: uint256(0x3), addr: vm.addr(uint256(0x3))}));
@@ -130,40 +146,45 @@ contract ExocoreDeployer is Test {
     }
 
     function test_AddWhitelistTokens() public {
+        if (tokensWhitelisted) {
+            return;
+        }
+
         // transfer some gas fee to the owner / deployer
         deal(exocoreValidatorSet.addr, 1e22);
 
         uint8[] memory decimals = new uint8[](2);
-        uint256[] memory tvlLimits = new uint256[](2);
         string[] memory names = new string[](2);
         string[] memory metaDatas = new string[](2);
         string[] memory oracleInfos = new string[](2);
         bytes[] memory payloads = new bytes[](2);
+        uint128[] memory tvlLimits = new uint128[](2);
         bytes32[] memory requestIds = new bytes32[](2);
 
         whitelistTokens.push(bytes32(bytes20(address(restakeToken))));
         decimals[0] = 18;
-        tvlLimits[0] = 1e8 ether;
         names[0] = "RestakeToken";
         metaDatas[0] = "ERC20 LST token";
         oracleInfos[0] = "{'a': 'b'}";
+        tvlLimits[0] = uint128(restakeToken.totalSupply() / 20);
 
         whitelistTokens.push(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
         decimals[1] = 18;
-        tvlLimits[1] = 1e8 ether;
         names[1] = "NativeStakedETH";
         metaDatas[1] = "natively staked ETH on Ethereum";
         oracleInfos[1] = "{'b': 'a'}";
+        tvlLimits[1] = 0; // no limit for native staked ETH
 
         // -- add whitelist tokens workflow test --
 
         // first user call exocore gateway to add whitelist tokens
         vm.startPrank(exocoreValidatorSet.addr);
         uint256 nativeFee;
-        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+        for (; outboundNonces[exocoreChainId] < whitelistTokens.length + 1; outboundNonces[exocoreChainId]++) {
+            uint256 i = outboundNonces[exocoreChainId] - 1; // only one var in the loop is allowed
             // estimate the fee from the payload
             payloads[i] = abi.encodePacked(
-                GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i])
+                GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokens[i], tvlLimits[i])
             );
             nativeFee = exocoreGateway.quote(clientChainId, payloads[i]);
             requestIds[i] = generateUID(uint64(i + 1), false);
@@ -184,7 +205,7 @@ contract ExocoreDeployer is Test {
                 nativeFee
             );
             exocoreGateway.addWhitelistToken{value: nativeFee}(
-                clientChainId, whitelistTokens[i], decimals[i], tvlLimits[i], names[i], metaDatas[i], oracleInfos[i]
+                clientChainId, whitelistTokens[i], decimals[i], names[i], metaDatas[i], oracleInfos[i], tvlLimits[i]
             );
         }
 
@@ -198,9 +219,12 @@ contract ExocoreDeployer is Test {
         );
         vm.expectEmit(address(clientGateway));
         emit VaultCreated(address(restakeToken), expectedVault);
+        vm.expectEmit(address(clientGateway));
         emit WhitelistTokenAdded(address(restakeToken));
+        vm.expectEmit(address(clientGateway));
+        emit MessageExecuted(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), uint64(1)),
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             requestIds[0],
             payloads[0],
@@ -209,8 +233,10 @@ contract ExocoreDeployer is Test {
 
         vm.expectEmit(address(clientGateway));
         emit WhitelistTokenAdded(VIRTUAL_STAKED_ETH_ADDRESS);
+        vm.expectEmit(address(clientGateway));
+        emit MessageExecuted(GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), uint64(2)),
+            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
             requestIds[1],
             payloads[1],
@@ -221,9 +247,23 @@ contract ExocoreDeployer is Test {
         vault = Vault(address(clientGateway.tokenToVault(address(restakeToken))));
         assertEq(address(vault), expectedVault);
         assertTrue(clientGateway.isWhitelistedToken(address(restakeToken)));
+        assertTrue(vault.getTvlLimit() == tvlLimits[0]);
         assertTrue(clientGateway.isWhitelistedToken(VIRTUAL_STAKED_ETH_ADDRESS));
+        assertTrue(address(clientGateway.tokenToVault(address(VIRTUAL_STAKED_ETH_ADDRESS))) == address(0));
 
         vm.stopPrank();
+
+        _validateNonces();
+
+        tokensWhitelisted = true;
+    }
+
+    function _validateNonces() internal {
+        // at the end of it, we should have executed outbound nonces from chain A on chain B
+        // this helps check that all outbound messages were executed on the destination chain, within the test, and
+        // also validates the nonce incrementing logic in the contracts
+        assertEq(outboundNonces[exocoreChainId], inboundNonces[clientChainId]);
+        assertEq(outboundNonces[clientChainId], inboundNonces[exocoreChainId]);
     }
 
     function _loadValidatorContainer(string memory validatorInfo) internal {

@@ -172,23 +172,23 @@ contract ExocoreGateway is
         uint32 clientChainId,
         bytes32 token,
         uint8 decimals,
-        uint256 tvlLimit,
         string calldata name,
         string calldata metaData,
-        string calldata oracleInfo
+        string calldata oracleInfo,
+        uint128 tvlLimit
     ) external payable onlyOwner whenNotPaused nonReentrant {
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        require(tvlLimit > 0, "ExocoreGateway: tvl limit should not be zero");
         require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
         require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
         require(bytes(oracleInfo).length != 0, "ExocoreGateway: oracleInfo cannot be empty");
+        // setting a TVL limit of 0 is permitted to simply add an inactive token, which may
+        // be activated later by updating the TVL limit on the client chain
 
         bool success = ASSETS_CONTRACT.registerToken(
             clientChainId,
             abi.encodePacked(token), // convert to bytes from bytes32
             decimals,
-            tvlLimit,
             name,
             metaData,
             oracleInfo
@@ -196,10 +196,7 @@ contract ExocoreGateway is
         if (success) {
             emit WhitelistTokenAdded(clientChainId, token);
             _sendInterchainMsg(
-                clientChainId,
-                Action.REQUEST_ADD_WHITELIST_TOKEN,
-                abi.encodePacked(token), // convert for decoding it on the receiving end
-                false
+                clientChainId, Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(token, tvlLimit), false
             );
         } else {
             revert AddWhitelistTokenFailed(clientChainId, token);
@@ -207,7 +204,7 @@ contract ExocoreGateway is
     }
 
     /// @inheritdoc IExocoreGateway
-    function updateWhitelistToken(uint32 clientChainId, bytes32 token, uint256 tvlLimit, string calldata metaData)
+    function updateWhitelistToken(uint32 clientChainId, bytes32 token, string calldata metaData)
         external
         onlyOwner
         whenNotPaused
@@ -215,9 +212,8 @@ contract ExocoreGateway is
     {
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
-        // setting tvlLimit to 0 is allowed as a way to disable the token
-        // empty metaData indicates that the token's metadata should not be updated
-        bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), tvlLimit, metaData);
+        require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
+        bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), metaData);
         if (success) {
             emit WhitelistTokenUpdated(clientChainId, token);
         } else {
@@ -315,6 +311,8 @@ contract ExocoreGateway is
         if (!success) {
             revert RequestExecuteFailed(act, _origin.nonce, responseOrReason);
         }
+
+        emit MessageExecuted(act, _origin.nonce);
     }
 
     /// @notice Responds to a deposit request from a client chain.
@@ -546,16 +544,6 @@ contract ExocoreGateway is
         }
 
         emit DissociateOperatorResult(result, bytes32(staker));
-    }
-
-    /// @dev Validates the payload length, that it matches the expected length.
-    /// @param payload The payload to validate.
-    /// @param expectedLength The expected length of the payload.
-    /// @param action The action that the payload is for.
-    function _validatePayloadLength(bytes calldata payload, uint256 expectedLength, Action action) private pure {
-        if (payload.length != expectedLength) {
-            revert InvalidRequestLength(action, expectedLength, payload.length);
-        }
     }
 
     /// @dev Sends an interchain message to the client chain.

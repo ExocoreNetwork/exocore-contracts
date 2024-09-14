@@ -2,6 +2,9 @@
 pragma solidity ^0.8.19;
 
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
+import {IVault} from "../interfaces/IVault.sol";
+
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {MessagingFee, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
@@ -26,6 +29,7 @@ contract ClientChainGateway is
     PausableUpgradeable,
     OwnableUpgradeable,
     IClientChainGateway,
+    ITokenWhitelister,
     LSTRestakingController,
     NativeRestakingController,
     ClientGatewayLzReceiver
@@ -108,10 +112,28 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    /// @notice Gets the count of whitelisted tokens.
-    /// @return The count of whitelisted tokens.
+    /// @inheritdoc ITokenWhitelister
     function getWhitelistedTokensCount() external view returns (uint256) {
-        return whitelistTokens.length;
+        return _getWhitelistedTokensCount();
+    }
+
+    /// @inheritdoc ITokenWhitelister
+    function addWhitelistTokens(address[] calldata, uint256[] calldata) external view onlyOwner whenNotPaused {
+        revert Errors.ClientChainGatewayTokenAdditionViaExocore();
+    }
+
+    /// @inheritdoc ITokenWhitelister
+    function updateTvlLimit(address token, uint256 tvlLimit) external onlyOwner whenNotPaused {
+        if (!isWhitelistedToken[token]) {
+            // grave error, should never happen
+            revert Errors.TokenNotWhitelisted(token);
+        }
+        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+            // not possible to set a TVL limit for native restaking
+            revert Errors.NoTvlLimitForNativeRestaking();
+        }
+        IVault vault = _getVault(token);
+        vault.setTvlLimit(tvlLimit);
     }
 
     /// @inheritdoc IClientChainGateway
