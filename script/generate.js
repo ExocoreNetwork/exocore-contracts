@@ -47,6 +47,12 @@ const isValidBech32 = (address) => {
 const { CLIENT_CHAIN_RPC, BOOTSTRAP_ADDRESS, BASE_GENESIS_FILE_PATH, RESULT_GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
 
 const { keccak256 } = require('js-sha3');
+const JSONbig = require('json-bigint')({ "useNativeBigInt": true });
+
+function getChainIDWithoutPrevision(chainID) {
+  const splitStr = chainID.split('-');
+  return splitStr[0];
+}
 
 function generateAVSAddr(chainID) {
   const ChainIDPrefix = 'chain-id-prefix';
@@ -77,7 +83,7 @@ async function updateGenesisFile() {
 
     // Read the genesis file
     const genesisData = await fs.readFile(BASE_GENESIS_FILE_PATH);
-    const genesisJSON = JSON.parse(genesisData);
+    const genesisJSON = JSONbig.parse(genesisData);
 
     const height = parseInt(genesisJSON.initial_height, 10);
     const bootstrapped = await myContract.methods.bootstrapped().call();
@@ -163,9 +169,8 @@ async function updateGenesisFile() {
         asset_basic_info: {
           name: token.name,
           symbol: token.symbol,
-          address: token.tokenAddress,
+          address: token.tokenAddress.toLowerCase(),
           decimals: token.decimals.toString(),
-          total_supply: token.totalSupply.toString(),
           layer_zero_chain_id: clientChainInfo.layer_zero_chain_id,
           exocore_chain_index: i.toString(), // unused
           meta_info: tokenMetaInfos[i],
@@ -176,7 +181,7 @@ async function updateGenesisFile() {
       };
       // total amount should be set because the initialization won't set it.
       const deposit_amount = await myContract.methods.depositsByToken(token.tokenAddress).call();
-      tokenCleaned.staking_total_amount = deposit_amount;
+      tokenCleaned.staking_total_amount = deposit_amount.toString();
 
       supportedTokens[i] = tokenCleaned;
       decimals.push(token.decimals);
@@ -238,7 +243,7 @@ async function updateGenesisFile() {
           info: {
             total_deposit_amount: depositValue.toString(),
             withdrawable_amount: withdrawableValue.toString(),
-            wait_unbonding_amount: "0",
+            pending_undelegation_amount: "0",
           }
         };
         depositsByStaker.push(depositByStakerForAsset);
@@ -292,7 +297,7 @@ async function updateGenesisFile() {
         const totalShare = new Decimal(delegationValue.toString());
         let stakerId = validatorEthAddress.toLowerCase() + clientChainSuffix;
         const selfDelegation = await myContract.methods.delegations(
-          stakerId, validatorExoAddress, tokenAddress
+          validatorEthAddress, validatorExoAddress, tokenAddress
         ).call();
         const selfShare = new Decimal(selfDelegation.toString());
 
@@ -300,7 +305,7 @@ async function updateGenesisFile() {
           asset_id: tokenAddress.toLowerCase() + clientChainSuffix,
           info: {
             total_amount: delegationValue.toString(),
-            wait_unbonding_amount: "0",
+            pending_undelegation_amount: "0",
             total_share: totalShare.toString(),
             operator_share: selfShare.toString(),
           }
@@ -365,8 +370,8 @@ async function updateGenesisFile() {
     const opt_states = [];
     const avs_usd_values = [];
     const operator_usd_values = [];
-    const chain_id = genesisJSON.chain_id;
-    const dogfoodAddr = generateAVSAddr(chain_id);
+    const chain_id_without_revision = getChainIDWithoutPrevision(genesisJSON.chain_id);
+    const dogfoodAddr = generateAVSAddr(chain_id_without_revision);
 
     for (let i = 0; i < operatorsCount; i++) {
       // operators
@@ -447,14 +452,14 @@ async function updateGenesisFile() {
       if (amount.gte(minSelfDelegation)) {
         validators.push({
           public_key: operatorInfo.consensusPublicKey,
-          power: amount,  // do not convert to int yet.
+          power: totalAmount,  // do not convert to int yet.
           operator_acc_addr: opAddressBech32,
         });
         // set the consensus key, opted info, and USD value for the valid operators and dogfood AVS.
         // consensus public key
         const chains = [];
         chains.push({
-          chain_id: chain_id,
+          chain_id: chain_id_without_revision,
           consensus_key: operatorInfo.consensusPublicKey,
         });
         operator_records.push({
@@ -585,10 +590,6 @@ async function updateGenesisFile() {
     });
     genesisJSON.app_state.delegation.associations = associations;
 
-    // x/delegation: delegations_by_staker_asset_operator (delegation_state.go)
-    if (!genesisJSON.app_state.delegation.delegations) {
-      genesisJSON.app_state.delegation.delegations = [];
-    }
     // iterate over all stakers, then all assets, then all operators
     const delegation_states = [];
     const stakers_by_operator = [];
@@ -618,7 +619,8 @@ async function updateGenesisFile() {
             delegation_states.push({
               key: key,
               states: {
-                undelegatable_share: share.toString,
+                undelegatable_share: share.toString(),
+                wait_undelegation_amount: "0"
               },
             });
 
@@ -662,10 +664,11 @@ async function updateGenesisFile() {
     genesisJSON.app_state.delegation.delegation_states = delegation_states;
     genesisJSON.app_state.delegation.stakers_by_operator = stakers_by_operator;
 
-    await fs.writeFile(RESULT_GENESIS_FILE_PATH, JSON.stringify(genesisJSON, null, 2));
+    await fs.writeFile(RESULT_GENESIS_FILE_PATH, JSONbig.stringify(genesisJSON, null, 2));
     console.log('Genesis file updated successfully.');
   } catch (error) {
     console.error('Error updating genesis file:', error.message);
+    console.error('Stack trace:', error.stack); 
   }
 }
 
