@@ -25,7 +25,7 @@ library ActionAttributes {
         } else if (action == Action.REQUEST_DELEGATE_TO || action == Action.REQUEST_UNDELEGATE_FROM) {
             return STAKING_OPERATION | BASIC_RESPONSE;
         } else if (action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO) {
-            return ASSET_OPERATION | STAKING_OPERATION | PRINCIPAL_TYPE | DEPOSIT | BALANCE_RESPONSE;
+            return STAKING_OPERATION | PRINCIPAL_TYPE | DEPOSIT | BALANCE_RESPONSE;
         } else {
             return 0;
         }

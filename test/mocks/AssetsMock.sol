@@ -56,11 +56,16 @@ contract AssetsMock is IAssets {
     ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid staker address");
-        if (bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))) {
-            require(isRegisteredToken[clientChainLzId][assetsAddress], "the token is not registered before");
+        if (bytes32(assetsAddress) == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))) {
+            return (false, 0);
+        }
+        if (!isRegisteredToken[clientChainLzId][assetsAddress]) {
+            return (false, 0);
         }
 
-        require(opAmount <= principalBalances[clientChainLzId][assetsAddress][withdrawer], "withdraw amount overflow");
+        if (opAmount > principalBalances[clientChainLzId][assetsAddress][withdrawer]) {
+            return (false, 0);
+        }
 
         principalBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
 
@@ -76,7 +81,9 @@ contract AssetsMock is IAssets {
         require(withdrawer.length == 32, "invalid staker address");
 
         bytes memory nstAddress = abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
-        require(opAmount <= principalBalances[clientChainLzId][nstAddress][withdrawer], "withdraw amount overflow");
+        if (opAmount > principalBalances[clientChainLzId][nstAddress][withdrawer]) {
+            return (false, 0);
+        }
         principalBalances[clientChainLzId][nstAddress][withdrawer] -= opAmount;
         inValidatorSet[withdrawer][validatorPubkey] = false;
         return (true, principalBalances[clientChainLzId][nstAddress][withdrawer]);

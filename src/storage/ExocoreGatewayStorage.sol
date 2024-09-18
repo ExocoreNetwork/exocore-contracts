@@ -76,6 +76,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     event WhitelistTokenUpdated(uint32 clientChainId, bytes32 token);
 
     /* --------- asset operations results and staking operations results -------- */
+
     /// @notice Emitted when reward is withdrawn.
     /// @param success Whether the withdrawal was successful.
     /// @param token The address of the token.
@@ -83,33 +84,43 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param amount The amount of the token withdrawn.
     event ClaimRewardResult(bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount);
 
-    /// @notice Emitted when a deposit happens.
-    /// @param success Whether the deposit was successful.
+    /// @notice Emitted when a LST transfer happens.
+    /// @param isDeposit Whether the transfer is a deposit or a withdraw.
+    /// @param success Whether the transfer was successful.
     /// @param token The address of the token.
     /// @param depositor The address of the depositor.
     /// @param amount The amount of the token deposited.
-    event DepositResult(bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount);
+    event LSTTransfer(
+        bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount
+    );
 
-    /// @notice Emitted when principal is withdrawn.
-    /// @param success Whether the withdrawal was successful.
-    /// @param token The address of the token.
+    /// @notice Emitted when a NST transfer happens.
+    /// @param isDeposit Whether the transfer is a deposit or a withdraw.
+    /// @param success Whether the transfer was successful.
+    /// @param validatorPubkey The validator public key.
     /// @param withdrawer The address of the withdrawer.
     /// @param amount The amount of the token withdrawn.
-    event WithdrawalResult(bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount);
+    event NSTTransfer(
+        bool isDeposit,
+        bool indexed success,
+        bytes32 indexed validatorPubkey,
+        bytes32 indexed withdrawer,
+        uint256 amount
+    );
 
-    /// @notice Emitted upon delegation.
+    /// @notice Emitted upon receiving a delegation request.
+    /// @param isDelegate Whether the delegation request is a delegate request or an undelegate request.
     /// @param accepted Whether the delegation request was accepted, true if it is accepted and being queued, false if
     /// it is rejected.
-    /// @param isDelegate Whether the delegation request is a delegate request or an undelegate request.
     /// @param token The address of the token.
     /// @param delegator The address of the delegator.
     /// @param operator The Exo account address of the operator.
     /// @param amount The amount of the token delegated.
-    event DelegationRequestReceived(
+    event DelegationRequest(
+        bool isDelegate,
         bool indexed accepted,
-        bool indexed isDelegate,
         bytes32 indexed token,
-        bytes32 delegator,
+        bytes32 indexed delegator,
         string operator,
         uint256 amount
     );

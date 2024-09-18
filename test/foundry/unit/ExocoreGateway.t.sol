@@ -207,9 +207,6 @@ contract LzReceive is SetUp {
         );
         bytes memory msg_ = abi.encodePacked(Action.REQUEST_WITHDRAW_LST, payload);
 
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit ExocorePrecompileError(ASSETS_PRECOMPILE_ADDRESS, uint64(1));
-
         vm.prank(address(exocoreLzEndpoint));
         exocoreGateway.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), uint64(1)),

@@ -25,11 +25,11 @@ contract DelegateTest is ExocoreDeployer {
 
     string operatorAddress;
 
-    event DelegationRequestReceived(
+    event DelegationRequest(
+        bool isDelegate,
         bool indexed accepted,
-        bool indexed isDelegate,
         bytes32 indexed token,
-        bytes32 delegator,
+        bytes32 indexed delegator,
         string operator,
         uint256 amount
     );
@@ -138,6 +138,17 @@ contract DelegateTest is ExocoreDeployer {
             delegateAmount
         );
 
+        /// exocoreGateway contract should emit DelegateResult event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit DelegationRequest(
+            true,
+            true,
+            bytes32(bytes20(address(restakeToken))),
+            bytes32(bytes20(delegator.addr)),
+            operatorAddress,
+            delegateAmount
+        );
+
         /// layerzero endpoint should emit the message packet including delegation response payload.
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
         emit NewPacket(
@@ -152,16 +163,6 @@ contract DelegateTest is ExocoreDeployer {
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit MessageSent(Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
 
-        /// exocoreGateway contract should emit DelegateResult event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit DelegationRequestReceived(
-            true,
-            true,
-            bytes32(bytes20(address(restakeToken))),
-            bytes32(bytes20(delegator.addr)),
-            operatorAddress,
-            delegateAmount
-        );
         vm.expectEmit(address(exocoreGateway));
         emit MessageExecuted(Action.REQUEST_DELEGATE_TO, inboundNonces[exocoreChainId]++);
 
@@ -266,6 +267,17 @@ contract DelegateTest is ExocoreDeployer {
             undelegateAmount
         );
 
+        /// exocoreGateway contract should emit UndelegateResult event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit DelegationRequest(
+            false,
+            true,
+            bytes32(bytes20(address(restakeToken))),
+            bytes32(bytes20(delegator.addr)),
+            operatorAddress,
+            undelegateAmount
+        );
+
         /// layerzero endpoint should emit the message packet including undelegation response payload.
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
         emit NewPacket(
@@ -280,16 +292,6 @@ contract DelegateTest is ExocoreDeployer {
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit MessageSent(Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
 
-        /// exocoreGateway contract should emit UndelegateResult event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit DelegationRequestReceived(
-            true,
-            false,
-            bytes32(bytes20(address(restakeToken))),
-            bytes32(bytes20(delegator.addr)),
-            operatorAddress,
-            undelegateAmount
-        );
         vm.expectEmit(address(exocoreGateway));
         emit MessageExecuted(Action.REQUEST_UNDELEGATE_FROM, inboundNonces[exocoreChainId]++);
 

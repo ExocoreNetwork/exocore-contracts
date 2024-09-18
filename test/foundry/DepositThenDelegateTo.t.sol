@@ -22,12 +22,14 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
     using AddressCast for address;
 
     // ExocoreGateway emits these two events after handling the request
-    event DepositResult(bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount);
-    event DelegationRequestReceived(
+    event LSTTransfer(
+        bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount
+    );
+    event DelegationRequest(
+        bool isDelegate,
         bool indexed accepted,
-        bool indexed isDelegate,
         bytes32 indexed token,
-        bytes32 delegator,
+        bytes32 indexed delegator,
         string operator,
         uint256 amount
     );
@@ -164,7 +166,9 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
         // deposit request is firstly handled and its event is firstly emitted
         vm.expectEmit(address(exocoreGateway));
-        emit DepositResult(true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), delegateAmount);
+        emit LSTTransfer(
+            true, true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(delegator)), delegateAmount
+        );
 
         // secondly delegate request is handled
         vm.expectEmit(DELEGATION_PRECOMPILE_ADDRESS);
@@ -178,7 +182,7 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         );
 
         vm.expectEmit(address(exocoreGateway));
-        emit DelegationRequestReceived(
+        emit DelegationRequest(
             true,
             true,
             bytes32(bytes20(address(restakeToken))),

@@ -69,6 +69,12 @@ contract WithdrawRewardTest is ExocoreDeployer {
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
         bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
+        // exocore gateway should emit WithdrawRewardResult event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit ClaimRewardResult(
+            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(withdrawer.addr)), withdrawAmount
+        );
+
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
         emit NewPacket(
             clientChainId,
@@ -80,12 +86,6 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // exocore gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit MessageSent(Action.RESPOND, responseId, outboundNonces[exocoreChainId]++, responseNativeFee);
-
-        // exocore gateway should emit WithdrawRewardResult event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit ClaimRewardResult(
-            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(withdrawer.addr)), withdrawAmount
-        );
 
         vm.expectEmit(address(exocoreGateway));
         emit MessageExecuted(Action.REQUEST_CLAIM_REWARD, inboundNonces[exocoreChainId]++);
