@@ -25,9 +25,6 @@ enum Action {
 /// @dev This contract is used as the base storage and is inherited by the storage for Bootstrap and ExocoreGateway.
 contract GatewayStorage {
 
-    /// @dev The (virtual) address for native staking token.
-    address internal constant VIRTUAL_NST_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
-
     /// @notice the human readable prefix for Exocore bech32 encoded address.
     bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
 

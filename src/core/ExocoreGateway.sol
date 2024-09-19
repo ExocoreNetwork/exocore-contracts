@@ -6,9 +6,9 @@ import {IExocoreGateway} from "../interfaces/IExocoreGateway.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Action} from "../storage/GatewayStorage.sol";
 
-import {ASSETS_CONTRACT, ASSETS_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IAssets.sol";
-import {CLAIM_REWARD_CONTRACT, CLAIM_REWARD_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IClaimReward.sol";
-import {DELEGATION_CONTRACT, DELEGATION_PRECOMPILE_ADDRESS} from "../interfaces/precompiles/IDelegation.sol";
+import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
+import {CLAIM_REWARD_CONTRACT} from "../interfaces/precompiles/IClaimReward.sol";
+import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
 
 import {
     MessagingFee,
@@ -460,10 +460,9 @@ contract ExocoreGateway is
     /// @notice Handles the associating/dissociating operator request, and no response would be returned.
     /// @dev Can only be called from this contract via low-level call.
     /// @param srcChainId The source chain id.
-    /// @param lzNonce The layer zero nonce.
     /// @param act The action type.
     /// @param payload The request payload.
-    function handleOperatorAssociation(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
+    function handleOperatorAssociation(uint32 srcChainId, uint64, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
     {

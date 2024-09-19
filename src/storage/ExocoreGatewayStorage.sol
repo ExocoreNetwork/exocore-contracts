@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {ActionAttributes} from "../libraries/ActionAttributes.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {Action, GatewayStorage} from "./GatewayStorage.sol";
 
@@ -9,41 +10,7 @@ import {Action, GatewayStorage} from "./GatewayStorage.sol";
 /// @author ExocoreNetwork
 contract ExocoreGatewayStorage is GatewayStorage {
 
-    /// @dev The length of a deposit LST request, in bytes.
-    // uint8 Action + bytes32 token + bytes32 depositor + uint256 amount
-    uint256 internal constant DEPOSIT_LST_REQUEST_LENGTH = 97;
-
-    /// @dev The length of a deposit NST request, in bytes.
-    // uint8 Action + bytes32 validatorPubkey + bytes32 depositor + uint256 amount
-    uint256 internal constant DEPOSIT_NST_REQUEST_LENGTH = 97;
-
-    /// @dev The length of a delegate request, in bytes.
-    // uint8 Action + bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
-    uint256 internal constant DELEGATE_REQUEST_LENGTH = 139;
-
-    /// @dev The length of an undelegate request, in bytes.
-    // uint8 Action + bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
-    uint256 internal constant UNDELEGATE_REQUEST_LENGTH = 139;
-
-    /// @dev The length of a withdraw LST request, in bytes.
-    // uint8 Action + bytes32 token + bytes32 withdrawer + uint256 amount
-    uint256 internal constant WITHDRAW_LST_REQUEST_LENGTH = 97;
-
-    /// @dev The length of a withdraw NST request, in bytes.
-    // uint8 Action + bytes32 validatorPubkey + bytes32 withdrawer + uint256 amount
-    uint256 internal constant WITHDRAW_NST_REQUEST_LENGTH = 97;
-
-    /// @dev The length of a claim reward request, in bytes.
-    // uint8 Action + bytes32 token + bytes32 withdrawer + uint256 amount
-    uint256 internal constant CLAIM_REWARD_REQUEST_LENGTH = 97;
-
-    /// @dev The length of a deposit-then-delegate request, in bytes.
-    // uint8 Action + bytes32 token + bytes32 delegator + bytes(42) operator + uint256 amount
-    uint256 internal constant DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH = DELEGATE_REQUEST_LENGTH;
-    // uint8 Action + bytes32 staker + bytes(42) operator
-    uint256 internal constant ASSOCIATE_OPERATOR_REQUEST_LENGTH = 75;
-    // uint8 Action + bytes32 staker
-    uint256 internal constant DISSOCIATE_OPERATOR_REQUEST_LENGTH = 33;
+    using ActionAttributes for Action;
 
     // constants used for layerzero messaging
     /// @dev The gas limit for all the destination chains.
@@ -147,29 +114,9 @@ contract ExocoreGatewayStorage is GatewayStorage {
             revert Errors.InvalidMessageLength();
         }
         Action action = Action(uint8(message[0]));
-        uint256 expectedLength;
+        uint256 expectedLength = action.getMessageLength();
 
-        if (action == Action.REQUEST_DEPOSIT_LST) {
-            expectedLength = DEPOSIT_LST_REQUEST_LENGTH;
-        } else if (action == Action.REQUEST_DEPOSIT_NST) {
-            expectedLength = DEPOSIT_NST_REQUEST_LENGTH;
-        } else if (action == Action.REQUEST_WITHDRAW_LST) {
-            expectedLength = WITHDRAW_LST_REQUEST_LENGTH;
-        } else if (action == Action.REQUEST_WITHDRAW_NST) {
-            expectedLength = WITHDRAW_NST_REQUEST_LENGTH;
-        } else if (action == Action.REQUEST_CLAIM_REWARD) {
-            expectedLength = CLAIM_REWARD_REQUEST_LENGTH;
-        } else if (action == Action.REQUEST_DELEGATE_TO) {
-            expectedLength = DELEGATE_REQUEST_LENGTH;
-        } else if (action == Action.REQUEST_UNDELEGATE_FROM) {
-            expectedLength = UNDELEGATE_REQUEST_LENGTH;
-        } else if (action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO) {
-            expectedLength = DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH;
-        } else if (action == Action.REQUEST_ASSOCIATE_OPERATOR) {
-            expectedLength = ASSOCIATE_OPERATOR_REQUEST_LENGTH;
-        } else if (action == Action.REQUEST_DISSOCIATE_OPERATOR) {
-            expectedLength = DISSOCIATE_OPERATOR_REQUEST_LENGTH;
-        } else {
+        if (expectedLength == 0) {
             revert Errors.UnsupportedRequest(action);
         }
 

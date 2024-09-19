@@ -126,6 +126,9 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev Maps token addresses to their corresponding vault contracts.
     mapping(address token => IVault vault) public tokenToVault;
 
+    /// @dev The (virtual) address for native staking token.
+    address internal constant VIRTUAL_NST_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     /// @notice Used to identify the specific Exocore chain this contract interacts with for cross-chain
     /// functionalities.
     /// @dev Stores the Layer Zero chain ID of the Exocore chain.
