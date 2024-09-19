@@ -29,6 +29,17 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     }
 
     /// @inheritdoc OAppReceiverUpgradeable
+    function nextNonce(uint32 srcEid, bytes32 sender)
+        public
+        view
+        virtual
+        override(OAppReceiverUpgradeable)
+        returns (uint64)
+    {
+        return inboundNonce[srcEid][sender] + 1;
+    }
+
+    /// @inheritdoc OAppReceiverUpgradeable
     // This function would call other functions inside this contract through low-level-call
     // slither-disable-next-line reentrancy-no-eth
     function _lzReceive(Origin calldata _origin, bytes calldata message) internal virtual override whenNotPaused {
@@ -56,19 +67,8 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
         emit MessageExecuted(act, _origin.nonce);
     }
 
-    /// @inheritdoc OAppReceiverUpgradeable
-    function nextNonce(uint32 srcEid, bytes32 sender)
-        public
-        view
-        virtual
-        override(OAppReceiverUpgradeable)
-        returns (uint64)
-    {
-        return inboundNonce[srcEid][sender] + 1;
-    }
-
     /// @dev Called after a response is received from the Exocore Gateway.
-    /// @param response The response payload.
+    /// @param response The response message.
     // Though this function makes external calls to contract Vault or ExoCapsule, we just update their state variables
     // and don't make
     // calls to other contracts that do not belong to Exocore.
@@ -77,37 +77,27 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     function _handleResponse(bytes calldata response) internal {
         (uint64 requestId, Action requestAct, bytes memory cachedRequest) = _getCachedRequestForResponse(response);
 
-        bool success = false;
-        uint256 updatedBalance;
-
-        if (requestAct.expectBasicResponse()) {
-            success = _decodeBasicResponse(response);
-        } else if (requestAct.expectBalanceResponse()) {
-            (address token, address staker,, uint256 amount) = _decodeCachedRequest(requestAct, cachedRequest);
-            (success, updatedBalance) = _decodeBalanceResponse(response);
-
-            if (requestAct.isPrincipalType()) {
-                if (success || requestAct.isDeposit()) {
-                    _updatePrincipalAssetState(requestAct, token, staker, amount, updatedBalance);
-                }
-            } else {
-                if (success) {
-                    IVault vault = _getVault(token);
-
-                    vault.updateRewardBalance(staker, updatedBalance);
-                    if (requestAct.isWithdrawal()) {
-                        vault.updateWithdrawableBalance(staker, 0, amount);
-                    }
-                }
-            }
-        } else {
+        if (!requestAct.isWithdrawal()) {
             revert Errors.UnsupportedResponse(requestAct);
+        }
+
+        bool requestSuccess = _isSuccess(response);
+        if (requestSuccess) {
+            (address token, address staker, uint256 amount) = _decodeCachedRequest(cachedRequest);
+
+            if (requestAct.isPrincipal()) {
+                _updatePrincipalWithdrawableBalance(token, staker, amount);
+            } else if (requestAct.isReward()) {
+                _updateRewardWithdrawableBalance(token, staker, amount);
+            } else {
+                revert Errors.UnsupportedResponse(requestAct);
+            }
         }
 
         delete _registeredRequestActions[requestId];
         delete _registeredRequests[requestId];
 
-        emit RequestFinished(requestAct, requestId, success);
+        emit ResponseProcessed(requestAct, requestId, requestSuccess);
     }
 
     /// @dev Gets the cached request for a response.
@@ -132,87 +122,59 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     }
 
     /// @dev Decodes the cached request.
-    /// @param requestAct The request action
     /// @param cachedRequest The cached request against that action
     /// @return token The address of the token
     /// @return staker The address of the staker
-    /// @return operator The operator address, as a bech32 string
     /// @return amount The amount of the operation
-    function _decodeCachedRequest(Action requestAct, bytes memory cachedRequest)
+    function _decodeCachedRequest(bytes memory cachedRequest)
         internal
         pure
-        returns (address token, address staker, string memory operator, uint256 amount)
+        returns (address token, address staker, uint256 amount)
     {
-        if (requestAct.isAssetOperationRequest()) {
-            (token, staker, amount) = abi.decode(cachedRequest, (address, address, uint256));
-        } else if (requestAct.isStakingOperationRequest()) {
-            (token, staker, operator, amount) = abi.decode(cachedRequest, (address, address, string, uint256));
-        } else {
-            revert Errors.UnsupportedRequest(requestAct);
-        }
-
-        return (token, staker, operator, amount);
+        return abi.decode(cachedRequest, (address, address, uint256));
     }
 
-    /// @dev Decodes the balance response.
-    /// @param response The response to decode.
+    /// @dev Checks if the request is successful based on the response message.
+    /// @param response The response message.
     /// @return success The success status of the response
-    /// @return updatedBalance The updated balance
-    function _decodeBalanceResponse(bytes calldata response)
-        internal
-        pure
-        returns (bool success, uint256 updatedBalance)
-    {
-        success = (uint8(bytes1(response[9])) == 1);
-        updatedBalance = uint256(bytes32(response[10:]));
-
-        return (success, updatedBalance);
-    }
-
-    /// @dev Decodes the basic response.
-    /// @param response The response to decode.
-    /// @return success The success status of the response
-    function _decodeBasicResponse(bytes calldata response) internal pure returns (bool success) {
+    function _isSuccess(bytes calldata response) internal pure returns (bool success) {
         success = (uint8(bytes1(response[9])) == 1);
 
         return success;
     }
 
-    /// @dev Updates the principal asset state.
-    /// @param requestAct The request action
-    /// @param token The token address
-    /// @param staker The staker address
-    /// @param amount The amount of the operation
-    /// @param updatedBalance The updated balance
-    function _updatePrincipalAssetState(
-        Action requestAct,
-        address token,
-        address staker,
-        uint256 amount,
-        uint256 updatedBalance
-    ) internal {
+    /**
+     * @dev Updates the withdrawable balance of the principal.
+     * @param token The address of the token.
+     * @param staker The address of the staker.
+     * @param amount The amount of the operation.
+     */
+    function _updatePrincipalWithdrawableBalance(address token, address staker, uint256 amount) internal {
         if (token == VIRTUAL_NST_ADDRESS) {
             IExoCapsule capsule = _getCapsule(staker);
-
-            capsule.updatePrincipalBalance(updatedBalance);
-            if (requestAct.isWithdrawal()) {
-                capsule.updateWithdrawableBalance(amount);
-            }
+            capsule.updateWithdrawableBalance(amount);
         } else {
             IVault vault = _getVault(token);
-
-            vault.updatePrincipalBalance(staker, updatedBalance);
-            if (requestAct.isWithdrawal()) {
-                vault.updateWithdrawableBalance(staker, amount, 0);
-            }
+            vault.updateWithdrawableBalance(staker, amount, 0);
         }
+    }
+
+    /**
+     * @dev Updates the withdrawable balance of the reward.
+     * @param token The address of the token.
+     * @param staker The address of the staker.
+     * @param amount The amount of the operation.
+     */
+    function _updateRewardWithdrawableBalance(address token, address staker, uint256 amount) internal {
+        IVault vault = _getVault(token);
+        vault.updateWithdrawableBalance(staker, 0, amount);
     }
 
     /// @notice Called after an add-whitelist-token response is received.
     /// @param payload The request payload.
-    // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
-    // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
-    // like reentrancy.
+    /// @dev Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
+    /// `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
+    /// like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
     function afterReceiveAddWhitelistTokenRequest(bytes calldata payload) public onlyCalledFromThis whenNotPaused {
         if (payload.length != ADD_TOKEN_WHITELIST_REQUEST_LENGTH) {

@@ -64,8 +64,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // endpoint
 
         // exocore gateway should return response message to exocore network layerzero endpoint
-        bytes memory withdrawResponsePayload =
-            abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true, uint256(1234));
+        bytes memory withdrawResponsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
         bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
@@ -105,7 +104,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
 
         // client chain gateway should execute the response hook and emit RequestFinished event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(Action.REQUEST_CLAIM_REWARD, outboundNonces[clientChainId] - 1, true);
+        emit ResponseProcessed(Action.REQUEST_CLAIM_REWARD, outboundNonces[clientChainId] - 1, true);
 
         vm.expectEmit(address(clientGateway));
         emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);

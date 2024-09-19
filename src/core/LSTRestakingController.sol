@@ -36,9 +36,9 @@ abstract contract LSTRestakingController is
         vault.deposit(msg.sender, amount);
 
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
-        bytes memory encodedRequest = abi.encode(token, msg.sender, amount);
 
-        _processRequest(Action.REQUEST_DEPOSIT_LST, actionArgs, encodedRequest);
+        // deposit is supposed to be a must-succeed action, so we don't need to check the response
+        _processRequest(Action.REQUEST_DEPOSIT_LST, actionArgs, bytes(""));
     }
 
     /// @inheritdoc ILSTRestakingController
@@ -58,6 +58,7 @@ abstract contract LSTRestakingController is
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principalAmount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, principalAmount);
 
+        // we need to check the response to unlock the principal for later claim
         _processRequest(Action.REQUEST_WITHDRAW_LST, actionArgs, encodedRequest);
     }
 
@@ -72,6 +73,8 @@ abstract contract LSTRestakingController is
     {
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), rewardAmount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, rewardAmount);
+
+        // we need to check the response to unlock the reward for later claim
         _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
     }
 
@@ -91,8 +94,10 @@ abstract contract LSTRestakingController is
 
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
-        bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
-        _processRequest(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, actionArgs, encodedRequest);
+
+        // deposit is supposed to be a must-succeed action and delegate does no need response, so we don't need to check
+        // the response
+        _processRequest(Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO, actionArgs, bytes(""));
     }
 
 }

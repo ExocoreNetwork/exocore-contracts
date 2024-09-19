@@ -76,11 +76,11 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @param amount Amount of @param token withdrawn.
     event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
 
-    /// @notice Emitted when the gateway finishes processing a request.
-    /// @param action The action of the request.
-    /// @param requestId The ID of the request.
-    /// @param success Whether the request was successful on Exocore.
-    event RequestFinished(Action indexed action, uint64 indexed requestId, bool indexed success);
+    /// @notice Emitted when a response is processed.
+    /// @param action The correspoding request action.
+    /// @param requestId The corresponding request ID.
+    /// @param success Whether the corresponding request was successful on Exocore.
+    event ResponseProcessed(Action indexed action, uint64 indexed requestId, bool indexed success);
 
     /// @notice Initializes the ClientChainGatewayStorage contract.
     /// @param exocoreChainId_ The chain ID of the Exocore chain.

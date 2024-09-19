@@ -386,9 +386,6 @@ contract Bootstrap is
         withdrawableAmounts[depositor][token] += amount;
         depositsByToken[token] += amount;
 
-        // afterReceiveDepositResponse stores the TotalDepositAmount in the principal.
-        vault.updatePrincipalBalance(depositor, totalDepositAmounts[depositor][token]);
-
         emit DepositResult(true, token, depositor, amount);
     }
 
@@ -431,7 +428,6 @@ contract Bootstrap is
         depositsByToken[token] -= amount;
 
         // afterReceiveWithdrawPrincipalResponse
-        vault.updatePrincipalBalance(user, totalDepositAmounts[user][token]);
         vault.updateWithdrawableBalance(user, amount, 0);
 
         emit WithdrawPrincipalResult(true, token, user, amount);

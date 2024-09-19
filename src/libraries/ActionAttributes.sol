@@ -12,42 +12,42 @@ library ActionAttributes {
     uint256 internal constant DISSOCIATE_OPERATOR_LENGTH = 33;
 
     // Bitmaps for operation types
-    uint256 internal constant ASSET_OPERATION = 1 << 0;
-    uint256 internal constant STAKING_OPERATION = 1 << 1;
-    uint256 internal constant PRINCIPAL_TYPE = 1 << 2;
-    uint256 internal constant REWARD_TYPE = 1 << 3;
-    uint256 internal constant WITHDRAWAL = 1 << 4;
-    uint256 internal constant DEPOSIT = 1 << 5;
-    uint256 internal constant BASIC_RESPONSE = 1 << 6;
-    uint256 internal constant BALANCE_RESPONSE = 1 << 7;
+    uint256 internal constant LST = 1 << 0;
+    uint256 internal constant NST = 1 << 1;
+    uint256 internal constant WITHDRAWAL = 1 << 2;
+    uint256 internal constant PRINCIPAL = 1 << 3;
+    uint256 internal constant REWARD = 1 << 4;
 
     uint256 internal constant MESSAGE_LENGTH_MASK = 0xFF; // 8 bits for message length
     uint256 internal constant MESSAGE_LENGTH_SHIFT = 8;
 
     function getAttributes(Action action) internal pure returns (uint256) {
-        uint256 attributes;
-        uint256 messageLength;
+        uint256 attributes = 0;
+        uint256 messageLength = 0;
 
-        if (action == Action.REQUEST_DEPOSIT_LST || action == Action.REQUEST_DEPOSIT_NST) {
-            attributes = ASSET_OPERATION | PRINCIPAL_TYPE | DEPOSIT | BALANCE_RESPONSE;
+        if (action == Action.REQUEST_DEPOSIT_LST) {
+            attributes = LST | PRINCIPAL;
             messageLength = ASSET_OPERATION_LENGTH;
-        } else if (action == Action.REQUEST_WITHDRAW_LST || action == Action.REQUEST_WITHDRAW_NST) {
-            attributes = ASSET_OPERATION | PRINCIPAL_TYPE | WITHDRAWAL | BALANCE_RESPONSE;
+        } else if (action == Action.REQUEST_DEPOSIT_NST) {
+            attributes = NST | PRINCIPAL;
+            messageLength = ASSET_OPERATION_LENGTH;
+        } else if (action == Action.REQUEST_WITHDRAW_LST) {
+            attributes = LST | PRINCIPAL | WITHDRAWAL;
+            messageLength = ASSET_OPERATION_LENGTH;
+        } else if (action == Action.REQUEST_WITHDRAW_NST) {
+            attributes = NST | PRINCIPAL | WITHDRAWAL;
             messageLength = ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_CLAIM_REWARD) {
-            attributes = ASSET_OPERATION | REWARD_TYPE | WITHDRAWAL | BALANCE_RESPONSE;
+            attributes = REWARD | WITHDRAWAL;
             messageLength = ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_DELEGATE_TO || action == Action.REQUEST_UNDELEGATE_FROM) {
-            attributes = STAKING_OPERATION | BASIC_RESPONSE;
             messageLength = DELEGATION_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO) {
-            attributes = STAKING_OPERATION | PRINCIPAL_TYPE | DEPOSIT | BALANCE_RESPONSE;
+            attributes = LST | PRINCIPAL;
             messageLength = DELEGATION_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_ASSOCIATE_OPERATOR) {
-            attributes = STAKING_OPERATION | BASIC_RESPONSE;
             messageLength = ASSOCIATE_OPERATOR_LENGTH;
         } else if (action == Action.REQUEST_DISSOCIATE_OPERATOR) {
-            attributes = STAKING_OPERATION | BASIC_RESPONSE;
             messageLength = DISSOCIATE_OPERATOR_LENGTH;
         } else {
             return 0;
@@ -56,36 +56,24 @@ library ActionAttributes {
         return attributes | (messageLength << MESSAGE_LENGTH_SHIFT);
     }
 
-    function isAssetOperationRequest(Action action) internal pure returns (bool) {
-        return (getAttributes(action) & ASSET_OPERATION) != 0;
+    function isLST(Action action) internal pure returns (bool) {
+        return (getAttributes(action) & LST) != 0;
     }
 
-    function isStakingOperationRequest(Action action) internal pure returns (bool) {
-        return (getAttributes(action) & STAKING_OPERATION) != 0;
-    }
-
-    function expectBasicResponse(Action action) internal pure returns (bool) {
-        return (getAttributes(action) & BASIC_RESPONSE) != 0;
-    }
-
-    function expectBalanceResponse(Action action) internal pure returns (bool) {
-        return (getAttributes(action) & BALANCE_RESPONSE) != 0;
-    }
-
-    function isPrincipalType(Action action) internal pure returns (bool) {
-        return (getAttributes(action) & PRINCIPAL_TYPE) != 0;
-    }
-
-    function isRewardType(Action action) internal pure returns (bool) {
-        return (getAttributes(action) & REWARD_TYPE) != 0;
+    function isNST(Action action) internal pure returns (bool) {
+        return (getAttributes(action) & NST) != 0;
     }
 
     function isWithdrawal(Action action) internal pure returns (bool) {
         return (getAttributes(action) & WITHDRAWAL) != 0;
     }
 
-    function isDeposit(Action action) internal pure returns (bool) {
-        return (getAttributes(action) & DEPOSIT) != 0;
+    function isPrincipal(Action action) internal pure returns (bool) {
+        return (getAttributes(action) & PRINCIPAL) != 0;
+    }
+
+    function isReward(Action action) internal pure returns (bool) {
+        return (getAttributes(action) & REWARD) != 0;
     }
 
     function getMessageLength(Action action) internal pure returns (uint256) {

@@ -112,7 +112,7 @@ contract ExocoreDeployer is Test {
     event NewPacket(uint32, address, bytes32, uint64, bytes);
     event WhitelistTokenAdded(address _token);
     event VaultCreated(address underlyingToken, address vault);
-    event RequestFinished(Action indexed action, uint64 indexed requestId, bool indexed success);
+    event ResponseProcessed(Action indexed action, uint64 indexed requestId, bool indexed success);
     event MessageExecuted(Action indexed act, uint64 nonce);
 
     function setUp() public virtual {
@@ -464,6 +464,16 @@ contract ExocoreDeployer is Test {
                 nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
             );
         }
+    }
+
+    function _addressToBytes(address addr) internal pure returns (bytes memory) {
+        return abi.encodePacked(bytes32(bytes20(addr)));
+    }
+
+    function _getPrincipalBalance(uint32 chainId, address depositor, address token) internal view returns (uint256) {
+        return AssetsMock(ASSETS_PRECOMPILE_ADDRESS).getPrincipalBalance(
+            chainId, _addressToBytes(token), _addressToBytes(depositor)
+        );
     }
 
 }

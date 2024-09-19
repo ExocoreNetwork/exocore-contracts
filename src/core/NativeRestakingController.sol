@@ -104,8 +104,9 @@ abstract contract NativeRestakingController is
 
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes memory actionArgs = abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), depositValue);
-        bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, depositValue);
-        _processRequest(Action.REQUEST_DEPOSIT_NST, actionArgs, encodedRequest);
+
+        // deposit NST is a must-succeed action, so we don't need to check the response
+        _processRequest(Action.REQUEST_DEPOSIT_NST, actionArgs, bytes(""));
     }
 
     /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Exocore.
@@ -128,6 +129,7 @@ abstract contract NativeRestakingController is
             bytes memory actionArgs = abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), withdrawalAmount);
             bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, withdrawalAmount);
 
+            // a full withdrawal needs response from Exocore, so we don't pass empty bytes
             _processRequest(Action.REQUEST_WITHDRAW_NST, actionArgs, encodedRequest);
         }
     }
