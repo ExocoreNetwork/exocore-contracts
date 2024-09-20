@@ -165,6 +165,7 @@ async function updateGenesisFile() {
     const assetIds = [];
     for (let i = 0; i < supportedTokensCount; i++) {
       let token = await myContract.methods.getWhitelistedTokenAtIndex(i).call();
+      const deposit_amount = await myContract.methods.depositsByToken(token.tokenAddress).call();
       const tokenCleaned = {
         asset_basic_info: {
           name: token.name,
@@ -175,13 +176,8 @@ async function updateGenesisFile() {
           exocore_chain_index: i.toString(), // unused
           meta_info: tokenMetaInfos[i],
         },
-        // set this to 0 intentionally, since the total amount will be provided
-        // by the deposits
-        staking_total_amount: "0",
+        staking_total_amount: deposit_amount.toString(),
       };
-      // total amount should be set because the initialization won't set it.
-      const deposit_amount = await myContract.methods.depositsByToken(token.tokenAddress).call();
-      tokenCleaned.staking_total_amount = deposit_amount.toString();
 
       supportedTokens[i] = tokenCleaned;
       decimals.push(token.decimals);
@@ -295,7 +291,6 @@ async function updateGenesisFile() {
           validatorExoAddress, tokenAddress
         ).call();
         const totalShare = new Decimal(delegationValue.toString());
-        let stakerId = validatorEthAddress.toLowerCase() + clientChainSuffix;
         const selfDelegation = await myContract.methods.delegations(
           validatorEthAddress, validatorExoAddress, tokenAddress
         ).call();
@@ -375,24 +370,24 @@ async function updateGenesisFile() {
 
     for (let i = 0; i < operatorsCount; i++) {
       // operators
-      const operatorAddress = await myContract.methods.registeredValidators(i).call();
-      const opAddressBech32 = await myContract.methods.ethToExocoreAddress(
-        operatorAddress
+      const opAddressHex = await myContract.methods.registeredValidators(i).call();
+      const opAddressExo = await myContract.methods.ethToExocoreAddress(
+        opAddressHex
       ).call();
-      if (!isValidBech32(opAddressBech32)) {
-        console.log(`Skipping operator with invalid bech32 address: ${opAddressBech32}`);
+      if (!isValidBech32(opAddressExo)) {
+        console.log(`Skipping operator with invalid bech32 address: ${opAddressExo}`);
         continue;
       }
-      const operatorInfo = await myContract.methods.validators(opAddressBech32).call();
+      const operatorInfo = await myContract.methods.validators(opAddressExo).call();
       const operator_info = {
-        earnings_addr: opAddressBech32,
+        earnings_addr: opAddressExo,
         // approve_addr unset
         operator_meta_info: operatorInfo.name,
         client_chain_earnings_addr: {
           earning_info_list: [
             {
               lz_client_chain_id: clientChainInfo.layer_zero_chain_id,
-              client_chain_earning_addr: operatorAddress,
+              client_chain_earning_addr: opAddressHex,
             }
           ]
         },
@@ -412,7 +407,7 @@ async function updateGenesisFile() {
         }
       }
       const operatorCleaned = {
-        operator_address: opAddressBech32,
+        operator_address: opAddressExo,
         operator_info: operator_info
       }
       operators.push(operatorCleaned);
@@ -432,14 +427,14 @@ async function updateGenesisFile() {
       for (let j = 0; j < supportedTokens.length; j++) {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
-        const selfDelegationAmount = await myContract.methods.delegations(operatorAddress, opAddressBech32, tokenAddress).call();
+        const selfDelegationAmount = await myContract.methods.delegations(opAddressHex, opAddressExo, tokenAddress).call();
         amount = amount.plus(
           new Decimal(selfDelegationAmount.toString()).
             div('1e' + decimals[j]).
             mul(exchangeRates[j].toString())
         );
         const perTokenDelegation = await myContract.methods.delegationsByValidator(
-          opAddressBech32, tokenAddress
+          opAddressExo, tokenAddress
         ).call();
         totalAmount = totalAmount.plus(
           new Decimal(perTokenDelegation.toString()).
@@ -453,7 +448,7 @@ async function updateGenesisFile() {
         validators.push({
           public_key: operatorInfo.consensusPublicKey,
           power: totalAmount,  // do not convert to int yet.
-          operator_acc_addr: opAddressBech32,
+          operator_acc_addr: opAddressExo,
         });
         // set the consensus key, opted info, and USD value for the valid operators and dogfood AVS.
         // consensus public key
@@ -463,11 +458,11 @@ async function updateGenesisFile() {
           consensus_key: operatorInfo.consensusPublicKey,
         });
         operator_records.push({
-          operator_address: opAddressBech32,
+          operator_address: opAddressExo,
           chains: chains
         });
         // opted info
-        const key = getJoinedStoreKey(opAddressBech32, dogfoodAddr);
+        const key = getJoinedStoreKey(opAddressExo, dogfoodAddr);
         const DefaultOptedOutHeight = BigInt("18446744073709551615");
         opt_states.push({
           key: key,
@@ -477,7 +472,7 @@ async function updateGenesisFile() {
           }
         });
         // USD value for the operators
-        const usdValuekey = getJoinedStoreKey(dogfoodAddr, opAddressBech32);
+        const usdValuekey = getJoinedStoreKey(dogfoodAddr, opAddressExo);
         operator_usd_values.push({
           key: usdValuekey,
           opted_usd_value: {
@@ -488,12 +483,12 @@ async function updateGenesisFile() {
         });
         dogfoodUSDValue = dogfoodUSDValue.plus(totalAmount);
       } else {
-        console.log(`Skipping operator ${opAddressBech32} due to insufficient self delegation.`);
+        console.log(`Skipping operator ${opAddressExo} due to insufficient self delegation.`);
       }
-      let stakerId = operatorAddress.toLowerCase() + clientChainSuffix;
+      let stakerId = opAddressHex.toLowerCase() + clientChainSuffix;
       let association = {
         staker_id: stakerId,
-        operator: opAddressBech32,
+        operator: opAddressExo,
       };
       associations.push(association);
     }
