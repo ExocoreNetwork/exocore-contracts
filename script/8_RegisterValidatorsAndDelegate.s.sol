@@ -39,7 +39,7 @@ contract RegisterValidatorsAndDelegate is Script {
         names = vm.envString("NAMES", ",");
         consKeys = vm.envBytes32("CONS_KEYS", ",");
 
-        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
+        clientChainRPCURL = vm.envString("CLIENT_CHAIN_RPC");
         clientChain = vm.createSelectFork(clientChainRPCURL);
 
         require(

@@ -63,7 +63,7 @@ contract DeployScript is Script {
         relayer.privateKey = vm.envUint("TEST_ACCOUNT_FOUR_PRIVATE_KEY");
         relayer.addr = vm.addr(relayer.privateKey);
 
-        clientChainRPCURL = vm.envString("SEPOLIA_RPC");
+        clientChainRPCURL = vm.envString("CLIENT_CHAIN_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
