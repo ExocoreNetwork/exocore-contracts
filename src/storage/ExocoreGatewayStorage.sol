@@ -73,8 +73,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
 
     /// @notice Emitted upon receiving a delegation request.
     /// @param isDelegate Whether the delegation request is a delegate request or an undelegate request.
-    /// @param accepted Whether the delegation request was accepted, true if it is accepted and being queued, false if
-    /// it is rejected.
+    /// @param accepted Whether the delegation request was accepted, true if it is accepted and being queued, false if rejected.
     /// @param token The address of the token.
     /// @param delegator The address of the delegator.
     /// @param operator The Exo account address of the operator.
