@@ -448,7 +448,6 @@ async function updateGenesisFile() {
         validators.push({
           public_key: operatorInfo.consensusPublicKey,
           power: totalAmount,  // do not convert to int yet.
-          operator_acc_addr: opAddressExo,
         });
         // set the consensus key, opted info, and USD value for the valid operators and dogfood AVS.
         // consensus public key
@@ -546,16 +545,16 @@ async function updateGenesisFile() {
     genesisJSON.app_state.operator.operator_usd_values = operator_usd_values;
     // dogfood: val_set
     validators.sort((a, b) => {
-      // even though operator_acc_addr is unique, we have to still
+      // even though public_key is unique, we have to still
       // check for power first. this is because we pick the top N
       // validators by power.
-      // if the powers are equal, we sort by operator_acc_addr in
+      // if the powers are equal, we sort by public_key in
       // ascending order.
       if (b.power.cmp(a.power) === 0) {
-        if (a.operator_acc_addr < b.operator_acc_addr) {
+        if (a.public_key < b.public_key) {
           return -1;
         }
-        if (a.operator_acc_addr > b.operator_acc_addr) {
+        if (a.public_key > b.public_key) {
           return 1;
         }
         return 0;
