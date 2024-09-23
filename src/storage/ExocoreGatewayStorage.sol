@@ -55,24 +55,20 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param isDeposit Whether the transfer is a deposit or a withdraw.
     /// @param success Whether the transfer was successful.
     /// @param token The address of the token.
-    /// @param depositor The address of the depositor.
-    /// @param amount The amount of the token deposited.
+    /// @param staker The address that makes the transfer.
+    /// @param amount The amount of the token transferred.
     event LSTTransfer(
-        bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount
+        bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed staker, uint256 amount
     );
 
     /// @notice Emitted when a NST transfer happens.
     /// @param isDeposit Whether the transfer is a deposit or a withdraw.
     /// @param success Whether the transfer was successful.
     /// @param validatorPubkey The validator public key.
-    /// @param withdrawer The address of the withdrawer.
-    /// @param amount The amount of the token withdrawn.
+    /// @param staker The address that makes the transfer.
+    /// @param amount The amount of the token transferred.
     event NSTTransfer(
-        bool isDeposit,
-        bool indexed success,
-        bytes32 indexed validatorPubkey,
-        bytes32 indexed withdrawer,
-        uint256 amount
+        bool isDeposit, bool indexed success, bytes32 indexed validatorPubkey, bytes32 indexed staker, uint256 amount
     );
 
     /// @notice Emitted upon receiving a delegation request.
@@ -82,7 +78,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @param token The address of the token.
     /// @param delegator The address of the delegator.
     /// @param operator The Exo account address of the operator.
-    /// @param amount The amount of the token delegated.
+    /// @param amount The amount of the token delegated/undelegated.
     event DelegationRequest(
         bool isDelegate,
         bool indexed accepted,
@@ -95,7 +91,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @notice Emitted upon handling associating operator request
     /// @param success Whether the operation was successful.
     /// @param isAssociate Whether the operation is an association or a dissociation.
-    /// @param staker The staker address that should be associated to @operator.
+    /// @param staker The staker address involved in the association or dissociation.
     event AssociationResult(bool indexed success, bool indexed isAssociate, bytes32 indexed staker);
 
     /// @notice Emitted when a REQUEST_MARK_BOOTSTRAP is sent to @param clientChainId.
