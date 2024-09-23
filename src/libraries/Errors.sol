@@ -124,7 +124,7 @@ library Errors {
     error BootstrapValidatorNameLengthZero();
 
     /// @dev Indicates an operation failed because the specified vault does not exist.
-    error VaultNotExist();
+    error VaultDoesNotExist();
 
     /// @dev Indicates that an operation which is not yet supported is requested.
     error NotYetSupported();
@@ -157,7 +157,7 @@ library Errors {
     /// @dev ClientChainGateway: token addition must happen via Exocore
     error ClientChainGatewayTokenAdditionViaExocore();
     /// @notice Error thrown when the ExoCapsule does not exist.
-    error CapsuleNotExist();
+    error CapsuleDoesNotExist();
 
     //////////////////////////////////////
     //  ClientGatewayLzReceiver Errors  //
@@ -235,12 +235,6 @@ library Errors {
     /// @dev thrown when dissociateOperatorFromEVMStaker failed
     error DissociateOperatorFailed(uint32 clientChainId, address staker);
 
-    /// @notice Thrown when the execution of a request fails
-    /// @param act The action that failed.
-    /// @param nonce The LayerZero nonce.
-    /// @param reason The reason for the failure.
-    error RequestExecuteFailed(Action act, uint64 nonce, bytes reason);
-
     /// @notice Thrown when the execution of a precompile call fails.
     /// @param selector_ The function selector of the precompile call.
     /// @param reason The reason for the failure.
@@ -274,8 +268,6 @@ library Errors {
 
     /// @notice Thrown when the whitelist tokens list is too long.
     error WhitelistTokensListTooLong();
-
-    error MismatchMessageHanlder();
 
     ////////////////////////////////////////
     //  NativeRestakingController Errors  //

@@ -332,7 +332,7 @@ contract WithdrawNonBeaconChainETHFromCapsule is SetUp {
         address payable userWithoutCapsule = payable(address(0x123));
 
         vm.prank(userWithoutCapsule);
-        vm.expectRevert(Errors.CapsuleNotExist.selector);
+        vm.expectRevert(Errors.CapsuleDoesNotExist.selector);
         clientGateway.withdrawNonBeaconChainETHFromCapsule(userWithoutCapsule, withdrawAmount);
     }
 
@@ -394,7 +394,7 @@ contract WithdrawalPrincipalFromExocore is SetUp {
     function test_revert_withdrawVirtualStakedETH() public {
         // Try to withdraw VIRTUAL_STAKED_ETH
         vm.prank(user);
-        vm.expectRevert(Errors.VaultNotExist.selector);
+        vm.expectRevert(Errors.VaultDoesNotExist.selector);
         clientGateway.withdrawPrincipalFromExocore(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
     }
 

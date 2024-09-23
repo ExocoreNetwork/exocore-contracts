@@ -321,7 +321,7 @@ contract BootstrapStorage is GatewayStorage {
     function _getVault(address token) internal view returns (IVault) {
         IVault vault = tokenToVault[token];
         if (address(vault) == address(0)) {
-            revert Errors.VaultNotExist();
+            revert Errors.VaultDoesNotExist();
         }
         return vault;
     }

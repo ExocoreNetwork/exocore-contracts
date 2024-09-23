@@ -71,7 +71,7 @@ start
 
 :Get the capsule associated with the message sender;
 if (capsule == address(0)) then (yes)
-    :Revert with CapsuleNotExist error;
+    :Revert with CapsuleDoesNotExist error;
     stop
 endif
 

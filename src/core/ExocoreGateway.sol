@@ -312,7 +312,7 @@ contract ExocoreGateway is
         (bool success, bytes memory responseOrReason) =
             address(this).call(abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, act, payload)));
         if (!success) {
-            revert Errors.RequestExecuteFailed(act, _origin.nonce, responseOrReason);
+            revert Errors.RequestOrResponseExecuteFailed(act, _origin.nonce, responseOrReason);
         }
 
         // decode to get the response, and send it back if it is not empty

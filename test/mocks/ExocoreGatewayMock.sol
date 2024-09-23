@@ -329,7 +329,7 @@ contract ExocoreGatewayMock is
         (bool success, bytes memory responseOrReason) =
             address(this).call(abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, act, payload)));
         if (!success) {
-            revert Errors.RequestExecuteFailed(act, _origin.nonce, responseOrReason);
+            revert Errors.RequestOrResponseExecuteFailed(act, _origin.nonce, responseOrReason);
         }
 
         emit MessageExecuted(act, _origin.nonce);

@@ -113,7 +113,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     function _getCapsule(address owner) internal view returns (IExoCapsule) {
         IExoCapsule capsule = ownerToCapsule[owner];
         if (address(capsule) == address(0)) {
-            revert Errors.CapsuleNotExist();
+            revert Errors.CapsuleDoesNotExist();
         }
         return capsule;
     }
