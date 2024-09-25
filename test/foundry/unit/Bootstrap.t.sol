@@ -14,7 +14,7 @@ import {MyToken} from "./MyToken.sol";
 import {IVault} from "src/interfaces/IVault.sol";
 import {Origin} from "src/lzApp/OAppReceiverUpgradeable.sol";
 import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
-import {GatewayStorage} from "src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "src/libraries/Errors.sol";
@@ -1004,7 +1004,7 @@ contract BootstrapTest is Test {
             Origin(exocoreChainId, bytes32(bytes20(undeployedExocoreGateway)), nonce),
             address(bootstrap),
             generateUID(nonce),
-            abi.encodePacked(GatewayStorage.Action.REQUEST_MARK_BOOTSTRAP, ""),
+            abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""),
             bytes("")
         );
         vm.stopPrank();

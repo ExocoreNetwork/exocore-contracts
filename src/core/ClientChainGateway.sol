@@ -15,6 +15,7 @@ import {LSTRestakingController} from "./LSTRestakingController.sol";
 import {NativeRestakingController} from "./NativeRestakingController.sol";
 
 import {Errors} from "../libraries/Errors.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -128,7 +129,7 @@ contract ClientChainGateway is
             // grave error, should never happen
             revert Errors.TokenNotWhitelisted(token);
         }
-        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+        if (token == VIRTUAL_NST_ADDRESS) {
             // not possible to set a TVL limit for native restaking
             revert Errors.NoTvlLimitForNativeRestaking();
         }

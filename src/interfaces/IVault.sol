@@ -18,16 +18,6 @@ interface IVault {
     /// @param amount The amount to be deposited.
     function deposit(address depositor, uint256 amount) external payable;
 
-    /// @notice Updates the principal balance for a user.
-    /// @param user The address of the user whose principal balance is being updated.
-    /// @param lastlyUpdatedPrincipalBalance The new principal balance for the user.
-    function updatePrincipalBalance(address user, uint256 lastlyUpdatedPrincipalBalance) external;
-
-    /// @notice Updates the reward balance for a user.
-    /// @param user The address of the user whose reward balance is being updated.
-    /// @param lastlyUpdatedRewardBalance The new reward balance for the user.
-    function updateRewardBalance(address user, uint256 lastlyUpdatedRewardBalance) external;
-
     /// @notice Updates the withdrawable balance for a user.
     /// @param user The address of the user whose withdrawable balance is being updated.
     /// @param unlockPrincipalAmount The amount of principal to be unlocked.

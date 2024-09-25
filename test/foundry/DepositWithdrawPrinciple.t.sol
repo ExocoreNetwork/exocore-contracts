@@ -2,11 +2,12 @@ pragma solidity ^0.8.19;
 
 import "../../src/core/ExoCapsule.sol";
 import "../../src/core/ExocoreGateway.sol";
+import "../mocks/AssetsMock.sol";
 
 import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
 import {ILSTRestakingController} from "../../src/interfaces/ILSTRestakingController.sol";
 
-import "../../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
 
@@ -19,9 +20,11 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
     using AddressCast for address;
     using stdStorage for StdStorage;
 
-    event DepositResult(bool indexed success, bytes32 indexed token, bytes32 indexed depositor, uint256 amount);
-    event WithdrawPrincipalResult(
-        bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount
+    event LSTTransfer(
+        bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed account, uint256 amount
+    );
+    event NSTTransfer(
+        bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed account, uint256 amount
     );
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event CapsuleCreated(address owner, address capsule);
@@ -49,19 +52,25 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // before deposit we should add whitelist tokens
         test_AddWhitelistTokens();
 
-        uint256 principalBalanceBefore = vault.principalBalances(depositor.addr);
+        uint256 principalBalanceBefore = _getPrincipalBalance(clientChainId, depositor.addr, address(restakeToken));
         uint256 withdrawableBefore = vault.getWithdrawableBalance(depositor.addr);
         _testLSTDeposit(depositor, depositAmount, lastlyUpdatedPrincipalBalance);
-        assertEq(principalBalanceBefore + depositAmount, vault.principalBalances(depositor.addr));
+        assertEq(
+            principalBalanceBefore + depositAmount,
+            _getPrincipalBalance(clientChainId, depositor.addr, address(restakeToken))
+        );
         assertEq(withdrawableBefore, vault.getWithdrawableBalance(depositor.addr));
 
         lastlyUpdatedPrincipalBalance += depositAmount;
 
-        principalBalanceBefore = vault.principalBalances(depositor.addr);
+        principalBalanceBefore = _getPrincipalBalance(clientChainId, depositor.addr, address(restakeToken));
         withdrawableBefore = vault.getWithdrawableBalance(depositor.addr);
         _testLSTWithdraw(depositor, withdrawAmount, lastlyUpdatedPrincipalBalance);
 
-        assertEq(principalBalanceBefore - withdrawAmount, vault.principalBalances(depositor.addr));
+        assertEq(
+            principalBalanceBefore - withdrawAmount,
+            _getPrincipalBalance(clientChainId, depositor.addr, address(restakeToken))
+        );
         assertEq(withdrawableBefore + withdrawAmount, vault.getWithdrawableBalance(depositor.addr));
         _validateNonces();
     }
@@ -78,7 +87,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         // estimate l0 relay fee that the user should pay
         bytes memory depositRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
+            Action.REQUEST_DEPOSIT_LST,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(depositor.addr)),
             depositAmount
@@ -100,64 +109,31 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit MessageSent(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
-            depositRequestId,
-            outboundNonces[clientChainId]++,
-            depositRequestNativeFee
+            Action.REQUEST_DEPOSIT_LST, depositRequestId, outboundNonces[clientChainId]++, depositRequestNativeFee
         );
         clientGateway.deposit{value: depositRequestNativeFee}(address(restakeToken), depositAmount);
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
-        // exocore gateway should return response message to exocore network layerzero endpoint
-        //
-        lastlyUpdatedPrincipalBalance += depositAmount;
-        bytes memory depositResponsePayload = abi.encodePacked(
-            GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, lastlyUpdatedPrincipalBalance
-        );
-        uint256 depositResponseNativeFee = exocoreGateway.quote(clientChainId, depositResponsePayload);
-        bytes32 depositResponseId = generateUID(outboundNonces[exocoreChainId], false);
-        vm.expectEmit(address(exocoreLzEndpoint));
-        emit NewPacket(
-            clientChainId,
-            address(exocoreGateway),
-            address(clientGateway).toBytes32(),
-            outboundNonces[exocoreChainId],
-            depositResponsePayload
-        );
+        // exocore gateway should emit LSTTransfer event
         vm.expectEmit(address(exocoreGateway));
-        emit MessageSent(
-            GatewayStorage.Action.RESPOND, depositResponseId, outboundNonces[exocoreChainId]++, depositResponseNativeFee
+        emit LSTTransfer(
+            true, // isDeposit
+            true, // success
+            bytes32(bytes20(address(restakeToken))),
+            bytes32(bytes20(depositor.addr)),
+            depositAmount
         );
+
         vm.expectEmit(address(exocoreGateway));
-        emit DepositResult(
-            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(depositor.addr)), depositAmount
-        );
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(GatewayStorage.Action.REQUEST_DEPOSIT, inboundNonces[exocoreChainId]++);
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_LST, inboundNonces[exocoreChainId]++);
         // inboundNonces[exocoreChainId]++;
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
             address(exocoreGateway),
             depositRequestId,
             depositRequestPayload,
-            bytes("")
-        );
-
-        // third layerzero relayers should watch the response message packet and relay the message to source chain
-        // endpoint
-
-        // client chain gateway should execute the response hook and emit RequestFinished event
-        vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(GatewayStorage.Action.REQUEST_DEPOSIT, outboundNonces[clientChainId] - 1, true);
-        vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
-        clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
-            address(clientGateway),
-            depositResponseId,
-            depositResponsePayload,
             bytes("")
         );
     }
@@ -171,7 +147,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         // estimate l0 relay fee that the user should pay
         bytes memory withdrawRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            Action.REQUEST_WITHDRAW_LST,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(withdrawer.addr)),
             withdrawAmount
@@ -190,10 +166,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit MessageSent(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
-            withdrawRequestId,
-            outboundNonces[clientChainId]++,
-            withdrawRequestNativeFee
+            Action.REQUEST_WITHDRAW_LST, withdrawRequestId, outboundNonces[clientChainId]++, withdrawRequestNativeFee
         );
         clientGateway.withdrawPrincipalFromExocore{value: withdrawRequestNativeFee}(
             address(restakeToken), withdrawAmount
@@ -203,11 +176,18 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // endpoint
 
         lastlyUpdatedPrincipalBalance -= withdrawAmount;
-        bytes memory withdrawResponsePayload = abi.encodePacked(
-            GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, lastlyUpdatedPrincipalBalance
-        );
+        bytes memory withdrawResponsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
         uint256 withdrawResponseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
         bytes32 withdrawResponseId = generateUID(outboundNonces[exocoreChainId], false);
+
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit LSTTransfer(
+            false, // isDeposit (false for withdrawal)
+            true, // success
+            bytes32(bytes20(address(restakeToken))),
+            bytes32(bytes20(withdrawer.addr)),
+            withdrawAmount
+        );
 
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
@@ -221,19 +201,11 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // exocore gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit MessageSent(
-            GatewayStorage.Action.RESPOND,
-            withdrawResponseId,
-            outboundNonces[exocoreChainId]++,
-            withdrawResponseNativeFee
+            Action.RESPOND, withdrawResponseId, outboundNonces[exocoreChainId]++, withdrawResponseNativeFee
         );
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit WithdrawPrincipalResult(
-            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(withdrawer.addr)), withdrawAmount
-        );
+
         vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, inboundNonces[exocoreChainId]++
-        );
+        emit MessageExecuted(Action.REQUEST_WITHDRAW_LST, inboundNonces[exocoreChainId]++);
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
             address(exocoreGateway),
@@ -247,11 +219,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         // client chain gateway should execute the response hook and emit RequestFinished event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, outboundNonces[clientChainId] - 1, true
-        );
+        emit ResponseProcessed(Action.REQUEST_WITHDRAW_LST, outboundNonces[clientChainId] - 1, true);
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
@@ -286,10 +256,13 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         _stakeAndPrepareCapsuleBeforeDeposit(depositor);
 
-        uint256 principalBalanceBefore = capsule.principalBalance();
+        uint256 principalBalanceBefore = _getPrincipalBalance(clientChainId, depositor.addr, VIRTUAL_STAKED_ETH_ADDRESS);
         uint256 withdrawableBefore = capsule.withdrawableBalance();
         _testNativeDeposit(depositor, relayer, lastlyUpdatedPrincipalBalance);
-        assertEq(principalBalanceBefore + depositAmount, capsule.principalBalance());
+        assertEq(
+            principalBalanceBefore + depositAmount,
+            _getPrincipalBalance(clientChainId, depositor.addr, VIRTUAL_STAKED_ETH_ADDRESS)
+        );
         assertEq(withdrawableBefore, capsule.withdrawableBalance());
 
         lastlyUpdatedPrincipalBalance += 32 ether;
@@ -308,10 +281,13 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         console.log("deposit amount:", depositAmount);
         console.log("withdrawal amount:", withdrawalAmount);
 
-        principalBalanceBefore = capsule.principalBalance();
+        principalBalanceBefore = _getPrincipalBalance(clientChainId, depositor.addr, VIRTUAL_STAKED_ETH_ADDRESS);
         withdrawableBefore = capsule.withdrawableBalance();
         _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);
-        assertEq(principalBalanceBefore - withdrawalAmount, capsule.principalBalance());
+        assertEq(
+            principalBalanceBefore - withdrawalAmount,
+            _getPrincipalBalance(clientChainId, depositor.addr, VIRTUAL_STAKED_ETH_ADDRESS)
+        );
         assertEq(withdrawableBefore + withdrawalAmount, capsule.withdrawableBalance());
         _validateNonces();
     }
@@ -330,10 +306,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         }
 
         bytes memory depositRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
-            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
-            bytes32(bytes20(depositor.addr)),
-            depositAmount
+            Action.REQUEST_DEPOSIT_NST, _getPubkey(validatorContainer), bytes32(bytes20(depositor.addr)), depositAmount
         );
         uint256 depositRequestNativeFee = clientGateway.quote(depositRequestPayload);
         bytes32 depositRequestId = generateUID(outboundNonces[clientChainId], true);
@@ -349,10 +322,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         /// client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit MessageSent(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
-            depositRequestId,
-            outboundNonces[clientChainId]++,
-            depositRequestNativeFee
+            Action.REQUEST_DEPOSIT_NST, depositRequestId, outboundNonces[clientChainId]++, depositRequestNativeFee
         );
 
         /// call depositBeaconChainValidator to see if these events are emitted as expected
@@ -363,37 +333,18 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // 2. thirdly layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
-        /// exocore gateway should return response message to exocore network layerzero endpoint
-        lastlyUpdatedPrincipalBalance += depositAmount;
-        bytes memory depositResponsePayload = abi.encodePacked(
-            GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, lastlyUpdatedPrincipalBalance
-        );
-        uint256 depositResponseNativeFee = exocoreGateway.quote(clientChainId, depositResponsePayload);
-        bytes32 depositResponseId = generateUID(outboundNonces[exocoreChainId], false);
-
-        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
-        emit NewPacket(
-            clientChainId,
-            address(exocoreGateway),
-            address(clientGateway).toBytes32(),
-            outboundNonces[exocoreChainId],
-            depositResponsePayload
-        );
-
-        /// exocore gateway should emit MessageSent event
+        /// exocore gateway should emit NSTTransfer event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(
-            GatewayStorage.Action.RESPOND, depositResponseId, outboundNonces[exocoreChainId]++, depositResponseNativeFee
-        );
-
-        /// exocore gateway should emit DepositResult event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit DepositResult(
-            true, bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(depositor.addr)), depositAmount
+        emit NSTTransfer(
+            true, // isDeposit
+            true, // success
+            bytes32(_getPubkey(validatorContainer)),
+            bytes32(bytes20(depositor.addr)),
+            depositAmount
         );
 
         vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(GatewayStorage.Action.REQUEST_DEPOSIT, inboundNonces[exocoreChainId]++);
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_NST, inboundNonces[exocoreChainId]++);
 
         /// relayer catches the request message packet by listening to client chain event and feed it to Exocore network
         vm.startPrank(relayer.addr);
@@ -402,27 +353,6 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             address(exocoreGateway),
             depositRequestId,
             depositRequestPayload,
-            bytes("")
-        );
-        vm.stopPrank();
-
-        // At last layerzero relayers should watch the response message packet and relay the message back to source
-        // chain endpoint
-
-        /// client chain gateway should execute the response hook and emit RequestFinished event
-        vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(GatewayStorage.Action.REQUEST_DEPOSIT, outboundNonces[clientChainId] - 1, true);
-
-        vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
-
-        /// relayer catches the response message packet by listening to Exocore event and feed it to client chain
-        vm.startPrank(relayer.addr);
-        clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
-            address(clientGateway),
-            depositResponseId,
-            depositResponsePayload,
             bytes("")
         );
         vm.stopPrank();
@@ -505,8 +435,8 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
         }
         bytes memory withdrawRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
-            bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)),
+            Action.REQUEST_WITHDRAW_NST,
+            _getPubkey(validatorContainer),
             bytes32(bytes20(withdrawer.addr)),
             withdrawalAmount
         );
@@ -525,10 +455,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // client chain gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit MessageSent(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
-            withdrawRequestId,
-            outboundNonces[clientChainId]++,
-            withdrawRequestNativeFee
+            Action.REQUEST_WITHDRAW_NST, withdrawRequestId, outboundNonces[clientChainId]++, withdrawRequestNativeFee
         );
 
         vm.startPrank(withdrawer.addr);
@@ -539,11 +466,19 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         /// exocore gateway should return response message to exocore network layerzero endpoint
         lastlyUpdatedPrincipalBalance -= withdrawalAmount;
-        bytes memory withdrawResponsePayload = abi.encodePacked(
-            GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, lastlyUpdatedPrincipalBalance
-        );
+        bytes memory withdrawResponsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
         uint256 withdrawResponseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
         bytes32 withdrawResponseId = generateUID(outboundNonces[exocoreChainId], false);
+
+        // exocore gateway should emit NSTTransfer event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit NSTTransfer(
+            false, // isDeposit (false for withdrawal)
+            true, // success
+            bytes32(_getPubkey(validatorContainer)),
+            bytes32(bytes20(withdrawer.addr)),
+            withdrawalAmount
+        );
 
         // exocore gateway should return response message to exocore network layerzero endpoint
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
@@ -557,22 +492,11 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // exocore gateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
         emit MessageSent(
-            GatewayStorage.Action.RESPOND,
-            withdrawResponseId,
-            outboundNonces[exocoreChainId]++,
-            withdrawResponseNativeFee
-        );
-
-        // exocore gateway should emit WithdrawPrincipalResult event
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit WithdrawPrincipalResult(
-            true, bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(withdrawer.addr)), withdrawalAmount
+            Action.RESPOND, withdrawResponseId, outboundNonces[exocoreChainId]++, withdrawResponseNativeFee
         );
 
         vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, inboundNonces[exocoreChainId]++
-        );
+        emit MessageExecuted(Action.REQUEST_WITHDRAW_NST, inboundNonces[exocoreChainId]++);
 
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
@@ -584,12 +508,10 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         // client chain gateway should execute the response hook and emit RequestFinished event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, outboundNonces[clientChainId] - 1, true
-        );
+        emit ResponseProcessed(Action.REQUEST_WITHDRAW_NST, outboundNonces[clientChainId] - 1, true);
 
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
 
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
@@ -640,7 +562,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.startPrank(addr);
         restakeToken.approve(address(vault), type(uint256).max);
         bytes memory requestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
+            Action.REQUEST_DEPOSIT_LST,
             abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), depositAmount)
         );
         bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
@@ -648,7 +570,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.expectEmit(address(restakeToken));
         emit Transfer(addr, address(vault), depositAmount);
         vm.expectEmit(address(clientGateway));
-        emit MessageSent(GatewayStorage.Action.REQUEST_DEPOSIT, requestId, outboundNonces[clientChainId]++, nativeFee);
+        emit MessageSent(Action.REQUEST_DEPOSIT_LST, requestId, outboundNonces[clientChainId]++, nativeFee);
         clientGateway.deposit{value: nativeFee}(address(restakeToken), depositAmount);
         consumedTvl += depositAmount;
         vm.stopPrank();
@@ -660,18 +582,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         // run the message on the Exocore gateway
         principalBalance += depositAmount;
-        bytes memory responsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, principalBalance);
-        bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
+
         vm.expectEmit(address(exocoreGateway));
-        emit MessageSent(
-            GatewayStorage.Action.RESPOND,
-            responseId,
-            outboundNonces[exocoreChainId]++,
-            exocoreGateway.quote(clientChainId, responsePayload)
-        );
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(GatewayStorage.Action.REQUEST_DEPOSIT, inboundNonces[exocoreChainId]++);
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_LST, inboundNonces[exocoreChainId]++);
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
             address(exocoreGateway),
@@ -680,17 +593,6 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             bytes("")
         );
         // given that the above transaction went through, the deposit succeeded on Exocore
-
-        // run the response on the client chain
-        vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
-        clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
-            address(clientGateway),
-            responseId,
-            responsePayload,
-            bytes("")
-        );
 
         uint256 newTvlLimit = depositAmount / 2; // divisible by 4 so no need to check for 2
         vm.startPrank(exocoreValidatorSet.addr);
@@ -704,36 +606,28 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // now attempt to withdraw, which should go through
         vm.startPrank(addr);
         requestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            Action.REQUEST_WITHDRAW_LST,
             abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), withdrawAmount)
         );
         requestId = generateUID(outboundNonces[clientChainId], true);
         nativeFee = clientGateway.quote(requestPayload);
         vm.expectEmit(address(clientGateway));
-        emit MessageSent(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
-            requestId,
-            outboundNonces[clientChainId]++,
-            nativeFee
-        );
+        emit MessageSent(Action.REQUEST_WITHDRAW_LST, requestId, outboundNonces[clientChainId]++, nativeFee);
         clientGateway.withdrawPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
         vm.stopPrank();
 
         principalBalance -= withdrawAmount;
-        responsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, principalBalance);
-        responseId = generateUID(outboundNonces[exocoreChainId], false);
+        bytes memory responsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
+        bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
         vm.expectEmit(address(exocoreGateway));
         emit MessageSent(
-            GatewayStorage.Action.RESPOND,
+            Action.RESPOND,
             responseId,
             outboundNonces[exocoreChainId]++,
             exocoreGateway.quote(clientChainId, responsePayload)
         );
         vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, inboundNonces[exocoreChainId]++
-        );
+        emit MessageExecuted(Action.REQUEST_WITHDRAW_LST, inboundNonces[exocoreChainId]++);
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
             address(exocoreGateway),
@@ -743,7 +637,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         );
         // run the response on the client chain
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
@@ -780,35 +674,27 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         principalBalance -= withdrawAmount;
         vm.startPrank(addr);
         requestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            Action.REQUEST_WITHDRAW_LST,
             abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), withdrawAmount)
         );
         requestId = generateUID(outboundNonces[clientChainId], true);
         nativeFee = clientGateway.quote(requestPayload);
         vm.expectEmit(address(clientGateway));
-        emit MessageSent(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
-            requestId,
-            outboundNonces[clientChainId]++,
-            nativeFee
-        );
+        emit MessageSent(Action.REQUEST_WITHDRAW_LST, requestId, outboundNonces[clientChainId]++, nativeFee);
         clientGateway.withdrawPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
 
         // obtain the response
-        responsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, principalBalance);
+        responsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
         responseId = generateUID(outboundNonces[exocoreChainId], false);
         vm.expectEmit(address(exocoreGateway));
         emit MessageSent(
-            GatewayStorage.Action.RESPOND,
+            Action.RESPOND,
             responseId,
             outboundNonces[exocoreChainId]++,
             exocoreGateway.quote(clientChainId, responsePayload)
         );
         vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, inboundNonces[exocoreChainId]++
-        );
+        emit MessageExecuted(Action.REQUEST_WITHDRAW_LST, inboundNonces[exocoreChainId]++);
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
             address(exocoreGateway),
@@ -819,7 +705,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
 
         // execute the response
         vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
+        emit MessageExecuted(Action.RESPOND, inboundNonces[clientChainId]++);
         clientChainLzEndpoint.lzReceive(
             Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
             address(clientGateway),
@@ -849,7 +735,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         depositAmount = 1;
         vm.startPrank(addr);
         requestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
+            Action.REQUEST_DEPOSIT_LST,
             abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), depositAmount)
         );
         requestId = generateUID(outboundNonces[clientChainId], true);
@@ -857,41 +743,21 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.expectEmit(address(restakeToken));
         emit Transfer(addr, address(vault), depositAmount);
         vm.expectEmit(address(clientGateway));
-        emit MessageSent(GatewayStorage.Action.REQUEST_DEPOSIT, requestId, outboundNonces[clientChainId]++, nativeFee);
+        emit MessageSent(Action.REQUEST_DEPOSIT_LST, requestId, outboundNonces[clientChainId]++, nativeFee);
         clientGateway.deposit{value: nativeFee}(address(restakeToken), depositAmount);
         consumedTvl += depositAmount;
         vm.stopPrank();
 
         // execute the deposit request on Exocore
         principalBalance += depositAmount;
-        responsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, outboundNonces[clientChainId] - 1, true, principalBalance);
-        responseId = generateUID(outboundNonces[exocoreChainId], false);
+
         vm.expectEmit(address(exocoreGateway));
-        emit MessageSent(
-            GatewayStorage.Action.RESPOND,
-            responseId,
-            outboundNonces[exocoreChainId]++,
-            exocoreGateway.quote(clientChainId, responsePayload)
-        );
-        vm.expectEmit(address(exocoreGateway));
-        emit MessageExecuted(GatewayStorage.Action.REQUEST_DEPOSIT, inboundNonces[exocoreChainId]++);
+        emit MessageExecuted(Action.REQUEST_DEPOSIT_LST, inboundNonces[exocoreChainId]++);
         exocoreLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
             address(exocoreGateway),
             requestId,
             requestPayload,
-            bytes("")
-        );
-
-        // handle the response on the client chain
-        vm.expectEmit(address(clientGateway));
-        emit MessageExecuted(GatewayStorage.Action.RESPOND, inboundNonces[clientChainId]++);
-        clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), inboundNonces[clientChainId] - 1),
-            address(clientGateway),
-            responseId,
-            responsePayload,
             bytes("")
         );
 

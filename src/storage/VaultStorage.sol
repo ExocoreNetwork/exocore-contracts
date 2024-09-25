@@ -9,12 +9,6 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @notice Storage contract for the Vault contract.
 contract VaultStorage {
 
-    /// @notice Mapping of principal balances for each user.
-    mapping(address => uint256) public principalBalances;
-
-    /// @notice Mapping of reward balances for each user.
-    mapping(address => uint256) public rewardBalances;
-
     /// @notice Mapping of withdrawable balances for each user.
     mapping(address => uint256) public withdrawableBalances;
 
@@ -35,11 +29,6 @@ contract VaultStorage {
 
     /// @notice Address of the gateway contract.
     ILSTRestakingController public gateway;
-
-    /// @notice Emitted when a user's principal balance is updated.
-    /// @param user The address of the user.
-    /// @param amount The new principal balance.
-    event PrincipalBalanceUpdated(address user, uint256 amount);
 
     /// @notice Emitted when a user's reward balance is updated.
     /// @param user The address of the user.

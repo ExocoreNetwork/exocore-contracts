@@ -3,7 +3,10 @@ pragma solidity ^0.8.19;
 
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+
+import {Errors} from "../libraries/Errors.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 
@@ -73,18 +76,11 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @param amount Amount of @param token withdrawn.
     event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
 
-    /// @notice Emitted when the gateway finishes processing a request.
-    /// @param action The action of the request.
-    /// @param requestId The ID of the request.
-    /// @param success Whether the request was successful on Exocore.
-    event RequestFinished(Action indexed action, uint64 indexed requestId, bool indexed success);
-
-    /* -------------------------------------------------------------------------- */
-    /*                                   Errors                                   */
-    /* -------------------------------------------------------------------------- */
-
-    /// @notice Error thrown when the ExoCapsule does not exist.
-    error CapsuleNotExist();
+    /// @notice Emitted when a response is processed.
+    /// @param action The correspoding request action.
+    /// @param requestId The corresponding request ID.
+    /// @param success Whether the corresponding request was successful on Exocore.
+    event ResponseProcessed(Action indexed action, uint64 indexed requestId, bool indexed success);
 
     /// @notice Initializes the ClientChainGatewayStorage contract.
     /// @param exocoreChainId_ The chain ID of the Exocore chain.
@@ -117,7 +113,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     function _getCapsule(address owner) internal view returns (IExoCapsule) {
         IExoCapsule capsule = ownerToCapsule[owner];
         if (address(capsule) == address(0)) {
-            revert CapsuleNotExist();
+            revert Errors.CapsuleDoesNotExist();
         }
         return capsule;
     }

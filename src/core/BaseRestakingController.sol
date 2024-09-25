@@ -6,6 +6,7 @@ import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {IVault} from "../interfaces/IVault.sol";
 import {MessagingFee, MessagingReceipt, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 
@@ -40,7 +41,7 @@ abstract contract BaseRestakingController is
         nonReentrant
     {
         require(recipient != address(0), "BaseRestakingController: recipient address cannot be empty or zero address");
-        if (token == VIRTUAL_STAKED_ETH_ADDRESS) {
+        if (token == VIRTUAL_NST_ADDRESS) {
             IExoCapsule capsule = _getCapsule(msg.sender);
             capsule.withdraw(amount, payable(recipient));
         } else {
@@ -63,8 +64,7 @@ abstract contract BaseRestakingController is
     {
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
-        bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
-        _processRequest(Action.REQUEST_DELEGATE_TO, actionArgs, encodedRequest);
+        _processRequest(Action.REQUEST_DELEGATE_TO, actionArgs, bytes(""));
     }
 
     /// @inheritdoc IBaseRestakingController
@@ -79,18 +79,21 @@ abstract contract BaseRestakingController is
     {
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
-        bytes memory encodedRequest = abi.encode(token, msg.sender, operator, amount);
-        _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, encodedRequest);
+        _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, bytes(""));
     }
 
     /// @dev Processes the request by sending it to Exocore.
+    /// @dev If the encodedRequest is not empty, it is regarded as a request that expects a response and the request
+    /// would be cached
     /// @param action The action to be performed.
     /// @param actionArgs The encodePacked arguments for the action.
-    /// @param encodedRequest The encoded request.
+    /// @param encodedRequest The encoded request if the request expects a response.
     function _processRequest(Action action, bytes memory actionArgs, bytes memory encodedRequest) internal {
         uint64 requestNonce = _sendMsgToExocore(action, actionArgs);
-        _registeredRequests[requestNonce] = encodedRequest;
-        _registeredRequestActions[requestNonce] = action;
+        if (encodedRequest.length > 0) {
+            _registeredRequests[requestNonce] = encodedRequest;
+            _registeredRequestActions[requestNonce] = action;
+        }
     }
 
     /// @dev Sends a message to Exocore.

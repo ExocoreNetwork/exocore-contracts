@@ -5,6 +5,8 @@ import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
+
+import {Action} from "../storage/GatewayStorage.sol";
 import {BaseRestakingController} from "./BaseRestakingController.sol";
 
 import {Errors} from "../libraries/Errors.sol";
@@ -31,7 +33,7 @@ abstract contract NativeRestakingController is
 
     /// @dev Ensures that native restaking is enabled for this contract.
     modifier nativeRestakingEnabled() {
-        if (!isWhitelistedToken[VIRTUAL_STAKED_ETH_ADDRESS]) {
+        if (!isWhitelistedToken[VIRTUAL_NST_ADDRESS]) {
             revert Errors.NativeRestakingControllerNotWhitelisted();
         }
         _;
@@ -100,10 +102,11 @@ abstract contract NativeRestakingController is
         IExoCapsule capsule = _getCapsule(msg.sender);
         uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
 
-        bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(msg.sender)), depositValue);
-        bytes memory encodedRequest = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, depositValue);
-        _processRequest(Action.REQUEST_DEPOSIT, actionArgs, encodedRequest);
+        bytes32 validatorPubkey = validatorContainer.getPubkey();
+        bytes memory actionArgs = abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), depositValue);
+
+        // deposit NST is a must-succeed action, so we don't need to check the response
+        _processRequest(Action.REQUEST_DEPOSIT_NST, actionArgs, bytes(""));
     }
 
     /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Exocore.
@@ -122,12 +125,12 @@ abstract contract NativeRestakingController is
             capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
         if (!partialWithdrawal) {
             // request full withdraw
-            bytes memory actionArgs = abi.encodePacked(
-                bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), bytes32(bytes20(msg.sender)), withdrawalAmount
-            );
-            bytes memory encodedRequest = abi.encode(VIRTUAL_STAKED_ETH_ADDRESS, msg.sender, withdrawalAmount);
+            bytes32 validatorPubkey = validatorContainer.getPubkey();
+            bytes memory actionArgs = abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), withdrawalAmount);
+            bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, withdrawalAmount);
 
-            _processRequest(Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE, actionArgs, encodedRequest);
+            // a full withdrawal needs response from Exocore, so we don't pass empty bytes
+            _processRequest(Action.REQUEST_WITHDRAW_NST, actionArgs, encodedRequest);
         }
     }
 

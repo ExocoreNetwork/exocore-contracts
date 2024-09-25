@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {Action} from "../storage/GatewayStorage.sol";
+
 /// @dev @title Errors library
 /// @dev @notice A library for all errors that can be thrown in the Exocore contracts
 /// @dev All errors in Exocore follow the following syntax: 'error ContractNameErrorName(arg1, arg2, ...)', where
@@ -41,6 +43,18 @@ library Errors {
 
     /// @dev Length mismatch for token and TVL limit arrays
     error ArrayLengthMismatch();
+    /// @notice Error thrown when an unsupported request is made.
+    /// @param act The unsupported action.
+    error UnsupportedRequest(Action act);
+
+    /// @notice Error thrown when a message is received from an unexpected source chain.
+    /// @param unexpectedSrcEndpointId The unexpected source chain ID.
+    error UnexpectedSourceChain(uint32 unexpectedSrcEndpointId);
+
+    /// @notice Error thrown when the inbound nonce is not as expected.
+    /// @param expectedNonce The expected nonce.
+    /// @param actualNonce The actual nonce received.
+    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
 
     ////////////////////////
     //  Bootstrap Errors  //
@@ -109,6 +123,20 @@ library Errors {
     /// @dev Bootstrap: validator name length is zero
     error BootstrapValidatorNameLengthZero();
 
+    /// @dev Indicates an operation failed because the specified vault does not exist.
+    error VaultDoesNotExist();
+
+    /// @dev Indicates that an operation which is not yet supported is requested.
+    error NotYetSupported();
+
+    /// @notice This error is returned when the contract fails to execute a layer zero message due to an error in the
+    /// execution process.
+    /// @dev This error is returned when the execution of a layer zero message fails.
+    /// @param act The action for which the selector or the response function was executed, but failed.
+    /// @param nonce The nonce of the message that failed.
+    /// @param reason The reason for the failure.
+    error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
+
     //////////////////////////////////
     //  BootstrapLzReceiver Errors  //
     //////////////////////////////////
@@ -128,6 +156,8 @@ library Errors {
 
     /// @dev ClientChainGateway: token addition must happen via Exocore
     error ClientChainGatewayTokenAdditionViaExocore();
+    /// @notice Error thrown when the ExoCapsule does not exist.
+    error CapsuleDoesNotExist();
 
     //////////////////////////////////////
     //  ClientGatewayLzReceiver Errors  //
@@ -135,6 +165,30 @@ library Errors {
 
     /// @dev ClientChainLzReceiver: could only be called from this contract itself with low level call
     error ClientGatewayLzReceiverOnlyCalledFromThis();
+
+    /// @dev Thrown when the response is unsupported, that is, no hook has been registered for it.
+    /// @param act The action that was unsupported.
+    error UnsupportedResponse(Action act);
+
+    /// @dev Thrown when the response received is unexpected, that is, the request payload for the id cannot be
+    /// retrieved.
+    /// @param nonce The nonce of the request.
+    error UnexpectedResponse(uint64 nonce);
+
+    /// @dev Thrown when deposit fails on the Exocore end.
+    /// @param token The token address.
+    /// @param depositor The depositor address.
+    error DepositShouldNotFailOnExocore(address token, address depositor);
+
+    /// @dev Thrown when the whitelist tokens length is invalid.
+    /// @param expectedLength The expected length of the request payload.
+    /// @param actualLength The actual length of the request payload.
+    error InvalidAddWhitelistTokensRequest(uint256 expectedLength, uint256 actualLength);
+
+    /// @notice Emitted when withdrawal fails on the Exocore end.
+    /// @param token The token address.
+    /// @param withdrawer The withdrawer address.
+    event WithdrawFailedOnExocore(address indexed token, address indexed withdrawer);
 
     ///////////////////////////////
     //  CustomProxyAdmin Errors  //
@@ -180,6 +234,40 @@ library Errors {
 
     /// @dev thrown when dissociateOperatorFromEVMStaker failed
     error DissociateOperatorFailed(uint32 clientChainId, address staker);
+
+    /// @notice Thrown when the execution of a precompile call fails.
+    /// @param selector_ The function selector of the precompile call.
+    /// @param reason The reason for the failure.
+    error PrecompileCallFailed(bytes4 selector_, bytes reason);
+
+    /// @notice Thrown when the message length is invalid.
+    error InvalidMessageLength();
+
+    /// @notice Thrown when a deposit request fails.
+    /// @param srcChainId The source chain ID.
+    /// @param lzNonce The LayerZero nonce.
+    /// @dev This is considered a critical error.
+    error DepositRequestShouldNotFail(uint32 srcChainId, uint64 lzNonce);
+
+    /// @notice Thrown when a client chain registration fails
+    /// @param clientChainId The LayerZero chain ID of the client chain.
+    error RegisterClientChainToExocoreFailed(uint32 clientChainId);
+
+    /// @notice Thrown when a whitelist token addition fails
+    /// @param clientChainId The LayerZero chain ID (or otherwise) of the client chain.
+    /// @param token The address of the token.
+    error AddWhitelistTokenFailed(uint32 clientChainId, bytes32 token);
+
+    /// @notice Thrown when a whitelist token update fails
+    /// @param clientChainId The LayerZero chain ID (or otherwise) of the client chain.
+    /// @param token The address of the token.
+    error UpdateWhitelistTokenFailed(uint32 clientChainId, bytes32 token);
+
+    /// @notice Thrown when the whitelist tokens input is invalid.
+    error InvalidWhitelistTokensInput();
+
+    /// @notice Thrown when the whitelist tokens list is too long.
+    error WhitelistTokensListTooLong();
 
     ////////////////////////////////////////
     //  NativeRestakingController Errors  //
