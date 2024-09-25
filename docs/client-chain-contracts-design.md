@@ -11,9 +11,12 @@ The two main functionalities of client chain smart contracts include:
 
 We have these components included in Exocore client chain smart contracts architecture:
 
-1. `ClientChainGateway`: This is the entry point where client chain users make requests to the Exocore validator set, as well as the endpoint that receives cross-chain messages from the Exocore validator set.
-2. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have a standalone `Vault`.
-3. `LSTRestakingController`: The controller is responsible for managing multiple `Vault`s. It should be the entry point for operations on `Vault`, as well as the entry point for user’s interactions with the gateway. It is inherited / implemented by the `Gateway`.
+1. `Bootstrap`: The contract is used for bootstraping the Exocore system, including accepting registration of validators and delegations from client chain stakers, and generate the valid genesis that could be used to bootstrap the Exocore chain.
+2. `ClientChainGateway`: This is the entry point where client chain users make requests to the Exocore validator set, as well as the endpoint that receives cross-chain messages from the Exocore validator set.
+3. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated periodically by Exocore validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have a standalone `Vault`.
+4. `LSTRestakingController`: The controller is responsible for managing multiple `Vault`s. It should be the entry point for operations on `Vault`, as well as the entry point for user’s interactions with the gateway. It is inherited / implemented by the `Gateway`.
+5. `ExoCapsule`: The contract is used as the withdrawal destination for Ethereum native restaking. The Ethereum stakers who want to restake their staked ETH into Exocore should create an owned `ExoCapsule` contract through `NativeRestakingController` and point the withdrawal credentials of beacon chain validator to the `ExoCapsule` contract.
+6. `NativeRestakingController`: The controller is responsible for managing multiple `ExoCapsule`s. It provide functions for Ethereum native restaking, so that Ethereum beacon chain stakers could deposit their staked ETH into Exocore without relying on any derived LST. It is inherited / implemented by the `ClientChainGateway` on Ethereum.
 
 ## Upgrade
 
@@ -260,10 +263,7 @@ Once the assets have been deposited into the `Vault`, the `ClientChainGateway` s
 
 This function controls the delegation workflow originating from the client chain. It requires that the caller has previously deposited enough tokens into the system, failing which, the transaction will fail.
 
-The delegation workflow is also separated into two transactions:
-
-1. Transaction from the user: call `ClientChainGateway.sendInterchainMsg` to send delegate request to Exocore chain.
-2. Response from Exocore: call `ClientChainGateway.receiveInterchainMsg` to inform whether the delegation is successful or not.
+The delegation workflow involves only one transaction from the user: call `ClientChainGateway.sendInterchainMsg` to send delegate request to Exocore chain. And there is no response from Exocore, since the event emitted by `ExocoreGateway` to tell whether the delegation is successful or not.
 
 Since the `ClientChainGateway` by itself does not store enough information to check whether a delegation will be successful, this method must not make any state alterations to the balance.
 

@@ -35,8 +35,8 @@ ClientChainL0Endpoint -> ExocoreL0Endpoint: 3.1:lzReceive(request)
 activate ExocoreL0Endpoint
 ExocoreL0Endpoint -> ExocoreGateway: 3.2:lzReceive(request)
 activate ExocoreGateway
-ExocoreGateway -> ExocoreGateway: 3.3requestDepositTo(payload)
-ExocoreGateway -> DepositPrecompile: 3.4:depositTo(payload)
+ExocoreGateway -> ExocoreGateway: 3.3:handleNSTTransfer(payload)
+ExocoreGateway -> DepositPrecompile: 3.4:depositNST(payload)
 activate DepositPrecompile
 DepositPrecompile -> DepositNativeModule: 3.5:depositTo(payload)
 activate DepositNativeModule
@@ -44,22 +44,9 @@ DepositNativeModule -> DepositPrecompile: 3.6:return (result, balance)
 deactivate DepositNativeModule
 DepositPrecompile -> ExocoreGateway: 3.7:return (result, balance)
 deactivate DepositPrecompile
-ExocoreGateway -> ExocoreL0Endpoint: 3.8:send(response)
-ExocoreL0Endpoint -> ExocoreGateway: 3.9:emit (requestSent)
+ExocoreGateway -> ExocoreGateway: 3.9:emit (NSTTransfer)
 deactivate ExocoreGateway
 deactivate ExocoreL0Endpoint
-ExocoreL0Endpoint -> ClientChainL0Endpoint: 4.1:lzReceive(response)
-activate ClientChainL0Endpoint
-ClientChainL0Endpoint -> ClientChainLzReceiver: 4.2:lzReceive(response)
-activate ClientChainLzReceiver
-ClientChainLzReceiver -> ClientChainLzReceiver: 4.3:afterReceiveDepositResponse(payload)
-ClientChainLzReceiver -> ExoCapsule: 4.4:updatePrincipalBalance(lastlyUpdatedPrincipalBalance)
-activate ExoCapsule
-ExoCapsule -> ClientChainLzReceiver: 4.5:emit (DepositResult)
-deactivate ExoCapsule
-ClientChainLzReceiver -> ClientChainL0Endpoint: finish lzReceive
-deactivate ClientChainLzReceiver
-deactivate ClientChainL0Endpoint
 
 @enduml
 
