@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 import {IExocoreGateway} from "../interfaces/IExocoreGateway.sol";
 
-import {Errors} from "../libraries/Errors.sol";
 import {Action} from "../storage/GatewayStorage.sol";
 
 import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
