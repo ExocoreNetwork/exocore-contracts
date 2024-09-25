@@ -301,8 +301,8 @@ async function updateGenesisFile() {
           info: {
             total_amount: delegationValue.toString(),
             pending_undelegation_amount: "0",
-            total_share: totalShare.toString(),
-            operator_share: selfShare.toString(),
+            total_share: totalShare.toFixed(),
+            operator_share: selfShare.toFixed(),
           }
         };
         assetsByOperator.push(assetsByOperatorForAsset);
@@ -395,13 +395,13 @@ async function updateGenesisFile() {
           commission_rates: {
             rate: new Decimal(
               operatorInfo.commission.rate.toString()
-            ).div('1e18').toString(),
+            ).div('1e18').toFixed(),
             max_rate: new Decimal(
               operatorInfo.commission.maxRate.toString()
-            ).div('1e18').toString(),
+            ).div('1e18').toFixed(),
             max_change_rate: new Decimal(
               operatorInfo.commission.maxChangeRate.toString()
-            ).div('1e18').toString(),
+            ).div('1e18').toFixed(),
           },
           update_time: spawnDate,
         }
@@ -431,7 +431,7 @@ async function updateGenesisFile() {
         amount = amount.plus(
           new Decimal(selfDelegationAmount.toString()).
             div('1e' + decimals[j]).
-            mul(exchangeRates[j].toString())
+            mul(exchangeRates[j].toFixed())
         );
         const perTokenDelegation = await myContract.methods.delegationsByValidator(
           opAddressExo, tokenAddress
@@ -439,7 +439,7 @@ async function updateGenesisFile() {
         totalAmount = totalAmount.plus(
           new Decimal(perTokenDelegation.toString()).
             div('1e' + decimals[j]).
-            mul(exchangeRates[j].toString())
+            mul(exchangeRates[j].toFixed())
         );
         // break;
       }
@@ -475,9 +475,9 @@ async function updateGenesisFile() {
         operator_usd_values.push({
           key: usdValuekey,
           opted_usd_value: {
-            self_usd_value: amount.toString(),
-            total_usd_value: totalAmount.toString(),
-            active_usd_value: totalAmount.toString(),
+            self_usd_value: amount.toFixed(),
+            total_usd_value: totalAmount.toFixed(),
+            active_usd_value: totalAmount.toFixed(),
           }
         });
         dogfoodUSDValue = dogfoodUSDValue.plus(totalAmount);
@@ -525,7 +525,7 @@ async function updateGenesisFile() {
     avs_usd_values.push({
       avs_addr: dogfoodAddr,
       value: {
-        amount: dogfoodUSDValue.toString(),
+        amount: dogfoodUSDValue.toFixed(),
       },
     });
     // operator_usd_values
@@ -571,7 +571,7 @@ async function updateGenesisFile() {
     });
     genesisJSON.app_state.dogfood.val_set = validators;
     genesisJSON.app_state.dogfood.params.asset_ids = assetIds;
-    genesisJSON.app_state.dogfood.last_total_power = totalPower.toString();
+    genesisJSON.app_state.dogfood.last_total_power = totalPower.toFixed();
     // associations: staker_id is unique, so no further sorting is needed.
     associations.sort((a, b) => {
       if (a.staker_id < b.staker_id) {
@@ -613,7 +613,7 @@ async function updateGenesisFile() {
             delegation_states.push({
               key: key,
               states: {
-                undelegatable_share: share.toString(),
+                undelegatable_share: share.toFixed(),
                 wait_undelegation_amount: "0"
               },
             });
