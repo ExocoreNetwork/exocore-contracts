@@ -2,7 +2,7 @@
 
 ## 1. Overview
 
-The Reward Vault is a crucial component of the Exocore ecosystem, designed to securely custody reward tokens distributed by the Exocore chain. It supports permissionless reward token deposits on behalf of AVS (Actively Validated Service) providers and allows stakers to claim their rewards after verification by the Exocore chain.
+The Reward Vault is a crucial component of the Exocore ecosystem, designed to securely custody reward tokens distributed by the Exocore chain. It supports permissionless reward token deposits on behalf of AVS (Actively Validated Service) providers and allows stakers to claim their rewards after verification by the Exocore chain. The Reward Vault is managed by the Gateway contract, which acts as an intermediary for all operations.
 
 ## 2. Design Principles
 
@@ -16,22 +16,32 @@ The Reward Vault is a crucial component of the Exocore ecosystem, designed to se
 
 2.4. Security: Despite its permissionless nature, the Reward Vault must maintain high security standards to protect users' rewards.
 
+2.5. Gateway-Managed Operations: All interactions with the Reward Vault are managed through the Gateway contract, ensuring consistency with the existing architecture.
+
 ## 3. Architecture
 
 ### 3.1. Smart Contract: RewardVault.sol
 
 Key Functions:
-- `submitReward(address token, uint256 amount, address avs)`: Allows depositors to deposit reward tokens on behalf of an AVS.
-- `claimReward(address token, uint256 amount)`: Allows stakers to claim their approved rewards, updating their withdrawable balance.
-- `withdrawReward(address token, uint256 amount)`: Allows stakers to withdraw their claimed rewards.
+- `deposit(address token, address avs, uint256 amount)`: Allows the Gateway to deposit reward tokens on behalf of an AVS. Increases the AVS's balance for the specified token.
+- `updateWithdrawableBalance(address token, address avs, address withdrawer, uint256 amount)`: Allows the Gateway to update a staker's withdrawable balance after claim approval. Decreases the AVS's balance and increases the withdrawer's withdrawable balance.
+- `withdraw(address token, address withdrawer, uint256 amount)`: Allows the Gateway to withdraw claimed rewards for a staker.
 - `getWithdrawableBalance(address token, address staker)`: Returns the withdrawable balance of a specific reward token for a staker.
+- `getAVSBalance(address token, address avs)`: Returns the balance of a specific reward token for an AVS.
 
-### 3.2. Data Structures
+### 3.2. Smart Contract: ClientChainGateway.sol (existing contract, modified)
 
-#### 3.2.1. Withdrawable Balances Mapping
+New Functions:
+- `submitReward(address token, address avs, uint256 amount)`: Receives reward submissions and calls RewardVault's `deposit`.
+- `claimReward(address token, address avs, uint256 amount)`: Initiates a claim request to the Exocore chain.
+- `withdrawReward(address token, address recipient, uint256 amount)`: Calls RewardVault's `withdraw` to transfer claimed rewards to the recipient.
+
+### 3.3. Data Structures
+
+#### 3.3.1. Withdrawable Balances Mapping (in RewardVault.sol)
 
 ```solidity
-mapping(address => mapping(address => uint256)) internal _withdrawableBalances;
+mapping(address => mapping(address => uint256)) public withdrawableBalances;
 ```
 
 This nested mapping tracks withdrawable reward balances:
@@ -39,13 +49,26 @@ This nested mapping tracks withdrawable reward balances:
 - Second key: Staker address
 - Value: Withdrawable balance amount
 
+#### 3.3.2. AVS Balances Mapping (in RewardVault.sol)
+
+```solidity
+mapping(address => mapping(address => uint256)) public avsBalances;
+```
+
+This nested mapping tracks the balance of each AVS for each token:
+- First key: Token address
+- Second key: AVS address
+- Value: Balance amount
+
 ## 4. Key Processes
 
 ### 4.1. Reward Submission
 
-1. Depositor calls `submitReward` on the Reward Vault, specifying the token, amount, and AVS ID.
-2. Reward Vault transfers the specified amount of tokens from the depositor to itself.
-3. Reward Vault sends a message to the Exocore chain to account for the deposited rewards.
+1. Depositor calls `submitReward` on the Gateway, specifying the token, amount, and AVS ID.
+2. Gateway calls RewardVault's `deposit`, which:
+   a. Transfers the specified amount of tokens from the depositor to itself.
+   b. Increases the AVS's balance for the specified token in the `avsBalances` mapping.
+3. Gateway sends a message to the Exocore chain to account for the deposited rewards.
 4. Exocore chain processes the request, which must succeed to ensure correct accounting.
 
 ### 4.2. Reward Distribution and Accounting
@@ -55,19 +78,25 @@ This nested mapping tracks withdrawable reward balances:
 
 ### 4.3. Reward Claiming and Withdrawal
 
-1. Staker initiates a claim request through the Exocore chain.
-2. Exocore chain verifies the request and approves the claim if valid.
-3. Staker calls `claimReward` on the Reward Vault with the approved amount.
-4. Reward Vault verifies the claim with Exocore chain and updates the staker's withdrawable balance.
-5. At any time after claiming, the staker can call `withdrawReward` to transfer the tokens from the vault to their address.
+1. Staker calls `claimReward` on the Gateway.
+2. Gateway sends a claim request to the Exocore chain.
+3. Exocore chain verifies the request and sends a response back to the Gateway.
+4. Gateway calls RewardVault's `updateWithdrawableBalance`, which:
+   a. Decreases the AVS's balance for the specified token in the `avsBalances` mapping.
+   b. Increases the staker's withdrawable balance for the specified token in the `withdrawableBalances` mapping.
+5. At any time after claiming, the staker can call `withdrawReward` on the Gateway.
+6. Gateway calls RewardVault's `withdraw` to transfer the tokens from the vault to the staker's address.
 
 ## 5. Security Considerations
 
 5.1. Access Control: 
-- Any address should be able to call `submitReward`.
-- Only stakers should be able to call `claimReward` for their own rewards.
+- Only the Gateway should be able to call RewardVault's functions.
+- Any address should be able to call `ClientChainGateway.submitReward`.
+- Only stakers should be able to call `ClientChainGateway.claimReward` for their own rewards.
 
 5.2. Token Compatibility: While the system is permissionless, it is designed to work with standard ERC20 tokens to ensure consistent behavior and accounting.
+
+5.3. Balance Integrity: Ensure that the sum of all AVS balances and withdrawable balances for a given token always equals the total token balance held by the Reward Vault.
 
 ## 6. Gas Optimization
 
@@ -81,11 +110,13 @@ The Reward Vault should be implemented as an upgradeable contract using the Open
 
 Emit events for all significant actions:
 - `RewardSubmitted(address indexed token, address indexed avs, address indexed depositor, uint256 amount)`
-- `RewardClaimed(address indexed token, address indexed staker, uint256 amount)`
+- `RewardClaimed(address indexed token, address indexed avs, address indexed staker, uint256 amount)`
 - `RewardWithdrawn(address indexed token, address indexed staker, uint256 amount)`
 
 ## 9. Future Considerations
 
-9.1. Reward Analytics: Implement functions to track total rewards submitted for each AVS and total rewards claimed by stakers.
+9.1. Reward Analytics: Implement functions to track total rewards submitted for each AVS and total rewards claimed by stakers. This can now leverage the `avsBalances` mapping for more detailed analytics.
 
-9.2. Emergency Withdrawal: Consider an emergency withdrawal function for unclaimed rewards, accessible only by governance in case of critical issues.
+9.2. Emergency Withdrawal: Consider an emergency withdrawal function for unclaimed rewards, accessible only by governance in case of critical issues. This should take into account both `avsBalances` and `withdrawableBalances`.
+
+9.3. AVS Balance Reporting: Implement a function to report the total balance across all tokens for a given AVS, which could be useful for AVS providers to track their reward distribution.

@@ -304,4 +304,11 @@ library Errors {
     /// @dev Vault: forbid to deploy vault for the virtual token address representing natively staked ETH
     error ForbidToDeployVault();
 
+    /* -------------------------------------------------------------------------- */
+    /*                             RewardVault Errors                             */
+    /* -------------------------------------------------------------------------- */
+
+    /// @dev RewardVault: insufficient balance
+    error InsufficientBalance();
+
 }
