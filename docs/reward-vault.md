@@ -6,15 +6,15 @@ The Reward Vault is a crucial component of the Exocore ecosystem, designed to se
 
 ## 2. Design Principles
 
-2.1. Multi-token Support: The Reward Vault should handle any ERC20 token without requiring prior whitelisting or governance approval.
+2.1. Permissionless Reward System:
+    - The Reward Vault should handle standard ERC20 tokens without requiring prior whitelisting or governance approval.
+    - Depositors should be able to deposit rewards in any standard ERC20 token on behalf of AVS providers without restrictions.
 
-2.2. Permissionless Deposits: Depositors should be able to deposit rewards in any token on behalf of AVS providers without restrictions.
+2.2. Exocore Chain as Source of Truth: The Exocore chain maintains the record of reward balances and handles reward distribution/accounting for each staker. The Reward Vault only tracks withdrawable balances after claim approval.
 
-2.3. Exocore Chain as Source of Truth: The Exocore chain maintains the record of reward balances and handles reward distribution/accounting for each staker. The Reward Vault only tracks withdrawable balances after claim approval.
+2.3. Separation of Concerns: The Reward Vault is distinct from principal vaults, maintaining a clear separation between staked principals and earned rewards.
 
-2.4. Separation of Concerns: The Reward Vault is distinct from principal vaults, maintaining a clear separation between staked principals and earned rewards.
-
-2.5. Security: Despite its permissionless nature, the Reward Vault must maintain high security standards to protect users' rewards.
+2.4. Security: Despite its permissionless nature, the Reward Vault must maintain high security standards to protect users' rewards.
 
 ## 3. Architecture
 
@@ -67,7 +67,7 @@ This nested mapping tracks withdrawable reward balances:
 - Any address should be able to call `submitReward`.
 - Only stakers should be able to call `claimReward` for their own rewards.
 
-5.2. Token Compatibility: Special types of tokens are not supported, like fee-on-transfer tokens and rebasing tokens.
+5.2. Token Compatibility: While the system is permissionless, it is designed to work with standard ERC20 tokens to ensure consistent behavior and accounting.
 
 ## 6. Gas Optimization
 
