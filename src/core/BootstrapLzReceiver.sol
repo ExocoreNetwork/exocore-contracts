@@ -2,8 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {Errors} from "../libraries/Errors.sol";
+
 import {OAppReceiverUpgradeable, Origin} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 
 /// @title BootstrapLzReceiver
@@ -24,7 +26,7 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
     /// @inheritdoc OAppReceiverUpgradeable
     function _lzReceive(Origin calldata _origin, bytes calldata payload) internal virtual override {
         if (_origin.srcEid != EXOCORE_CHAIN_ID) {
-            revert UnexpectedSourceChain(_origin.srcEid);
+            revert Errors.UnexpectedSourceChain(_origin.srcEid);
         }
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
         Action act = Action(uint8(payload[0]));
@@ -33,11 +35,11 @@ abstract contract BootstrapLzReceiver is PausableUpgradeable, OAppReceiverUpgrad
         }
         bytes4 selector_ = _whiteListFunctionSelectors[act];
         if (selector_ == bytes4(0)) {
-            revert UnsupportedRequest(act);
+            revert Errors.UnsupportedRequest(act);
         }
         (bool success, bytes memory reason) = address(this).call(abi.encodePacked(selector_, abi.encode(payload[1:])));
         if (!success) {
-            revert RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
+            revert Errors.RequestOrResponseExecuteFailed(act, _origin.nonce, reason);
         }
     }
 

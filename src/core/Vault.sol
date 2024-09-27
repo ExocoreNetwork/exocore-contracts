@@ -97,20 +97,6 @@ contract Vault is Initializable, VaultStorage, IVault {
     }
 
     /// @inheritdoc IVault
-    function updatePrincipalBalance(address user, uint256 lastlyUpdatedPrincipalBalance) external onlyGateway {
-        principalBalances[user] = lastlyUpdatedPrincipalBalance;
-
-        emit PrincipalBalanceUpdated(user, lastlyUpdatedPrincipalBalance);
-    }
-
-    /// @inheritdoc IVault
-    function updateRewardBalance(address user, uint256 lastlyUpdatedRewardBalance) external onlyGateway {
-        rewardBalances[user] = lastlyUpdatedRewardBalance;
-
-        emit RewardBalanceUpdated(user, lastlyUpdatedRewardBalance);
-    }
-
-    /// @inheritdoc IVault
     function updateWithdrawableBalance(address user, uint256 unlockPrincipalAmount, uint256 unlockRewardAmount)
         external
         onlyGateway

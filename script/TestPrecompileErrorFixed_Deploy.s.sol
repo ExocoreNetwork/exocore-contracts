@@ -5,7 +5,7 @@ import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
-import "../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";
 import {BaseScript} from "./BaseScript.sol";

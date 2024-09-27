@@ -12,7 +12,7 @@ contract PrecompileCallerMock {
     function deposit(uint256 amount) public {
         (bool success, bytes memory response) = ASSETS_PRECOMPILE_ADDRESS.call{gas: 216_147}(
             abi.encodeWithSelector(
-                ASSETS_CONTRACT.depositTo.selector,
+                ASSETS_CONTRACT.depositLST.selector,
                 uint32(101),
                 abi.encodePacked(bytes32(bytes20(address(0xdAC17F958D2ee523a2206206994597C13D831ec7)))),
                 abi.encodePacked(bytes32(bytes20(address(0x2)))),

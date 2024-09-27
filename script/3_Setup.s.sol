@@ -1,6 +1,6 @@
 pragma solidity ^0.8.19;
 
-import {GatewayStorage} from "../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
 import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExocoreGateway.sol";
@@ -121,9 +121,7 @@ contract SetupScript is BaseScript {
         for (uint256 i = 0; i < whitelistTokensBytes32.length; i++) {
             nativeFee = exocoreGateway.quote(
                 clientChainId,
-                abi.encodePacked(
-                    GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i])
-                )
+                abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i]))
             );
             exocoreGateway.addWhitelistToken{value: nativeFee}(
                 clientChainId,

@@ -23,11 +23,6 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
 
-    /// @notice Emitted when the principal balance of the capsule is updated.
-    /// @param owner The address of the capsule owner.
-    /// @param balance The new principal balance.
-    event PrincipalBalanceUpdated(address owner, uint256 balance);
-
     /// @notice Emitted when the withdrawable balance of the capsule is updated.
     /// @param owner The address of the capsule owner.
     /// @param additionalAmount The amount added to the withdrawable balance.
@@ -285,13 +280,6 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         nonBeaconChainETHBalance -= amountToWithdraw;
         _sendETH(recipient, amountToWithdraw);
         emit NonBeaconChainETHWithdrawn(recipient, amountToWithdraw);
-    }
-
-    /// @inheritdoc IExoCapsule
-    function updatePrincipalBalance(uint256 lastlyUpdatedPrincipalBalance) external onlyGateway {
-        principalBalance = lastlyUpdatedPrincipalBalance;
-
-        emit PrincipalBalanceUpdated(capsuleOwner, lastlyUpdatedPrincipalBalance);
     }
 
     /// @inheritdoc IExoCapsule

@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
 import {IExocoreGateway} from "src/interfaces/IExocoreGateway.sol";
+import {Action} from "src/storage/GatewayStorage.sol";
 
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
 import {IClaimReward} from "src/interfaces/precompiles/IClaimReward.sol";
@@ -77,36 +78,53 @@ contract ExocoreGatewayMock is
 
     receive() external payable {}
 
+    /// @notice Initializes the ExocoreGateway contract.
+    /// @param owner_ The address of the contract owner.
     function initialize(address owner_) external initializer {
-        require(owner_ != address(0), "ExocoreGateway: owner can not be zero address");
+        if (owner_ == address(0)) {
+            revert Errors.ZeroAddress();
+        }
 
         _initializeWhitelistFunctionSelectors();
         _transferOwnership(owner_);
         __OAppCore_init_unchained(owner_);
         __Pausable_init_unchained();
+        __ReentrancyGuard_init_unchained();
     }
 
+    /// @dev Initializes the whitelist function selectors.
     function _initializeWhitelistFunctionSelectors() private {
-        _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT] = this.requestDeposit.selector;
-        _whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.requestDelegateTo.selector;
-        _whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.requestUndelegateFrom.selector;
-        _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE] =
-            this.requestWithdrawPrincipal.selector;
-        _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE] = this.requestWithdrawReward.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_LST] = this.handleLSTTransfer.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_LST] = this.handleLSTTransfer.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_NST] = this.handleNSTTransfer.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_NST] = this.handleNSTTransfer.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_CLAIM_REWARD] = this.handleRewardOperation.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.handleDelegation.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.handleDelegation.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO] = this.handleDepositAndDelegate.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_ASSOCIATE_OPERATOR] = this.handleOperatorAssociation.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_DISSOCIATE_OPERATOR] = this.handleOperatorAssociation.selector;
     }
 
+    /// @notice Pauses the contract.
     function pause() external onlyOwner {
         _pause();
     }
 
+    /// @notice Unpauses the contract.
     function unpause() external onlyOwner {
         _unpause();
     }
 
+    /// @notice Sends a request to mark the bootstrap on a chain.
+    /// @param chainIndex The index of the chain.
+    /// @dev This function is useful if the bootstrap failed on a chain and needs to be retried.
     function markBootstrap(uint32 chainIndex) public payable whenNotPaused nonReentrant {
         _markBootstrap(chainIndex);
     }
 
+    /// @dev Internal function to mark the bootstrap on a chain.
+    /// @param chainIndex The index of the chain.
     function _markBootstrap(uint32 chainIndex) internal {
         // we don't track that a request was sent to a chain to allow for retrials
         // if the transaction fails on the destination chain
@@ -114,23 +132,7 @@ contract ExocoreGatewayMock is
         emit BootstrapRequestSent(chainIndex);
     }
 
-    /**
-     * @notice Register the `cientChainId` and othe meta data to Exocore native module or update clien chain's meta data
-     * according to the `clinetChainId`.
-     * And set trusted remote peer to enable layerzero messaging or other bridge messaging.
-     * @param clientChainId The endpoint ID for client chain.
-     * @param peer The trusted remote contract address to be associated with the corresponding endpoint or some
-     * authorized signer that would be trusted for
-     * sending messages from/to source chain to/from this contract
-     * @param addressLength The bytes length of address type on that client chain
-     * @param name The name of client chain
-     * @param metaInfo The arbitrary metadata for client chain
-     * @param signatureType The cryptographic signature type that client chain supports
-     *
-     * @dev Only the owner/admin of the OApp can call this function.
-     * @dev Indicates that the peer is trusted to send LayerZero messages to this OApp.
-     * @dev Peer is a bytes32 to accommodate non-evm chains.
-     */
+    /// @inheritdoc IExocoreGateway
     function registerOrUpdateClientChain(
         uint32 clientChainId,
         bytes32 peer,
@@ -139,14 +141,15 @@ contract ExocoreGatewayMock is
         string calldata metaInfo,
         string calldata signatureType
     ) public onlyOwner whenNotPaused {
-        require(clientChainId != uint32(0), "ExocoreGateway: client chain id cannot be zero or empty");
-        require(peer != bytes32(0), "ExocoreGateway: peer address cannot be zero or empty");
-        require(addressLength != 0, "ExocoreGateway: address length cannot be zero or empty");
-        require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
-        require(bytes(metaInfo).length != 0, "ExocoreGateway: meta data cannot be empty");
-        // signature type could be left as empty for current implementation
+        if (
+            clientChainId == uint32(0) || peer == bytes32(0) || addressLength == 0 || bytes(name).length == 0
+                || bytes(metaInfo).length == 0
+        ) {
+            revert Errors.ZeroValue();
+        }
 
         bool updated = _registerOrUpdateClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
+        // the peer is always set, regardless of `updated`
         super.setPeer(clientChainId, peer);
 
         if (updated) {
@@ -156,16 +159,33 @@ contract ExocoreGatewayMock is
         }
     }
 
+    /// @notice Sets a peer on the destination chain for this contract.
+    /// @dev This is the LayerZero peer. This function is here for the modifiers
+    ///      as well as checking the registration of the client chain id.
+    /// @param clientChainId The id of the client chain.
+    /// @param clientChainGateway The address of the peer as bytes32.
     function setPeer(uint32 clientChainId, bytes32 clientChainGateway)
         public
         override(IOAppCore, OAppCoreUpgradeable)
         onlyOwner
         whenNotPaused
     {
+        // This check, for the registration of the client chain id, is done here and
+        // nowhere else. Elsewhere, the precompile is responsible for the checks.
+        // The precompile is not called here at all, and hence, such a check must be
+        // performed manually.
         _validateClientChainIdRegistered(clientChainId);
         super.setPeer(clientChainId, clientChainGateway);
     }
 
+    /// @inheritdoc IExocoreGateway
+    /// @notice Tokens can only be normal reward-bearing LST tokens like wstETH, rETH, jitoSol...
+    /// And they are not intended to be: 1) rebasing tokens like stETH, since we assume staker's
+    /// balance would not change if nothing is done after deposit, 2) fee-on-transfer tokens, since we
+    /// assume Vault would account for the amount that staker transfers to it.
+    /// @notice If we want to activate client chain's native restaking, we should add the corresponding virtual
+    /// token address to the whitelist, bytes32(bytes20(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE)) for Ethereum
+    /// native restaking for example.
     function addWhitelistToken(
         uint32 clientChainId,
         bytes32 token,
@@ -175,16 +195,13 @@ contract ExocoreGatewayMock is
         string calldata oracleInfo,
         uint128 tvlLimit
     ) external payable onlyOwner whenNotPaused nonReentrant {
-        if (msg.value == 0) {
-            revert Errors.ZeroValue();
-        }
         require(clientChainId != 0, "ExocoreGateway: client chain id cannot be zero");
         require(token != bytes32(0), "ExocoreGateway: token cannot be zero address");
         require(bytes(name).length != 0, "ExocoreGateway: name cannot be empty");
         require(bytes(metaData).length != 0, "ExocoreGateway: meta data cannot be empty");
         require(bytes(oracleInfo).length != 0, "ExocoreGateway: oracleInfo cannot be empty");
-        // setting a tvl limit of 0 is psermitted to add an inactive token, which will be later
-        // activated on the client chain
+        // setting a TVL limit of 0 is permitted to simply add an inactive token, which may
+        // be activated later by updating the TVL limit on the client chain
 
         bool success = ASSETS_CONTRACT.registerToken(
             clientChainId,
@@ -200,10 +217,11 @@ contract ExocoreGatewayMock is
                 clientChainId, Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(token, tvlLimit), false
             );
         } else {
-            revert AddWhitelistTokenFailed(clientChainId, token);
+            revert Errors.AddWhitelistTokenFailed(clientChainId, token);
         }
     }
 
+    /// @inheritdoc IExocoreGateway
     function updateWhitelistToken(uint32 clientChainId, bytes32 token, string calldata metaData)
         external
         onlyOwner
@@ -217,10 +235,48 @@ contract ExocoreGatewayMock is
         if (success) {
             emit WhitelistTokenUpdated(clientChainId, token);
         } else {
-            revert UpdateWhitelistTokenFailed(clientChainId, token);
+            revert Errors.UpdateWhitelistTokenFailed(clientChainId, token);
         }
     }
 
+    /**
+     * @notice Associate an Exocore operator with an EVM staker(msg.sender),  and this would count staker's delegation
+     * as operator's self-delegation when staker delegates to operator.
+     * @param clientChainId The id of client chain
+     * @param operator The Exocore operator address
+     * @dev one staker(chainId+stakerAddress) can only associate one operator, while one operator might be associated
+     * with multiple stakers
+     */
+    function associateOperatorWithEVMStaker(uint32 clientChainId, string calldata operator)
+        external
+        whenNotPaused
+        isValidBech32Address(operator)
+    {
+        bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
+        bool success = DELEGATION_CONTRACT.associateOperatorWithStaker(clientChainId, staker, bytes(operator));
+        if (!success) {
+            revert Errors.AssociateOperatorFailed(clientChainId, msg.sender, operator);
+        }
+    }
+
+    /**
+     * @notice Dissociate an Exocore operator from an EVM staker(msg.sender),  and this requires that the staker has
+     * already been associated to operator.
+     * @param clientChainId The id of client chain
+     */
+    function dissociateOperatorFromEVMStaker(uint32 clientChainId) external whenNotPaused {
+        bytes memory staker = abi.encodePacked(bytes32(bytes20(msg.sender)));
+        bool success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(clientChainId, staker);
+        if (!success) {
+            revert Errors.DissociateOperatorFailed(clientChainId, msg.sender);
+        }
+    }
+
+    /// @dev Validates that the client chain id is registered.
+    /// @dev This is designed to be called only in the cases wherein the precompile isn't used.
+    /// @dev In all other situations, it is the responsibility of the precompile to perform such
+    ///      checks.
+    /// @param clientChainId The client chain id.
     function _validateClientChainIdRegistered(uint32 clientChainId) internal view {
         (bool success, bool isRegistered) = ASSETS_CONTRACT.isRegisteredClientChain(clientChainId);
         if (!success) {
@@ -231,6 +287,12 @@ contract ExocoreGatewayMock is
         }
     }
 
+    /// @dev The internal version of registerOrUpdateClientChain.
+    /// @param clientChainId The client chain id.
+    /// @param addressLength The length of the address type on the client chain.
+    /// @param name The name of the client chain.
+    /// @param metaInfo The arbitrary metadata for the client chain.
+    /// @param signatureType The signature type supported by the client chain.
     function _registerOrUpdateClientChain(
         uint32 clientChainId,
         uint8 addressLength,
@@ -241,13 +303,13 @@ contract ExocoreGatewayMock is
         (bool success, bool updated) =
             ASSETS_CONTRACT.registerOrUpdateClientChain(clientChainId, addressLength, name, metaInfo, signatureType);
         if (!success) {
-            revert RegisterClientChainToExocoreFailed(clientChainId);
+            revert Errors.RegisterClientChainToExocoreFailed(clientChainId);
         }
         return updated;
     }
 
     /// @inheritdoc OAppReceiverUpgradeable
-    function _lzReceive(Origin calldata _origin, bytes calldata payload)
+    function _lzReceive(Origin calldata _origin, bytes calldata message)
         internal
         virtual
         override
@@ -255,153 +317,193 @@ contract ExocoreGatewayMock is
         nonReentrant
     {
         _verifyAndUpdateNonce(_origin.srcEid, _origin.sender, _origin.nonce);
+        _validateMessageLength(message);
 
-        Action act = Action(uint8(payload[0]));
+        Action act = Action(uint8(message[0]));
+        bytes calldata payload = message[1:];
         bytes4 selector_ = _whiteListFunctionSelectors[act];
         if (selector_ == bytes4(0)) {
-            revert UnsupportedRequest(act);
+            revert Errors.UnsupportedRequest(act);
         }
 
         (bool success, bytes memory responseOrReason) =
-            address(this).call(abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, payload[1:])));
+            address(this).call(abi.encodePacked(selector_, abi.encode(_origin.srcEid, _origin.nonce, act, payload)));
         if (!success) {
-            revert RequestExecuteFailed(act, _origin.nonce, responseOrReason);
+            revert Errors.RequestOrResponseExecuteFailed(act, _origin.nonce, responseOrReason);
         }
 
         emit MessageExecuted(act, _origin.nonce);
     }
 
-    function requestDeposit(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
-        _validatePayloadLength(payload, DEPOSIT_REQUEST_LENGTH, Action.REQUEST_DEPOSIT);
+    /// @notice Handles LST transfer from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param act The action type.
+    /// @param payload The request payload.
+    function handleLSTTransfer(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
+        bytes calldata token = payload[:32];
+        bytes calldata staker = payload[32:64];
+        uint256 amount = uint256(bytes32(payload[64:96]));
 
+        bool isDeposit = act == Action.REQUEST_DEPOSIT_LST;
+        bool success;
+        uint256 updatedBalance;
+        if (isDeposit) {
+            (success, updatedBalance) = ASSETS_CONTRACT.depositLST(srcChainId, token, staker, amount);
+        } else {
+            (success, updatedBalance) = ASSETS_CONTRACT.withdrawLST(srcChainId, token, staker, amount);
+        }
+        if (isDeposit && !success) {
+            revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
+        }
+        emit LSTTransfer(isDeposit, success, bytes32(token), bytes32(staker), amount);
+
+        bytes memory response = abi.encodePacked(lzNonce, success, updatedBalance);
+        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
+    }
+
+    /// @notice Handles NST transfer from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param act The action type.
+    /// @param payload The request payload.
+    function handleNSTTransfer(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
+        bytes calldata validatorPubkey = payload[:32];
+        bytes calldata staker = payload[32:64];
+        uint256 amount = uint256(bytes32(payload[64:96]));
+
+        bool isDeposit = act == Action.REQUEST_DEPOSIT_NST;
+        bool success;
+        uint256 updatedBalance;
+        if (isDeposit) {
+            (success, updatedBalance) = ASSETS_CONTRACT.depositNST(srcChainId, validatorPubkey, staker, amount);
+        } else {
+            (success, updatedBalance) = ASSETS_CONTRACT.withdrawNST(srcChainId, validatorPubkey, staker, amount);
+        }
+        if (isDeposit && !success) {
+            revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
+        }
+        emit NSTTransfer(isDeposit, success, bytes32(validatorPubkey), bytes32(staker), amount);
+
+        bytes memory response = abi.encodePacked(lzNonce, success, updatedBalance);
+        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
+    }
+
+    /// @notice Handles rewards request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
+    function handleRewardOperation(uint32 srcChainId, uint64 lzNonce, Action, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
+        bytes calldata token = payload[:32];
+        bytes calldata withdrawer = payload[32:64];
+        uint256 amount = uint256(bytes32(payload[64:96]));
+
+        (bool success, uint256 updatedBalance) =
+            CLAIM_REWARD_CONTRACT.claimReward(srcChainId, token, withdrawer, amount);
+        emit ClaimRewardResult(success, bytes32(token), bytes32(withdrawer), amount);
+
+        bytes memory response = abi.encodePacked(lzNonce, success, updatedBalance);
+        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
+    }
+
+    /// @notice Handles delegation request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param act The action type.
+    /// @param payload The request payload.
+    function handleDelegation(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
+        bytes calldata token = payload[:32];
+        bytes calldata staker = payload[32:64];
+        bytes calldata operator = payload[64:106];
+        uint256 amount = uint256(bytes32(payload[106:138]));
+
+        bool isDelegate = act == Action.REQUEST_DELEGATE_TO;
+        bool accepted;
+        if (isDelegate) {
+            accepted = DELEGATION_CONTRACT.delegate(srcChainId, lzNonce, token, staker, operator, amount);
+        } else {
+            accepted = DELEGATION_CONTRACT.undelegate(srcChainId, lzNonce, token, staker, operator, amount);
+        }
+        emit DelegationRequest(isDelegate, accepted, bytes32(token), bytes32(staker), string(operator), amount);
+
+        bytes memory response = abi.encodePacked(lzNonce, accepted);
+        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
+    }
+
+    /// @notice Responds to a deposit-then-delegate request from a client chain.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param payload The request payload.
+    function handleDepositAndDelegate(uint32 srcChainId, uint64 lzNonce, Action, bytes calldata payload)
+        public
+        onlyCalledFromThis
+    {
         bytes memory token = payload[:32];
         bytes memory depositor = payload[32:64];
-        uint256 amount = uint256(bytes32(payload[64:96]));
+        bytes memory operator = payload[64:106];
+        uint256 amount = uint256(bytes32(payload[106:138]));
 
-        (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositTo(srcChainId, token, depositor, amount);
+        (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositLST(srcChainId, token, depositor, amount);
         if (!success) {
-            revert DepositRequestShouldNotFail(srcChainId, lzNonce);
+            revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
+        emit LSTTransfer(true, success, bytes32(token), bytes32(depositor), amount);
 
-        _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance), true);
+        bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, lzNonce, token, depositor, operator, amount);
+        emit DelegationRequest(true, accepted, bytes32(token), bytes32(depositor), string(operator), amount);
+
+        bytes memory response = abi.encodePacked(lzNonce, accepted, updatedBalance);
+        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
     }
 
-    function requestWithdrawPrincipal(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
+    /// @notice Handles the associating/dissociating operator request, and no response would be returned.
+    /// @dev Can only be called from this contract via low-level call.
+    /// @param srcChainId The source chain id.
+    /// @param lzNonce The layer zero nonce.
+    /// @param act The action type.
+    /// @param payload The request payload.
+    function handleOperatorAssociation(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
     {
-        _validatePayloadLength(
-            payload, WITHDRAW_PRINCIPAL_REQUEST_LENGTH, Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE
-        );
+        bool success;
+        bytes calldata staker = payload[:32];
 
-        bytes memory token = payload[:32];
-        bytes memory withdrawer = payload[32:64];
-        uint256 amount = uint256(bytes32(payload[64:96]));
+        bool isAssociate = act == Action.REQUEST_ASSOCIATE_OPERATOR;
+        if (isAssociate) {
+            bytes calldata operator = payload[32:74];
 
-        try ASSETS_CONTRACT.withdrawPrincipal(srcChainId, token, withdrawer, amount) returns (
-            bool success, uint256 updatedBalance
-        ) {
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance), true);
-        } catch {
-            emit ExocorePrecompileError(ASSETS_PRECOMPILE_ADDRESS, lzNonce);
-
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, uint256(0)), true);
+            success = DELEGATION_CONTRACT.associateOperatorWithStaker(srcChainId, staker, operator);
+        } else {
+            success = DELEGATION_CONTRACT.dissociateOperatorFromStaker(srcChainId, staker);
         }
+
+        emit AssociationResult(success, isAssociate, bytes32(staker));
     }
 
-    function requestWithdrawReward(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
-        public
-        onlyCalledFromThis
-    {
-        _validatePayloadLength(payload, CLAIM_REWARD_REQUEST_LENGTH, Action.REQUEST_WITHDRAW_REWARD_FROM_EXOCORE);
-
-        bytes memory token = payload[:32];
-        bytes memory withdrawer = payload[32:64];
-        uint256 amount = uint256(bytes32(payload[64:96]));
-
-        try CLAIM_REWARD_CONTRACT.claimReward(srcChainId, token, withdrawer, amount) returns (
-            bool success, uint256 updatedBalance
-        ) {
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success, updatedBalance), true);
-        } catch {
-            emit ExocorePrecompileError(CLAIM_REWARD_PRECOMPILE_ADDRESS, lzNonce);
-
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, uint256(0)), true);
-        }
-    }
-
-    function requestDelegateTo(uint32 srcChainId, uint64 lzNonce, bytes calldata payload) public onlyCalledFromThis {
-        _validatePayloadLength(payload, DELEGATE_REQUEST_LENGTH, Action.REQUEST_DELEGATE_TO);
-
-        bytes memory token = payload[:32];
-        bytes memory delegator = payload[32:64];
-        bytes memory operator = payload[64:106];
-        uint256 amount = uint256(bytes32(payload[106:138]));
-
-        try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, delegator, operator, amount)
-        returns (bool success) {
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success), true);
-        } catch {
-            emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
-
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false), true);
-        }
-    }
-
-    function requestUndelegateFrom(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
-        public
-        onlyCalledFromThis
-    {
-        _validatePayloadLength(payload, UNDELEGATE_REQUEST_LENGTH, Action.REQUEST_UNDELEGATE_FROM);
-
-        bytes memory token = payload[:32];
-        bytes memory delegator = payload[32:64];
-        bytes memory operator = payload[64:106];
-        uint256 amount = uint256(bytes32(payload[106:138]));
-
-        try DELEGATION_CONTRACT.undelegateFromThroughClientChain(
-            srcChainId, lzNonce, token, delegator, operator, amount
-        ) returns (bool success) {
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, success), true);
-        } catch {
-            emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
-
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false), true);
-        }
-    }
-
-    function requestDepositThenDelegateTo(uint32 srcChainId, uint64 lzNonce, bytes calldata payload)
-        public
-        onlyCalledFromThis
-    {
-        _validatePayloadLength(payload, DEPOSIT_THEN_DELEGATE_REQUEST_LENGTH, Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO);
-
-        bytes memory token = payload[:32];
-        bytes memory depositor = payload[32:64];
-        bytes memory operator = payload[64:106];
-        uint256 amount = uint256(bytes32(payload[106:138]));
-
-        // while some of the code from requestDeposit and requestDelegateTo is duplicated here,
-        // it is done intentionally to work around Solidity's limitations with regards to
-        // function calls, error handling and indexing the return data of memory type.
-        // for example, you cannot index a bytes memory result from the requestDepositTo call,
-        // if you were to modify it to return bytes and then process them here.
-
-        (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositTo(srcChainId, token, depositor, amount);
-        if (!success) {
-            revert DepositRequestShouldNotFail(srcChainId, lzNonce);
-        }
-        try DELEGATION_CONTRACT.delegateToThroughClientChain(srcChainId, lzNonce, token, depositor, operator, amount)
-        returns (bool delegateSuccess) {
-            _sendInterchainMsg(
-                srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, delegateSuccess, updatedBalance), true
-            );
-        } catch {
-            emit ExocorePrecompileError(DELEGATION_PRECOMPILE_ADDRESS, lzNonce);
-            _sendInterchainMsg(srcChainId, Action.RESPOND, abi.encodePacked(lzNonce, false, updatedBalance), true);
-        }
-    }
-
+    /// @dev Sends an interchain message to the client chain.
+    /// @param srcChainId The chain id of the source chain, from which a message was received, and to which a response
+    /// is being sent.
+    /// @param act The action to be performed.
+    /// @param actionArgs The arguments for the action.
+    /// @param payByApp If the source for the transaction funds is this contract.
     function _sendInterchainMsg(uint32 srcChainId, Action act, bytes memory actionArgs, bool payByApp)
         internal
         whenNotPaused
@@ -412,12 +514,14 @@ contract ExocoreGatewayMock is
         ).addExecutorOrderedExecutionOption();
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
+        address refundAddress = payByApp ? address(this) : msg.sender;
         MessagingReceipt memory receipt =
-            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), msg.sender, payByApp);
+            _lzSend(srcChainId, payload, options, MessagingFee(fee.nativeFee, 0), refundAddress, payByApp);
         emit MessageSent(act, receipt.guid, receipt.nonce, receipt.fee.nativeFee);
     }
 
-    function quote(uint32 srcChainid, bytes memory _message) public view returns (uint256 nativeFee) {
+    /// @inheritdoc IExocoreGateway
+    function quote(uint32 srcChainid, bytes calldata _message) public view returns (uint256 nativeFee) {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();
@@ -425,6 +529,7 @@ contract ExocoreGatewayMock is
         return fee.nativeFee;
     }
 
+    /// @inheritdoc OAppReceiverUpgradeable
     function nextNonce(uint32 srcEid, bytes32 sender)
         public
         view

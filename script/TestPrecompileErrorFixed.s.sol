@@ -8,7 +8,7 @@ import "../src/interfaces/IVault.sol";
 import "../src/interfaces/precompiles/IAssets.sol";
 import "../src/interfaces/precompiles/IClaimReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
-import "../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";
 import {BaseScript} from "./BaseScript.sol";
@@ -73,7 +73,7 @@ contract DepositScript is BaseScript {
 
     function run() public {
         bytes memory depositMsg = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
+            Action.REQUEST_DEPOSIT_LST,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
             uint256(TEST_DEPOSIT_AMOUNT)
@@ -94,7 +94,7 @@ contract DepositScript is BaseScript {
         vm.stopBroadcast();
 
         bytes memory withdrawMsg = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            Action.REQUEST_WITHDRAW_LST,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
             uint256(TEST_WITHDRAWAL_AMOUNT)
