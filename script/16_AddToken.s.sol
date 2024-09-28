@@ -9,7 +9,7 @@ import "forge-std/Script.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 
-contract SetPeersAndUpgrade is BaseScript {
+contract AddToken is BaseScript {
 
     using AddressCast for address;
 
@@ -23,11 +23,9 @@ contract SetPeersAndUpgrade is BaseScript {
         string memory deployed = vm.readFile("script/deployedBootstrapOnly.json");
         bootstrapAddr = stdJson.readAddress(deployed, ".clientChain.bootstrap");
         require(address(bootstrapAddr) != address(0), "bootstrap address should not be empty");
-
         deployed = vm.readFile("script/deployedExocoreGatewayOnly.json");
         exocoreGatewayAddr = stdJson.readAddress(deployed, ".exocore.exocoreGateway");
         require(address(exocoreGatewayAddr) != address(0), "exocore gateway address should not be empty");
-
         // forks
         exocore = vm.createSelectFork(exocoreRPCURL);
         clientChain = vm.createSelectFork(clientChainRPCURL);
@@ -36,26 +34,29 @@ contract SetPeersAndUpgrade is BaseScript {
     function run() public {
         ExocoreGateway gateway = ExocoreGateway(payable(exocoreGatewayAddr));
 
-        vm.selectFork(exocore);
-        if (!useExocorePrecompileMock) {
-            _bindPrecompileMocks();
-        }
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
-        // gateway.setPeer(clientChainId, bootstrapAddr.toBytes32());
-        gateway.setPeer(solanaClientChainId, solanaClientContract);
-        vm.stopBroadcast();
+        bytes32 token = hex"d457b91ba64d7d6653b50e5ca92508d8e09f4d28315a8d9d65694c5c80455534";
+        uint256 tvlLimit = 50000000000000000;
+        string memory name = "Jito2";
+        string memory metaData = "Jito2 on solana";
+        string memory oracleInfo = "LINK,Solana";
 
-        // Bootstrap bootstrap = Bootstrap(payable(bootstrapAddr));
+        addWhiteListToken(40168, token, 9, tvlLimit, name, metaData, oracleInfo);
 
-        // vm.selectFork(clientChain);
-        // vm.startBroadcast(exocoreValidatorSet.privateKey);
-        // bootstrap.setPeer(exocoreChainId, address(exocoreGatewayAddr).toBytes32());
-        // vm.stopBroadcast();
-
-        // vm.selectFork(exocore);
-        // vm.startBroadcast(exocoreValidatorSet.privateKey);
-        // uint256 nativeFee = exocoreGateway.quote(clientChainId, abi.encodePacked(Action.REQUEST_MARK_BOOTSTRAP, ""));
-        // exocoreGateway.markBootstrap{value: nativeFee}(clientChainId);
     }
+
+    function addWhiteListToken(uint32 clientchainId, bytes32 token, uint8 decimals, uint256 tvlLimit, string memory name, string memory metaData, string memory oracleInfo) private {
+        vm.selectFork(exocore);
+        vm.startBroadcast(depositor.privateKey);
+        bytes memory msg_ = abi.encodePacked(
+            GatewayStorage.Action.REQUEST_ADD_WHITELIST_TOKEN,
+            abi.encodePacked(token) // convert for decoding it on the receiving end
+        );
+        uint256 nativeFee = exocoreGateway.quote(clientchainId, msg_);
+        console.log("fee is: ", nativeFee);
+        console.log("clientchainId is: ", clientchainId);
+        ExocoreGateway(payable(address(exocoreGateway))).addWhitelistToken{value: nativeFee}(clientchainId, token, decimals, tvlLimit, name, metaData, oracleInfo);
+        vm.stopBroadcast();
+    }
+
 
 }

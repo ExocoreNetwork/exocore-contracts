@@ -64,6 +64,7 @@ contract BaseScript is Script, StdCheats {
 
     uint16 constant exocoreChainId = 40_259;
     uint16 constant clientChainId = 40_161;
+    uint16 constant solanaClientChainId = 40_168;
 
     address constant sepoliaEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
     address constant exocoreEndpointV2 = 0x6EDCE65403992e310A62460808c4b910D972f10f;
@@ -73,6 +74,8 @@ contract BaseScript is Script, StdCheats {
     uint256 constant WITHDRAW_AMOUNT = 1 ether;
     address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
     uint256 internal constant TOKEN_ADDRESS_BYTES_LENGTH = 32;
+
+    bytes32 constant solanaClientContract = 0xf1ecaf8627cdd00d1ac50dbc43569c2ec97b66098a8c2e84ddb0ec9036788677;
 
     bool useExocorePrecompileMock;
     bool useEndpointMock;
