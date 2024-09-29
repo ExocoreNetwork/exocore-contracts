@@ -5,16 +5,23 @@ pragma solidity >=0.8.17;
 /// if we decide to handle reward withdrawal request by assets precompile
 
 /// @dev The claimReward contract's address.
-address constant CLAIM_REWARD_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000806;
+address constant REWARD_PRECOMPILE_ADDRESS = 0x0000000000000000000000000000000000000806;
 
 /// @dev The claimReward contract's instance.
-IClaimReward constant CLAIM_REWARD_CONTRACT = IClaimReward(CLAIM_REWARD_PRECOMPILE_ADDRESS);
+IReward constant REWARD_CONTRACT = IReward(REWARD_PRECOMPILE_ADDRESS);
 
 /// @author Exocore Team
 /// @title ClaimReward Precompile Contract
 /// @dev The interface through which solidity contracts will interact with ClaimReward
 /// @custom:address 0x0000000000000000000000000000000000000806
-interface IClaimReward {
+interface IReward {
+
+    function submitReward(
+        uint32 clientChainLzId,
+        bytes calldata assetsAddress,
+        bytes calldata avsId,
+        uint256 amount
+    ) external returns (bool success, uint256 latestAssetState);
 
     /// TRANSACTIONS
     /// @dev ClaimReward To the staker, that will change the state in reward module

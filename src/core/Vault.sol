@@ -97,23 +97,23 @@ contract Vault is Initializable, VaultStorage, IVault {
     }
 
     /// @inheritdoc IVault
-    function updateWithdrawableBalance(address user, uint256 unlockPrincipalAmount, uint256 unlockRewardAmount)
+    function unlockPrincipal(address user, uint256 amount)
         external
         onlyGateway
     {
         uint256 totalDeposited = totalDepositedPrincipalAmount[user];
-        if (unlockPrincipalAmount > totalDeposited) {
+        if (amount > totalDeposited) {
             revert Errors.VaultPrincipalExceedsTotalDeposit();
         }
 
-        totalUnlockPrincipalAmount[user] += unlockPrincipalAmount;
+        totalUnlockPrincipalAmount[user] += amount;
         if (totalUnlockPrincipalAmount[user] > totalDeposited) {
             revert Errors.VaultTotalUnlockPrincipalExceedsDeposit();
         }
 
-        withdrawableBalances[user] = withdrawableBalances[user] + unlockPrincipalAmount + unlockRewardAmount;
+        withdrawableBalances[user] = withdrawableBalances[user] + amount;
 
-        emit WithdrawableBalanceUpdated(user, unlockPrincipalAmount, unlockRewardAmount);
+        emit PrincipalUnlocked(user, amount);
     }
 
     /// @inheritdoc IVault

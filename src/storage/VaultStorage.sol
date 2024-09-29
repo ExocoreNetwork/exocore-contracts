@@ -35,11 +35,10 @@ contract VaultStorage {
     /// @param amount The new reward balance.
     event RewardBalanceUpdated(address user, uint256 amount);
 
-    /// @notice Emmitted when a user's withdrawable balance is updated.
-    /// @param user The address of the user.
-    /// @param pAmount The new principal balance.
-    /// @param rAmount The new reward balance.
-    event WithdrawableBalanceUpdated(address user, uint256 pAmount, uint256 rAmount);
+    /// @notice Emitted when a user's principal balance is unlocked for withdrawal.
+    /// @param user The address of the withdrawer.
+    /// @param amount The amount of the principal balance unlocked.
+    event PrincipalUnlocked(address user, uint256 amount);
 
     /// @notice Emitted upon withdrawal success.
     /// @param src The address of the withdrawer.

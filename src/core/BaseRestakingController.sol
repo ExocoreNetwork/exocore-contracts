@@ -82,6 +82,41 @@ abstract contract BaseRestakingController is
         _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, bytes(""));
     }
 
+    function submitReward(address token, address avs, uint256 amount) 
+        external 
+        payable
+        isValidAmount(amount)
+        whenNotPaused
+        nonReentrant
+    {
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(avs)), amount);
+        _processRequest(Action.REQUEST_SUBMIT_REWARD, actionArgs, bytes(""));
+    }
+
+    function claimRewardFromExocore(address token, address avs, uint256 amount) 
+        external 
+        payable
+        isValidAmount(amount)
+        whenNotPaused
+        nonReentrant
+    {
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
+        bytes memory encodedRequest = abi.encode(token, msg.sender, amount);
+        _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
+    }
+
+    function withdrawReward(address token, address recipient, uint256 amount) 
+        external 
+        payable
+        isValidAmount(amount)
+        whenNotPaused
+        nonReentrant
+    {
+        REWARD_VAULT.withdraw(token, msg.sender, recipient, amount);
+
+        emit RewardWithdrawn(token, msg.sender, recipient, amount);
+    }
+
     /// @dev Processes the request by sending it to Exocore.
     /// @dev If the encodedRequest is not empty, it is regarded as a request that expects a response and the request
     /// would be cached

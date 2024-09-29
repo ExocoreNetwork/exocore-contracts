@@ -23,10 +23,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
 
-    /// @notice Emitted when the withdrawable balance of the capsule is updated.
+    /// @notice Emitted when the ETH principal balance is unlocked. 
     /// @param owner The address of the capsule owner.
-    /// @param additionalAmount The amount added to the withdrawable balance.
-    event WithdrawableBalanceUpdated(address owner, uint256 additionalAmount);
+    /// @param unlockedAmount The amount added to the withdrawable balance.
+    event ETHPrincipalUnlocked(address owner, uint256 unlockedAmount);
 
     /// @notice Emitted when a withdrawal is successfully completed.
     /// @param owner The address of the capsule owner.
@@ -283,10 +283,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @inheritdoc IExoCapsule
-    function updateWithdrawableBalance(uint256 unlockPrincipalAmount) external onlyGateway {
+    function unlockETHPrincipal(uint256 unlockPrincipalAmount) external onlyGateway {
         withdrawableBalance += unlockPrincipalAmount;
 
-        emit WithdrawableBalanceUpdated(capsuleOwner, unlockPrincipalAmount);
+        emit ETHPrincipalUnlocked(capsuleOwner, unlockPrincipalAmount);
     }
 
     /// @inheritdoc IExoCapsule

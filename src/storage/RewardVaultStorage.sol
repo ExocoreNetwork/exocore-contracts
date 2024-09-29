@@ -13,9 +13,13 @@ contract RewardVaultStorage {
     mapping(address => mapping(address => uint256)) public withdrawableBalances;
 
     // Mapping of token address to AVS ID to balance
-    mapping(address => mapping(address => uint256)) public avsBalances;
+    mapping(address => mapping(address => uint256)) public totalDepositedRewards;
 
     // Gap for future storage variables
     uint256[40] private _gap;
 
+    event RewardSubmitted(address indexed token, address indexed avs, address indexed depositor, uint256 amount);
+    event RewardClaimed(address indexed token, address indexed staker, uint256 amount);
+    event RewardWithdrawn(address indexed token, address indexed staker, address indexed recipient, uint256 amount);
+    event RewardUnlocked(address indexed token, address indexed staker, uint256 amount);
 }

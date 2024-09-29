@@ -6,8 +6,9 @@ import {RewardVaultStorage} from "../storage/RewardVaultStorage.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IRewardVault} from "../interfaces/IRewardVault.sol";
 
-contract RewardVault is RewardVaultStorage, Initializable {
+contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
 
     using SafeERC20 for IERC20;
 
@@ -28,7 +29,7 @@ contract RewardVault is RewardVaultStorage, Initializable {
 
     function deposit(address token, address avs, uint256 amount) external onlyGateway {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-        avsBalances[token][avs] += amount;
+        totalDepositedRewards[token][avs] += amount;
     }
 
     function withdraw(address token, address withdrawer, address recipient, uint256 amount) external onlyGateway {
@@ -39,23 +40,20 @@ contract RewardVault is RewardVaultStorage, Initializable {
         IERC20(token).safeTransfer(recipient, amount);
     }
 
-    function updateWithdrawableBalance(address token, address avs, address withdrawer, uint256 amount)
+    function unlockReward(address token, address withdrawer, uint256 amount)
         external
         onlyGateway
     {
-        if (avsBalances[token][avs] < amount) {
-            revert Errors.InsufficientBalance();
-        }
-        avsBalances[token][avs] -= amount;
         withdrawableBalances[token][withdrawer] += amount;
+
+        emit RewardUnlocked(token, withdrawer, amount);
     }
 
     function getWithdrawableBalance(address token, address withdrawer) external view returns (uint256) {
         return withdrawableBalances[token][withdrawer];
     }
 
-    function getAVSBalance(address token, address avs) external view returns (uint256) {
-        return avsBalances[token][avs];
+    function getTotalDepositedRewards(address token, address avs) external view returns (uint256) {
+        return totalDepositedRewards[token][avs];
     }
-
 }

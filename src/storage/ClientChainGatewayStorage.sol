@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IRewardVault} from "../interfaces/IRewardVault.sol";
 
 import {Errors} from "../libraries/Errors.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
@@ -27,6 +28,8 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     /// @dev Mapping of request IDs to their corresponding request actions.
     mapping(uint64 => Action) internal _registeredRequestActions;
+
+    IRewardVault public immutable REWARD_VAULT;
 
     /// @notice The address of the beacon chain oracle.
     address public immutable BEACON_ORACLE_ADDRESS;
@@ -88,12 +91,14 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @param vaultBeacon_ The address of the beacon for the vault proxy.
     /// @param exoCapsuleBeacon_ The address of the beacon for the ExoCapsule proxy.
     /// @param beaconProxyBytecode_ The address of the beacon proxy bytecode contract.
+    /// @param rewardVault_ The address of the reward vault.
     constructor(
         uint32 exocoreChainId_,
         address beaconOracleAddress_,
         address vaultBeacon_,
         address exoCapsuleBeacon_,
-        address beaconProxyBytecode_
+        address beaconProxyBytecode_,
+        address rewardVault_
     ) BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_) {
         require(
             beaconOracleAddress_ != address(0),
@@ -103,9 +108,14 @@ contract ClientChainGatewayStorage is BootstrapStorage {
             exoCapsuleBeacon_ != address(0),
             "ClientChainGatewayStorage: the exoCapsuleBeacon address for beacon proxy should not be empty"
         );
+        require(
+            rewardVault_ != address(0),
+            "ClientChainGatewayStorage: the reward vault address should not be empty"
+        );
 
         BEACON_ORACLE_ADDRESS = beaconOracleAddress_;
         EXO_CAPSULE_BEACON = IBeacon(exoCapsuleBeacon_);
+        REWARD_VAULT = IRewardVault(rewardVault_);
     }
 
     /// @dev Returns the ExoCapsule for the given owner, if it exists. Fails if the ExoCapsule does not exist.

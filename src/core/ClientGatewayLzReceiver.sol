@@ -152,10 +152,10 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     function _updatePrincipalWithdrawableBalance(address token, address staker, uint256 amount) internal {
         if (token == VIRTUAL_NST_ADDRESS) {
             IExoCapsule capsule = _getCapsule(staker);
-            capsule.updateWithdrawableBalance(amount);
+            capsule.unlockETHPrincipal(amount);
         } else {
             IVault vault = _getVault(token);
-            vault.updateWithdrawableBalance(staker, amount, 0);
+            vault.unlockPrincipal(staker, amount);
         }
     }
 
@@ -166,8 +166,7 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
      * @param amount The amount of the operation.
      */
     function _updateRewardWithdrawableBalance(address token, address staker, uint256 amount) internal {
-        IVault vault = _getVault(token);
-        vault.updateWithdrawableBalance(staker, 0, amount);
+        REWARD_VAULT.unlockReward(token, staker, amount);
     }
 
     /// @notice Called after an add-whitelist-token response is received.

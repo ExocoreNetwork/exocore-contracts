@@ -63,22 +63,6 @@ abstract contract LSTRestakingController is
     }
 
     /// @inheritdoc ILSTRestakingController
-    function withdrawRewardFromExocore(address token, uint256 rewardAmount)
-        external
-        payable
-        isTokenWhitelisted(token)
-        isValidAmount(rewardAmount)
-        whenNotPaused
-        nonReentrant
-    {
-        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), rewardAmount);
-        bytes memory encodedRequest = abi.encode(token, msg.sender, rewardAmount);
-
-        // we need to check the response to unlock the reward for later claim
-        _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
-    }
-
-    /// @inheritdoc ILSTRestakingController
     function depositThenDelegateTo(address token, uint256 amount, string calldata operator)
         external
         payable

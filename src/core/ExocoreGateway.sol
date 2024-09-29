@@ -6,7 +6,7 @@ import {IExocoreGateway} from "../interfaces/IExocoreGateway.sol";
 import {Action} from "../storage/GatewayStorage.sol";
 
 import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
-import {CLAIM_REWARD_CONTRACT} from "../interfaces/precompiles/IClaimReward.sol";
+import {REWARD_CONTRACT} from "../interfaces/precompiles/IReward.sol";
 import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
 
 import {
@@ -80,6 +80,7 @@ contract ExocoreGateway is
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_LST] = this.handleLSTTransfer.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_NST] = this.handleNSTTransfer.selector;
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_NST] = this.handleNSTTransfer.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_SUBMIT_REWARD] = this.handleRewardOperation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_CLAIM_REWARD] = this.handleRewardOperation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.handleDelegation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.handleDelegation.selector;
@@ -387,7 +388,7 @@ contract ExocoreGateway is
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
-    /// @notice Handles rewards request from a client chain.
+    /// @notice Handles rewards request from a client chain, submit reward or claim reward.
     /// @dev Can only be called from this contract via low-level call.
     /// @dev Returns the response to client chain including lzNonce and success flag.
     /// @param srcChainId The source chain id.
@@ -400,13 +401,20 @@ contract ExocoreGateway is
         returns (bytes memory response)
     {
         bytes calldata token = payload[:32];
-        bytes calldata withdrawer = payload[32:64];
+        // it could be either avsId or withdrawer, depending on the action
+        bytes calldata avsOrWithdrawer = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
 
-        (bool success,) = CLAIM_REWARD_CONTRACT.claimReward(srcChainId, token, withdrawer, amount);
-        emit ClaimRewardResult(success, bytes32(token), bytes32(withdrawer), amount);
+        bool isSubmitReward = act == Action.REQUEST_SUBMIT_REWARD;
+        bool success;
+        if (isSubmitReward) {
+            (success,) = REWARD_CONTRACT.submitReward(srcChainId, token, avsOrWithdrawer, amount);
+        } else {
+            (success,) = REWARD_CONTRACT.claimReward(srcChainId, token, avsOrWithdrawer, amount);
+        }
+        emit RewardOperation(success, isSubmitReward, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
-        response = abi.encodePacked(lzNonce, success);
+        response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
     /// @notice Handles delegation request from a client chain.
