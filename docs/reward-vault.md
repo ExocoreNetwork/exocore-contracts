@@ -24,7 +24,7 @@ The Reward Vault is a crucial component of the Exocore ecosystem, designed to se
 
 Key Functions:
 - `deposit(address token, address avs, uint256 amount)`: Allows the Gateway to deposit reward tokens on behalf of an AVS. Increases the total deposited rewards for the specified token and AVS.
-- `updateWithdrawableBalance(address token, address staker, uint256 amount)`: Allows the Gateway to update a staker's withdrawable balance after claim approval.
+- `unlockReward(address token, address staker, uint256 amount)`: Allows the Gateway to unlock rewards for a staker after claim approval from the Exocore chain.
 - `withdraw(address token, address withdrawer, address recipient, uint256 amount)`: Allows the Gateway to withdraw claimed rewards for a staker.
 - `getWithdrawableBalance(address token, address staker)`: Returns the withdrawable balance of a specific reward token for a staker.
 - `getTotalDepositedRewards(address token, address avs)`: Returns the total deposited rewards of a specific token for an AVS.
@@ -32,8 +32,8 @@ Key Functions:
 ### 3.2. Smart Contract: ClientChainGateway.sol (existing contract, modified)
 
 New Functions:
-- `submitReward(address token, address avs, uint256 amount)`: Receives reward submissions and calls RewardVault's `deposit`.
-- `claimReward(address token, uint256 amount)`: Initiates a claim request to the Exocore chain.
+- `submitReward(address token, uint256 amount, address avs)`: Receives reward submissions and calls RewardVault's `deposit`.
+- `claimRewardFromExocore(address token, uint256 amount)`: Initiates a claim request to the Exocore chain.
 - `withdrawReward(address token, address recipient, uint256 amount)`: Calls RewardVault's `withdraw` to transfer claimed rewards to the staker.
 
 ### 3.3. Data Structures
@@ -68,8 +68,9 @@ This nested mapping tracks the total deposited rewards for each token and AVS:
 2. Gateway calls RewardVault's `deposit`, which:
    a. Transfers the specified amount of tokens from the depositor to itself.
    b. Increases the total deposited rewards for the specified token and AVS in the `totalDepositedRewards` mapping.
+   c. Emits a `RewardDeposited` event.
 3. Gateway sends a message to the Exocore chain to account for the deposited rewards.
-4. Exocore chain processes the request, which must succeed to ensure correct accounting.
+4. Exocore chain processes the request and emits a `RewardOperationResult` event to indicate the result of the submission.
 
 ### 4.2. Reward Distribution and Accounting
 
@@ -78,19 +79,24 @@ This nested mapping tracks the total deposited rewards for each token and AVS:
 
 ### 4.3. Reward Claiming and Withdrawal
 
-1. Staker calls `claimReward` on the Gateway.
+1. Staker calls `claimRewardFromExocore` on the Gateway.
 2. Gateway sends a claim request to the Exocore chain.
-3. Exocore chain verifies the request and sends a response back to the Gateway.
-4. Gateway calls RewardVault's `updateWithdrawableBalance` based on the response from Exocore chain.
-5. At any time after claiming, the staker can call `withdrawReward` on the Gateway.
-6. Gateway calls RewardVault's `withdraw` to transfer the tokens from the vault to the staker's address.
+3. Exocore chain verifies the request and sends a response back to the Gateway, emitting a `RewardOperation` event.
+4. If the claim is approved, Gateway calls RewardVault's `unlockReward`, which:
+   a. Increases the staker's withdrawable balance for the specified token.
+   b. Emits a `RewardUnlocked` event.
+5. At any time after unlocking, the staker can call `withdrawReward` on the Gateway.
+6. Gateway calls RewardVault's `withdraw`, which:
+   a. Transfers the tokens from the vault to the staker's address.
+   b. Decreases the staker's withdrawable balance.
+   c. Emits a `RewardWithdrawn` event.
 
 ## 5. Security Considerations
 
 5.1. Access Control: 
 - Only the Gateway should be able to call RewardVault's functions.
 - Any address should be able to call `ClientChainGateway.submitReward`.
-- Only stakers should be able to call `ClientChainGateway.claimReward` for their own rewards.
+- Only stakers should be able to call `ClientChainGateway.claimRewardFromExocore` for their own rewards.
 
 5.2. Token Compatibility: While the system is permissionless, it is designed to work with standard ERC20 tokens to ensure consistent behavior and accounting.
 
@@ -104,10 +110,13 @@ The Reward Vault should be implemented as an upgradeable contract using the Open
 
 ## 8. Events
 
-Emit events for all significant actions:
-- `RewardSubmitted(address indexed token, address indexed avs, address indexed depositor, uint256 amount)`
-- `RewardClaimed(address indexed token, address indexed staker, uint256 amount)`
+Emit events for all significant actions in the RewardVault contract:
+- `RewardDeposited(address indexed token, address indexed avs, uint256 amount)`
+- `RewardUnlocked(address indexed token, address indexed staker, uint256 amount)`
 - `RewardWithdrawn(address indexed token, address indexed staker, uint256 amount)`
+
+The ClientChainGateway contract will emit the following event (as previously defined):
+- `RewardOperation(bool indexed success, bytes32 indexed token, bytes32 indexed operator, uint256 amount, OperationType operationType)`
 
 ## 9. Future Considerations
 

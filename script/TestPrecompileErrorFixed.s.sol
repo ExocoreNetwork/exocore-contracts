@@ -6,7 +6,7 @@ import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
 import "../src/interfaces/precompiles/IAssets.sol";
-import "../src/interfaces/precompiles/IClaimReward.sol";
+import "../src/interfaces/precompiles/IReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
 import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 

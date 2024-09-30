@@ -74,8 +74,8 @@ contract Vault is Initializable, VaultStorage, IVault {
         consumedTvl -= amount;
         underlyingToken.safeTransfer(recipient, amount);
 
-        emit WithdrawalSuccess(withdrawer, recipient, amount);
         emit ConsumedTvlChanged(consumedTvl);
+        emit PrincipalWithdrawn(withdrawer, recipient, amount);
     }
 
     /// @inheritdoc IVault
@@ -94,6 +94,7 @@ contract Vault is Initializable, VaultStorage, IVault {
             revert Errors.VaultTvlLimitExceeded();
         }
         emit ConsumedTvlChanged(consumedTvl);
+        emit PrincipalDeposited(depositor, amount);
     }
 
     /// @inheritdoc IVault

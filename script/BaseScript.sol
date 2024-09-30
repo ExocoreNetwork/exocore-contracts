@@ -7,7 +7,7 @@ import "../src/interfaces/IVault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 
 import "../src/interfaces/precompiles/IAssets.sol";
-import "../src/interfaces/precompiles/IClaimReward.sol";
+import "../src/interfaces/precompiles/IReward.sol";
 import "../src/interfaces/precompiles/IDelegation.sol";
 
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
@@ -135,7 +135,7 @@ contract BaseScript is Script, StdCheats {
         // with cast or remix.
         deployCodeTo("AssetsMock.sol", abi.encode(clientChainId), ASSETS_PRECOMPILE_ADDRESS);
         deployCodeTo("DelegationMock.sol", DELEGATION_PRECOMPILE_ADDRESS);
-        deployCodeTo("ClaimRewardMock.sol", CLAIM_REWARD_PRECOMPILE_ADDRESS);
+        deployCodeTo("ClaimRewardMock.sol", REWARD_PRECOMPILE_ADDRESS);
         // go to the original fork, if one was selected
         if (previousFork != type(uint256).max) {
             vm.selectFork(previousFork);

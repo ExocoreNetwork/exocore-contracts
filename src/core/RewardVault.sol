@@ -30,6 +30,8 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
     function deposit(address token, address avs, uint256 amount) external onlyGateway {
         IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
         totalDepositedRewards[token][avs] += amount;
+
+        emit RewardDeposited(token, avs, amount);
     }
 
     function withdraw(address token, address withdrawer, address recipient, uint256 amount) external onlyGateway {
@@ -38,6 +40,8 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
         }
         withdrawableBalances[token][withdrawer] -= amount;
         IERC20(token).safeTransfer(recipient, amount);
+
+        emit RewardWithdrawn(token, withdrawer, recipient, amount);
     }
 
     function unlockReward(address token, address withdrawer, uint256 amount)

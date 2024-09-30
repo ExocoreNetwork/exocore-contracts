@@ -1,8 +1,17 @@
 pragma solidity ^0.8.19;
 
-import {IClaimReward} from "../../src/interfaces/precompiles/IClaimReward.sol";
+import {IReward} from "../../src/interfaces/precompiles/IReward.sol";
 
-contract ClaimRewardMock is IClaimReward {
+contract RewardMock is IReward {
+
+    function submitReward(
+        uint32 clientChainLzId,
+        bytes calldata assetsAddress,
+        bytes calldata avsId,
+        uint256 amount
+    ) external returns (bool success, uint256 latestAssetState) {
+        return (true, uint256(1234));
+    }
 
     function claimReward(
         uint32 clientChainLzId,

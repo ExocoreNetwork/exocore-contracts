@@ -18,8 +18,7 @@ contract RewardVaultStorage {
     // Gap for future storage variables
     uint256[40] private _gap;
 
-    event RewardSubmitted(address indexed token, address indexed avs, address indexed depositor, uint256 amount);
-    event RewardClaimed(address indexed token, address indexed staker, uint256 amount);
-    event RewardWithdrawn(address indexed token, address indexed staker, address indexed recipient, uint256 amount);
+    event RewardDeposited(address indexed token, address indexed avs, uint256 amount);
     event RewardUnlocked(address indexed token, address indexed staker, uint256 amount);
+    event RewardWithdrawn(address indexed token, address indexed staker, address indexed recipient, uint256 amount);
 }
