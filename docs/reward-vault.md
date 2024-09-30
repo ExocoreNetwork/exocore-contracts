@@ -116,7 +116,7 @@ Emit events for all significant actions in the RewardVault contract:
 - `RewardWithdrawn(address indexed token, address indexed staker, uint256 amount)`
 
 The ClientChainGateway contract will emit the following event (as previously defined):
-- `RewardOperation(bool indexed success, bytes32 indexed token, bytes32 indexed operator, uint256 amount, OperationType operationType)`
+- `RewardOperation(bool isSubmitReward, bool indexed success, bytes32 indexed token, bytes32 indexed avsOrWithdrawer, uint256 amount)`
 
 ## 9. Future Considerations
 
