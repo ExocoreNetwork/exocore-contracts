@@ -20,6 +20,25 @@ const tokenMetaInfos = [
 const tokenNamesForOracle = [
   'ETH', 'wstETH' // not case sensitive
 ]
+const nativeChain = {
+  "name": "Exocore",
+  "meta_info": "The (native) Exocore chain",
+  "finalization_blocks": 10,
+  "layer_zero_chain_id": 0, // virtual chain
+  "address_length": 20,
+}
+const nativeAsset = {
+  "asset_basic_info": {
+    "name": "Native EXO token",
+    "symbol": "exo",
+    "address": "0x0000000000000000000000000000000000000000",
+    "decimals": "18",
+    "layer_zero_chain_id": nativeChain.layer_zero_chain_id,
+    "exocore_chain_index": "1",
+    "meta_info": "EXO native to the Exocore chain",
+  },
+  "staking_total_amount": "0"
+};
 
 const exocoreBech32Prefix = 'exo';
 
@@ -657,6 +676,15 @@ async function updateGenesisFile() {
     });
     genesisJSON.app_state.delegation.delegation_states = delegation_states;
     genesisJSON.app_state.delegation.stakers_by_operator = stakers_by_operator;
+
+    // add the native chain and at the end so that count-related issues don't arise.
+    genesisJSON.app_state.assets.client_chains.push(nativeChain);
+    genesisJSON.app_state.assets.tokens.push(nativeAsset);
+    // TODO: copy the staking data over from the previous genesis, if any.
+    genesisJSON.app_state.dogfood.params.asset_ids.push(
+      nativeAsset.asset_basic_info.address.toLowerCase() + '_0x' +
+      nativeAsset.asset_basic_info.layer_zero_chain_id.toString(16)
+    );
 
     await fs.writeFile(RESULT_GENESIS_FILE_PATH, JSONbig.stringify(genesisJSON, null, 2));
     console.log('Genesis file updated successfully.');
