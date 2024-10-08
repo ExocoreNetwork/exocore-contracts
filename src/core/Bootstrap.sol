@@ -428,14 +428,26 @@ contract Bootstrap is
         depositsByToken[token] -= amount;
 
         // afterReceiveWithdrawPrincipalResponse
-        vault.updateWithdrawableBalance(user, amount, 0);
+        vault.unlockPrincipal(user, amount);
 
         emit WithdrawPrincipalResult(true, token, user, amount);
     }
 
-    /// @inheritdoc ILSTRestakingController
+    /// @inheritdoc IBaseRestakingController
     /// @dev This is not yet supported.
-    function withdrawRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
+    function submitReward(address token, address avs, uint256 rewardAmount) external payable override beforeLocked whenNotPaused {
+        revert Errors.NotYetSupported();
+    }
+
+    /// @inheritdoc IBaseRestakingController
+    /// @dev This is not yet supported.
+    function claimRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
+        revert Errors.NotYetSupported();
+    }
+
+    /// @inheritdoc IBaseRestakingController
+    /// @dev This is not yet supported.
+    function withdrawReward(address token, address recipient, uint256 rewardAmount) external view override beforeLocked whenNotPaused {
         revert Errors.NotYetSupported();
     }
 

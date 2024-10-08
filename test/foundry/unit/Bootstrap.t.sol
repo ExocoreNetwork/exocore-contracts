@@ -12,6 +12,8 @@ import {IValidatorRegistry} from "src/interfaces/IValidatorRegistry.sol";
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
 import {MyToken} from "./MyToken.sol";
 import {IVault} from "src/interfaces/IVault.sol";
+import {IRewardVault} from "src/interfaces/IRewardVault.sol";
+import {RewardVault} from "src/core/RewardVault.sol";
 import {Origin} from "src/lzApp/OAppReceiverUpgradeable.sol";
 import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
 import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";
@@ -61,8 +63,10 @@ contract BootstrapTest is Test {
     address constant lzActor = address(0x20);
 
     IVault vaultImplementation;
+    IRewardVault rewardVaultImplementation;
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
+    IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
 
@@ -86,9 +90,11 @@ contract BootstrapTest is Test {
 
         // deploy vault implementationcontract that has logics called by proxy
         vaultImplementation = new Vault();
+        rewardVaultImplementation = new RewardVault();
 
         // deploy the vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
 
         // deploy BeaconProxyBytecode to store BeaconProxyBytecode
         beaconProxyBytecode = new BeaconProxyBytecode();
@@ -110,6 +116,7 @@ contract BootstrapTest is Test {
             exocoreChainId,
             address(0x1),
             address(vaultBeacon),
+            address(rewardVaultBeacon),
             address(capsuleBeacon),
             address(beaconProxyBytecode)
         );
@@ -1416,7 +1423,7 @@ contract BootstrapTest is Test {
 
     function test20_WithdrawRewardFromExocore() public {
         vm.expectRevert(abi.encodeWithSignature("NotYetSupported()"));
-        bootstrap.withdrawRewardFromExocore(address(0x0), 1);
+        bootstrap.claimRewardFromExocore(address(0x0), 1);
     }
 
     function test22_Claim() public {

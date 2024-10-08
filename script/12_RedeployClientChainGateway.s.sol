@@ -8,8 +8,10 @@ import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
 
 import "../src/core/ExoCapsule.sol";
 import {Vault} from "../src/core/Vault.sol";
+import {RewardVault} from "../src/core/RewardVault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 import {CustomProxyAdmin} from "../src/utils/CustomProxyAdmin.sol";
+import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 
 import {BaseScript} from "./BaseScript.sol";
 
@@ -34,6 +36,8 @@ contract RedeployClientChainGateway is BaseScript {
         require(address(beaconOracle) != address(0), "beacon oracle should not be empty");
         vaultBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.vaultBeacon"));
         require(address(vaultBeacon) != address(0), "vault beacon should not be empty");
+        rewardVaultBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.rewardVaultBeacon"));
+        require(address(rewardVaultBeacon) != address(0), "reward vault beacon should not be empty");
         capsuleBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.capsuleBeacon"));
         require(address(capsuleBeacon) != address(0), "capsule beacon should not be empty");
         beaconProxyBytecode =
@@ -41,17 +45,21 @@ contract RedeployClientChainGateway is BaseScript {
         require(address(beaconProxyBytecode) != address(0), "beacon proxy bytecode should not be empty");
         bootstrap = Bootstrap(stdJson.readAddress(prerequisiteContracts, ".clientChain.bootstrap"));
         require(address(bootstrap) != address(0), "bootstrap should not be empty");
+        clientChainProxyAdmin = CustomProxyAdmin(stdJson.readAddress(prerequisiteContracts, ".clientChain.proxyAdmin"));
+        require(address(clientChainProxyAdmin) != address(0), "client chain proxy admin should not be empty");
         clientChain = vm.createSelectFork(clientChainRPCURL);
     }
 
     function run() public {
         vm.selectFork(clientChain);
         vm.startBroadcast(exocoreValidatorSet.privateKey);
+
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint),
             exocoreChainId,
             address(beaconOracle),
             address(vaultBeacon),
+            address(rewardVaultBeacon),
             address(capsuleBeacon),
             address(beaconProxyBytecode)
         );

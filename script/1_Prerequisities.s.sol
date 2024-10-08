@@ -7,7 +7,7 @@ import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/preset
 import "forge-std/Script.sol";
 
 import "test/mocks/AssetsMock.sol";
-import "test/mocks/ClaimRewardMock.sol";
+import "test/mocks/RewardMock.sol";
 import "test/mocks/DelegationMock.sol";
 import {NonShortCircuitEndpointV2Mock} from "test/mocks/NonShortCircuitEndpointV2Mock.sol";
 
@@ -45,7 +45,7 @@ contract PrerequisitiesScript is BaseScript {
             vm.startBroadcast(deployer.privateKey);
             assetsMock = address(new AssetsMock(clientChainId));
             delegationMock = address(new DelegationMock());
-            claimRewardMock = address(new ClaimRewardMock());
+            rewardMock = address(new RewardMock());
             vm.stopBroadcast();
         }
 
@@ -63,7 +63,7 @@ contract PrerequisitiesScript is BaseScript {
         if (useExocorePrecompileMock) {
             vm.serializeAddress(exocoreContracts, "assetsPrecompileMock", assetsMock);
             vm.serializeAddress(exocoreContracts, "delegationPrecompileMock", delegationMock);
-            vm.serializeAddress(exocoreContracts, "claimRewardPrecompileMock", claimRewardMock);
+            vm.serializeAddress(exocoreContracts, "rewardPrecompileMock", rewardMock);
         }
 
         string memory exocoreContractsOutput =

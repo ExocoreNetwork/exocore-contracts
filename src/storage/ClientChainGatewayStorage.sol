@@ -29,12 +29,13 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @dev Mapping of request IDs to their corresponding request actions.
     mapping(uint64 => Action) internal _registeredRequestActions;
 
-    IRewardVault public immutable REWARD_VAULT;
-
     /// @notice The address of the beacon chain oracle.
     address public immutable BEACON_ORACLE_ADDRESS;
 
-    /// @notice The beacon proxy for the ExoCapsule contract.
+    /// @notice The beacon for the reward vault contract, which stores the reward vault implementation.
+    IBeacon public immutable REWARD_VAULT_BEACON;
+
+    /// @notice The beacon for the ExoCapsule contract, which stores the ExoCapsule implementation.
     IBeacon public immutable EXO_CAPSULE_BEACON;
 
     /// @dev The address of the ETHPOS deposit contract.
@@ -49,6 +50,9 @@ contract ClientChainGatewayStorage is BootstrapStorage {
 
     /// @dev The msg.value for all the destination chains.
     uint128 internal constant DESTINATION_MSG_VALUE = 0;
+
+    /// @notice The reward vault contract.
+    IRewardVault public rewardVault;
 
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;
@@ -85,20 +89,24 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @param success Whether the corresponding request was successful on Exocore.
     event ResponseProcessed(Action indexed action, uint64 indexed requestId, bool indexed success);
 
+    /// @notice Emitted when a reward vault is created.
+    /// @param vault Address of the reward vault.
+    event RewardVaultCreated(address vault);
+
     /// @notice Initializes the ClientChainGatewayStorage contract.
     /// @param exocoreChainId_ The chain ID of the Exocore chain.
     /// @param beaconOracleAddress_ The address of the beacon chain oracle.
     /// @param vaultBeacon_ The address of the beacon for the vault proxy.
+    /// @param rewardVaultBeacon_ The address of the beacon for the reward vault proxy.
     /// @param exoCapsuleBeacon_ The address of the beacon for the ExoCapsule proxy.
     /// @param beaconProxyBytecode_ The address of the beacon proxy bytecode contract.
-    /// @param rewardVault_ The address of the reward vault.
     constructor(
         uint32 exocoreChainId_,
         address beaconOracleAddress_,
         address vaultBeacon_,
+        address rewardVaultBeacon_,
         address exoCapsuleBeacon_,
-        address beaconProxyBytecode_,
-        address rewardVault_
+        address beaconProxyBytecode_
     ) BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_) {
         require(
             beaconOracleAddress_ != address(0),
@@ -109,13 +117,13 @@ contract ClientChainGatewayStorage is BootstrapStorage {
             "ClientChainGatewayStorage: the exoCapsuleBeacon address for beacon proxy should not be empty"
         );
         require(
-            rewardVault_ != address(0),
-            "ClientChainGatewayStorage: the reward vault address should not be empty"
+            rewardVaultBeacon_ != address(0),
+            "ClientChainGatewayStorage: the reward vault beacon address for beacon proxy should not be empty"
         );
 
         BEACON_ORACLE_ADDRESS = beaconOracleAddress_;
         EXO_CAPSULE_BEACON = IBeacon(exoCapsuleBeacon_);
-        REWARD_VAULT = IRewardVault(rewardVault_);
+        REWARD_VAULT_BEACON = IBeacon(rewardVaultBeacon_);
     }
 
     /// @dev Returns the ExoCapsule for the given owner, if it exists. Fails if the ExoCapsule does not exist.

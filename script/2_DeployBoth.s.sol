@@ -4,14 +4,15 @@ import "../src/core/ClientChainGateway.sol";
 import "../src/core/ExoCapsule.sol";
 import "../src/core/ExocoreGateway.sol";
 import {Vault} from "../src/core/Vault.sol";
+import {RewardVault} from "../src/core/RewardVault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
+import "../src/utils/CustomProxyAdmin.sol";
 import {ExocoreGatewayMock} from "../test/mocks/ExocoreGatewayMock.sol";
 
 import {BaseScript} from "./BaseScript.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
@@ -39,8 +40,8 @@ contract DeployScript is BaseScript {
             delegationMock = stdJson.readAddress(prerequisities, ".exocore.delegationPrecompileMock");
             require(delegationMock != address(0), "delegationMock should not be empty");
 
-            claimRewardMock = stdJson.readAddress(prerequisities, ".exocore.claimRewardPrecompileMock");
-            require(claimRewardMock != address(0), "claimRewardMock should not be empty");
+            rewardMock = stdJson.readAddress(prerequisities, ".exocore.rewardPrecompileMock");
+            require(rewardMock != address(0), "rewardMock should not be empty");
         }
 
         clientChain = vm.createSelectFork(clientChainRPCURL);
@@ -57,25 +58,30 @@ contract DeployScript is BaseScript {
         // deploy beacon chain oracle
         beaconOracle = _deployBeaconOracle();
 
-        /// deploy vault implementation contract and capsule implementation contract
+        /// deploy vault implementation contract, capsule implementation contract, reward vault implementation contract
         /// that has logics called by proxy
         vaultImplementation = new Vault();
         capsuleImplementation = new ExoCapsule();
+        rewardVaultImplementation = new RewardVault();
 
-        /// deploy the vault beacon and capsule beacon that store the implementation contract address
+        /// deploy the vault beacon, capsule beacon, reward vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
 
         // deploy BeaconProxyBytecode to store BeaconProxyBytecode
         beaconProxyBytecode = new BeaconProxyBytecode();
 
+        // deploy custom proxy admin
+        clientChainProxyAdmin = new CustomProxyAdmin();
+
         /// deploy client chain gateway
-        ProxyAdmin clientChainProxyAdmin = new ProxyAdmin();
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint),
             exocoreChainId,
             address(beaconOracle),
             address(vaultBeacon),
+            address(rewardVaultBeacon),
             address(capsuleBeacon),
             address(beaconProxyBytecode)
         );
@@ -107,7 +113,7 @@ contract DeployScript is BaseScript {
 
         if (useExocorePrecompileMock) {
             ExocoreGatewayMock exocoreGatewayLogic =
-                new ExocoreGatewayMock(address(exocoreLzEndpoint), assetsMock, claimRewardMock, delegationMock);
+                new ExocoreGatewayMock(address(exocoreLzEndpoint), assetsMock, rewardMock, delegationMock);
             exocoreGateway = ExocoreGateway(
                 payable(
                     address(
@@ -147,8 +153,10 @@ contract DeployScript is BaseScript {
         vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
         vm.serializeAddress(clientChainContracts, "clientChainGateway", address(clientGateway));
         vm.serializeAddress(clientChainContracts, "resVault", address(vault));
+        vm.serializeAddress(clientChainContracts, "rewardVault", address(rewardVault));
         vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
         vm.serializeAddress(clientChainContracts, "vaultBeacon", address(vaultBeacon));
+        vm.serializeAddress(clientChainContracts, "rewardVaultBeacon", address(rewardVaultBeacon));
         vm.serializeAddress(clientChainContracts, "capsuleBeacon", address(capsuleBeacon));
         vm.serializeAddress(clientChainContracts, "beaconProxyBytecode", address(beaconProxyBytecode));
         string memory clientChainContractsOutput =
@@ -160,7 +168,7 @@ contract DeployScript is BaseScript {
         if (useExocorePrecompileMock) {
             vm.serializeAddress(exocoreContracts, "assetsPrecompileMock", assetsMock);
             vm.serializeAddress(exocoreContracts, "delegationPrecompileMock", delegationMock);
-            vm.serializeAddress(exocoreContracts, "claimRewardPrecompileMock", claimRewardMock);
+            vm.serializeAddress(exocoreContracts, "rewardPrecompileMock", rewardMock);
         }
 
         string memory exocoreContractsOutput =

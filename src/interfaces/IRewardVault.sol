@@ -2,6 +2,13 @@
 pragma solidity ^0.8.0;
 
 interface IRewardVault {
+
+    /**
+     * @notice Initializes the reward vault.
+     * @param gateway_ The address of the gateway.
+     */
+    function initialize(address gateway_) external;
+
     /**
      * @notice Deposits a token into the reward vault.
      * @param token The address of the token to be deposited.

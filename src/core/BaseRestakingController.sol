@@ -93,7 +93,7 @@ abstract contract BaseRestakingController is
         _processRequest(Action.REQUEST_SUBMIT_REWARD, actionArgs, bytes(""));
     }
 
-    function claimRewardFromExocore(address token, address avs, uint256 amount) 
+    function claimRewardFromExocore(address token, uint256 amount) 
         external 
         payable
         isValidAmount(amount)
@@ -107,14 +107,11 @@ abstract contract BaseRestakingController is
 
     function withdrawReward(address token, address recipient, uint256 amount) 
         external 
-        payable
         isValidAmount(amount)
         whenNotPaused
         nonReentrant
     {
-        REWARD_VAULT.withdraw(token, msg.sender, recipient, amount);
-
-        emit RewardWithdrawn(token, msg.sender, recipient, amount);
+        rewardVault.withdraw(token, msg.sender, recipient, amount);
     }
 
     /// @dev Processes the request by sending it to Exocore.

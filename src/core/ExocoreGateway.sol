@@ -393,9 +393,10 @@ contract ExocoreGateway is
     /// @dev Returns the response to client chain including lzNonce and success flag.
     /// @param srcChainId The source chain id.
     /// @param lzNonce The layer zero nonce.
+    /// @param act The action type.
     /// @param payload The request payload.
     // slither-disable-next-line unused-return
-    function handleRewardOperation(uint32 srcChainId, uint64 lzNonce, Action, bytes calldata payload)
+    function handleRewardOperation(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
         returns (bytes memory response)

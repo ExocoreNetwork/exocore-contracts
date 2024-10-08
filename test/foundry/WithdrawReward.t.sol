@@ -57,7 +57,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
         emit MessageSent(Action.REQUEST_CLAIM_REWARD, requestId, outboundNonces[clientChainId]++, requestNativeFee);
 
         vm.startPrank(withdrawer.addr);
-        clientGateway.withdrawRewardFromExocore{value: requestNativeFee}(address(restakeToken), withdrawAmount);
+        clientGateway.claimRewardFromExocore{value: requestNativeFee}(address(restakeToken), withdrawAmount);
         vm.stopPrank();
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
