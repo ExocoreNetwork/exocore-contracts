@@ -27,7 +27,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
 
-    function test_SubmitAndClaimRewardByLayerZero() public {
+    function test_SubmitAndClaimAndWithdrawRewardByLayerZero() public {
         Player memory avsDepositor = players[0];
         Player memory staker = players[1];
         Player memory relayer = players[2];
@@ -46,12 +46,13 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // the amount of deposit, distribute, and withdraw
         uint256 depositAmount = 1000;
         uint256 distributeAmount = 500;
+        uint256 claimAmount = 100;
         uint256 withdrawAmount = 100;
 
         // before withdraw we should add whitelist tokens
         test_AddWhitelistTokens();
 
-        _testSubmitReward(avsDepositor, relayer, avs, depositAmount);
+        _testSubmitReward(avsDepositor, relayer, staker, avs, depositAmount);
         RewardMock(REWARD_PRECOMPILE_ADDRESS).distributeReward(
             clientChainId,
             _addressToBytes(address(restakeToken)),
@@ -59,10 +60,17 @@ contract WithdrawRewardTest is ExocoreDeployer {
             _addressToBytes(staker.addr),
             distributeAmount
         );
-        _testClaimReward(staker, relayer, withdrawAmount);
+        _testClaimReward(staker, relayer, claimAmount);
+        _testWithdrawReward(staker, withdrawAmount);
     }
 
-    function _testSubmitReward(Player memory depositor, Player memory relayer, address avs, uint256 amount) internal {
+    function _testSubmitReward(
+        Player memory depositor,
+        Player memory relayer,
+        Player memory staker,
+        address avs,
+        uint256 amount
+    ) internal {
         // -- submit reward workflow --
 
         // first user call client chain gateway to submit reward on behalf of AVS
@@ -78,6 +86,10 @@ contract WithdrawRewardTest is ExocoreDeployer {
         );
         uint256 requestNativeFee = clientGateway.quote(submitRewardRequestPayload);
         bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
+
+        // depositor should transfer deposited token to vault
+        vm.expectEmit(true, true, false, true, address(restakeToken));
+        emit Transfer(depositor.addr, address(rewardVault), amount);
 
         // client chain layerzero endpoint should emit the message packet including submit reward payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
@@ -96,6 +108,12 @@ contract WithdrawRewardTest is ExocoreDeployer {
         vm.startPrank(depositor.addr);
         clientGateway.submitReward{value: requestNativeFee}(address(restakeToken), avs, amount);
         vm.stopPrank();
+
+        // assert that withdrawable amount is zero
+        assertEq(rewardVault.getWithdrawableBalance(address(restakeToken), staker.addr), 0);
+        assertEq(rewardVault.getWithdrawableBalance(address(restakeToken), depositor.addr), 0);
+        // assert total deposited amount for the avs is equal to the amount
+        assertEq(rewardVault.getTotalDepositedRewards(address(restakeToken), avs), amount);
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
@@ -116,10 +134,21 @@ contract WithdrawRewardTest is ExocoreDeployer {
             bytes("")
         );
         vm.stopPrank();
+
+        // assert that RewardMock has increased the reward amount for the avs
+        assertEq(
+            RewardMock(REWARD_PRECOMPILE_ADDRESS).getRewardAmountForAVS(
+                clientChainId, _addressToBytes(address(restakeToken)), _addressToBytes(avs)
+            ),
+            amount
+        );
     }
 
     function _testClaimReward(Player memory withdrawer, Player memory relayer, uint256 amount) internal {
-        // -- withdraw reward workflow --
+        // -- claim reward workflow --
+
+        uint256 withdrawableAmountBeforeClaim =
+            rewardVault.getWithdrawableBalance(address(restakeToken), withdrawer.addr);
 
         // first user call client chain gateway to withdraw
 
@@ -148,6 +177,11 @@ contract WithdrawRewardTest is ExocoreDeployer {
         vm.startPrank(withdrawer.addr);
         clientGateway.claimRewardFromExocore{value: requestNativeFee}(address(restakeToken), amount);
         vm.stopPrank();
+
+        // assert that withdrawable amount is not increased before receiving response from exocore
+        assertEq(
+            rewardVault.getWithdrawableBalance(address(restakeToken), withdrawer.addr), withdrawableAmountBeforeClaim
+        );
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
@@ -207,6 +241,31 @@ contract WithdrawRewardTest is ExocoreDeployer {
             bytes("")
         );
         vm.stopPrank();
+
+        // assert that the withdrawable amount has been increased by the amount
+        uint256 withdrawableAmountAfterClaim =
+            rewardVault.getWithdrawableBalance(address(restakeToken), withdrawer.addr);
+        assertEq(withdrawableAmountAfterClaim, withdrawableAmountBeforeClaim + amount);
+    }
+
+    function _testWithdrawReward(Player memory withdrawer, uint256 amount) internal {
+        // -- withdraw reward workflow --
+
+        uint256 withdrawableAmountBeforeWithdraw =
+            rewardVault.getWithdrawableBalance(address(restakeToken), withdrawer.addr);
+        uint256 balanceBeforeWithdraw = restakeToken.balanceOf(withdrawer.addr);
+
+        vm.startPrank(withdrawer.addr);
+        clientGateway.withdrawReward(address(restakeToken), withdrawer.addr, amount);
+        vm.stopPrank();
+
+        // assert the withdrawable amount has been decreased by the amount
+        uint256 withdrawableAmountAfterWithdraw =
+            rewardVault.getWithdrawableBalance(address(restakeToken), withdrawer.addr);
+        assertEq(withdrawableAmountAfterWithdraw, withdrawableAmountBeforeWithdraw - amount);
+        // assert that the balance of the withdrawer has been increased by the amount
+        uint256 balanceAfterWithdraw = restakeToken.balanceOf(withdrawer.addr);
+        assertEq(balanceAfterWithdraw, balanceBeforeWithdraw + amount);
     }
 
 }

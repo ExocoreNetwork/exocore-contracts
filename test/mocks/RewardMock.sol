@@ -46,4 +46,20 @@ contract RewardMock is IReward {
         return (true, rewardsOfAVS[clientChainLzId][assetsAddress][avsId]);
     }
 
+    function getRewardAmountForAVS(uint32 clientChainLzId, bytes calldata assetsAddress, bytes calldata avsId)
+        external
+        view
+        returns (uint256)
+    {
+        return rewardsOfAVS[clientChainLzId][assetsAddress][avsId];
+    }
+
+    function getRewardAmountForStaker(uint32 clientChainLzId, bytes calldata assetsAddress, bytes calldata staker)
+        external
+        view
+        returns (uint256)
+    {
+        return rewardsOfStaker[clientChainLzId][assetsAddress][staker];
+    }
+
 }
