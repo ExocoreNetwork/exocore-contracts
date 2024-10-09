@@ -435,13 +435,7 @@ contract Bootstrap is
 
     /// @inheritdoc IBaseRestakingController
     /// @dev This is not yet supported.
-    function submitReward(address, address, uint256)
-        external
-        payable
-        override
-        beforeLocked
-        whenNotPaused
-    {
+    function submitReward(address, address, uint256) external payable override beforeLocked whenNotPaused {
         revert Errors.NotYetSupported();
     }
 
@@ -453,13 +447,7 @@ contract Bootstrap is
 
     /// @inheritdoc IBaseRestakingController
     /// @dev This is not yet supported.
-    function withdrawReward(address, address, uint256)
-        external
-        view
-        override
-        beforeLocked
-        whenNotPaused
-    {
+    function withdrawReward(address, address, uint256) external view override beforeLocked whenNotPaused {
         revert Errors.NotYetSupported();
     }
 

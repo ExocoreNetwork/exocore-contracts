@@ -57,7 +57,7 @@ contract ExocoreDeployer is Test {
 
     ClientChainGateway clientGateway;
     ClientChainGateway clientGatewayLogic;
-    RewardVault rewardVault;
+    IRewardVault rewardVault;
     Vault vault;
     ExoCapsule capsule;
     ExocoreGateway exocoreGateway;
@@ -372,6 +372,10 @@ contract ExocoreDeployer is Test {
                 )
             )
         );
+
+        // get the reward vault address since it would be deployed during initialization
+        rewardVault = clientGateway.rewardVault();
+        require(address(rewardVault) != address(0), "reward vault should not be empty");
 
         // deploy Exocore network contracts
         exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));

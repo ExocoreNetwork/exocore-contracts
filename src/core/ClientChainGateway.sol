@@ -169,7 +169,7 @@ contract ClientChainGateway is
         rewardVault = IRewardVault(
             Create2.deploy(
                 0,
-                bytes32(bytes20("REWARD_VAULT")),
+                bytes32(bytes("REWARD_VAULT")),
                 // for clarity, this BEACON_PROXY is not related to beacon chain
                 // but rather it is the bytecode for the beacon proxy upgrade pattern.
                 abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(REWARD_VAULT_BEACON), ""))

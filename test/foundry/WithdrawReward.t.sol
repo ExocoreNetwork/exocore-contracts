@@ -27,7 +27,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
 
-    function test_SubmitClaimRewardByLayerZero() public {
+    function test_SubmitAndClaimRewardByLayerZero() public {
         Player memory avsDepositor = players[0];
         Player memory staker = players[1];
         Player memory relayer = players[2];
@@ -38,7 +38,8 @@ contract WithdrawRewardTest is ExocoreDeployer {
         restakeToken.transfer(avsDepositor.addr, 1_000_000);
         vm.stopPrank();
 
-        // fund the staker and exocore gateway for gas fee
+        // fund the depositor, staker, and exocore gateway for gas fee
+        deal(avsDepositor.addr, 1e22);
         deal(staker.addr, 1e22);
         deal(address(exocoreGateway), 1e22);
 
@@ -68,7 +69,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
 
         // depositor needs to approve the restake token to the client gateway
         vm.startPrank(depositor.addr);
-        restakeToken.approve(address(clientGateway), amount);
+        restakeToken.approve(address(rewardVault), amount);
         vm.stopPrank();
 
         // estimate l0 relay fee that the user should pay
