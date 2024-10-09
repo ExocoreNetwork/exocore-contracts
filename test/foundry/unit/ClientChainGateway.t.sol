@@ -224,7 +224,7 @@ contract Pausable is SetUp {
         clientGateway.pause();
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.claim(address(restakeToken), uint256(1), deployer.addr);
+        clientGateway.withdrawPrincipal(address(restakeToken), uint256(1), deployer.addr);
 
         vm.expectRevert("Pausable: paused");
         clientGateway.delegateTo(operatorAddress, address(restakeToken), uint256(1));
@@ -233,7 +233,7 @@ contract Pausable is SetUp {
         clientGateway.deposit(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.withdrawPrincipalFromExocore(address(restakeToken), uint256(1));
+        clientGateway.claimPrincipalFromExocore(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
         clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
@@ -403,7 +403,7 @@ contract WithdrawalPrincipalFromExocore is SetUp {
         // Try to withdraw VIRTUAL_STAKED_ETH
         vm.prank(user);
         vm.expectRevert(Errors.VaultDoesNotExist.selector);
-        clientGateway.withdrawPrincipalFromExocore(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
+        clientGateway.claimPrincipalFromExocore(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
     }
 
     function test_revert_withdrawNonWhitelistedToken() public {
@@ -411,13 +411,13 @@ contract WithdrawalPrincipalFromExocore is SetUp {
 
         vm.prank(players[0].addr);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        clientGateway.withdrawPrincipalFromExocore(nonWhitelistedToken, WITHDRAWAL_AMOUNT);
+        clientGateway.claimPrincipalFromExocore(nonWhitelistedToken, WITHDRAWAL_AMOUNT);
     }
 
     function test_revert_withdrawZeroAmount() public {
         vm.prank(user);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        clientGateway.withdrawPrincipalFromExocore(address(restakeToken), 0);
+        clientGateway.claimPrincipalFromExocore(address(restakeToken), 0);
     }
 
 }

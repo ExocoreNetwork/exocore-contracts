@@ -390,7 +390,7 @@ contract Bootstrap is
     }
 
     /// @inheritdoc ILSTRestakingController
-    function withdrawPrincipalFromExocore(address token, uint256 amount)
+    function claimPrincipalFromExocore(address token, uint256 amount)
         external
         payable
         override
@@ -403,14 +403,14 @@ contract Bootstrap is
         if (msg.value > 0) {
             revert Errors.NonZeroValue();
         }
-        _withdraw(msg.sender, token, amount);
+        _claim(msg.sender, token, amount);
     }
 
-    /// @dev Internal version of withdraw.
+    /// @dev Internal version of claim.
     /// @param user The address of the withdrawer.
     /// @param token The address of the token.
     /// @param amount The amount of the @param token to withdraw.
-    function _withdraw(address user, address token, uint256 amount) internal {
+    function _claim(address user, address token, uint256 amount) internal {
         IVault vault = _getVault(token);
 
         uint256 deposited = totalDepositAmounts[user][token];
@@ -430,7 +430,7 @@ contract Bootstrap is
         // afterReceiveWithdrawPrincipalResponse
         vault.unlockPrincipal(user, amount);
 
-        emit WithdrawPrincipalResult(true, token, user, amount);
+        emit ClaimPrincipalResult(true, token, user, amount);
     }
 
     /// @inheritdoc IBaseRestakingController
@@ -452,7 +452,7 @@ contract Bootstrap is
     }
 
     /// @inheritdoc IBaseRestakingController
-    function claim(address token, uint256 amount, address recipient)
+    function withdrawPrincipal(address token, uint256 amount, address recipient)
         external
         override
         beforeLocked

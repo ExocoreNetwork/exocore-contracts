@@ -33,7 +33,7 @@ abstract contract BaseRestakingController is
     receive() external payable {}
 
     /// @inheritdoc IBaseRestakingController
-    function claim(address token, uint256 amount, address recipient)
+    function withdrawPrincipal(address token, uint256 amount, address recipient)
         external
         isTokenWhitelisted(token)
         isValidAmount(amount)
@@ -48,8 +48,6 @@ abstract contract BaseRestakingController is
             IVault vault = _getVault(token);
             vault.withdraw(msg.sender, recipient, amount);
         }
-
-        emit ClaimSucceeded(token, recipient, amount);
     }
 
     /// @inheritdoc IBaseRestakingController
@@ -89,6 +87,8 @@ abstract contract BaseRestakingController is
         whenNotPaused
         nonReentrant
     {
+        require(token != address(0), "BaseRestakingController: token address cannot be empty or zero address");
+        require(avs != address(0), "BaseRestakingController: avs address cannot be empty or zero address");
         // deposit reward to reward vault
         rewardVault.deposit(token, msg.sender, avs, amount);
         // send request to exocore, and this would not expect a response since deposit is supposed to be must success by
@@ -104,6 +104,7 @@ abstract contract BaseRestakingController is
         whenNotPaused
         nonReentrant
     {
+        require(token != address(0), "BaseRestakingController: token address cannot be empty or zero address");
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
         bytes memory encodedRequest = abi.encode(token, msg.sender, amount);
         _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
@@ -115,6 +116,8 @@ abstract contract BaseRestakingController is
         whenNotPaused
         nonReentrant
     {
+        require(token != address(0), "BaseRestakingController: token address cannot be empty or zero address");
+        require(recipient != address(0), "BaseRestakingController: recipient address cannot be empty or zero address");
         rewardVault.withdraw(token, msg.sender, recipient, amount);
     }
 

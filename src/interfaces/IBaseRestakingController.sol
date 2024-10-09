@@ -18,13 +18,13 @@ interface IBaseRestakingController {
     /// @param amount The amount of tokens to undelegate.
     function undelegateFrom(string calldata operator, address token, uint256 amount) external payable;
 
-    /// @notice Client chain users call to claim their unlocked assets from the vault.
-    /// @dev This function assumes that the claimable assets should have been unlocked before calling this.
+    /// @notice Client chain users call to withdraw their unlocked assets from the vault.
+    /// @dev This function assumes that the withdrawable assets should have been unlocked before calling this.
     /// @dev This function does not interact with Exocore.
     /// @param token The address of specific token that the user wants to claim from the vault.
     /// @param amount The amount of @param token that the user wants to claim from the vault.
     /// @param recipient The destination address that the assets would be transfered to.
-    function claim(address token, uint256 amount, address recipient) external;
+    function withdrawPrincipal(address token, uint256 amount, address recipient) external;
 
     /// @notice Submits reward to the reward module on behalf of the AVS
     /// @param token The address of the specific token that the user wants to submit as a reward.

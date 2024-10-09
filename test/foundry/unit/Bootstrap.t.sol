@@ -403,8 +403,8 @@ contract BootstrapTest is Test {
 
         // now attempt to withdraw, which should go through
         vm.startPrank(addr);
-        bootstrap.withdrawPrincipalFromExocore(address(myToken), withdrawAmount);
-        bootstrap.claim(address(myToken), withdrawAmount, addr);
+        bootstrap.claimPrincipalFromExocore(address(myToken), withdrawAmount);
+        bootstrap.withdrawPrincipal(address(myToken), withdrawAmount, addr);
         vm.stopPrank();
 
         assertTrue(vault.getConsumedTvl() == balance - withdrawAmount);
@@ -422,8 +422,8 @@ contract BootstrapTest is Test {
         // withdraw to get just below tvl limit
         withdrawAmount = vault.getConsumedTvl() - vault.getTvlLimit() + 1;
         vm.startPrank(addr);
-        bootstrap.withdrawPrincipalFromExocore(address(myToken), withdrawAmount);
-        bootstrap.claim(address(myToken), withdrawAmount, addr);
+        bootstrap.claimPrincipalFromExocore(address(myToken), withdrawAmount);
+        bootstrap.withdrawPrincipal(address(myToken), withdrawAmount, addr);
         vm.stopPrank();
 
         assertTrue(vault.getConsumedTvl() == newTvlLimit - 1);
@@ -938,7 +938,7 @@ contract BootstrapTest is Test {
         bootstrap.undelegateFrom("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac", address(myToken), amounts[0]);
     }
 
-    function test11_WithdrawPrincipalFromExocore() public {
+    function test11_ClaimPrincipalFromExocore() public {
         // delegate and then undelegate
         test10_UndelegateFrom();
         // now, withdraw
@@ -949,7 +949,7 @@ contract BootstrapTest is Test {
             uint256 prevTokenDeposit = bootstrap.depositsByToken(address(myToken));
             uint256 prevVaultWithdrawable =
                 Vault(address(bootstrap.tokenToVault(address(myToken)))).withdrawableBalances(addrs[i]);
-            bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[i]);
+            bootstrap.claimPrincipalFromExocore(address(myToken), amounts[i]);
             uint256 postDeposit = bootstrap.totalDepositAmounts(addrs[i], address(myToken));
             uint256 postWithdrawable = bootstrap.withdrawableAmounts(addrs[i], address(myToken));
             uint256 postTokenDeposit = bootstrap.depositsByToken(address(myToken));
@@ -964,40 +964,40 @@ contract BootstrapTest is Test {
         }
     }
 
-    function test11_WithdrawPrincipalFromExocore_TokenNotWhitelisted() public {
+    function test11_ClaimPrincipalFromExocore_TokenNotWhitelisted() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.withdrawPrincipalFromExocore(address(0xa), amounts[0]);
+        bootstrap.claimPrincipalFromExocore(address(0xa), amounts[0]);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipalFromExocore_ZeroAmount() public {
+    function test11_ClaimPrincipalFromExocore_ZeroAmount() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        bootstrap.withdrawPrincipalFromExocore(address(myToken), 0);
+        bootstrap.claimPrincipalFromExocore(address(myToken), 0);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipalFromExocore_NoDeposits() public {
+    function test11_ClaimPrincipalFromExocore_NoDeposits() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDepositedBalance.selector);
-        bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0]);
+        bootstrap.claimPrincipalFromExocore(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipalFromExocore_Excess() public {
+    function test11_ClaimPrincipalFromExocore_Excess() public {
         test10_UndelegateFrom();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientDepositedBalance.selector);
-        bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0] + 1);
+        bootstrap.claimPrincipalFromExocore(address(myToken), amounts[0] + 1);
         vm.stopPrank();
     }
 
-    function test11_WithdrawPrincipalFromExocore_ExcessFree() public {
+    function test11_ClaimPrincipalFromExocore_ExcessFree() public {
         test09_DelegateTo();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.BootstrapInsufficientWithdrawableBalance.selector);
-        bootstrap.withdrawPrincipalFromExocore(address(myToken), amounts[0]);
+        bootstrap.claimPrincipalFromExocore(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 
@@ -1428,12 +1428,12 @@ contract BootstrapTest is Test {
         bootstrap.claimRewardFromExocore(address(0x0), 1);
     }
 
-    function test22_Claim() public {
-        test11_WithdrawPrincipalFromExocore();
+    function test22_WithdrawPrincipal() public {
+        test11_ClaimPrincipalFromExocore();
         for (uint256 i = 0; i < 6; i++) {
             vm.startPrank(addrs[i]);
             uint256 prevBalance = myToken.balanceOf(addrs[i]);
-            bootstrap.claim(address(myToken), amounts[i], addrs[i]);
+            bootstrap.withdrawPrincipal(address(myToken), amounts[i], addrs[i]);
             uint256 postBalance = myToken.balanceOf(addrs[i]);
             assertTrue(postBalance == prevBalance + amounts[i]);
             vm.stopPrank();
@@ -1443,20 +1443,20 @@ contract BootstrapTest is Test {
     function test22_Claim_TokenNotWhitelisted() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        bootstrap.claim(address(0xa), amounts[0], addrs[0]);
+        bootstrap.withdrawPrincipal(address(0xa), amounts[0], addrs[0]);
     }
 
     function test22_Claim_ZeroAmount() public {
         vm.startPrank(addrs[0]);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        bootstrap.claim(address(myToken), 0, addrs[0]);
+        bootstrap.withdrawPrincipal(address(myToken), 0, addrs[0]);
     }
 
-    function test22_Claim_Excess() public {
-        test11_WithdrawPrincipalFromExocore();
+    function test22_WithdrawPrincipal_Excess() public {
+        test11_ClaimPrincipalFromExocore();
         vm.startPrank(addrs[0]);
         vm.expectRevert(Errors.VaultWithdrawalAmountExceeds.selector);
-        bootstrap.claim(address(myToken), amounts[0] + 5, addrs[0]);
+        bootstrap.withdrawPrincipal(address(myToken), amounts[0] + 5, addrs[0]);
     }
 
     function test23_RevertWhen_Deposit_WithEther() public {
@@ -1467,11 +1467,11 @@ contract BootstrapTest is Test {
         vm.stopPrank();
     }
 
-    function test23_RevertWhen_WithdrawPrincipalFromExocore_WithEther() public {
+    function test23_RevertWhen_ClaimPrincipalFromExocore_WithEther() public {
         vm.startPrank(addrs[0]);
         vm.deal(addrs[0], 1 ether);
         vm.expectRevert(Errors.NonZeroValue.selector);
-        bootstrap.withdrawPrincipalFromExocore{value: 0.1 ether}(address(myToken), amounts[0]);
+        bootstrap.claimPrincipalFromExocore{value: 0.1 ether}(address(myToken), amounts[0]);
         vm.stopPrank();
     }
 

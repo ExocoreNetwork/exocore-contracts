@@ -42,7 +42,7 @@ abstract contract LSTRestakingController is
     }
 
     /// @inheritdoc ILSTRestakingController
-    function withdrawPrincipalFromExocore(address token, uint256 principalAmount)
+    function claimPrincipalFromExocore(address token, uint256 principalAmount)
         external
         payable
         isTokenWhitelisted(token)

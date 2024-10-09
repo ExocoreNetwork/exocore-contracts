@@ -168,9 +168,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit MessageSent(
             Action.REQUEST_WITHDRAW_LST, withdrawRequestId, outboundNonces[clientChainId]++, withdrawRequestNativeFee
         );
-        clientGateway.withdrawPrincipalFromExocore{value: withdrawRequestNativeFee}(
-            address(restakeToken), withdrawAmount
-        );
+        clientGateway.claimPrincipalFromExocore{value: withdrawRequestNativeFee}(address(restakeToken), withdrawAmount);
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
@@ -613,7 +611,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         nativeFee = clientGateway.quote(requestPayload);
         vm.expectEmit(address(clientGateway));
         emit MessageSent(Action.REQUEST_WITHDRAW_LST, requestId, outboundNonces[clientChainId]++, nativeFee);
-        clientGateway.withdrawPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
+        clientGateway.claimPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
         vm.stopPrank();
 
         principalBalance -= withdrawAmount;
@@ -653,7 +651,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.startPrank(addr);
         vm.expectEmit(address(restakeToken));
         emit Transfer(address(vault), addr, withdrawAmount);
-        clientGateway.claim(address(restakeToken), withdrawAmount, addr);
+        clientGateway.withdrawPrincipal(address(restakeToken), withdrawAmount, addr);
         vm.stopPrank();
 
         consumedTvl -= withdrawAmount;
@@ -681,7 +679,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         nativeFee = clientGateway.quote(requestPayload);
         vm.expectEmit(address(clientGateway));
         emit MessageSent(Action.REQUEST_WITHDRAW_LST, requestId, outboundNonces[clientChainId]++, nativeFee);
-        clientGateway.withdrawPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
+        clientGateway.claimPrincipalFromExocore{value: nativeFee}(address(restakeToken), withdrawAmount);
 
         // obtain the response
         responsePayload = abi.encodePacked(Action.RESPOND, outboundNonces[clientChainId] - 1, true);
@@ -719,11 +717,11 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         assertTrue(vault.getConsumedTvl() == consumedTvl);
         assertTrue(vault.getTvlLimit() == newTvlLimit);
 
-        // claim now
+        // withdraw now
         vm.startPrank(addr);
         vm.expectEmit(address(restakeToken));
         emit Transfer(address(vault), addr, withdrawAmount);
-        clientGateway.claim(address(restakeToken), withdrawAmount, addr);
+        clientGateway.withdrawPrincipal(address(restakeToken), withdrawAmount, addr);
         consumedTvl -= withdrawAmount;
         vm.stopPrank();
 
