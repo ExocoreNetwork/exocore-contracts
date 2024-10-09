@@ -15,7 +15,7 @@ interface IRewardVault {
      * @param avs The avs ID to which the token is deposited.
      * @param amount The amount of the token to be deposited.
      */
-    function deposit(address token, address avs, uint256 amount) external;
+    function deposit(address token, address depositor, address avs, uint256 amount) external;
 
     /**
      * @notice Withdraws a token from the reward vault.
@@ -49,4 +49,5 @@ interface IRewardVault {
      * @return The total deposited rewards of the token for the avs.
      */
     function getTotalDepositedRewards(address token, address avs) external view returns (uint256);
+
 }

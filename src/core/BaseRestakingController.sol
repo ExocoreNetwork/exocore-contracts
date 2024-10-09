@@ -82,19 +82,23 @@ abstract contract BaseRestakingController is
         _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, bytes(""));
     }
 
-    function submitReward(address token, address avs, uint256 amount) 
-        external 
+    function submitReward(address token, address avs, uint256 amount)
+        external
         payable
         isValidAmount(amount)
         whenNotPaused
         nonReentrant
     {
+        // deposit reward to reward vault
+        rewardVault.deposit(token, msg.sender, avs, amount);
+        // send request to exocore, and this would not expect a response since deposit is supposed to be must success by
+        // protocol
         bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(avs)), amount);
         _processRequest(Action.REQUEST_SUBMIT_REWARD, actionArgs, bytes(""));
     }
 
-    function claimRewardFromExocore(address token, uint256 amount) 
-        external 
+    function claimRewardFromExocore(address token, uint256 amount)
+        external
         payable
         isValidAmount(amount)
         whenNotPaused
@@ -105,8 +109,8 @@ abstract contract BaseRestakingController is
         _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
     }
 
-    function withdrawReward(address token, address recipient, uint256 amount) 
-        external 
+    function withdrawReward(address token, address recipient, uint256 amount)
+        external
         isValidAmount(amount)
         whenNotPaused
         nonReentrant

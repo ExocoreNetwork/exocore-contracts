@@ -11,9 +11,11 @@ import {IValidatorRegistry} from "src/interfaces/IValidatorRegistry.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
 import {MyToken} from "./MyToken.sol";
-import {IVault} from "src/interfaces/IVault.sol";
-import {IRewardVault} from "src/interfaces/IRewardVault.sol";
+
 import {RewardVault} from "src/core/RewardVault.sol";
+import {IRewardVault} from "src/interfaces/IRewardVault.sol";
+import {IVault} from "src/interfaces/IVault.sol";
+
 import {Origin} from "src/lzApp/OAppReceiverUpgradeable.sol";
 import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
 import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";

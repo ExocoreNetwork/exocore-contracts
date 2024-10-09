@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {IRewardVault} from "../interfaces/IRewardVault.sol";
 import {Errors} from "../libraries/Errors.sol";
 import {RewardVaultStorage} from "../storage/RewardVaultStorage.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {IRewardVault} from "../interfaces/IRewardVault.sol";
 
 contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
 
@@ -27,8 +27,9 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
         gateway = gateway_;
     }
 
-    function deposit(address token, address avs, uint256 amount) external onlyGateway {
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+    // slither-disable-next-line arbitrary-send-erc20
+    function deposit(address token, address depositor, address avs, uint256 amount) external onlyGateway {
+        IERC20(token).safeTransferFrom(depositor, address(this), amount);
         totalDepositedRewards[token][avs] += amount;
 
         emit RewardDeposited(token, avs, amount);
@@ -44,10 +45,7 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
         emit RewardWithdrawn(token, withdrawer, recipient, amount);
     }
 
-    function unlockReward(address token, address withdrawer, uint256 amount)
-        external
-        onlyGateway
-    {
+    function unlockReward(address token, address withdrawer, uint256 amount) external onlyGateway {
         withdrawableBalances[token][withdrawer] += amount;
 
         emit RewardUnlocked(token, withdrawer, amount);
@@ -60,4 +58,5 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
     function getTotalDepositedRewards(address token, address avs) external view returns (uint256) {
         return totalDepositedRewards[token][avs];
     }
+
 }

@@ -6,8 +6,9 @@ import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
 import "../src/interfaces/precompiles/IAssets.sol";
-import "../src/interfaces/precompiles/IReward.sol";
+
 import "../src/interfaces/precompiles/IDelegation.sol";
+import "../src/interfaces/precompiles/IReward.sol";
 import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";

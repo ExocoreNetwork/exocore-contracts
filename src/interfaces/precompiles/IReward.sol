@@ -22,12 +22,9 @@ interface IReward {
     /// @param assetsAddress The client chain asset Address
     /// @param avsId The contract address of the AVS
     /// @param amount The reward amount
-    function submitReward(
-        uint32 clientChainLzId,
-        bytes calldata assetsAddress,
-        bytes calldata avsId,
-        uint256 amount
-    ) external returns (bool success, uint256 latestAssetState);
+    function submitReward(uint32 clientChainLzId, bytes calldata assetsAddress, bytes calldata avsId, uint256 amount)
+        external
+        returns (bool success, uint256 latestAssetState);
 
     /// TRANSACTIONS
     /// @dev ClaimReward To the staker, that will change the state in reward module

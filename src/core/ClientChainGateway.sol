@@ -2,9 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+
+import {IRewardVault} from "../interfaces/IRewardVault.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
-import {IRewardVault} from "../interfaces/IRewardVault.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {MessagingFee, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";

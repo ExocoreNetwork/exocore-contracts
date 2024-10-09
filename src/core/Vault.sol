@@ -98,10 +98,7 @@ contract Vault is Initializable, VaultStorage, IVault {
     }
 
     /// @inheritdoc IVault
-    function unlockPrincipal(address user, uint256 amount)
-        external
-        onlyGateway
-    {
+    function unlockPrincipal(address user, uint256 amount) external onlyGateway {
         uint256 totalDeposited = totalDepositedPrincipalAmount[user];
         if (amount > totalDeposited) {
             revert Errors.VaultPrincipalExceedsTotalDeposit();

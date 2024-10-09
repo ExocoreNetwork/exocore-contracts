@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-
 contract RewardVaultStorage {
 
     // Address of the gateway contract
@@ -21,4 +18,5 @@ contract RewardVaultStorage {
     event RewardDeposited(address indexed token, address indexed avs, uint256 amount);
     event RewardUnlocked(address indexed token, address indexed staker, uint256 amount);
     event RewardWithdrawn(address indexed token, address indexed staker, address indexed recipient, uint256 amount);
+
 }

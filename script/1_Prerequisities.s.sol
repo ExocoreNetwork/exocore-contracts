@@ -7,9 +7,10 @@ import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/preset
 import "forge-std/Script.sol";
 
 import "test/mocks/AssetsMock.sol";
-import "test/mocks/RewardMock.sol";
+
 import "test/mocks/DelegationMock.sol";
 import {NonShortCircuitEndpointV2Mock} from "test/mocks/NonShortCircuitEndpointV2Mock.sol";
+import "test/mocks/RewardMock.sol";
 
 contract PrerequisitiesScript is BaseScript {
 

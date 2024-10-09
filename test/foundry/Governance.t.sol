@@ -24,8 +24,9 @@ import "src/core/ClientChainGateway.sol";
 import "src/storage/ClientChainGatewayStorage.sol";
 
 import "src/core/ExoCapsule.sol";
-import {Vault} from "src/core/Vault.sol";
+
 import {RewardVault} from "src/core/RewardVault.sol";
+import {Vault} from "src/core/Vault.sol";
 import {IRewardVault} from "src/interfaces/IRewardVault.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";

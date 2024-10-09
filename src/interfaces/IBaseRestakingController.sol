@@ -28,7 +28,7 @@ interface IBaseRestakingController {
 
     /// @notice Submits reward to the reward module on behalf of the AVS
     /// @param token The address of the specific token that the user wants to submit as a reward.
-    /// @param rewardAmount The amount of reward tokens that the user wants to submit.  
+    /// @param rewardAmount The amount of reward tokens that the user wants to submit.
     function submitReward(address token, address avs, uint256 rewardAmount) external payable;
 
     /// @notice Claims reward tokens from Exocore.
@@ -39,7 +39,7 @@ interface IBaseRestakingController {
     /// @notice Withdraws reward tokens from vault to the recipient.
     /// @param token The address of the specific token that the user wants to withdraw as a reward.
     /// @param recipient The address of the recipient of the reward tokens.
-    /// @param rewardAmount The amount of reward tokens that the user wants to withdraw.    
+    /// @param rewardAmount The amount of reward tokens that the user wants to withdraw.
     function withdrawReward(address token, address recipient, uint256 rewardAmount) external;
 
 }

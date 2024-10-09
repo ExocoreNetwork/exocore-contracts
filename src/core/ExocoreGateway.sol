@@ -6,8 +6,9 @@ import {IExocoreGateway} from "../interfaces/IExocoreGateway.sol";
 import {Action} from "../storage/GatewayStorage.sol";
 
 import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
-import {REWARD_CONTRACT} from "../interfaces/precompiles/IReward.sol";
+
 import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
+import {REWARD_CONTRACT} from "../interfaces/precompiles/IReward.sol";
 
 import {
     MessagingFee,
@@ -413,7 +414,7 @@ contract ExocoreGateway is
         } else {
             (success,) = REWARD_CONTRACT.claimReward(srcChainId, token, avsOrWithdrawer, amount);
         }
-        emit RewardOperation(success, isSubmitReward, bytes32(token), bytes32(avsOrWithdrawer), amount);
+        emit RewardOperation(isSubmitReward, success, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
         response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
     }

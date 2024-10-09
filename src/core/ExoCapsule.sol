@@ -23,7 +23,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
 
-    /// @notice Emitted when the ETH principal balance is unlocked. 
+    /// @notice Emitted when the ETH principal balance is unlocked.
     /// @param owner The address of the capsule owner.
     /// @param unlockedAmount The amount added to the withdrawable balance.
     event ETHPrincipalUnlocked(address owner, uint256 unlockedAmount);

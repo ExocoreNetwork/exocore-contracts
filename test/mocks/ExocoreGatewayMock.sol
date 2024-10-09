@@ -4,8 +4,9 @@ import {IExocoreGateway} from "src/interfaces/IExocoreGateway.sol";
 import {Action} from "src/storage/GatewayStorage.sol";
 
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
-import {IReward} from "src/interfaces/precompiles/IReward.sol";
+
 import {IDelegation} from "src/interfaces/precompiles/IDelegation.sol";
+import {IReward} from "src/interfaces/precompiles/IReward.sol";
 
 import {
     MessagingFee,

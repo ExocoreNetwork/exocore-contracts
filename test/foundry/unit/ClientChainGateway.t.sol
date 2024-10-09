@@ -28,10 +28,11 @@ import {Vault} from "src/core/Vault.sol";
 import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
-import "src/interfaces/IExoCapsule.sol";
-import "src/interfaces/IVault.sol";
-import {IRewardVault} from "src/interfaces/IRewardVault.sol";
+
 import {RewardVault} from "src/core/RewardVault.sol";
+import "src/interfaces/IExoCapsule.sol";
+import {IRewardVault} from "src/interfaces/IRewardVault.sol";
+import "src/interfaces/IVault.sol";
 
 import {Errors} from "src/libraries/Errors.sol";
 import "src/utils/BeaconProxyBytecode.sol";

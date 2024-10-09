@@ -18,21 +18,24 @@ import "../../src/core/ClientChainGateway.sol";
 
 import "../../src/core/ExoCapsule.sol";
 import "../../src/core/ExocoreGateway.sol";
-import {Vault} from "../../src/core/Vault.sol";
+
 import {RewardVault} from "../../src/core/RewardVault.sol";
+import {Vault} from "../../src/core/Vault.sol";
 import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 
-import {IVault} from "../../src/interfaces/IVault.sol";
 import {IRewardVault} from "../../src/interfaces/IRewardVault.sol";
+import {IVault} from "../../src/interfaces/IVault.sol";
 
 import "../../src/interfaces/precompiles/IAssets.sol";
-import "../../src/interfaces/precompiles/IReward.sol";
+
 import "../../src/interfaces/precompiles/IDelegation.sol";
+import "../../src/interfaces/precompiles/IReward.sol";
 
 import "../mocks/AssetsMock.sol";
-import "../mocks/RewardMock.sol";
+
 import "../mocks/DelegationMock.sol";
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
+import "../mocks/RewardMock.sol";
 
 import "src/core/ExoCapsule.sol";
 import "src/utils/BeaconProxyBytecode.sol";

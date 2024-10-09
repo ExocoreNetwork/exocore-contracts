@@ -3,14 +3,16 @@ pragma solidity ^0.8.19;
 import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExoCapsule.sol";
 import "../src/interfaces/IExocoreGateway.sol";
-import "../src/interfaces/IVault.sol";
+
 import "../src/interfaces/IRewardVault.sol";
+import "../src/interfaces/IVault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 import "../src/utils/CustomProxyAdmin.sol";
 
 import "../src/interfaces/precompiles/IAssets.sol";
-import "../src/interfaces/precompiles/IReward.sol";
+
 import "../src/interfaces/precompiles/IDelegation.sol";
+import "../src/interfaces/precompiles/IReward.sol";
 
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
@@ -20,8 +22,9 @@ import "forge-std/Script.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 
 import "../test/mocks/AssetsMock.sol";
-import "../test/mocks/RewardMock.sol";
+
 import "../test/mocks/DelegationMock.sol";
+import "../test/mocks/RewardMock.sol";
 
 contract BaseScript is Script, StdCheats {
 

@@ -2,13 +2,15 @@ pragma solidity ^0.8.19;
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
 import "src/interfaces/precompiles/IAssets.sol";
-import "src/interfaces/precompiles/IReward.sol";
+
 import "src/interfaces/precompiles/IDelegation.sol";
+import "src/interfaces/precompiles/IReward.sol";
 
 import "src/libraries/Errors.sol";
 import "test/mocks/AssetsMock.sol";
-import "test/mocks/RewardMock.sol";
+
 import "test/mocks/DelegationMock.sol";
+import "test/mocks/RewardMock.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";

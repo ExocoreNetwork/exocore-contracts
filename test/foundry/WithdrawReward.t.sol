@@ -1,7 +1,10 @@
 pragma solidity ^0.8.19;
 
 import "../../src/core/ExocoreGateway.sol";
+
+import "../../src/interfaces/precompiles/IReward.sol";
 import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
+import "../mocks/RewardMock.sol";
 import "./ExocoreDeployer.t.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
@@ -13,23 +16,108 @@ contract WithdrawRewardTest is ExocoreDeployer {
 
     using AddressCast for address;
 
-    event ClaimRewardResult(bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount);
+    event RewardOperation(
+        bool isSubmitReward,
+        bool indexed success,
+        bytes32 indexed token,
+        bytes32 indexed avsOrWithdrawer,
+        uint256 amount
+    );
     event Transfer(address indexed from, address indexed to, uint256 amount);
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
 
-    function test_WithdrawRewardByLayerZero() public {
-        Player memory withdrawer = players[0];
-        Player memory relayer = players[1];
+    function test_SubmitClaimRewardByLayerZero() public {
+        Player memory avsDepositor = players[0];
+        Player memory staker = players[1];
+        Player memory relayer = players[2];
+        address avs = address(0xaabb);
 
-        deal(withdrawer.addr, 1e22);
-        deal(address(clientGateway), 1e22);
+        // fund the avs depositor some restake token so that it can deposit reward to reward vault
+        vm.startPrank(exocoreValidatorSet.addr);
+        restakeToken.transfer(avsDepositor.addr, 1_000_000);
+        vm.stopPrank();
+
+        // fund the staker and exocore gateway for gas fee
+        deal(staker.addr, 1e22);
         deal(address(exocoreGateway), 1e22);
-        uint256 withdrawAmount = 1000;
+
+        // the amount of deposit, distribute, and withdraw
+        uint256 depositAmount = 1000;
+        uint256 distributeAmount = 500;
+        uint256 withdrawAmount = 100;
 
         // before withdraw we should add whitelist tokens
         test_AddWhitelistTokens();
 
+        _testSubmitReward(avsDepositor, relayer, avs, depositAmount);
+        RewardMock(REWARD_PRECOMPILE_ADDRESS).distributeReward(
+            clientChainId,
+            _addressToBytes(address(restakeToken)),
+            _addressToBytes(avs),
+            _addressToBytes(staker.addr),
+            distributeAmount
+        );
+        _testClaimReward(staker, relayer, withdrawAmount);
+    }
+
+    function _testSubmitReward(Player memory depositor, Player memory relayer, address avs, uint256 amount) internal {
+        // -- submit reward workflow --
+
+        // first user call client chain gateway to submit reward on behalf of AVS
+
+        // depositor needs to approve the restake token to the client gateway
+        vm.startPrank(depositor.addr);
+        restakeToken.approve(address(clientGateway), amount);
+        vm.stopPrank();
+
+        // estimate l0 relay fee that the user should pay
+        bytes memory submitRewardRequestPayload = abi.encodePacked(
+            Action.REQUEST_SUBMIT_REWARD, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(avs)), amount
+        );
+        uint256 requestNativeFee = clientGateway.quote(submitRewardRequestPayload);
+        bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
+
+        // client chain layerzero endpoint should emit the message packet including submit reward payload.
+        vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
+        emit NewPacket(
+            exocoreChainId,
+            address(clientGateway),
+            address(exocoreGateway).toBytes32(),
+            outboundNonces[clientChainId],
+            submitRewardRequestPayload
+        );
+
+        // client chain gateway should emit MessageSent event
+        vm.expectEmit(true, true, true, true, address(clientGateway));
+        emit MessageSent(Action.REQUEST_SUBMIT_REWARD, requestId, outboundNonces[clientChainId]++, requestNativeFee);
+
+        vm.startPrank(depositor.addr);
+        clientGateway.submitReward{value: requestNativeFee}(address(restakeToken), avs, amount);
+        vm.stopPrank();
+
+        // second layerzero relayers should watch the request message packet and relay the message to destination
+        // endpoint
+
+        // exocore gateway should emit RewardOperation event
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit RewardOperation(true, true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(avs)), amount);
+
+        vm.expectEmit(address(exocoreGateway));
+        emit MessageExecuted(Action.REQUEST_SUBMIT_REWARD, inboundNonces[exocoreChainId]++);
+
+        vm.startPrank(relayer.addr);
+        exocoreLzEndpoint.lzReceive(
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
+            address(exocoreGateway),
+            requestId,
+            submitRewardRequestPayload,
+            bytes("")
+        );
+        vm.stopPrank();
+    }
+
+    function _testClaimReward(Player memory withdrawer, Player memory relayer, uint256 amount) internal {
         // -- withdraw reward workflow --
 
         // first user call client chain gateway to withdraw
@@ -39,7 +127,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
             Action.REQUEST_CLAIM_REWARD,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(withdrawer.addr)),
-            withdrawAmount
+            amount
         );
         uint256 requestNativeFee = clientGateway.quote(withdrawRequestPayload);
         bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
@@ -57,7 +145,7 @@ contract WithdrawRewardTest is ExocoreDeployer {
         emit MessageSent(Action.REQUEST_CLAIM_REWARD, requestId, outboundNonces[clientChainId]++, requestNativeFee);
 
         vm.startPrank(withdrawer.addr);
-        clientGateway.claimRewardFromExocore{value: requestNativeFee}(address(restakeToken), withdrawAmount);
+        clientGateway.claimRewardFromExocore{value: requestNativeFee}(address(restakeToken), amount);
         vm.stopPrank();
 
         // second layerzero relayers should watch the request message packet and relay the message to destination
@@ -68,10 +156,10 @@ contract WithdrawRewardTest is ExocoreDeployer {
         uint256 responseNativeFee = exocoreGateway.quote(clientChainId, withdrawResponsePayload);
         bytes32 responseId = generateUID(outboundNonces[exocoreChainId], false);
 
-        // exocore gateway should emit WithdrawRewardResult event
+        // exocore gateway should emit RewardOperation event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit ClaimRewardResult(
-            true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(withdrawer.addr)), withdrawAmount
+        emit RewardOperation(
+            false, true, bytes32(bytes20(address(restakeToken))), bytes32(bytes20(withdrawer.addr)), amount
         );
 
         vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));

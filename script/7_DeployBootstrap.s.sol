@@ -7,8 +7,9 @@ import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
 
 import "../src/core/ExoCapsule.sol";
-import {Vault} from "../src/core/Vault.sol";
+
 import {RewardVault} from "../src/core/RewardVault.sol";
+import {Vault} from "../src/core/Vault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 import {CustomProxyAdmin} from "../src/utils/CustomProxyAdmin.sol";
 

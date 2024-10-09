@@ -7,12 +7,10 @@ contract RewardMock is IReward {
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public rewardsOfAVS;
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public rewardsOfStaker;
 
-    function submitReward(
-        uint32 clientChainLzId,
-        bytes calldata assetsAddress,
-        bytes calldata avsId,
-        uint256 amount
-    ) external returns (bool success, uint256 latestAssetState) {
+    function submitReward(uint32 clientChainLzId, bytes calldata assetsAddress, bytes calldata avsId, uint256 amount)
+        external
+        returns (bool success, uint256 latestAssetState)
+    {
         require(assetsAddress.length == 32, "invalid asset address");
         require(avsId.length == 32, "invalid avsId");
         rewardsOfAVS[clientChainLzId][assetsAddress][avsId] += amount;
@@ -47,4 +45,5 @@ contract RewardMock is IReward {
         rewardsOfStaker[clientChainLzId][assetsAddress][staker] += amount;
         return (true, rewardsOfAVS[clientChainLzId][assetsAddress][avsId]);
     }
+
 }

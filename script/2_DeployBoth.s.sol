@@ -3,8 +3,9 @@ pragma solidity ^0.8.19;
 import "../src/core/ClientChainGateway.sol";
 import "../src/core/ExoCapsule.sol";
 import "../src/core/ExocoreGateway.sol";
-import {Vault} from "../src/core/Vault.sol";
+
 import {RewardVault} from "../src/core/RewardVault.sol";
+import {Vault} from "../src/core/Vault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 import "../src/utils/CustomProxyAdmin.sol";
 import {ExocoreGatewayMock} from "../test/mocks/ExocoreGatewayMock.sol";

@@ -7,8 +7,9 @@ import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
 
 import "../src/core/ExoCapsule.sol";
-import {Vault} from "../src/core/Vault.sol";
+
 import {RewardVault} from "../src/core/RewardVault.sol";
+import {Vault} from "../src/core/Vault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 import {CustomProxyAdmin} from "../src/utils/CustomProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
@@ -36,7 +37,8 @@ contract RedeployClientChainGateway is BaseScript {
         require(address(beaconOracle) != address(0), "beacon oracle should not be empty");
         vaultBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.vaultBeacon"));
         require(address(vaultBeacon) != address(0), "vault beacon should not be empty");
-        rewardVaultBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.rewardVaultBeacon"));
+        rewardVaultBeacon =
+            UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.rewardVaultBeacon"));
         require(address(rewardVaultBeacon) != address(0), "reward vault beacon should not be empty");
         capsuleBeacon = UpgradeableBeacon(stdJson.readAddress(prerequisiteContracts, ".clientChain.capsuleBeacon"));
         require(address(capsuleBeacon) != address(0), "capsule beacon should not be empty");

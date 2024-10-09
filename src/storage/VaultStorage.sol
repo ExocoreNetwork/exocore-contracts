@@ -32,7 +32,7 @@ contract VaultStorage {
 
     /// @notice Emitted when a user's principal balance is deposited.
     /// @param depositor The address of the depositor.
-    /// @param amount The amount of the principal balance deposited.    
+    /// @param amount The amount of the principal balance deposited.
     event PrincipalDeposited(address depositor, uint256 amount);
 
     /// @notice Emitted when a user's principal balance is unlocked for withdrawal.
