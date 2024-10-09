@@ -163,6 +163,8 @@ contract ClientChainGateway is
         return (SENDER_VERSION, RECEIVER_VERSION);
     }
 
+    // The bytecode returned by the BEACON_PROXY_BYTECODE contract is static, so there is no risk of collision.
+    // slither-disable-next-line encode-packed-collision
     function _deployRewardVault() internal {
         rewardVault = IRewardVault(
             Create2.deploy(
