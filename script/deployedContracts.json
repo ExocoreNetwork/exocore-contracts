@@ -2,19 +2,22 @@
   "clientChain": {
     "beaconOracle": "0xd3D285cd1516038dAED61B8BF7Ae2daD63662492",
     "beaconProxyBytecode": "0xA15Ce26ba8E50ac21ecDa1791BAa3bf22a95b575",
-    "capsuleBeacon": "0xB43b4344D48A3096f3d8c974E610a676C73B4fEB",
-    "capsuleImplementation": "0xFFB44F13a4D10648CB1B7F2aC44Ef3A3844152c2",
-    "clientGateway": "0x8fc4E764C2C3B0646ba572AEa958fB5724706412",
-    "clientGatewayLogic": "0xDfaFD33F2b8f9CfaAcE03bCd24029357C4868A18",
+    "bootstrap": "0xDf9caDCfb027d9f6264Ecd5eAEc839a8335d8520",
+    "bootstrapLogic": "0xB97A39004Ba6900FAE801Ac04F8ce4DA70689879",
+    "capsuleBeacon": "0xB8D032a30a3B950CBcc6c1689E2381ab4290D4BB",
+    "capsuleImplementation": "0x02266413cdaaaF4092C5e48d6434040B63F62215",
+    "clientGatewayLogic": "0xf60F5af658C85aF56F6D811c9AA9F94fBe17A67d",
+    "erc20Token": "0x83E6850591425e3C1E263c054f4466838B9Bd9e4",
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
-    "proxyAdmin": "0x266517829c443D5F8d2dB3782d3F5f6D8Ed40903",
-    "vaultBeacon": "0xad6F09ED99aE9E2f47892e2b49b18E024fC2938C",
-    "vaultImplementation": "0x91cC9ec44264304f76794CD469Edf99D08a8d4be"
+    "proxyAdmin": "0x4317A7f62dA871E4512424Df8CaE91A6Ccc2afEA",
+    "vaultBeacon": "0x737e311Bf34B838943A30110289C5a9b22eba2A8",
+    "vaultImplementation": "0x69c1435EF73BA19e11a76481275EE6A8490942Db",
+    "wstETH": "0xB82381A3fBD3FaFA77B3a7bE693342618240067b"
   },
   "exocore": {
-    "exocoreGateway": "0x533996DDDd167EFf7A2D9ff5888C4688f517f8e0",
-    "exocoreGatewayLogic": "0x2d1906D2159376E18A69d8d11e83cD4209A1727D",
-    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
-    "proxyAdmin": "0x10c0baf4e29834b4f85cce0de9d4c6dffbcc732e"
+    "exocoreGateway": "0xEAf4E4D09b9CeB936492518A852026c914beb11E",
+    "exocoreGatewayLogic": "0x42397BFa2601B85E838750A10E652eea2238B5B6",
+    "exocoreProxyAdmin": "0x9bBDDb68B47b88d3Dd2eF7E1682C1EFE4E2e2315",
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
   }
 }
