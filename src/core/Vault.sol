@@ -82,7 +82,7 @@ contract Vault is Initializable, VaultStorage, IVault {
     // Though `safeTransferFrom` has arbitrary passed in `depositor` as sender, this function is only callable by
     // `gateway` and `gateway` would make sure only the `msg.sender` would be the depositor.
     // slither-disable-next-line arbitrary-send-erc20
-    function deposit(address depositor, uint256 amount) external payable onlyGateway {
+    function deposit(address depositor, uint256 amount) external onlyGateway {
         underlyingToken.safeTransferFrom(depositor, address(this), amount);
         totalDepositedPrincipalAmount[depositor] += amount;
         consumedTvl += amount;

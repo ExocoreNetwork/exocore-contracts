@@ -16,7 +16,6 @@ interface ICustomProxyAdmin {
     /// @dev This function is payable to allow for the implementation to receive ETH for initialization.
     /// @dev This function is only callable by the proxy itself to upgrade itself.
     function changeImplementation(ITransparentUpgradeableProxy proxy, address implementation, bytes memory data)
-        external
-        payable;
+        external;
 
 }

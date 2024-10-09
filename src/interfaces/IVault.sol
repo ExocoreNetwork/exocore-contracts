@@ -16,7 +16,7 @@ interface IVault {
     /// @notice Deposits a specified amount into the vault.
     /// @param depositor The address initiating the deposit.
     /// @param amount The amount to be deposited.
-    function deposit(address depositor, uint256 amount) external payable;
+    function deposit(address depositor, uint256 amount) external;
 
     /// @notice Unlock and increase the withdrawable balance of a user for later withdrawal.
     /// @param staker The address of the staker whose principal balance is being unlocked.
