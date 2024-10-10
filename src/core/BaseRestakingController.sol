@@ -80,6 +80,7 @@ abstract contract BaseRestakingController is
         _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, bytes(""));
     }
 
+    /// @inheritdoc IBaseRestakingController
     function submitReward(address token, address avs, uint256 amount)
         external
         payable
@@ -97,6 +98,7 @@ abstract contract BaseRestakingController is
         _processRequest(Action.REQUEST_SUBMIT_REWARD, actionArgs, bytes(""));
     }
 
+    /// @inheritdoc IBaseRestakingController
     function claimRewardFromExocore(address token, uint256 amount)
         external
         payable
@@ -110,6 +112,7 @@ abstract contract BaseRestakingController is
         _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
     }
 
+    /// @inheritdoc IBaseRestakingController
     function withdrawReward(address token, address recipient, uint256 amount)
         external
         isValidAmount(amount)
