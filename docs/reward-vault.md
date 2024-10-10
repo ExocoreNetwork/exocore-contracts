@@ -4,6 +4,8 @@
 
 The Reward Vault is a crucial component of the Exocore ecosystem, designed to securely custody reward tokens distributed by the Exocore chain. It supports permissionless reward token deposits on behalf of AVS (Actively Validated Service) providers and allows stakers to claim their rewards after verification by the Exocore chain. The Reward Vault is managed by the Gateway contract, which acts as an intermediary for all operations.
 
+The Reward Vault is implemented using the beacon proxy pattern for upgradeability, and a single instance of the Reward Vault is deployed when the ClientChainGateway is initialized.
+
 ## 2. Design Principles
 
 2.1. Permissionless Reward System:
@@ -18,6 +20,8 @@ The Reward Vault is a crucial component of the Exocore ecosystem, designed to se
 
 2.5. Gateway-Managed Operations: All interactions with the Reward Vault are managed through the Gateway contract, ensuring consistency with the existing architecture.
 
+2.6. Upgradeability: The Reward Vault uses the beacon proxy pattern to allow for future upgrades while maintaining a consistent address for all interactions.
+
 ## 3. Architecture
 
 ### 3.1. Smart Contract: RewardVault.sol
@@ -29,12 +33,19 @@ Key Functions:
 - `getWithdrawableBalance(address token, address staker)`: Returns the withdrawable balance of a specific reward token for a staker.
 - `getTotalDepositedRewards(address token, address avs)`: Returns the total deposited rewards of a specific token for an AVS.
 
+Implementation:
+- The RewardVault contract is implemented as an upgradeable contract using the beacon proxy pattern.
+- A single instance of the RewardVault is deployed and initialized when the ClientChainGateway is deployed and initialized.
+
 ### 3.2. Smart Contract: ClientChainGateway.sol (existing contract, modified)
 
 New Functions:
 - `submitReward(address token, uint256 amount, address avs)`: Receives reward submissions and calls RewardVault's `deposit`.
 - `claimRewardFromExocore(address token, uint256 amount)`: Initiates a claim request to the Exocore chain.
 - `withdrawReward(address token, address recipient, uint256 amount)`: Calls RewardVault's `withdraw` to transfer claimed rewards to the staker.
+
+Additional Responsibility:
+- Deploys and initializes a single instance of the RewardVault during its own initialization process.
 
 ### 3.3. Data Structures
 
@@ -59,6 +70,47 @@ This nested mapping tracks the total deposited rewards for each token and AVS:
 - First key: Token address
 - Second key: AVS address
 - Value: Total deposited amount
+
+### 3.4. Beacon Proxy Pattern
+
+The Reward Vault uses the beacon proxy pattern for upgradeability:
+
+```solidity
+contract RewardVaultBeacon {
+    address public implementation;
+    address public owner;
+
+    constructor(address _implementation) {
+        implementation = _implementation;
+        owner = msg.sender;
+    }
+
+    function upgrade(address newImplementation) external {
+        require(msg.sender == owner, "Not authorized");
+        implementation = newImplementation;
+    }
+}
+
+contract RewardVaultProxy {
+    address private immutable _beacon;
+
+    constructor(address beacon) {
+        _beacon = beacon;
+    }
+
+    fallback() external payable {
+        address impl = RewardVaultBeacon(_beacon).implementation();
+        assembly {
+            calldatacopy(0, 0, calldatasize())
+            let result := delegatecall(gas(), impl, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            switch result
+            case 0 { revert(0, returndatasize()) }
+            default { return(0, returndatasize()) }
+        }
+    }
+}
+```
 
 ## 4. Key Processes
 
@@ -100,6 +152,10 @@ This nested mapping tracks the total deposited rewards for each token and AVS:
 
 5.2. Token Compatibility: While the system is permissionless, it is designed to work with standard ERC20 tokens to ensure consistent behavior and accounting.
 
+5.3. Upgradeability: 
+- The beacon proxy pattern allows for upgrading the RewardVault implementation while maintaining a consistent address.
+- Upgrades should be carefully managed and go through a thorough governance process to ensure security and prevent potential vulnerabilities.
+
 ## 6. Gas Optimization
 
 6.1. Batch Operations: Consider implementing functions for batch reward submissions and claims to reduce gas costs.
@@ -123,3 +179,5 @@ The ClientChainGateway contract will emit the following event (as previously def
 9.1. Emergency Withdrawal: Consider an emergency withdrawal function for unclaimed rewards, accessible only by governance in case of critical issues.
 
 9.2. AVS Reward Tracking: Implement a function to report the total deposited rewards across all tokens for a given AVS, which could be useful for AVS providers to track their reward distribution.
+
+9.3. Multiple Reward Vaults: While currently a single Reward Vault is deployed, the beacon proxy pattern allows for easy deployment of multiple Reward Vaults if needed in the future, all sharing the same implementation but with separate storage.
