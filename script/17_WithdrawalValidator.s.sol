@@ -23,7 +23,7 @@ import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/Upgradeabl
 import "forge-std/StdJson.sol";
 import "src/libraries/BeaconChainProofs.sol";
 
-contract DepositScript is BaseScript {
+contract WithdrawalValidatorScript is BaseScript {
 
     using AddressCast for address;
     using Endian for bytes32;
