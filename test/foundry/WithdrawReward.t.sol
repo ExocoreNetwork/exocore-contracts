@@ -24,6 +24,9 @@ contract WithdrawRewardTest is ExocoreDeployer {
         uint256 amount
     );
     event Transfer(address indexed from, address indexed to, uint256 amount);
+    event RewardDeposited(address indexed token, address indexed avs, uint256 amount);
+    event RewardUnlocked(address indexed token, address indexed staker, uint256 amount);
+    event RewardWithdrawn(address indexed token, address indexed staker, address indexed recipient, uint256 amount);
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
 
@@ -90,6 +93,8 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // depositor should transfer deposited token to vault
         vm.expectEmit(true, true, false, true, address(restakeToken));
         emit Transfer(depositor.addr, address(rewardVault), amount);
+        vm.expectEmit(true, true, true, true, address(rewardVault));
+        emit RewardDeposited(address(restakeToken), avs, amount);
 
         // client chain layerzero endpoint should emit the message packet including submit reward payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
@@ -226,6 +231,8 @@ contract WithdrawRewardTest is ExocoreDeployer {
         // endpoint
 
         // client chain gateway should execute the response hook and emit RequestFinished event
+        vm.expectEmit(true, true, true, true, address(rewardVault));
+        emit RewardUnlocked(address(restakeToken), withdrawer.addr, amount);
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit ResponseProcessed(Action.REQUEST_CLAIM_REWARD, outboundNonces[clientChainId] - 1, true);
 
@@ -254,6 +261,9 @@ contract WithdrawRewardTest is ExocoreDeployer {
         uint256 withdrawableAmountBeforeWithdraw =
             rewardVault.getWithdrawableBalance(address(restakeToken), withdrawer.addr);
         uint256 balanceBeforeWithdraw = restakeToken.balanceOf(withdrawer.addr);
+
+        vm.expectEmit(true, true, true, true, address(rewardVault));
+        emit RewardWithdrawn(address(restakeToken), withdrawer.addr, withdrawer.addr, amount);
 
         vm.startPrank(withdrawer.addr);
         clientGateway.withdrawReward(address(restakeToken), withdrawer.addr, amount);

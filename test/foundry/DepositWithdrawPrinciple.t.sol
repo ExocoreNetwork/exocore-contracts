@@ -29,6 +29,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event CapsuleCreated(address owner, address capsule);
     event StakedWithCapsule(address staker, address capsule);
+    event PrincipalDeposited(address depositor, uint256 amount);
+    event PrincipalUnlocked(address user, uint256 amount);
+    event PrincipalWithdrawn(address src, address dst, uint256 amount);
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
     uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
@@ -97,6 +100,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // depositor should transfer deposited token to vault
         vm.expectEmit(true, true, false, true, address(restakeToken));
         emit Transfer(depositor.addr, address(vault), depositAmount);
+        vm.expectEmit(true, true, true, true, address(vault));
+        emit PrincipalDeposited(depositor.addr, depositAmount);
+
         // client chain layerzero endpoint should emit the message packet including deposit payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
         emit NewPacket(
@@ -216,6 +222,8 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // endpoint
 
         // client chain gateway should execute the response hook and emit RequestFinished event
+        vm.expectEmit(true, true, true, true, address(vault));
+        emit PrincipalUnlocked(withdrawer.addr, withdrawAmount);
         vm.expectEmit(true, true, true, true, address(clientGateway));
         emit ResponseProcessed(Action.REQUEST_WITHDRAW_LST, outboundNonces[clientChainId] - 1, true);
         vm.expectEmit(address(clientGateway));
