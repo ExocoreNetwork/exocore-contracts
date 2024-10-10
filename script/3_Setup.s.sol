@@ -118,7 +118,7 @@ contract SetupScript is BaseScript {
         vm.selectFork(exocore);
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         uint256 nativeFee;
-        for (uint256 i = 1; i < whitelistTokensBytes32.length; i++) {
+        for (uint256 i = 0; i < whitelistTokensBytes32.length; i++) {
             nativeFee = exocoreGateway.quote(
                 clientChainId,
                 abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i],tvlLimits[i]))
