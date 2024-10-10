@@ -23,10 +23,12 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
         _disableInitializers();
     }
 
+    /// @inheritdoc IRewardVault
     function initialize(address gateway_) public initializer {
         gateway = gateway_;
     }
 
+    /// @inheritdoc IRewardVault
     // slither-disable-next-line arbitrary-send-erc20
     function deposit(address token, address depositor, address avs, uint256 amount) external onlyGateway {
         IERC20(token).safeTransferFrom(depositor, address(this), amount);
@@ -35,6 +37,7 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
         emit RewardDeposited(token, avs, amount);
     }
 
+    /// @inheritdoc IRewardVault
     function withdraw(address token, address withdrawer, address recipient, uint256 amount) external onlyGateway {
         if (withdrawableBalances[token][withdrawer] < amount) {
             revert Errors.InsufficientBalance();
@@ -45,16 +48,19 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
         emit RewardWithdrawn(token, withdrawer, recipient, amount);
     }
 
+    /// @inheritdoc IRewardVault
     function unlockReward(address token, address withdrawer, uint256 amount) external onlyGateway {
         withdrawableBalances[token][withdrawer] += amount;
 
         emit RewardUnlocked(token, withdrawer, amount);
     }
 
+    /// @inheritdoc IRewardVault
     function getWithdrawableBalance(address token, address withdrawer) external view returns (uint256) {
         return withdrawableBalances[token][withdrawer];
     }
 
+    /// @inheritdoc IRewardVault
     function getTotalDepositedRewards(address token, address avs) external view returns (uint256) {
         return totalDepositedRewards[token][avs];
     }
