@@ -6,6 +6,7 @@ import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/Upgradeabl
 import "forge-std/Script.sol";
 
 contract UpgradeExoCapsuleScript is BaseScript {
+
     UpgradeableBeacon capsuleBeaconContract;
 
     function setUp() public virtual override {
