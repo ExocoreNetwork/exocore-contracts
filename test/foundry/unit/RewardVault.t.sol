@@ -15,12 +15,14 @@ contract MockERC20 is ERC20 {
 
 }
 
+contract MockGateway {}
+
 contract RewardVaultTest is Test {
 
     RewardVault public rewardVaultImplementation;
     RewardVault public rewardVault;
     MockERC20 public token;
-    address public gateway;
+    MockGateway public gateway;
     address public depositor;
     address public withdrawer;
     address public avs;
@@ -33,13 +35,13 @@ contract RewardVaultTest is Test {
     function setUp() public {
         rewardVaultImplementation = new RewardVault();
         proxyAdmin = new ProxyAdmin();
-        gateway = address(this);
+        gateway = new MockGateway();
 
         // Deploy the proxy
         TransparentUpgradeableProxy proxy = new TransparentUpgradeableProxy(
             address(rewardVaultImplementation),
             address(proxyAdmin),
-            abi.encodeWithSelector(RewardVault.initialize.selector, gateway)
+            abi.encodeWithSelector(RewardVault.initialize.selector, address(gateway))
         );
 
         // Cast the proxy to RewardVault
@@ -54,7 +56,7 @@ contract RewardVaultTest is Test {
     }
 
     function testInitialize() public {
-        assertEq(rewardVault.gateway(), gateway);
+        assertEq(rewardVault.gateway(), address(gateway));
     }
 
     function testDeposit() public {
@@ -66,6 +68,7 @@ contract RewardVaultTest is Test {
         vm.expectEmit(true, true, false, true);
         emit RewardDeposited(address(token), avs, amount);
 
+        vm.prank(address(gateway));
         rewardVault.deposit(address(token), depositor, avs, amount);
 
         assertEq(token.balanceOf(address(rewardVault)), amount);
@@ -74,12 +77,20 @@ contract RewardVaultTest is Test {
 
     function testWithdraw() public {
         uint256 amount = 100 * 10 ** 18;
+
+        vm.prank(depositor);
+        token.approve(address(rewardVault), amount);
+
+        vm.prank(address(gateway));
+        rewardVault.deposit(address(token), depositor, avs, amount);
+
+        vm.prank(address(gateway));
         rewardVault.unlockReward(address(token), withdrawer, amount);
-        token.transfer(address(rewardVault), amount);
 
         vm.expectEmit(true, true, true, true);
         emit RewardWithdrawn(address(token), withdrawer, withdrawer, amount);
 
+        vm.prank(address(gateway));
         rewardVault.withdraw(address(token), withdrawer, withdrawer, amount);
 
         assertEq(token.balanceOf(withdrawer), amount);
@@ -92,6 +103,7 @@ contract RewardVaultTest is Test {
         vm.expectEmit(true, true, false, true);
         emit RewardUnlocked(address(token), withdrawer, amount);
 
+        vm.prank(address(gateway));
         rewardVault.unlockReward(address(token), withdrawer, amount);
 
         assertEq(rewardVault.getWithdrawableBalance(address(token), withdrawer), amount);
@@ -99,6 +111,7 @@ contract RewardVaultTest is Test {
 
     function testGetWithdrawableBalance() public {
         uint256 amount = 100 * 10 ** 18;
+        vm.prank(address(gateway));
         rewardVault.unlockReward(address(token), withdrawer, amount);
 
         assertEq(rewardVault.getWithdrawableBalance(address(token), withdrawer), amount);
@@ -110,6 +123,7 @@ contract RewardVaultTest is Test {
         token.approve(address(rewardVault), amount);
         vm.stopPrank();
 
+        vm.prank(address(gateway));
         rewardVault.deposit(address(token), depositor, avs, amount);
 
         assertEq(rewardVault.getTotalDepositedRewards(address(token), avs), amount);
@@ -119,11 +133,25 @@ contract RewardVaultTest is Test {
         vm.prank(address(0x4));
         vm.expectRevert(Errors.VaultCallerIsNotGateway.selector);
         rewardVault.deposit(address(token), depositor, avs, 100 * 10 ** 18);
+        vm.expectRevert(Errors.VaultCallerIsNotGateway.selector);
+        rewardVault.withdraw(address(token), withdrawer, withdrawer, 100 * 10 ** 18);
+        vm.expectRevert(Errors.VaultCallerIsNotGateway.selector);
+        rewardVault.unlockReward(address(token), withdrawer, 100 * 10 ** 18);
     }
 
     function testWithdrawInsufficientBalance() public {
+        vm.prank(address(gateway));
         vm.expectRevert(Errors.InsufficientBalance.selector);
         rewardVault.withdraw(address(token), withdrawer, withdrawer, 100 * 10 ** 18);
+    }
+
+    function testWithdrawVaultInsufficientTokenBalance() public {
+        uint256 amount = 100 * 10 ** 18;
+        vm.prank(address(gateway));
+        rewardVault.unlockReward(address(token), withdrawer, amount);
+        vm.expectRevert("ERC20: transfer amount exceeds balance");
+        vm.prank(address(gateway));
+        rewardVault.withdraw(address(token), withdrawer, withdrawer, amount);
     }
 
 }

@@ -15,12 +15,7 @@ contract MockERC20 is ERC20 {
 
 }
 
-contract MockGateway {
-
-    function deposit(address token, address depositor, uint256 amount) external {}
-    function withdraw(address token, address withdrawer, address recipient, uint256 amount) external {}
-
-}
+contract MockGateway {}
 
 contract VaultTest is Test {
 

@@ -24,7 +24,7 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
     }
 
     /// @inheritdoc IRewardVault
-    function initialize(address gateway_) public initializer {
+    function initialize(address gateway_) external initializer {
         gateway = gateway_;
     }
 
