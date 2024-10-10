@@ -29,9 +29,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event CapsuleCreated(address owner, address capsule);
     event StakedWithCapsule(address staker, address capsule);
-    event PrincipalDeposited(address depositor, uint256 amount);
-    event PrincipalUnlocked(address user, uint256 amount);
-    event PrincipalWithdrawn(address src, address dst, uint256 amount);
+    event PrincipalDeposited(address indexed depositor, uint256 amount);
+    event PrincipalUnlocked(address indexed staker, uint256 amount);
+    event PrincipalWithdrawn(address indexed src, address indexed dst, uint256 amount);
 
     uint256 constant DEFAULT_ENDPOINT_CALL_GAS_LIMIT = 200_000;
     uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;

@@ -33,18 +33,18 @@ contract VaultStorage {
     /// @notice Emitted when a user's principal balance is deposited.
     /// @param depositor The address of the depositor.
     /// @param amount The amount of the principal balance deposited.
-    event PrincipalDeposited(address depositor, uint256 amount);
+    event PrincipalDeposited(address indexed depositor, uint256 amount);
 
     /// @notice Emitted when a user's principal balance is unlocked for withdrawal.
-    /// @param user The address of the withdrawer.
+    /// @param staker The address of the withdrawer.
     /// @param amount The amount of the principal balance unlocked.
-    event PrincipalUnlocked(address user, uint256 amount);
+    event PrincipalUnlocked(address indexed staker, uint256 amount);
 
     /// @notice Emitted when a user's principal balance is withdrawn.
     /// @param src The address of the withdrawer.
     /// @param dst The address of the recipient.
     /// @param amount The amount of the principal balance withdrawn.
-    event PrincipalWithdrawn(address src, address dst, uint256 amount);
+    event PrincipalWithdrawn(address indexed src, address indexed dst, uint256 amount);
 
     /// @notice Emitted upon the TVL limit being updated.
     /// @param newTvlLimit The new TVL limit.
