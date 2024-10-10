@@ -33,18 +33,11 @@ contract SetupScript is BaseScript {
         restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(deployedContracts, ".clientChain.erc20Token"));
         require(address(restakeToken) != address(0), "restakeToken address should not be empty");
 
-        vault = IVault(stdJson.readAddress(deployedContracts, ".clientChain.resVault"));
-        require(address(vault) != address(0), "vault address should not be empty");
-
         exocoreGateway = IExocoreGateway(payable(stdJson.readAddress(deployedContracts, ".exocore.exocoreGateway")));
         require(address(exocoreGateway) != address(0), "exocoreGateway address should not be empty");
 
         exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(deployedContracts, ".exocore.lzEndpoint"));
         require(address(exocoreLzEndpoint) != address(0), "exocoreLzEndpoint address should not be empty");
-
-        if (!useExocorePrecompileMock) {
-            _bindPrecompileMocks();
-        }
 
         // transfer some gas fee to contract owner
         clientChain = vm.createSelectFork(clientChainRPCURL);
@@ -52,6 +45,10 @@ contract SetupScript is BaseScript {
 
         exocore = vm.createSelectFork(exocoreRPCURL);
         _topUpPlayer(exocore, address(0), exocoreGenesis, exocoreValidatorSet.addr, 0.2 ether);
+
+        if (!useExocorePrecompileMock) {
+            _bindPrecompileMocks();
+        }
     }
 
     function run() public {
@@ -88,9 +85,10 @@ contract SetupScript is BaseScript {
         exocoreGateway.registerOrUpdateClientChain(
             clientChainId, address(clientGateway).toBytes32(), 20, "ClientChain", "EVM compatible network", "secp256k1"
         );
+        vm.stopBroadcast();
 
         // 3. adding tokens to the whtielist of both Exocore and client chain gateway to enable restaking
-
+        vm.selectFork(clientChain);
         // first we read decimals from client chain ERC20 token contract to prepare for token data
         bytes32[] memory whitelistTokensBytes32 = new bytes32[](2);
         uint8[] memory decimals = new uint8[](2);
@@ -104,7 +102,7 @@ contract SetupScript is BaseScript {
         decimals[0] = restakeToken.decimals();
         names[0] = "RestakeToken";
         metaDatas[0] = "ERC20 LST token";
-        oracleInfos[0] = "{'a': 'b'}";
+        oracleInfos[0] = "ETH,Ethereum,8";
         tvlLimits[0] = uint128(restakeToken.totalSupply() / 5); // in phases of 20%
 
         // this stands for Native Restaking for ETH
@@ -112,16 +110,18 @@ contract SetupScript is BaseScript {
         decimals[1] = 18;
         names[1] = "StakedETH";
         metaDatas[1] = "natively staked ETH on Ethereum";
-        oracleInfos[1] = "{'b': 'a'}";
+        oracleInfos[1] = "ETH,Ethereum,8";   //[tokenName],[chainName],[tokenDecimal](,[interval],[contract](,[ChainDesc:{...}],[TokenDesc:{...}])) 
         tvlLimits[1] = 0; // irrelevant for native restaking
 
         // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking,
         // and this would also add token addresses to client chain gateway's whitelist
+        vm.selectFork(exocore);
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
         uint256 nativeFee;
-        for (uint256 i = 0; i < whitelistTokensBytes32.length; i++) {
+        for (uint256 i = 1; i < whitelistTokensBytes32.length; i++) {
             nativeFee = exocoreGateway.quote(
                 clientChainId,
-                abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i]))
+                abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i],tvlLimits[i]))
             );
             exocoreGateway.addWhitelistToken{value: nativeFee}(
                 clientChainId,
