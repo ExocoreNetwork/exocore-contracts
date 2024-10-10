@@ -28,7 +28,10 @@ import {Vault} from "src/core/Vault.sol";
 import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
+
+import {RewardVault} from "src/core/RewardVault.sol";
 import "src/interfaces/IExoCapsule.sol";
+import {IRewardVault} from "src/interfaces/IRewardVault.sol";
 import "src/interfaces/IVault.sol";
 
 import {Errors} from "src/libraries/Errors.sol";
@@ -57,8 +60,10 @@ contract SetUp is Test {
     ILayerZeroEndpointV2 exocoreLzEndpoint;
     IBeaconChainOracle beaconOracle;
     IVault vaultImplementation;
+    IRewardVault rewardVaultImplementation;
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
+    IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
 
@@ -100,9 +105,11 @@ contract SetUp is Test {
         beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
 
         vaultImplementation = new Vault();
+        rewardVaultImplementation = new RewardVault();
         capsuleImplementation = new ExoCapsule();
 
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
 
         beaconProxyBytecode = new BeaconProxyBytecode();
@@ -117,6 +124,7 @@ contract SetUp is Test {
             exocoreChainId,
             address(beaconOracle),
             address(vaultBeacon),
+            address(rewardVaultBeacon),
             address(capsuleBeacon),
             address(beaconProxyBytecode)
         );
@@ -216,7 +224,7 @@ contract Pausable is SetUp {
         clientGateway.pause();
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.claim(address(restakeToken), uint256(1), deployer.addr);
+        clientGateway.withdrawPrincipal(address(restakeToken), uint256(1), deployer.addr);
 
         vm.expectRevert("Pausable: paused");
         clientGateway.delegateTo(operatorAddress, address(restakeToken), uint256(1));
@@ -225,7 +233,7 @@ contract Pausable is SetUp {
         clientGateway.deposit(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.withdrawPrincipalFromExocore(address(restakeToken), uint256(1));
+        clientGateway.claimPrincipalFromExocore(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
         clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
@@ -395,7 +403,7 @@ contract WithdrawalPrincipalFromExocore is SetUp {
         // Try to withdraw VIRTUAL_STAKED_ETH
         vm.prank(user);
         vm.expectRevert(Errors.VaultDoesNotExist.selector);
-        clientGateway.withdrawPrincipalFromExocore(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
+        clientGateway.claimPrincipalFromExocore(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
     }
 
     function test_revert_withdrawNonWhitelistedToken() public {
@@ -403,13 +411,13 @@ contract WithdrawalPrincipalFromExocore is SetUp {
 
         vm.prank(players[0].addr);
         vm.expectRevert("BootstrapStorage: token is not whitelisted");
-        clientGateway.withdrawPrincipalFromExocore(nonWhitelistedToken, WITHDRAWAL_AMOUNT);
+        clientGateway.claimPrincipalFromExocore(nonWhitelistedToken, WITHDRAWAL_AMOUNT);
     }
 
     function test_revert_withdrawZeroAmount() public {
         vm.prank(user);
         vm.expectRevert("BootstrapStorage: amount should be greater than zero");
-        clientGateway.withdrawPrincipalFromExocore(address(restakeToken), 0);
+        clientGateway.claimPrincipalFromExocore(address(restakeToken), 0);
     }
 
 }

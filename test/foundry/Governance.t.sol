@@ -24,7 +24,10 @@ import "src/core/ClientChainGateway.sol";
 import "src/storage/ClientChainGatewayStorage.sol";
 
 import "src/core/ExoCapsule.sol";
+
+import {RewardVault} from "src/core/RewardVault.sol";
 import {Vault} from "src/core/Vault.sol";
+import {IRewardVault} from "src/interfaces/IRewardVault.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../mocks/NonShortCircuitEndpointV2Mock.sol";
 import "src/interfaces/IExoCapsule.sol";
@@ -61,8 +64,10 @@ contract GovernanceTest is Test {
     ILayerZeroEndpointV2 clientChainLzEndpoint;
     IBeaconChainOracle beaconOracle;
     IVault vaultImplementation;
+    IRewardVault rewardVaultImplementation;
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
+    IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
 
@@ -131,9 +136,11 @@ contract GovernanceTest is Test {
         beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
 
         vaultImplementation = new Vault();
+        rewardVaultImplementation = new RewardVault();
         capsuleImplementation = new ExoCapsule();
 
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
 
         beaconProxyBytecode = new BeaconProxyBytecode();
@@ -147,6 +154,7 @@ contract GovernanceTest is Test {
             exocoreChainId,
             address(beaconOracle),
             address(vaultBeacon),
+            address(rewardVaultBeacon),
             address(capsuleBeacon),
             address(beaconProxyBytecode)
         );

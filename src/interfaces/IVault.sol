@@ -16,14 +16,12 @@ interface IVault {
     /// @notice Deposits a specified amount into the vault.
     /// @param depositor The address initiating the deposit.
     /// @param amount The amount to be deposited.
-    function deposit(address depositor, uint256 amount) external payable;
+    function deposit(address depositor, uint256 amount) external;
 
-    /// @notice Updates the withdrawable balance for a user.
-    /// @param user The address of the user whose withdrawable balance is being updated.
-    /// @param unlockPrincipalAmount The amount of principal to be unlocked.
-    /// @param unlockRewardAmount The amount of reward to be unlocked.
-    function updateWithdrawableBalance(address user, uint256 unlockPrincipalAmount, uint256 unlockRewardAmount)
-        external;
+    /// @notice Unlock and increase the withdrawable balance of a user for later withdrawal.
+    /// @param staker The address of the staker whose principal balance is being unlocked.
+    /// @param amount The amount of principal to be unlocked.
+    function unlockPrincipal(address staker, uint256 amount) external;
 
     /// @notice Returns the address of the underlying token.
     /// @return The address of the underlying token.

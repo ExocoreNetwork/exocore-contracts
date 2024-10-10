@@ -44,12 +44,19 @@ contract ExocoreGatewayStorage is GatewayStorage {
 
     /* --------- asset operations results and staking operations results -------- */
 
-    /// @notice Emitted when reward is withdrawn.
-    /// @param success Whether the withdrawal was successful.
+    /// @notice Emitted when a reward operation is executed, submit or claim.
+    /// @param isSubmitReward Whether the operation is a submit reward or a claim reward.
+    /// @param success Whether the operation was successful.
     /// @param token The address of the token.
-    /// @param withdrawer The address of the withdrawer.
-    /// @param amount The amount of the token withdrawn.
-    event ClaimRewardResult(bool indexed success, bytes32 indexed token, bytes32 indexed withdrawer, uint256 amount);
+    /// @param avsOrWithdrawer The address of the avs or withdrawer, avs for submit reward, withdrawer for claim reward.
+    /// @param amount The amount of the token submitted or claimed.
+    event RewardOperation(
+        bool isSubmitReward,
+        bool indexed success,
+        bytes32 indexed token,
+        bytes32 indexed avsOrWithdrawer,
+        uint256 amount
+    );
 
     /// @notice Emitted when a LST transfer happens.
     /// @param isDeposit Whether the transfer is a deposit or a withdraw.

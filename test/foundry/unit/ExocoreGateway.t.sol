@@ -2,13 +2,15 @@ pragma solidity ^0.8.19;
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
 import "src/interfaces/precompiles/IAssets.sol";
-import "src/interfaces/precompiles/IClaimReward.sol";
+
 import "src/interfaces/precompiles/IDelegation.sol";
+import "src/interfaces/precompiles/IReward.sol";
 
 import "src/libraries/Errors.sol";
 import "test/mocks/AssetsMock.sol";
-import "test/mocks/ClaimRewardMock.sol";
+
 import "test/mocks/DelegationMock.sol";
+import "test/mocks/RewardMock.sol";
 
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
@@ -70,8 +72,8 @@ contract SetUp is Test {
         bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
         vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
 
-        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
-        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("RewardMock.sol");
+        vm.etch(REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
 
         _deploy();
 
@@ -195,8 +197,8 @@ contract LzReceive is SetUp {
         bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
         vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
 
-        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
-        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+        bytes memory RewardMockCode = vm.getDeployedCode("RewardMock.sol");
+        vm.etch(REWARD_PRECOMPILE_ADDRESS, RewardMockCode);
     }
 
     function test_NotRevert_WithdrawalAmountOverflow() public {

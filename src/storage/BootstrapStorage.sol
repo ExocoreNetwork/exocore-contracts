@@ -180,9 +180,7 @@ contract BootstrapStorage is GatewayStorage {
     /// @param token The address of the token being withdrawn, on this chain.
     /// @param withdrawer The address of the withdrawer, on this chain.
     /// @param amount The amount of the token available to claim.
-    event WithdrawPrincipalResult(
-        bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
-    );
+    event ClaimPrincipalResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
 
     /// @notice Emitted when a delegation is made to an operator.
     /// @dev This event is triggered whenever a delegator delegates tokens to an operator.

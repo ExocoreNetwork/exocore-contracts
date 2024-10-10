@@ -40,6 +40,10 @@ library ActionAttributes {
         } else if (action == Action.REQUEST_CLAIM_REWARD) {
             attributes = REWARD | WITHDRAWAL;
             messageLength = ASSET_OPERATION_LENGTH;
+        } else if (action == Action.REQUEST_SUBMIT_REWARD) {
+            // New action
+            attributes = REWARD;
+            messageLength = ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_DELEGATE_TO || action == Action.REQUEST_UNDELEGATE_FROM) {
             messageLength = DELEGATION_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO) {

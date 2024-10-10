@@ -74,15 +74,15 @@ contract Vault is Initializable, VaultStorage, IVault {
         consumedTvl -= amount;
         underlyingToken.safeTransfer(recipient, amount);
 
-        emit WithdrawalSuccess(withdrawer, recipient, amount);
         emit ConsumedTvlChanged(consumedTvl);
+        emit PrincipalWithdrawn(withdrawer, recipient, amount);
     }
 
     /// @inheritdoc IVault
     // Though `safeTransferFrom` has arbitrary passed in `depositor` as sender, this function is only callable by
     // `gateway` and `gateway` would make sure only the `msg.sender` would be the depositor.
     // slither-disable-next-line arbitrary-send-erc20
-    function deposit(address depositor, uint256 amount) external payable onlyGateway {
+    function deposit(address depositor, uint256 amount) external onlyGateway {
         underlyingToken.safeTransferFrom(depositor, address(this), amount);
         totalDepositedPrincipalAmount[depositor] += amount;
         consumedTvl += amount;
@@ -94,26 +94,24 @@ contract Vault is Initializable, VaultStorage, IVault {
             revert Errors.VaultTvlLimitExceeded();
         }
         emit ConsumedTvlChanged(consumedTvl);
+        emit PrincipalDeposited(depositor, amount);
     }
 
     /// @inheritdoc IVault
-    function updateWithdrawableBalance(address user, uint256 unlockPrincipalAmount, uint256 unlockRewardAmount)
-        external
-        onlyGateway
-    {
+    function unlockPrincipal(address user, uint256 amount) external onlyGateway {
         uint256 totalDeposited = totalDepositedPrincipalAmount[user];
-        if (unlockPrincipalAmount > totalDeposited) {
+        if (amount > totalDeposited) {
             revert Errors.VaultPrincipalExceedsTotalDeposit();
         }
 
-        totalUnlockPrincipalAmount[user] += unlockPrincipalAmount;
+        totalUnlockPrincipalAmount[user] += amount;
         if (totalUnlockPrincipalAmount[user] > totalDeposited) {
             revert Errors.VaultTotalUnlockPrincipalExceedsDeposit();
         }
 
-        withdrawableBalances[user] = withdrawableBalances[user] + unlockPrincipalAmount + unlockRewardAmount;
+        withdrawableBalances[user] = withdrawableBalances[user] + amount;
 
-        emit WithdrawableBalanceUpdated(user, unlockPrincipalAmount, unlockRewardAmount);
+        emit PrincipalUnlocked(user, amount);
     }
 
     /// @inheritdoc IVault

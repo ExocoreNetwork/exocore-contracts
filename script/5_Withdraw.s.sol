@@ -68,7 +68,7 @@ contract DepositScript is BaseScript {
         uint256 nativeFee = clientGateway.quote(msg_);
         console.log("l0 native fee:", nativeFee);
 
-        clientGateway.withdrawPrincipalFromExocore{value: nativeFee}(address(restakeToken), WITHDRAW_AMOUNT);
+        clientGateway.claimPrincipalFromExocore{value: nativeFee}(address(restakeToken), WITHDRAW_AMOUNT);
         vm.stopBroadcast();
 
         if (useEndpointMock) {

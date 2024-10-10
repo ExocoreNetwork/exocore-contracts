@@ -3,12 +3,16 @@ pragma solidity ^0.8.19;
 import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExoCapsule.sol";
 import "../src/interfaces/IExocoreGateway.sol";
+
+import "../src/interfaces/IRewardVault.sol";
 import "../src/interfaces/IVault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
+import "../src/utils/CustomProxyAdmin.sol";
 
 import "../src/interfaces/precompiles/IAssets.sol";
-import "../src/interfaces/precompiles/IClaimReward.sol";
+
 import "../src/interfaces/precompiles/IDelegation.sol";
+import "../src/interfaces/precompiles/IReward.sol";
 
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
@@ -18,8 +22,9 @@ import "forge-std/Script.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 
 import "../test/mocks/AssetsMock.sol";
-import "../test/mocks/ClaimRewardMock.sol";
+
 import "../test/mocks/DelegationMock.sol";
+import "../test/mocks/RewardMock.sol";
 
 contract BaseScript is Script, StdCheats {
 
@@ -44,20 +49,24 @@ contract BaseScript is Script, StdCheats {
 
     IClientChainGateway clientGateway;
     IVault vault;
+    IRewardVault rewardVault;
     IExocoreGateway exocoreGateway;
     ILayerZeroEndpointV2 clientChainLzEndpoint;
     ILayerZeroEndpointV2 exocoreLzEndpoint;
     EigenLayerBeaconOracle beaconOracle;
     ERC20PresetFixedSupply restakeToken;
     IVault vaultImplementation;
+    IRewardVault rewardVaultImplementation;
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
+    IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
+    CustomProxyAdmin clientChainProxyAdmin;
 
     address delegationMock;
     address assetsMock;
-    address claimRewardMock;
+    address rewardMock;
 
     uint256 clientChain;
     uint256 exocore;
@@ -135,7 +144,7 @@ contract BaseScript is Script, StdCheats {
         // with cast or remix.
         deployCodeTo("AssetsMock.sol", abi.encode(clientChainId), ASSETS_PRECOMPILE_ADDRESS);
         deployCodeTo("DelegationMock.sol", DELEGATION_PRECOMPILE_ADDRESS);
-        deployCodeTo("ClaimRewardMock.sol", CLAIM_REWARD_PRECOMPILE_ADDRESS);
+        deployCodeTo("RewardMock.sol", REWARD_PRECOMPILE_ADDRESS);
         // go to the original fork, if one was selected
         if (previousFork != type(uint256).max) {
             vm.selectFork(previousFork);

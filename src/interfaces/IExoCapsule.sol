@@ -56,9 +56,9 @@ interface IExoCapsule {
     /// @param amountToWithdraw The amount to withdraw.
     function withdrawNonBeaconChainETHBalance(address payable recipient, uint256 amountToWithdraw) external;
 
-    /// @notice Increases the withdrawable balance of the ExoCapsule.
-    /// @param unlockPrincipalAmount The additionally unlocked withdrawable amount.
-    function updateWithdrawableBalance(uint256 unlockPrincipalAmount) external;
+    /// @notice Unlock and increase the withdrawable balance of the ExoCapsule for later withdrawal.
+    /// @param amount The amount of the ETH balance unlocked.
+    function unlockETHPrincipal(uint256 amount) external;
 
     /// @notice Returns the withdrawal credentials of the ExoCapsule.
     /// @return The withdrawal credentials.

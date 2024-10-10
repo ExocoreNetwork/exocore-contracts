@@ -30,22 +30,21 @@ contract VaultStorage {
     /// @notice Address of the gateway contract.
     ILSTRestakingController public gateway;
 
-    /// @notice Emitted when a user's reward balance is updated.
-    /// @param user The address of the user.
-    /// @param amount The new reward balance.
-    event RewardBalanceUpdated(address user, uint256 amount);
+    /// @notice Emitted when a user's principal balance is deposited.
+    /// @param depositor The address of the depositor.
+    /// @param amount The amount of the principal balance deposited.
+    event PrincipalDeposited(address indexed depositor, uint256 amount);
 
-    /// @notice Emmitted when a user's withdrawable balance is updated.
-    /// @param user The address of the user.
-    /// @param pAmount The new principal balance.
-    /// @param rAmount The new reward balance.
-    event WithdrawableBalanceUpdated(address user, uint256 pAmount, uint256 rAmount);
+    /// @notice Emitted when a user's principal balance is unlocked for withdrawal.
+    /// @param staker The address of the withdrawer.
+    /// @param amount The amount of the principal balance unlocked.
+    event PrincipalUnlocked(address indexed staker, uint256 amount);
 
-    /// @notice Emitted upon withdrawal success.
+    /// @notice Emitted when a user's principal balance is withdrawn.
     /// @param src The address of the withdrawer.
     /// @param dst The address of the recipient.
-    /// @param amount The amount withdrawn.
-    event WithdrawalSuccess(address src, address dst, uint256 amount);
+    /// @param amount The amount of the principal balance withdrawn.
+    event PrincipalWithdrawn(address indexed src, address indexed dst, uint256 amount);
 
     /// @notice Emitted upon the TVL limit being updated.
     /// @param newTvlLimit The new TVL limit.

@@ -86,9 +86,9 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
             (address token, address staker, uint256 amount) = _decodeCachedRequest(cachedRequest);
 
             if (requestAct.isPrincipal()) {
-                _updatePrincipalWithdrawableBalance(token, staker, amount);
+                _unlockPrincipal(token, staker, amount);
             } else if (requestAct.isReward()) {
-                _updateRewardWithdrawableBalance(token, staker, amount);
+                _unlockReward(token, staker, amount);
             } else {
                 revert Errors.UnsupportedResponse(requestAct);
             }
@@ -144,30 +144,29 @@ abstract contract ClientGatewayLzReceiver is PausableUpgradeable, OAppReceiverUp
     }
 
     /**
-     * @dev Updates the withdrawable balance of the principal.
+     * @dev Unlocks the principal by increasing the withdrawable balance of the principal.
      * @param token The address of the token.
      * @param staker The address of the staker.
      * @param amount The amount of the operation.
      */
-    function _updatePrincipalWithdrawableBalance(address token, address staker, uint256 amount) internal {
+    function _unlockPrincipal(address token, address staker, uint256 amount) internal {
         if (token == VIRTUAL_NST_ADDRESS) {
             IExoCapsule capsule = _getCapsule(staker);
-            capsule.updateWithdrawableBalance(amount);
+            capsule.unlockETHPrincipal(amount);
         } else {
             IVault vault = _getVault(token);
-            vault.updateWithdrawableBalance(staker, amount, 0);
+            vault.unlockPrincipal(staker, amount);
         }
     }
 
     /**
-     * @dev Updates the withdrawable balance of the reward.
+     * @dev Unlocks the reward by increasing the withdrawable balance of the reward.
      * @param token The address of the token.
      * @param staker The address of the staker.
      * @param amount The amount of the operation.
      */
-    function _updateRewardWithdrawableBalance(address token, address staker, uint256 amount) internal {
-        IVault vault = _getVault(token);
-        vault.updateWithdrawableBalance(staker, 0, amount);
+    function _unlockReward(address token, address staker, uint256 amount) internal {
+        rewardVault.unlockReward(token, staker, amount);
     }
 
     /// @notice Called after an add-whitelist-token response is received.

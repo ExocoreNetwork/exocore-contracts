@@ -7,6 +7,8 @@ import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
 
 import "../src/core/ExoCapsule.sol";
+
+import {RewardVault} from "../src/core/RewardVault.sol";
 import {Vault} from "../src/core/Vault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 import {CustomProxyAdmin} from "../src/utils/CustomProxyAdmin.sol";
@@ -56,10 +58,11 @@ contract DeployBootstrapOnly is BaseScript {
         tvlLimits.push(ERC20PresetFixedSupply(wstETH).totalSupply() / 20);
 
         // proxy deployment
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        clientChainProxyAdmin = new CustomProxyAdmin();
         // vault, shared between bootstrap and client chain gateway
         vaultImplementation = new Vault();
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+
         // bootstrap logic
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
@@ -67,11 +70,14 @@ contract DeployBootstrapOnly is BaseScript {
         // client chain constructor (upgrade details)
         capsuleImplementation = new ExoCapsule();
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+        rewardVaultImplementation = new RewardVault();
+        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint),
             exocoreChainId,
             address(beaconOracle),
             address(vaultBeacon),
+            address(rewardVaultBeacon),
             address(capsuleBeacon),
             address(beaconProxyBytecode)
         );
@@ -85,7 +91,7 @@ contract DeployBootstrapOnly is BaseScript {
                 address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
-                        address(proxyAdmin),
+                        address(clientChainProxyAdmin),
                         abi.encodeCall(
                             Bootstrap.initialize,
                             (
@@ -95,7 +101,7 @@ contract DeployBootstrapOnly is BaseScript {
                                 2 seconds,
                                 whitelistTokens, // vault is auto deployed
                                 tvlLimits,
-                                address(proxyAdmin),
+                                address(clientChainProxyAdmin),
                                 address(clientGatewayLogic),
                                 initialization
                             )
@@ -106,7 +112,7 @@ contract DeployBootstrapOnly is BaseScript {
         );
 
         // initialize proxyAdmin with bootstrap address
-        proxyAdmin.initialize(address(bootstrap));
+        clientChainProxyAdmin.initialize(address(bootstrap));
 
         vm.stopBroadcast();
 
@@ -114,7 +120,7 @@ contract DeployBootstrapOnly is BaseScript {
         vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
         vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
         vm.serializeAddress(clientChainContracts, "wstETH", wstETH);
-        vm.serializeAddress(clientChainContracts, "proxyAdmin", address(proxyAdmin));
+        vm.serializeAddress(clientChainContracts, "proxyAdmin", address(clientChainProxyAdmin));
         vm.serializeAddress(clientChainContracts, "vaultImplementation", address(vaultImplementation));
         vm.serializeAddress(clientChainContracts, "vaultBeacon", address(vaultBeacon));
         vm.serializeAddress(clientChainContracts, "beaconProxyBytecode", address(beaconProxyBytecode));
@@ -123,6 +129,8 @@ contract DeployBootstrapOnly is BaseScript {
         vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
         vm.serializeAddress(clientChainContracts, "capsuleImplementation", address(capsuleImplementation));
         vm.serializeAddress(clientChainContracts, "capsuleBeacon", address(capsuleBeacon));
+        vm.serializeAddress(clientChainContracts, "rewardVaultImplementation", address(rewardVaultImplementation));
+        vm.serializeAddress(clientChainContracts, "rewardVaultBeacon", address(rewardVaultBeacon));
         string memory clientChainContractsOutput =
             vm.serializeAddress(clientChainContracts, "clientGatewayLogic", address(clientGatewayLogic));
 

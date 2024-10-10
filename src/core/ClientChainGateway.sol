@@ -2,9 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+
+import {IRewardVault} from "../interfaces/IRewardVault.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
-
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {MessagingFee, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
@@ -21,6 +22,7 @@ import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuil
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 /// @title ClientChainGateway
 /// @author ExocoreNetwork
@@ -49,6 +51,7 @@ contract ClientChainGateway is
         uint32 exocoreChainId_,
         address beaconOracleAddress_,
         address vaultBeacon_,
+        address rewardVaultBeacon_,
         address exoCapsuleBeacon_,
         address beaconProxyBytecode_
     )
@@ -57,6 +60,7 @@ contract ClientChainGateway is
             exocoreChainId_,
             beaconOracleAddress_,
             vaultBeacon_,
+            rewardVaultBeacon_,
             exoCapsuleBeacon_,
             beaconProxyBytecode_
         )
@@ -80,6 +84,8 @@ contract ClientChainGateway is
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.afterReceiveMarkBootstrapRequest.selector;
 
         bootstrapped = true;
+
+        _deployRewardVault();
 
         _transferOwnership(owner_);
         __OAppCore_init_unchained(owner_);
@@ -155,6 +161,22 @@ contract ClientChainGateway is
         returns (uint64 senderVersion, uint64 receiverVersion)
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
+    }
+
+    // The bytecode returned by the BEACON_PROXY_BYTECODE contract is static, so there is no risk of collision.
+    // slither-disable-next-line encode-packed-collision
+    function _deployRewardVault() internal {
+        rewardVault = IRewardVault(
+            Create2.deploy(
+                0,
+                bytes32(bytes("REWARD_VAULT")),
+                // for clarity, this BEACON_PROXY is not related to beacon chain
+                // but rather it is the bytecode for the beacon proxy upgrade pattern.
+                abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(REWARD_VAULT_BEACON), ""))
+            )
+        );
+        rewardVault.initialize(address(this));
+        emit RewardVaultCreated(address(rewardVault));
     }
 
 }
