@@ -103,11 +103,9 @@ contract DepositScript is BaseScript {
 
         validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".stateRoot");
         require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
-        validatorProof.stateRootProof =
-            stdJson.readBytes32Array(validatorInfo, ".stateRootProof");
+        validatorProof.stateRootProof = stdJson.readBytes32Array(validatorInfo, ".stateRootProof");
         require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
-        validatorProof.validatorContainerRootProof =
-            stdJson.readBytes32Array(validatorInfo, ".validatorContainerProof");
+        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(validatorInfo, ".validatorContainerProof");
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");

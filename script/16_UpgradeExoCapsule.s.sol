@@ -1,9 +1,9 @@
 pragma solidity ^0.8.19;
 
+import "../src/core/ExoCapsule.sol";
 import "./BaseScript.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "forge-std/Script.sol";
-import "../src/core/ExoCapsule.sol";
 
 contract UpgradeExoCapsuleScript is BaseScript {
     UpgradeableBeacon capsuleBeaconContract;
@@ -13,7 +13,8 @@ contract UpgradeExoCapsuleScript is BaseScript {
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
-        capsuleBeaconContract = UpgradeableBeacon((stdJson.readAddress(deployedContracts, ".clientChain.capsuleBeacon")));
+        capsuleBeaconContract =
+            UpgradeableBeacon((stdJson.readAddress(deployedContracts, ".clientChain.capsuleBeacon")));
         require(address(capsuleBeaconContract) != address(0), "capsuleBeacon address should not be empty");
         clientChain = vm.createSelectFork(clientChainRPCURL);
     }
@@ -28,4 +29,5 @@ contract UpgradeExoCapsuleScript is BaseScript {
 
         console.log("new Exocapsule Implementation address: ", address(capsule));
     }
+
 }
