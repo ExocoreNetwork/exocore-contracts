@@ -47,16 +47,16 @@ contract DepositScript is BaseScript {
         _loadValidatorContainer();
         _loadValidatorProof();
 
-        if (!useExocorePrecompileMock) {
-            _bindPrecompileMocks();
-        }
-
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
         _topUpPlayer(clientChain, address(0), deployer, depositor.addr, 0.2 ether);
 
         exocore = vm.createSelectFork(exocoreRPCURL);
         _topUpPlayer(exocore, address(0), exocoreGenesis, address(exocoreGateway), 1 ether);
+
+        if (!useExocorePrecompileMock) {
+            _bindPrecompileMocks();
+        }
     }
 
     function run() public {
@@ -89,25 +89,25 @@ contract DepositScript is BaseScript {
     }
 
     function _loadValidatorContainer() internal {
-        string memory validatorInfo = vm.readFile("script/validator_container_proof_1711400.json");
+        string memory validatorInfo = vm.readFile("script/validatorProof_staker1_testnetV6.json");
 
-        validatorContainer = stdJson.readBytes32Array(validatorInfo, ".ValidatorFields");
+        validatorContainer = stdJson.readBytes32Array(validatorInfo, ".validatorContainer");
         require(validatorContainer.length > 0, "validator container should not be empty");
     }
 
     function _loadValidatorProof() internal {
-        string memory validatorInfo = vm.readFile("script/validator_container_proof_1711400.json");
+        string memory validatorInfo = vm.readFile("script/validatorProof_staker1_testnetV6.json");
 
         uint256 slot = stdJson.readUint(validatorInfo, ".slot");
         validatorProof.beaconBlockTimestamp = GENESIS_BLOCK_TIMESTAMP + SECONDS_PER_SLOT * slot;
 
-        validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
+        validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".stateRoot");
         require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
         validatorProof.stateRootProof =
-            stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+            stdJson.readBytes32Array(validatorInfo, ".stateRootProof");
         require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
         validatorProof.validatorContainerRootProof =
-            stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+            stdJson.readBytes32Array(validatorInfo, ".validatorContainerProof");
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");

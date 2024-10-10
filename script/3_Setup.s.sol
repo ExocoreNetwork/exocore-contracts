@@ -110,7 +110,7 @@ contract SetupScript is BaseScript {
         decimals[1] = 18;
         names[1] = "StakedETH";
         metaDatas[1] = "natively staked ETH on Ethereum";
-        oracleInfos[1] = "ETH,Ethereum,8";   //[tokenName],[chainName],[tokenDecimal](,[interval],[contract](,[ChainDesc:{...}],[TokenDesc:{...}])) 
+        oracleInfos[1] = "ETH,Ethereum,8"; //[tokenName],[chainName],[tokenDecimal](,[interval],[contract](,[ChainDesc:{...}],[TokenDesc:{...}]))
         tvlLimits[1] = 0; // irrelevant for native restaking
 
         // second add whitelist tokens and their meta data on Exocore side to enable LST Restaking and Native Restaking,
@@ -121,7 +121,9 @@ contract SetupScript is BaseScript {
         for (uint256 i = 0; i < whitelistTokensBytes32.length; i++) {
             nativeFee = exocoreGateway.quote(
                 clientChainId,
-                abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i],tvlLimits[i]))
+                abi.encodePacked(
+                    Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(whitelistTokensBytes32[i], tvlLimits[i])
+                )
             );
             exocoreGateway.addWhitelistToken{value: nativeFee}(
                 clientChainId,
