@@ -2,10 +2,12 @@ pragma solidity ^0.8.19;
 
 import "../src/core/ExoCapsule.sol";
 import "../src/interfaces/IClientChainGateway.sol";
+
+import "../src/interfaces/IExoCapsule.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
-import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
+import "../src/storage/GatewayStorage.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
@@ -13,19 +15,23 @@ import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
-import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
 
 import {BaseScript} from "./BaseScript.sol";
-import "forge-std/StdJson.sol";
 
-contract DepositScript is BaseScript {
+import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
+import "forge-std/StdJson.sol";
+import "src/libraries/BeaconChainProofs.sol";
+
+contract WithdrawalValidatorScript is BaseScript {
 
     using AddressCast for address;
     using Endian for bytes32;
 
     bytes32[] validatorContainer;
     BeaconChainProofs.ValidatorContainerProof validatorProof;
+    bytes32[] withdrawalContainer;
+    BeaconChainProofs.WithdrawalProof withdrawalProof;
 
     uint256 internal constant GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
     uint256 internal constant SECONDS_PER_SLOT = 12;
@@ -33,7 +39,7 @@ contract DepositScript is BaseScript {
 
     function setUp() public virtual override {
         super.setUp();
-        string memory validatorInfo = vm.readFile("script/validatorProof_staker1_testnetV6.json");
+
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
         clientGateway =
@@ -44,8 +50,15 @@ contract DepositScript is BaseScript {
         require(address(beaconOracle) != address(0), "beacon oracle address should not be empty");
 
         // load beacon chain validator container and proof from json file
-        _loadValidatorContainer(validatorInfo);
-        _loadValidatorProof(validatorInfo);
+        _loadValidatorContainer();
+        _loadValidatorProof();
+
+        _loadWithdrawalContainer();
+        _loadWithdrawalProof();
+
+        if (!useExocorePrecompileMock) {
+            _bindPrecompileMocks();
+        }
 
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
@@ -53,10 +66,6 @@ contract DepositScript is BaseScript {
 
         exocore = vm.createSelectFork(exocoreRPCURL);
         _topUpPlayer(exocore, address(0), exocoreGenesis, address(exocoreGateway), 1 ether);
-
-        if (!useExocorePrecompileMock) {
-            _bindPrecompileMocks();
-        }
     }
 
     function run() public {
@@ -66,6 +75,7 @@ contract DepositScript is BaseScript {
         );
         vm.selectFork(clientChain);
 
+        console.log("block.timestamp", validatorProof.beaconBlockTimestamp);
         vm.startBroadcast(depositor.privateKey);
         (bool success,) = address(beaconOracle).call(
             abi.encodeWithSelector(beaconOracle.addTimestamp.selector, validatorProof.beaconBlockTimestamp)
@@ -73,27 +83,25 @@ contract DepositScript is BaseScript {
         vm.stopBroadcast();
 
         vm.startBroadcast(depositor.privateKey);
-        bytes memory msg_ = abi.encodePacked(
-            Action.REQUEST_DEPOSIT_LST,
-            abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))),
-            abi.encodePacked(bytes32(bytes20(depositor.addr))),
-            uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI
+        bytes memory dummyInput = new bytes(97);
+        uint256 nativeFee = clientGateway.quote(dummyInput);
+        clientGateway.processBeaconChainWithdrawal{value: nativeFee}(
+            validatorContainer, validatorProof, withdrawalContainer, withdrawalProof
         );
-        uint256 nativeFee = clientGateway.quote(msg_);
-        try clientGateway.depositBeaconChainValidator{value: nativeFee}(validatorContainer, validatorProof) {
-            console.log("finish");
-        } catch {
-            console.log("fire anyway");
-        }
+
         vm.stopBroadcast();
     }
 
-    function _loadValidatorContainer(string memory validatorInfo) internal {
+    function _loadValidatorContainer() internal {
+        string memory validatorInfo = vm.readFile("script/withdrawalProof_fullwithdraw_2495260_2472449.json");
+
         validatorContainer = stdJson.readBytes32Array(validatorInfo, ".validatorContainer");
         require(validatorContainer.length > 0, "validator container should not be empty");
     }
 
-    function _loadValidatorProof(string memory validatorInfo) internal {
+    function _loadValidatorProof() internal {
+        string memory validatorInfo = vm.readFile("script/withdrawalProof_fullwithdraw_2495260_2472449.json");
+
         uint256 slot = stdJson.readUint(validatorInfo, ".slot");
         validatorProof.beaconBlockTimestamp = GENESIS_BLOCK_TIMESTAMP + SECONDS_PER_SLOT * slot;
 
@@ -105,6 +113,40 @@ contract DepositScript is BaseScript {
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");
+    }
+
+    function _loadWithdrawalContainer() internal {
+        string memory withdrawalInfo = vm.readFile("script/withdrawalProof_fullwithdraw_2495260_2472449.json");
+
+        withdrawalContainer = stdJson.readBytes32Array(withdrawalInfo, ".withdrawalContainer");
+        require(withdrawalContainer.length > 0, "withdrawal container should not be empty");
+    }
+
+    function _loadWithdrawalProof() internal {
+        string memory withdrawalInfo = vm.readFile("script/withdrawalProof_fullwithdraw_2495260_2472449.json");
+
+        withdrawalProof.withdrawalContainerRootProof =
+            stdJson.readBytes32Array(withdrawalInfo, ".withdrawalContainerProof");
+
+        console.log("withdrawalContainerProof");
+        console.logBytes32(withdrawalProof.withdrawalContainerRootProof[0]);
+        withdrawalProof.slotProof = stdJson.readBytes32Array(withdrawalInfo, ".slotRootProof");
+        withdrawalProof.executionPayloadRootProof =
+            stdJson.readBytes32Array(withdrawalInfo, ".executionPayloadRootProof");
+        withdrawalProof.timestampProof = stdJson.readBytes32Array(withdrawalInfo, ".timestampRootProof");
+        withdrawalProof.historicalSummaryBlockRootProof =
+            stdJson.readBytes32Array(withdrawalInfo, ".historicalSummaryBlockRootProof");
+        withdrawalProof.blockRootIndex = stdJson.readUint(withdrawalInfo, ".blockRootIndex");
+        require(withdrawalProof.blockRootIndex != 0, "block root index should not be 0");
+        withdrawalProof.historicalSummaryIndex = stdJson.readUint(withdrawalInfo, ".historicalSummaryIndex");
+        withdrawalProof.withdrawalIndex = stdJson.readUint(withdrawalInfo, ".withdrawalIndexWithinBlock");
+        withdrawalProof.blockRoot = stdJson.readBytes32(withdrawalInfo, ".historicalSummaryBlockRoot");
+        require(withdrawalProof.blockRoot != bytes32(0), "block root should not be empty");
+        withdrawalProof.slotRoot = stdJson.readBytes32(withdrawalInfo, ".slotRoot");
+        withdrawalProof.timestampRoot = stdJson.readBytes32(withdrawalInfo, ".timestampRoot");
+        withdrawalProof.executionPayloadRoot = stdJson.readBytes32(withdrawalInfo, ".executionPayloadRoot");
+        withdrawalProof.stateRoot = stdJson.readBytes32(withdrawalInfo, ".stateRoot");
+        // console.logBytes32("load withdrawal proof stateRoot", withdrawalProof.stateRoot);
     }
 
     function _getEffectiveBalance(bytes32[] storage vc) internal view returns (uint64) {
