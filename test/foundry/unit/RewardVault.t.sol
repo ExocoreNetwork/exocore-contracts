@@ -1,6 +1,7 @@
 pragma solidity ^0.8.19;
 
-import "../../../src/core/RewardVault.sol";
+import {RewardVault} from "../../../src/core/RewardVault.sol";
+import {Errors} from "../../../src/libraries/Errors.sol";
 
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";

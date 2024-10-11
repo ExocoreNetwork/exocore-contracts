@@ -12,7 +12,7 @@ import "test/mocks/DelegationMock.sol";
 import {NonShortCircuitEndpointV2Mock} from "test/mocks/NonShortCircuitEndpointV2Mock.sol";
 import "test/mocks/RewardMock.sol";
 
-contract PrerequisitiesScript is BaseScript {
+contract PrerequisitesScript is BaseScript {
 
     function setUp() public virtual override {
         super.setUp();

@@ -23,25 +23,25 @@ contract DeployScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory prerequisities = vm.readFile("script/prerequisiteContracts.json");
+        string memory prerequisites = vm.readFile("script/prerequisiteContracts.json");
 
-        clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisities, ".clientChain.lzEndpoint"));
+        clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, ".clientChain.lzEndpoint"));
         require(address(clientChainLzEndpoint) != address(0), "client chain l0 endpoint should not be empty");
 
-        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisities, ".clientChain.erc20Token"));
+        restakeToken = ERC20PresetFixedSupply(stdJson.readAddress(prerequisites, ".clientChain.erc20Token"));
         require(address(restakeToken) != address(0), "restake token address should not be empty");
 
-        exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisities, ".exocore.lzEndpoint"));
+        exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, ".exocore.lzEndpoint"));
         require(address(exocoreLzEndpoint) != address(0), "exocore l0 endpoint should not be empty");
 
         if (useExocorePrecompileMock) {
-            assetsMock = stdJson.readAddress(prerequisities, ".exocore.assetsPrecompileMock");
+            assetsMock = stdJson.readAddress(prerequisites, ".exocore.assetsPrecompileMock");
             require(assetsMock != address(0), "assetsMock should not be empty");
 
-            delegationMock = stdJson.readAddress(prerequisities, ".exocore.delegationPrecompileMock");
+            delegationMock = stdJson.readAddress(prerequisites, ".exocore.delegationPrecompileMock");
             require(delegationMock != address(0), "delegationMock should not be empty");
 
-            rewardMock = stdJson.readAddress(prerequisities, ".exocore.rewardPrecompileMock");
+            rewardMock = stdJson.readAddress(prerequisites, ".exocore.rewardPrecompileMock");
             require(rewardMock != address(0), "rewardMock should not be empty");
         }
 
@@ -100,8 +100,13 @@ contract DeployScript is BaseScript {
             )
         );
 
+        // get the reward vault address since it would be deployed during initialization
+        rewardVault = ClientChainGateway(payable(address(clientGateway))).rewardVault();
+        require(address(rewardVault) != address(0), "reward vault should not be empty");
+
         // find vault according to uderlying token address
         vault = Vault(address(ClientChainGateway(payable(address(clientGateway))).tokenToVault(address(restakeToken))));
+        require(address(vault) != address(0), "vault should not be empty");
 
         vm.stopBroadcast();
 

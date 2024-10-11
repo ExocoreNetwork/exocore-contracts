@@ -40,7 +40,7 @@ contract ExocoreGatewayMock is
     using OptionsBuilder for bytes;
 
     address public immutable ASSETS_PRECOMPILE_ADDRESS;
-    address public immutable CLAIM_REWARD_PRECOMPILE_ADDRESS;
+    address public immutable REWARD_PRECOMPILE_ADDRESS;
     address public immutable DELEGATION_PRECOMPILE_ADDRESS;
 
     IAssets internal immutable ASSETS_CONTRACT;
@@ -67,11 +67,11 @@ contract ExocoreGatewayMock is
         require(delegationPrecompileMock != address(0), "Delegation precompile address cannot be zero.");
 
         ASSETS_PRECOMPILE_ADDRESS = assetsPrecompileMock;
-        CLAIM_REWARD_PRECOMPILE_ADDRESS = RewardPrecompileMock;
+        REWARD_PRECOMPILE_ADDRESS = RewardPrecompileMock;
         DELEGATION_PRECOMPILE_ADDRESS = delegationPrecompileMock;
 
         ASSETS_CONTRACT = IAssets(ASSETS_PRECOMPILE_ADDRESS);
-        REWARD_CONTRACT = IReward(CLAIM_REWARD_PRECOMPILE_ADDRESS);
+        REWARD_CONTRACT = IReward(REWARD_PRECOMPILE_ADDRESS);
         DELEGATION_CONTRACT = IDelegation(DELEGATION_PRECOMPILE_ADDRESS);
 
         _disableInitializers();

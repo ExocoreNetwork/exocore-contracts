@@ -28,6 +28,7 @@ interface IBaseRestakingController {
 
     /// @notice Submits reward to the reward module on behalf of the AVS
     /// @param token The address of the specific token that the user wants to submit as a reward.
+    /// @param avs The address of the AVS that the user wants to submit the reward to.
     /// @param rewardAmount The amount of reward tokens that the user wants to submit.
     function submitReward(address token, address avs, uint256 rewardAmount) external payable;
 
