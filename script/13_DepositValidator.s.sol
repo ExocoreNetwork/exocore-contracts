@@ -33,7 +33,7 @@ contract DepositScript is BaseScript {
 
     function setUp() public virtual override {
         super.setUp();
-
+        string memory validatorInfo = vm.readFile("script/validatorProof_staker1_testnetV6.json");
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
         clientGateway =
@@ -44,8 +44,8 @@ contract DepositScript is BaseScript {
         require(address(beaconOracle) != address(0), "beacon oracle address should not be empty");
 
         // load beacon chain validator container and proof from json file
-        _loadValidatorContainer();
-        _loadValidatorProof();
+        _loadValidatorContainer(validatorInfo);
+        _loadValidatorProof(validatorInfo);
 
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
@@ -88,16 +88,12 @@ contract DepositScript is BaseScript {
         vm.stopBroadcast();
     }
 
-    function _loadValidatorContainer() internal {
-        string memory validatorInfo = vm.readFile("script/validatorProof_staker1_testnetV6.json");
-
+    function _loadValidatorContainer(string memory validatorInfo) internal {
         validatorContainer = stdJson.readBytes32Array(validatorInfo, ".validatorContainer");
         require(validatorContainer.length > 0, "validator container should not be empty");
     }
 
-    function _loadValidatorProof() internal {
-        string memory validatorInfo = vm.readFile("script/validatorProof_staker1_testnetV6.json");
-
+    function _loadValidatorProof(string memory validatorInfo) internal {
         uint256 slot = stdJson.readUint(validatorInfo, ".slot");
         validatorProof.beaconBlockTimestamp = GENESIS_BLOCK_TIMESTAMP + SECONDS_PER_SLOT * slot;
 
