@@ -40,6 +40,8 @@ contract CombinedFaucet is
     /// @param token_ The address of the token to distribute
     /// @param tokenAmount_ The amount of tokens to distribute at each request
     function initialize(address owner_, address token_, uint256 tokenAmount_) public initializer {
+        // The token address can be 0 to support native token
+        // slither-disable-next-line missing-zero-check
         token = token_;
         tokenAmount = tokenAmount_;
 
@@ -63,10 +65,9 @@ contract CombinedFaucet is
     }
 
     function _withdraw(address dst) internal {
-        require(
-            block.timestamp >= lastRequestTime[dst] + ONE_DAY || lastRequestTime[dst] == 0,
-            "CombinedFaucet: 24h rate limit breached"
-        );
+        if (lastRequestTime[dst] != 0) {
+            require(block.timestamp >= lastRequestTime[dst] + ONE_DAY, "CombinedFaucet: 24h rate limit breached");
+        }
         lastRequestTime[dst] = block.timestamp;
         if (token != address(0)) {
             bool success = IERC20(token).transfer(dst, tokenAmount);
@@ -81,6 +82,8 @@ contract CombinedFaucet is
     /// @dev Update the token address (Only owner can update)
     /// @param token_ The new token address
     function setTokenAddress(address token_) external onlyOwner {
+        // The token address can be 0 to support native token
+        // slither-disable-next-line missing-zero-check
         token = token_;
         emit TokenAddressUpdated(token_);
     }
