@@ -16,10 +16,10 @@ contract DeployScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory prerequisities = vm.readFile("script/prerequisiteContracts.json");
+        string memory prerequisites = vm.readFile("script/prerequisiteContracts.json");
 
-        tokenAddr = stdJson.readAddress(prerequisities, ".clientChain.erc20Token");
-        require(tokenAddr != address(0), "restake token address should not be empty");
+        tokenAddr = stdJson.readAddress(prerequisites, ".clientChain.erc20Token");
+        require(tokenAddr != address(0), "token address should not be empty");
 
         clientChain = vm.createSelectFork(clientChainRPCURL);
         exocore = vm.createSelectFork(exocoreRPCURL);
@@ -30,39 +30,19 @@ contract DeployScript is BaseScript {
     }
 
     function run() public {
-        if (exoEthFaucet) {
-            vm.selectFork(clientChain);
-            vm.startBroadcast(exocoreValidatorSet.privateKey);
-            address exoEthProxyAdmin = address(new ProxyAdmin());
-            CombinedFaucet exoEthFaucetLogic = new CombinedFaucet();
-            CombinedFaucet exoEthFaucet = CombinedFaucet(
-                payable(
-                    address(new TransparentUpgradeableProxy(address(exoEthFaucetLogic), address(exoEthProxyAdmin), ""))
-                )
-            );
-            // give 1 exoETH per request
-            exoEthFaucet.initialize(exocoreValidatorSet.addr, tokenAddr, 1 ether);
-            vm.stopBroadcast();
-            // do not store them as JSON since the address is intentionally kept private
-            console.log("exoEthFaucet", address(exoEthFaucet));
-            console.log("exoEthFaucetLogic", address(exoEthFaucetLogic));
-            console.log("exoEthProxyAdmin", address(exoEthProxyAdmin));
-        } else {
-            vm.selectFork(exocore);
-            vm.startBroadcast(exocoreValidatorSet.privateKey);
-            address exoProxyAdmin = address(new ProxyAdmin());
-            CombinedFaucet exoFaucetLogic = new CombinedFaucet();
-            CombinedFaucet exoFaucet = CombinedFaucet(
-                payable(address(new TransparentUpgradeableProxy(address(exoFaucetLogic), address(exoProxyAdmin), "")))
-            );
-            // give 1 exo per request
-            exoFaucet.initialize(faucetOwner, address(0), 1 ether);
-            vm.stopBroadcast();
-            // do not store them as JSON since the address is intentionally kept private
-            console.log("exoFaucet", address(exoFaucet));
-            console.log("exoFaucetLogic", address(exoFaucetLogic));
-            console.log("exoProxyAdmin", address(exoProxyAdmin));
-        }
+        vm.selectFork(exoEthFaucet ? clientChain : exocore);
+        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        address proxyAdmin = address(new ProxyAdmin());
+        CombinedFaucet faucetLogic = new CombinedFaucet();
+        CombinedFaucet faucet = CombinedFaucet(
+            payable(address(new TransparentUpgradeableProxy(address(faucetLogic), address(proxyAdmin), "")))
+        );
+        faucet.initialize(exocoreValidatorSet.addr, exoEthFaucet ? tokenAddr : address(0), 1 ether);
+        vm.stopBroadcast();
+        // do not store them as JSON since the address is intentionally kept private
+        console.log("faucet", address(faucet));
+        console.log("faucetLogic", address(faucetLogic));
+        console.log("proxyAdmin", address(proxyAdmin));
     }
 
 }
