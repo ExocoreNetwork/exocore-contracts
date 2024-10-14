@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {CombinedFaucet} from "../../../src/core/CombinedFaucet.sol";
 import {ERC20PresetMinterPauser} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetMinterPauser.sol";
-import "forge-std/Test.sol"; // For mock ERC20 token
+import "forge-std/Test.sol";
 
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -76,6 +76,12 @@ contract ERC20FaucetTest is BaseFaucetTest {
         vm.expectRevert("CombinedFaucet: Rate limit exceeded. Please wait 24 hours.");
         vm.prank(user1);
         faucet.requestTokens();
+
+        // Should work now
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(user1);
+        faucet.requestTokens();
+        assertEq(token.balanceOf(user1), tokenAmount * 3);
     }
 
     function testRateLimit() public {
@@ -203,6 +209,12 @@ contract NativeTokenFaucetTest is BaseFaucetTest {
         vm.expectRevert("CombinedFaucet: Rate limit exceeded. Please wait 24 hours.");
         vm.prank(owner);
         faucet.withdraw(user1);
+
+        // Should work now
+        vm.warp(block.timestamp + 1 days);
+        vm.prank(owner);
+        faucet.withdraw(user1);
+        assertEq(user1.balance, tokenAmount * 2);
     }
 
     function testOnlyOwnerCanRequestTokens() public {
