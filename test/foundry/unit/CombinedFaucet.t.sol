@@ -8,39 +8,49 @@ import "forge-std/Test.sol"; // For mock ERC20 token
 import {ProxyAdmin} from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-// case of ERC20 faucet, separate from native token faucet
-contract ERC20FaucetTest is Test {
+contract BaseFaucetTest is Test {
 
     CombinedFaucet public faucet;
-    ERC20PresetMinterPauser public token;
     address public owner;
     address public user1;
     address public user2;
 
     uint256 public tokenAmount = 1 ether; // Amount to be distributed in each request
 
-    function setUp() public {
+    function setUp() public virtual {
         // Initialize the test environment
         owner = address(0x3);
         user1 = address(0x1);
         user2 = address(0x2);
+    }
 
-        // Deploy a mock ERC20 token
-        token = new ERC20PresetMinterPauser("Test Token", "TST");
-
-        // Mint some tokens to the faucet and owner for testing
-        token.mint(owner, tokenAmount * 10);
-        token.mint(user1, tokenAmount);
-
+    function _deploy(address token) internal {
         // Deploy the faucet and initialize it
         address proxyAdmin = address(new ProxyAdmin());
         CombinedFaucet faucetLogic = new CombinedFaucet();
         faucet = CombinedFaucet(
             payable(address(new TransparentUpgradeableProxy(address(faucetLogic), address(proxyAdmin), "")))
         );
-        faucet.initialize(owner, address(token), tokenAmount);
+        faucet.initialize(owner, token, tokenAmount);
+    }
 
-        // Transfer tokens to the faucet
+}
+
+// case of ERC20 faucet, separate from native token faucet
+contract ERC20FaucetTest is BaseFaucetTest {
+
+    ERC20PresetMinterPauser public token;
+
+    function setUp() public override {
+        super.setUp();
+        // Deploy a mock ERC20 token
+        token = new ERC20PresetMinterPauser("Test Token", "TST");
+        token.mint(owner, tokenAmount * 10);
+        token.mint(user1, tokenAmount);
+
+        _deploy(address(token));
+
+        // Mint tokens to the faucet
         token.mint(address(faucet), tokenAmount * 5);
     }
 
@@ -51,7 +61,7 @@ contract ERC20FaucetTest is Test {
     }
 
     function testRequestTokens() public {
-        // Initial token balance of user1 should be 100 TST
+        // Initial token balance of user1 should be `tokenAmount` TST
         assertEq(token.balanceOf(user1), tokenAmount);
 
         // Simulate user1 requesting tokens from the faucet
@@ -134,15 +144,22 @@ contract ERC20FaucetTest is Test {
     }
 
     function testRecoverTokens() public {
-        // Initially, owner has 0 extra tokens
+        // Initially, owner has 10 * `tokenAmount` TST tokens
         assertEq(token.balanceOf(owner), tokenAmount * 10);
 
         // Call recoverTokens as the owner
         vm.prank(owner);
         faucet.recoverTokens(address(token), tokenAmount);
 
-        // Owner should recover 100 TST tokens
+        // Owner should recover `tokenAmount` TST tokens
         assertEq(token.balanceOf(owner), tokenAmount * 11);
+    }
+
+    function testCannotWithdrawNativeTokens() public {
+        // Try withdrawing native tokens from the faucet
+        vm.expectRevert("CombinedFaucet: only for native tokens");
+        vm.prank(owner);
+        faucet.withdraw(user1);
     }
 
     function testRejectERC721() public {
@@ -155,32 +172,12 @@ contract ERC20FaucetTest is Test {
 }
 
 // case of native token faucet, separate from ERC20 faucet
-contract NativeTokenFaucetTest is Test {
+contract NativeTokenFaucetTest is BaseFaucetTest {
 
-    CombinedFaucet public faucet;
-    address public owner;
-    address public user1;
-    address public user2;
-
-    uint256 public tokenAmount = 1 ether; // Amount to be distributed in each request
-
-    function setUp() public {
-        // Initialize the test environment
-        owner = address(0x3);
-        user1 = address(0x1);
-        user2 = address(0x2);
-
+    function setUp() public override {
+        super.setUp();
         vm.deal(owner, tokenAmount * 10);
-
-        // Deploy the faucet and initialize it
-        address proxyAdmin = address(new ProxyAdmin());
-        CombinedFaucet faucetLogic = new CombinedFaucet();
-        faucet = CombinedFaucet(
-            payable(address(new TransparentUpgradeableProxy(address(faucetLogic), address(proxyAdmin), "")))
-        );
-        faucet.initialize(owner, address(0), tokenAmount);
-
-        // Transfer tokens to the faucet
+        _deploy(address(0));
         vm.deal(address(faucet), tokenAmount * 5);
     }
 
@@ -191,7 +188,7 @@ contract NativeTokenFaucetTest is Test {
     }
 
     function testRequestTokens() public {
-        // Initial token balance of user1 should be 100 TST
+        // Initial token balance of user1 should be 0
         assertEq(user1.balance, 0);
 
         // Simulate user1 requesting tokens from the faucet
@@ -206,6 +203,25 @@ contract NativeTokenFaucetTest is Test {
         vm.expectRevert("CombinedFaucet: 24h rate limit breached");
         vm.prank(owner);
         faucet.withdraw(user1);
+    }
+
+    function testOnlyOwnerCanRequestTokens() public {
+        // Try requesting tokens as a non-owner
+        vm.prank(user1);
+        vm.expectRevert("Ownable: caller is not the owner");
+        faucet.withdraw(user1);
+
+        // Request tokens as the owner
+        vm.prank(owner);
+        faucet.withdraw(user1);
+        assertEq(user1.balance, tokenAmount);
+    }
+
+    function testCannotRequestNativeTokens() public {
+        // Try requesting tokens from the faucet
+        vm.expectRevert("CombinedFaucet: not for native tokens");
+        vm.prank(owner);
+        faucet.requestTokens();
     }
 
     function testRateLimit() public {
@@ -275,7 +291,7 @@ contract NativeTokenFaucetTest is Test {
     }
 
     function testRecoverTokens() public {
-        // Initially, owner has 0 extra tokens
+        // Initially, owner has 10 * `tokenAmount` native tokens
         assertEq(owner.balance, tokenAmount * 10);
         assertEq(address(faucet).balance, tokenAmount * 5);
 
@@ -283,7 +299,7 @@ contract NativeTokenFaucetTest is Test {
         vm.prank(owner);
         faucet.recoverTokens(address(0), tokenAmount);
 
-        // Owner should recover 100 TST tokens
+        // Owner should recover `tokenAmount` native tokens
         assertEq(owner.balance, tokenAmount * 11);
         assertEq(address(faucet).balance, tokenAmount * 4);
     }
