@@ -36,7 +36,9 @@ contract DeployScript is BaseScript {
             address exoEthProxyAdmin = address(new ProxyAdmin());
             CombinedFaucet exoEthFaucetLogic = new CombinedFaucet();
             CombinedFaucet exoEthFaucet = CombinedFaucet(
-                payable(address(new TransparentUpgradeableProxy(address(exoEthFaucetLogic), address(exoEthProxyAdmin), "")))
+                payable(
+                    address(new TransparentUpgradeableProxy(address(exoEthFaucetLogic), address(exoEthProxyAdmin), ""))
+                )
             );
             // give 1 exoETH per request
             exoEthFaucet.initialize(exocoreValidatorSet.addr, tokenAddr, 1 ether);

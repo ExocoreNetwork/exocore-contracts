@@ -218,10 +218,10 @@ contract NativeTokenFaucetTest is Test {
         vm.prank(owner);
         faucet.withdraw(user1);
 
-        // Fast forward time by 24 hours
+        // // Fast forward time by 24 hours
         vm.warp(block.timestamp + 1 days);
 
-        // Should work now
+        // // Should work now
         vm.prank(owner);
         faucet.withdraw(user1);
         assertEq(user1.balance, tokenAmount * 2);

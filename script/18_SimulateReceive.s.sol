@@ -48,12 +48,7 @@ contract SimulateReceive is Script, StdCheats {
         bytes memory extraData = "";
         vm.startBroadcast();
         bytes memory encoded = abi.encodeWithSelector(
-            IOAppCore(receiver).endpoint().lzReceive.selector,
-            origin,
-            receiver,
-            guid,
-            payload,
-            extraData
+            IOAppCore(receiver).endpoint().lzReceive.selector, origin, receiver, guid, payload, extraData
         );
         console.logBytes(encoded);
         IOAppCore(receiver).endpoint().lzReceive(origin, receiver, guid, payload, extraData);
