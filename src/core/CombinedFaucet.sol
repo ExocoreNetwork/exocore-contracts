@@ -66,7 +66,10 @@ contract CombinedFaucet is
 
     function _withdraw(address dst) internal {
         if (lastRequestTime[dst] != 0) {
-            require(block.timestamp >= lastRequestTime[dst] + ONE_DAY, "CombinedFaucet: 24h rate limit breached");
+            require(
+                block.timestamp >= lastRequestTime[dst] + ONE_DAY,
+                "CombinedFaucet: Rate limit exceeded. Please wait 24 hours."
+            );
         }
         lastRequestTime[dst] = block.timestamp;
         if (token != address(0)) {

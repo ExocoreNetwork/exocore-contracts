@@ -73,7 +73,7 @@ contract ERC20FaucetTest is BaseFaucetTest {
         assertEq(token.balanceOf(address(faucet)), tokenAmount * 4);
 
         // Ensure 24h rate limit is enforced
-        vm.expectRevert("CombinedFaucet: 24h rate limit breached");
+        vm.expectRevert("CombinedFaucet: Rate limit exceeded. Please wait 24 hours.");
         vm.prank(user1);
         faucet.requestTokens();
     }
@@ -84,7 +84,7 @@ contract ERC20FaucetTest is BaseFaucetTest {
         faucet.requestTokens();
 
         // Try again before 24 hours have passed
-        vm.expectRevert("CombinedFaucet: 24h rate limit breached");
+        vm.expectRevert("CombinedFaucet: Rate limit exceeded. Please wait 24 hours.");
         vm.prank(user1);
         faucet.requestTokens();
 
@@ -200,7 +200,7 @@ contract NativeTokenFaucetTest is BaseFaucetTest {
         assertEq(address(faucet).balance, tokenAmount * 4);
 
         // Ensure 24h rate limit is enforced
-        vm.expectRevert("CombinedFaucet: 24h rate limit breached");
+        vm.expectRevert("CombinedFaucet: Rate limit exceeded. Please wait 24 hours.");
         vm.prank(owner);
         faucet.withdraw(user1);
     }
@@ -230,14 +230,14 @@ contract NativeTokenFaucetTest is BaseFaucetTest {
         faucet.withdraw(user1);
 
         // Try again before 24 hours have passed
-        vm.expectRevert("CombinedFaucet: 24h rate limit breached");
+        vm.expectRevert("CombinedFaucet: Rate limit exceeded. Please wait 24 hours.");
         vm.prank(owner);
         faucet.withdraw(user1);
 
-        // // Fast forward time by 24 hours
+        // Fast forward time by 24 hours
         vm.warp(block.timestamp + 1 days);
 
-        // // Should work now
+        // Should work now
         vm.prank(owner);
         faucet.withdraw(user1);
         assertEq(user1.balance, tokenAmount * 2);
