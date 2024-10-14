@@ -141,7 +141,7 @@ contract CustomProxyAdminTest is Test {
         try proxyAdmin.changeImplementation(
             // the call is made to the ProxyAdmin from address(0x1)
             // when instead it should have been made from the TransparentUpgradeableProxy
-            address(implementationChanger),
+            ITransparentUpgradeableProxy(address(implementationChanger)),
             address(new NewImplementation()),
             abi.encodeCall(NewImplementation.initialize, ())
         ) {

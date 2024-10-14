@@ -8,7 +8,7 @@ import "forge-std/Script.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "test/mocks/NonShortCircuitEndpointV2Mock.sol";
 
-contract PrerequisitiesScript is BaseScript {
+contract PrerequisitesScript is BaseScript {
 
     function setUp() public virtual override {
         super.setUp();

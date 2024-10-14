@@ -18,12 +18,29 @@ interface IBaseRestakingController {
     /// @param amount The amount of tokens to undelegate.
     function undelegateFrom(string calldata operator, address token, uint256 amount) external payable;
 
-    /// @notice Client chain users call to claim their unlocked assets from the vault.
-    /// @dev This function assumes that the claimable assets should have been unlocked before calling this.
+    /// @notice Client chain users call to withdraw their unlocked assets from the vault.
+    /// @dev This function assumes that the withdrawable assets should have been unlocked before calling this.
     /// @dev This function does not interact with Exocore.
     /// @param token The address of specific token that the user wants to claim from the vault.
     /// @param amount The amount of @param token that the user wants to claim from the vault.
     /// @param recipient The destination address that the assets would be transfered to.
-    function claim(address token, uint256 amount, address recipient) external;
+    function withdrawPrincipal(address token, uint256 amount, address recipient) external;
+
+    /// @notice Submits reward to the reward module on behalf of the AVS
+    /// @param token The address of the specific token that the user wants to submit as a reward.
+    /// @param avs The address of the AVS that the user wants to submit the reward to.
+    /// @param rewardAmount The amount of reward tokens that the user wants to submit.
+    function submitReward(address token, address avs, uint256 rewardAmount) external payable;
+
+    /// @notice Claims reward tokens from Exocore.
+    /// @param token The address of the specific token that the user wants to claim as a reward.
+    /// @param rewardAmount The amount of reward tokens that the user wants to claim.
+    function claimRewardFromExocore(address token, uint256 rewardAmount) external payable;
+
+    /// @notice Withdraws reward tokens from vault to the recipient.
+    /// @param token The address of the specific token that the user wants to withdraw as a reward.
+    /// @param recipient The address of the recipient of the reward tokens.
+    /// @param rewardAmount The amount of reward tokens that the user wants to withdraw.
+    function withdrawReward(address token, address recipient, uint256 rewardAmount) external;
 
 }

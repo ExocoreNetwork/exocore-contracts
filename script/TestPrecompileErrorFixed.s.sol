@@ -6,8 +6,9 @@ import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
 import "../src/interfaces/precompiles/IAssets.sol";
-import "../src/interfaces/precompiles/IClaimReward.sol";
+
 import "../src/interfaces/precompiles/IDelegation.sol";
+import "../src/interfaces/precompiles/IReward.sol";
 import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../test/mocks/NonShortCircuitEndpointV2Mock.sol";
@@ -67,8 +68,8 @@ contract DepositScript is BaseScript {
         bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
         vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
 
-        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
-        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("RewardMock.sol");
+        vm.etch(REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
     }
 
     function run() public {

@@ -4,8 +4,9 @@ import {IExocoreGateway} from "src/interfaces/IExocoreGateway.sol";
 import {Action} from "src/storage/GatewayStorage.sol";
 
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
-import {IClaimReward} from "src/interfaces/precompiles/IClaimReward.sol";
+
 import {IDelegation} from "src/interfaces/precompiles/IDelegation.sol";
+import {IReward} from "src/interfaces/precompiles/IReward.sol";
 
 import {
     MessagingFee,
@@ -39,11 +40,11 @@ contract ExocoreGatewayMock is
     using OptionsBuilder for bytes;
 
     address public immutable ASSETS_PRECOMPILE_ADDRESS;
-    address public immutable CLAIM_REWARD_PRECOMPILE_ADDRESS;
+    address public immutable REWARD_PRECOMPILE_ADDRESS;
     address public immutable DELEGATION_PRECOMPILE_ADDRESS;
 
     IAssets internal immutable ASSETS_CONTRACT;
-    IClaimReward internal immutable CLAIM_REWARD_CONTRACT;
+    IReward internal immutable REWARD_CONTRACT;
     IDelegation internal immutable DELEGATION_CONTRACT;
 
     modifier onlyCalledFromThis() {
@@ -57,20 +58,20 @@ contract ExocoreGatewayMock is
     constructor(
         address endpoint_,
         address assetsPrecompileMock,
-        address ClaimRewardPrecompileMock,
+        address RewardPrecompileMock,
         address delegationPrecompileMock
     ) OAppUpgradeable(endpoint_) {
         require(endpoint_ != address(0), "Endpoint address cannot be zero.");
         require(assetsPrecompileMock != address(0), "Assets precompile address cannot be zero.");
-        require(ClaimRewardPrecompileMock != address(0), "ClaimReward precompile address cannot be zero.");
+        require(RewardPrecompileMock != address(0), "Reward precompile address cannot be zero.");
         require(delegationPrecompileMock != address(0), "Delegation precompile address cannot be zero.");
 
         ASSETS_PRECOMPILE_ADDRESS = assetsPrecompileMock;
-        CLAIM_REWARD_PRECOMPILE_ADDRESS = ClaimRewardPrecompileMock;
+        REWARD_PRECOMPILE_ADDRESS = RewardPrecompileMock;
         DELEGATION_PRECOMPILE_ADDRESS = delegationPrecompileMock;
 
         ASSETS_CONTRACT = IAssets(ASSETS_PRECOMPILE_ADDRESS);
-        CLAIM_REWARD_CONTRACT = IClaimReward(CLAIM_REWARD_PRECOMPILE_ADDRESS);
+        REWARD_CONTRACT = IReward(REWARD_PRECOMPILE_ADDRESS);
         DELEGATION_CONTRACT = IDelegation(DELEGATION_PRECOMPILE_ADDRESS);
 
         _disableInitializers();
@@ -98,6 +99,7 @@ contract ExocoreGatewayMock is
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_LST] = this.handleLSTTransfer.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DEPOSIT_NST] = this.handleNSTTransfer.selector;
         _whiteListFunctionSelectors[Action.REQUEST_WITHDRAW_NST] = this.handleNSTTransfer.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_SUBMIT_REWARD] = this.handleRewardOperation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_CLAIM_REWARD] = this.handleRewardOperation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_DELEGATE_TO] = this.handleDelegation.selector;
         _whiteListFunctionSelectors[Action.REQUEST_UNDELEGATE_FROM] = this.handleDelegation.selector;
@@ -332,18 +334,27 @@ contract ExocoreGatewayMock is
             revert Errors.RequestOrResponseExecuteFailed(act, _origin.nonce, responseOrReason);
         }
 
+        // decode to get the response, and send it back if it is not empty
+        bytes memory response = abi.decode(responseOrReason, (bytes));
+        if (response.length > 0) {
+            _sendInterchainMsg(_origin.srcEid, Action.RESPOND, response, true);
+        }
+
         emit MessageExecuted(act, _origin.nonce);
     }
 
     /// @notice Handles LST transfer from a client chain.
     /// @dev Can only be called from this contract via low-level call.
+    /// @dev Returns empty bytes if the action is deposit, otherwise returns the lzNonce and success flag.
     /// @param srcChainId The source chain id.
     /// @param lzNonce The layer zero nonce.
     /// @param act The action type.
     /// @param payload The request payload.
+    // slither-disable-next-line unused-return
     function handleLSTTransfer(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
+        returns (bytes memory response)
     {
         bytes calldata token = payload[:32];
         bytes calldata staker = payload[32:64];
@@ -351,30 +362,31 @@ contract ExocoreGatewayMock is
 
         bool isDeposit = act == Action.REQUEST_DEPOSIT_LST;
         bool success;
-        uint256 updatedBalance;
         if (isDeposit) {
-            (success, updatedBalance) = ASSETS_CONTRACT.depositLST(srcChainId, token, staker, amount);
+            (success,) = ASSETS_CONTRACT.depositLST(srcChainId, token, staker, amount);
         } else {
-            (success, updatedBalance) = ASSETS_CONTRACT.withdrawLST(srcChainId, token, staker, amount);
+            (success,) = ASSETS_CONTRACT.withdrawLST(srcChainId, token, staker, amount);
         }
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
         emit LSTTransfer(isDeposit, success, bytes32(token), bytes32(staker), amount);
 
-        bytes memory response = abi.encodePacked(lzNonce, success, updatedBalance);
-        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
+        response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
     /// @notice Handles NST transfer from a client chain.
     /// @dev Can only be called from this contract via low-level call.
+    /// @dev Returns empty bytes if the action is deposit, otherwise returns the lzNonce and success flag.
     /// @param srcChainId The source chain id.
     /// @param lzNonce The layer zero nonce.
     /// @param act The action type.
     /// @param payload The request payload.
+    // slither-disable-next-line unused-return
     function handleNSTTransfer(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
+        returns (bytes memory response)
     {
         bytes calldata validatorPubkey = payload[:32];
         bytes calldata staker = payload[32:64];
@@ -382,44 +394,51 @@ contract ExocoreGatewayMock is
 
         bool isDeposit = act == Action.REQUEST_DEPOSIT_NST;
         bool success;
-        uint256 updatedBalance;
         if (isDeposit) {
-            (success, updatedBalance) = ASSETS_CONTRACT.depositNST(srcChainId, validatorPubkey, staker, amount);
+            (success,) = ASSETS_CONTRACT.depositNST(srcChainId, validatorPubkey, staker, amount);
         } else {
-            (success, updatedBalance) = ASSETS_CONTRACT.withdrawNST(srcChainId, validatorPubkey, staker, amount);
+            (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, validatorPubkey, staker, amount);
         }
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
         emit NSTTransfer(isDeposit, success, bytes32(validatorPubkey), bytes32(staker), amount);
 
-        bytes memory response = abi.encodePacked(lzNonce, success, updatedBalance);
-        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
+        response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
-    /// @notice Handles rewards request from a client chain.
+    /// @notice Handles rewards request from a client chain, submit reward or claim reward.
     /// @dev Can only be called from this contract via low-level call.
+    /// @dev Returns the response to client chain including lzNonce and success flag.
     /// @param srcChainId The source chain id.
     /// @param lzNonce The layer zero nonce.
     /// @param payload The request payload.
-    function handleRewardOperation(uint32 srcChainId, uint64 lzNonce, Action, bytes calldata payload)
+    // slither-disable-next-line unused-return
+    function handleRewardOperation(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
+        returns (bytes memory response)
     {
         bytes calldata token = payload[:32];
-        bytes calldata withdrawer = payload[32:64];
+        // it could be either avsId or withdrawer, depending on the action
+        bytes calldata avsOrWithdrawer = payload[32:64];
         uint256 amount = uint256(bytes32(payload[64:96]));
 
-        (bool success, uint256 updatedBalance) =
-            CLAIM_REWARD_CONTRACT.claimReward(srcChainId, token, withdrawer, amount);
-        emit ClaimRewardResult(success, bytes32(token), bytes32(withdrawer), amount);
+        bool isSubmitReward = act == Action.REQUEST_SUBMIT_REWARD;
+        bool success;
+        if (isSubmitReward) {
+            (success,) = REWARD_CONTRACT.submitReward(srcChainId, token, avsOrWithdrawer, amount);
+        } else {
+            (success,) = REWARD_CONTRACT.claimReward(srcChainId, token, avsOrWithdrawer, amount);
+        }
+        emit RewardOperation(success, isSubmitReward, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
-        bytes memory response = abi.encodePacked(lzNonce, success, updatedBalance);
-        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
+        response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
     /// @notice Handles delegation request from a client chain.
     /// @dev Can only be called from this contract via low-level call.
+    /// @dev Returns empty response because the client chain should not expect a response.
     /// @param srcChainId The source chain id.
     /// @param lzNonce The layer zero nonce.
     /// @param act The action type.
@@ -427,10 +446,12 @@ contract ExocoreGatewayMock is
     function handleDelegation(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
+        returns (bytes memory response)
     {
-        bytes calldata token = payload[:32];
-        bytes calldata staker = payload[32:64];
-        bytes calldata operator = payload[64:106];
+        // use memory to avoid stack too deep
+        bytes memory token = payload[:32];
+        bytes memory staker = payload[32:64];
+        bytes memory operator = payload[64:106];
         uint256 amount = uint256(bytes32(payload[106:138]));
 
         bool isDelegate = act == Action.REQUEST_DELEGATE_TO;
@@ -441,26 +462,27 @@ contract ExocoreGatewayMock is
             accepted = DELEGATION_CONTRACT.undelegate(srcChainId, lzNonce, token, staker, operator, amount);
         }
         emit DelegationRequest(isDelegate, accepted, bytes32(token), bytes32(staker), string(operator), amount);
-
-        bytes memory response = abi.encodePacked(lzNonce, accepted);
-        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
     }
 
     /// @notice Responds to a deposit-then-delegate request from a client chain.
     /// @dev Can only be called from this contract via low-level call.
+    /// @dev Returns empty response because the client chain should not expect a response.
     /// @param srcChainId The source chain id.
     /// @param lzNonce The layer zero nonce.
     /// @param payload The request payload.
+    // slither-disable-next-line unused-return
     function handleDepositAndDelegate(uint32 srcChainId, uint64 lzNonce, Action, bytes calldata payload)
         public
         onlyCalledFromThis
+        returns (bytes memory response)
     {
+        // use memory to avoid stack too deep
         bytes memory token = payload[:32];
         bytes memory depositor = payload[32:64];
         bytes memory operator = payload[64:106];
         uint256 amount = uint256(bytes32(payload[106:138]));
 
-        (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositLST(srcChainId, token, depositor, amount);
+        (bool success,) = ASSETS_CONTRACT.depositLST(srcChainId, token, depositor, amount);
         if (!success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
@@ -468,20 +490,18 @@ contract ExocoreGatewayMock is
 
         bool accepted = DELEGATION_CONTRACT.delegate(srcChainId, lzNonce, token, depositor, operator, amount);
         emit DelegationRequest(true, accepted, bytes32(token), bytes32(depositor), string(operator), amount);
-
-        bytes memory response = abi.encodePacked(lzNonce, accepted, updatedBalance);
-        _sendInterchainMsg(srcChainId, Action.RESPOND, response, true);
     }
 
     /// @notice Handles the associating/dissociating operator request, and no response would be returned.
     /// @dev Can only be called from this contract via low-level call.
+    /// @dev Returns empty response because the client chain should not expect a response.
     /// @param srcChainId The source chain id.
-    /// @param lzNonce The layer zero nonce.
     /// @param act The action type.
     /// @param payload The request payload.
-    function handleOperatorAssociation(uint32 srcChainId, uint64 lzNonce, Action act, bytes calldata payload)
+    function handleOperatorAssociation(uint32 srcChainId, uint64, Action act, bytes calldata payload)
         public
         onlyCalledFromThis
+        returns (bytes memory response)
     {
         bool success;
         bytes calldata staker = payload[:32];

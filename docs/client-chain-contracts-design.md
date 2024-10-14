@@ -148,28 +148,33 @@ interface IVault {
     /// @notice Deposits a specified amount into the vault.
     /// @param depositor The address initiating the deposit.
     /// @param amount The amount to be deposited.
-    function deposit(address depositor, uint256 amount) external payable;
+    function deposit(address depositor, uint256 amount) external;
 
-    /// @notice Updates the principal balance for a user.
-    /// @param user The address of the user whose principal balance is being updated.
-    /// @param lastlyUpdatedPrincipalBalance The new principal balance for the user.
-    function updatePrincipalBalance(address user, uint256 lastlyUpdatedPrincipalBalance) external;
-
-    /// @notice Updates the reward balance for a user.
-    /// @param user The address of the user whose reward balance is being updated.
-    /// @param lastlyUpdatedRewardBalance The new reward balance for the user.
-    function updateRewardBalance(address user, uint256 lastlyUpdatedRewardBalance) external;
-
-    /// @notice Updates the withdrawable balance for a user.
-    /// @param user The address of the user whose withdrawable balance is being updated.
-    /// @param unlockPrincipalAmount The amount of principal to be unlocked.
-    /// @param unlockRewardAmount The amount of reward to be unlocked.
-    function updateWithdrawableBalance(address user, uint256 unlockPrincipalAmount, uint256 unlockRewardAmount)
-        external;
+    /// @notice Unlock and increase the withdrawable balance of a user for later withdrawal.
+    /// @param staker The address of the staker whose principal balance is being unlocked.
+    /// @param amount The amount of principal to be unlocked.
+    function unlockPrincipal(address staker, uint256 amount) external;
 
     /// @notice Returns the address of the underlying token.
     /// @return The address of the underlying token.
     function getUnderlyingToken() external returns (address);
+
+    /// @notice Sets the TVL limit for the vault.
+    /// @param tvlLimit_ The new TVL limit for the vault.
+    /// @dev It is possible to reduce or increase the TVL limit. Even if the consumed TVL limit is more than the new TVL
+    /// limit, this transaction will go through and future deposits will be blocked until sufficient withdrawals are
+    /// made.
+    function setTvlLimit(uint256 tvlLimit_) external;
+
+    /// @notice Gets the TVL limit for the vault.
+    /// @return The TVL limit for the vault.
+    // This is a function so that IVault can be used in other contracts without importing the Vault contract.
+    function getTvlLimit() external returns (uint256);
+
+    /// @notice Gets the total value locked in the vault.
+    /// @return The total value locked in the vault.
+    // This is a function so that IVault can be used in other contracts without importing the Vault contract.
+    function getConsumedTvl() external returns (uint256);
 
 }
 ```
@@ -209,46 +214,29 @@ interface IBaseRestakingController {
     /// @param amount The amount of tokens to undelegate.
     function undelegateFrom(string calldata operator, address token, uint256 amount) external payable;
 
-    /// @notice Client chain users call to claim their unlocked assets from the vault.
-    /// @dev This function assumes that the claimable assets should have been unlocked before calling this.
+    /// @notice Client chain users call to withdraw their unlocked assets from the vault.
+    /// @dev This function assumes that the withdrawable assets should have been unlocked before calling this.
     /// @dev This function does not interact with Exocore.
     /// @param token The address of specific token that the user wants to claim from the vault.
     /// @param amount The amount of @param token that the user wants to claim from the vault.
     /// @param recipient The destination address that the assets would be transfered to.
-    function claim(address token, uint256 amount, address recipient) external;
+    function withdrawPrincipal(address token, uint256 amount, address recipient) external;
 
-}
+    /// @notice Submits reward to the reward module on behalf of the AVS
+    /// @param token The address of the specific token that the user wants to submit as a reward.
+    /// @param rewardAmount The amount of reward tokens that the user wants to submit.
+    function submitReward(address token, address avs, uint256 rewardAmount) external payable;
 
-interface ILSTRestakingController is IBaseRestakingController {
+    /// @notice Claims reward tokens from Exocore.
+    /// @param token The address of the specific token that the user wants to claim as a reward.
+    /// @param rewardAmount The amount of reward tokens that the user wants to claim.
+    function claimRewardFromExocore(address token, uint256 rewardAmount) external payable;
 
-    /// @notice Deposits tokens into the Exocore system for further operations like delegation and staking.
-    /// @dev This function locks the specified amount of tokens into a vault and forwards the information to Exocore.
-    /// @dev Deposit is always considered successful on the Exocore chain side.
-    /// @param token The address of the specific token that the user wants to deposit.
-    /// @param amount The amount of the token that the user wants to deposit.
-    function deposit(address token, uint256 amount) external payable;
-
-    /// @notice Requests withdrawal of the principal amount from Exocore to the client chain.
-    /// @dev This function requests withdrawal approval from Exocore. If approved, the assets are
-    /// unlocked and can be claimed by the user. Otherwise, they remain locked.
-    /// @param token The address of the specific token that the user wants to withdraw from Exocore.
-    /// @param principalAmount The principal amount of assets the user deposited into Exocore for delegation and
-    /// staking.
-    function withdrawPrincipalFromExocore(address token, uint256 principalAmount) external payable;
-
-    /// @notice Withdraws reward tokens from Exocore.
+    /// @notice Withdraws reward tokens from vault to the recipient.
     /// @param token The address of the specific token that the user wants to withdraw as a reward.
+    /// @param recipient The address of the recipient of the reward tokens.
     /// @param rewardAmount The amount of reward tokens that the user wants to withdraw.
-    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
-
-    /// @notice Deposits tokens and then delegates them to a specific node operator.
-    /// @dev This function locks the specified amount of tokens into a vault, informs Exocore, and
-    /// delegates the tokens to the specified node operator.
-    /// Delegation can fail if the node operator is not registered in Exocore.
-    /// @param token The address of the specific token that the user wants to deposit and delegate.
-    /// @param amount The amount of the token that the user wants to deposit and delegate.
-    /// @param operator The address of a registered node operator that the user wants to delegate to.
-    function depositThenDelegateTo(address token, uint256 amount, string calldata operator) external payable;
+    function withdrawReward(address token, address recipient, uint256 rewardAmount) external;
 
 }
 ```
@@ -271,28 +259,24 @@ Since the `ClientChainGateway` by itself does not store enough information to ch
 
 This function is the reverse of [`delegatTo`](#delegateto), except that it requires an unbonding period before the undelegation is released for withdrawal. The unbonding period is determined by Exocore based on all the AVSs in which the operator was participating at the time of undelegation.
 
-### `withdrawPrincipalFromExocore`
+### `claimPrincipalFromExocore`
 
-This function is aimed for user withdrawing principal from Exocore chain to client chain. This involves the correct accounting on Exocore chain as well as the correct update of user’s `principalBalance` and claimable balance. If this process is successful, user should be able to claim the corresponding assets on client chain to destination address.
+This function is aimed for user claiming principal from Exocore chain to client chain. This involves the correct accounting on Exocore chain as well as the correct update of user's `principalBalance` and claimable balance. If this process is successful, user should be able to withdraw the corresponding assets on client chain to destination address.
 
-The principal withdrawal workflow is also separated into two trasactions:
+The principal withdrawal workflow is separated into two transactions:
 
 1. Transaction from the user: call `ClientChainGateway.sendInterchainMsg` to send principal withdrawal request to Exocore chain.
-2. Response from Exocore: call `ClientChainGateway.receiveInterchainMsg` to receive the response from Exocore chain, and call `unlock` to update user’s `principalBalance` and claimable balance. If response indicates failure, no user balance should be modified.
+2. Response from Exocore: call `ClientChainGateway.receiveInterchainMsg` to receive the response from Exocore chain, and call `unlockPrincipal` to update user's `principalBalance` and claimable balance. If response indicates failure, no user balance should be modified.
 
-The withdrawable amount of principal is defined as follows:
+The claimable amount of principal is defined as follows:
 
 1. The asset is not staked (delegated) on any operators.
 2. The asset is not frozen/slashed.
 3. The asset is not in unbonding state.
 
-### `claim`
+### `withdrawPrincipal`
 
-This function is aimed for user claiming the unlocked amount of principal. Before claiming, user must make sure that thre is enogh principal unlocked by calling `withdrawPrincipalFromExocore`. The implementaion of this function should check against user’s claimable balance and transfer tokens to the destination address that the user specified.
-
-### `withdrawRewardFromExocore`
-
-TBD
+This function is aimed for user withdrawing the unlocked amount of principal. Before withdrawing, user must make sure that there is enough principal unlocked by calling `claimPrincipalFromExocore`. The implementation of this function should check against user's claimable balance and transfer tokens to the destination address that the user specified.
 
 ### `depositThenDelegateTo`
 

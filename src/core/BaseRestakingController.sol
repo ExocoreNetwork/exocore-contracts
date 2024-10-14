@@ -33,7 +33,7 @@ abstract contract BaseRestakingController is
     receive() external payable {}
 
     /// @inheritdoc IBaseRestakingController
-    function claim(address token, uint256 amount, address recipient)
+    function withdrawPrincipal(address token, uint256 amount, address recipient)
         external
         isTokenWhitelisted(token)
         isValidAmount(amount)
@@ -48,8 +48,6 @@ abstract contract BaseRestakingController is
             IVault vault = _getVault(token);
             vault.withdraw(msg.sender, recipient, amount);
         }
-
-        emit ClaimSucceeded(token, recipient, amount);
     }
 
     /// @inheritdoc IBaseRestakingController
@@ -80,6 +78,50 @@ abstract contract BaseRestakingController is
         bytes memory actionArgs =
             abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
         _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, bytes(""));
+    }
+
+    /// @inheritdoc IBaseRestakingController
+    function submitReward(address token, address avs, uint256 amount)
+        external
+        payable
+        isValidAmount(amount)
+        whenNotPaused
+        nonReentrant
+    {
+        require(token != address(0), "BaseRestakingController: token address cannot be empty or zero address");
+        require(avs != address(0), "BaseRestakingController: avs address cannot be empty or zero address");
+        // deposit reward to reward vault
+        rewardVault.deposit(token, msg.sender, avs, amount);
+        // send request to exocore, and this would not expect a response since deposit is supposed to be must success by
+        // protocol
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(avs)), amount);
+        _processRequest(Action.REQUEST_SUBMIT_REWARD, actionArgs, bytes(""));
+    }
+
+    /// @inheritdoc IBaseRestakingController
+    function claimRewardFromExocore(address token, uint256 amount)
+        external
+        payable
+        isValidAmount(amount)
+        whenNotPaused
+        nonReentrant
+    {
+        require(token != address(0), "BaseRestakingController: token address cannot be empty or zero address");
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
+        bytes memory encodedRequest = abi.encode(token, msg.sender, amount);
+        _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
+    }
+
+    /// @inheritdoc IBaseRestakingController
+    function withdrawReward(address token, address recipient, uint256 amount)
+        external
+        isValidAmount(amount)
+        whenNotPaused
+        nonReentrant
+    {
+        require(token != address(0), "BaseRestakingController: token address cannot be empty or zero address");
+        require(recipient != address(0), "BaseRestakingController: recipient address cannot be empty or zero address");
+        rewardVault.withdraw(token, msg.sender, recipient, amount);
     }
 
     /// @dev Processes the request by sending it to Exocore.
