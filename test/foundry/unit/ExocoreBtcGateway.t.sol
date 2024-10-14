@@ -237,12 +237,23 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         testDepositToWithFirstMessage();
         bytes memory withdrawer = _addressToBytes(delegatorAddr);
         bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        uint256 amount = 500; // 1 BTC
+        uint256 amount = 500;
         bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
         vm.expectEmit(true, true, true, true);
         emit WithdrawRewardRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 1234);
         vm.prank(delegatorAddr);
         exocoreBtcGateway.withdrawReward(btcToken, amount);
+
+        // Retrieve and log the PegOutRequest state
+        ExocoreBtcGatewayStorage.PegOutRequest memory request = exocoreBtcGateway.getPegOutRequest(requestId);
+
+        console.log("PegOutRequest status:");
+        console.log("Token: ", request.token);
+        console.log("Requester: ", request.requester);
+        console.log("Amount: ", request.amount);
+        console.log("WithdrawType: ", uint256(request.withdrawType));
+        console.log("Status: ", uint256(request.status));
+        console.log("Timestamp: ", request.timestamp);
     }
     /**
      * @notice Test delegateTo with invalid token
@@ -339,10 +350,46 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         vm.prank(validator);
         exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
     }
+
+    /**
+     * @notice Helper function to create a PegOutRequest
+     * @return bytes32 The requestId of the created PegOutRequest
+     */
+    function _createPegOutRequest() internal returns (bytes32) {
+        testDepositToWithFirstMessage();
+        bytes memory withdrawer = _addressToBytes(delegatorAddr);
+        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
+        uint256 amount = 500;
+        bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawRewardRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 1234);
+        vm.prank(delegatorAddr);
+        exocoreBtcGateway.withdrawReward(btcToken, amount);
+        return requestId;
+    }
+
+    /**
+     * @notice Test successful status update for a PegOutRequest
+     * @dev This test creates a PegOutRequest, updates its status, and verifies the update
+     */
+    function testSetPegOutRequestStatusSuccess() public {
+        bytes32 requestId = _createPegOutRequest();
+        vm.prank(validator);
+        vm.expectEmit(true, true, true, true);
+        emit PegOutRequestStatusUpdated(requestId, ExocoreBtcGatewayStorage.TxStatus.Processed);
+        exocoreBtcGateway.setPegOutRequestStatus(requestId, ExocoreBtcGatewayStorage.TxStatus.Processed);
+
+        ExocoreBtcGatewayStorage.PegOutRequest memory request = exocoreBtcGateway.getPegOutRequest(requestId);
+        assertEq(
+            uint256(request.status),
+            uint256(ExocoreBtcGatewayStorage.TxStatus.Processed),
+            "Status was not updated correctly"
+        );
+    }
+
     /**
      * @notice Test pause and unpause functions
      */
-
     function testPauseUnpause() public {
         vm.prank(exocoreBtcGateway.owner());
         exocoreBtcGateway.pause();

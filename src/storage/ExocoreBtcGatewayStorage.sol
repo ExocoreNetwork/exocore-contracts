@@ -144,6 +144,7 @@ contract ExocoreBtcGatewayStorage {
     event DepositLimitUpdated(uint256 newLimit);
     event WithdrawalLimitUpdated(uint256 newLimit);
     event PegOutProcessed(bytes32 indexed requestId, bytes32 btcTxTag);
+    event PegOutRequestStatusUpdated(bytes32 indexed requestId, TxStatus newStatus);
 
     error UnauthorizedWitness();
     error RegisterClientChainToExocoreFailed(uint32 clientChainId);

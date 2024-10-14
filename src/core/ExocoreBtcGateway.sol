@@ -584,6 +584,31 @@ contract ExocoreBtcGateway is
     }
 
     /**
+     * @notice Retrieves a PegOutRequest by its requestId.
+     * @param requestId The unique identifier of the request.
+     * @return The PegOutRequest struct associated with the given requestId.
+     */
+    function getPegOutRequest(bytes32 requestId) public view returns (PegOutRequest memory) {
+        return pegOutRequests[requestId];
+    }
+
+    /**
+     * @notice Sets the status of a PegOutRequest.
+     * @param requestId The unique identifier of the request.
+     * @param newStatus The new status to set.
+     */
+    function setPegOutRequestStatus(bytes32 requestId, TxStatus newStatus)
+        external
+        nonReentrant
+        whenNotPaused
+        onlyAuthorizedWitness
+    {
+        require(pegOutRequests[requestId].requester != address(0), "Request does not exist");
+        pegOutRequests[requestId].status = newStatus;
+        emit PegOutRequestStatusUpdated(requestId, newStatus);
+    }
+
+    /**
      * @notice Converts an address to bytes.
      * @param addr The address to convert.
      * @return The address as bytes.
