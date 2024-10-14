@@ -13,7 +13,7 @@ contract RewardVaultStorage {
     mapping(address => mapping(address => uint256)) public totalDepositedRewards;
 
     // Gap for future storage variables
-    uint256[40] private _gap;
+    uint256[40] private __gap;
 
     /**
      * @notice Emitted when a reward is deposited.
