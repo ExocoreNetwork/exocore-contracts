@@ -19,18 +19,15 @@ contract SimulateReceive is Script, StdCheats {
 
     using stdJson for string;
 
-    function setUp() public {
-        // always monkey-patch a precompile, since with LZ we need them
-        // TODO: AssetsMock may still complain about a few things.
-        deployCodeTo("AssetsMock.sol", abi.encode(uint16(40_161)), ASSETS_PRECOMPILE_ADDRESS);
-        deployCodeTo("DelegationMock.sol", DELEGATION_PRECOMPILE_ADDRESS);
-    }
-
     function run() public {
         // https://scan-testnet.layerzero-api.com/v1/messages/tx/<hash>
         string memory json = vm.readFile("./scanApiResponse.json");
         uint32 srcEid = uint32(json.readUint(".data[0].pathway.srcEid"));
         require(srcEid != 0, "srcEid should not be empty");
+        // always monkey-patch a precompile, since with LZ we need them
+        // TODO: AssetsMock may still complain about a few things.
+        deployCodeTo("AssetsMock.sol", abi.encode(uint16(srcEid)), ASSETS_PRECOMPILE_ADDRESS);
+        deployCodeTo("DelegationMock.sol", DELEGATION_PRECOMPILE_ADDRESS);
         address senderAddress = json.readAddress(".data[0].pathway.sender.address");
         require(senderAddress != address(0), "senderAddress should not be empty");
         uint64 nonce = uint64(json.readUint(".data[0].pathway.nonce"));
