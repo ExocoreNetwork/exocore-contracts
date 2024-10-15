@@ -16,8 +16,8 @@ contract DeployExocoreGatewayOnly is BaseScript {
         // load keys
         super.setUp();
         // load contracts
-        string memory prerequisities = vm.readFile("script/prerequisiteContracts.json");
-        exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisities, ".exocore.lzEndpoint"));
+        string memory prerequisites = vm.readFile("script/prerequisiteContracts.json");
+        exocoreLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, ".exocore.lzEndpoint"));
         require(address(exocoreLzEndpoint) != address(0), "exocore l0 endpoint should not be empty");
         // fork
         exocore = vm.createSelectFork(exocoreRPCURL);
@@ -48,6 +48,7 @@ contract DeployExocoreGatewayOnly is BaseScript {
         string memory exocoreContracts = "exocoreContracts";
         vm.serializeAddress(exocoreContracts, "lzEndpoint", address(exocoreLzEndpoint));
         vm.serializeAddress(exocoreContracts, "exocoreGatewayLogic", address(exocoreGatewayLogic));
+        vm.serializeAddress(exocoreContracts, "exocoreProxyAdmin", address(exocoreProxyAdmin));
         string memory exocoreContractsOutput =
             vm.serializeAddress(exocoreContracts, "exocoreGateway", address(exocoreGateway));
 

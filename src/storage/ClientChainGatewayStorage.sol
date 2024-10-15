@@ -3,7 +3,11 @@ pragma solidity ^0.8.19;
 
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {IRewardVault} from "../interfaces/IRewardVault.sol";
+
+import {Errors} from "../libraries/Errors.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 
@@ -15,9 +19,6 @@ import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 /// @dev This contract should contain state variables, events and errors exclusively owned by
 /// ClientChainGateway contract. Shared items should be kept in BootstrapStorage.
 contract ClientChainGatewayStorage is BootstrapStorage {
-
-    /// @notice The nonce for outbound messages.
-    uint64 public outboundNonce;
 
     /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
     mapping(address => IExoCapsule) public ownerToCapsule;
@@ -31,23 +32,27 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @notice The address of the beacon chain oracle.
     address public immutable BEACON_ORACLE_ADDRESS;
 
-    /// @notice The beacon proxy for the ExoCapsule contract.
+    /// @notice The beacon for the reward vault contract, which stores the reward vault implementation.
+    IBeacon public immutable REWARD_VAULT_BEACON;
+
+    /// @notice The beacon for the ExoCapsule contract, which stores the ExoCapsule implementation.
     IBeacon public immutable EXO_CAPSULE_BEACON;
-
-    /// @dev The length of the token address in bytes.
-    uint256 internal constant TOKEN_ADDRESS_BYTES_LENGTH = 32;
-
-    /// @dev The (virtual) address for staked ETH.
-    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @dev The address of the ETHPOS deposit contract.
     IETHPOSDeposit internal constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
+
+    /// @dev The length of an add whitelist token request, in bytes.
+    // bytes32 token + uint128 tvlLimit
+    uint256 internal constant ADD_TOKEN_WHITELIST_REQUEST_LENGTH = 48;
 
     /// @dev The gas limit for all the destination chains.
     uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
 
     /// @dev The msg.value for all the destination chains.
     uint128 internal constant DESTINATION_MSG_VALUE = 0;
+
+    /// @notice The reward vault contract.
+    IRewardVault public rewardVault;
 
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;
@@ -78,29 +83,28 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @param amount Amount of @param token withdrawn.
     event WithdrawRewardResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
 
-    /// @notice Emitted when the gateway finishes processing a request.
-    /// @param action The action of the request.
-    /// @param requestId The ID of the request.
-    /// @param success Whether the request was successful on Exocore.
-    event RequestFinished(Action indexed action, uint64 indexed requestId, bool indexed success);
+    /// @notice Emitted when a response is processed.
+    /// @param action The correspoding request action.
+    /// @param requestId The corresponding request ID.
+    /// @param success Whether the corresponding request was successful on Exocore.
+    event ResponseProcessed(Action indexed action, uint64 indexed requestId, bool indexed success);
 
-    /* -------------------------------------------------------------------------- */
-    /*                                   Errors                                   */
-    /* -------------------------------------------------------------------------- */
-
-    /// @notice Error thrown when the ExoCapsule does not exist.
-    error CapsuleNotExist();
+    /// @notice Emitted when a reward vault is created.
+    /// @param vault Address of the reward vault.
+    event RewardVaultCreated(address vault);
 
     /// @notice Initializes the ClientChainGatewayStorage contract.
     /// @param exocoreChainId_ The chain ID of the Exocore chain.
     /// @param beaconOracleAddress_ The address of the beacon chain oracle.
     /// @param vaultBeacon_ The address of the beacon for the vault proxy.
+    /// @param rewardVaultBeacon_ The address of the beacon for the reward vault proxy.
     /// @param exoCapsuleBeacon_ The address of the beacon for the ExoCapsule proxy.
     /// @param beaconProxyBytecode_ The address of the beacon proxy bytecode contract.
     constructor(
         uint32 exocoreChainId_,
         address beaconOracleAddress_,
         address vaultBeacon_,
+        address rewardVaultBeacon_,
         address exoCapsuleBeacon_,
         address beaconProxyBytecode_
     ) BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_) {
@@ -112,9 +116,14 @@ contract ClientChainGatewayStorage is BootstrapStorage {
             exoCapsuleBeacon_ != address(0),
             "ClientChainGatewayStorage: the exoCapsuleBeacon address for beacon proxy should not be empty"
         );
+        require(
+            rewardVaultBeacon_ != address(0),
+            "ClientChainGatewayStorage: the reward vault beacon address for beacon proxy should not be empty"
+        );
 
         BEACON_ORACLE_ADDRESS = beaconOracleAddress_;
         EXO_CAPSULE_BEACON = IBeacon(exoCapsuleBeacon_);
+        REWARD_VAULT_BEACON = IBeacon(rewardVaultBeacon_);
     }
 
     /// @dev Returns the ExoCapsule for the given owner, if it exists. Fails if the ExoCapsule does not exist.
@@ -122,7 +131,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     function _getCapsule(address owner) internal view returns (IExoCapsule) {
         IExoCapsule capsule = ownerToCapsule[owner];
         if (address(capsule) == address(0)) {
-            revert CapsuleNotExist();
+            revert Errors.CapsuleDoesNotExist();
         }
         return capsule;
     }

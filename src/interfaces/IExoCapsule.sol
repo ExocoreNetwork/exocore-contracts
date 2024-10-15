@@ -9,27 +9,11 @@ import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 /// operations. It is a contract used for native restaking.
 interface IExoCapsule {
 
-    /// @notice This struct contains the information needed for validator container validity verification
-    struct ValidatorContainerProof {
-        uint256 beaconBlockTimestamp;
-        bytes32 stateRoot;
-        bytes32[] stateRootProof;
-        bytes32[] validatorContainerRootProof;
-        uint256 validatorIndex;
-    }
-
-    /// @notice This struct contains the information needed for withdrawal container proof verification
-    struct WithdrawalContainerProof {
-        uint256 beaconBlockTimestamp;
-        bytes32 stateRoot;
-        bytes32[] withdrawalContainerRootProof;
-    }
-
     /// @notice Initializes the ExoCapsule contract with the given parameters.
     /// @param gateway The address of the ClientChainGateway contract.
-    /// @param capsuleOwner The address of the ExoCapsule owner.
+    /// @param capsuleOwner The payable address of the ExoCapsule owner.
     /// @param beaconOracle The address of the BeaconOracle contract.
-    function initialize(address gateway, address capsuleOwner, address beaconOracle) external;
+    function initialize(address gateway, address payable capsuleOwner, address beaconOracle) external;
 
     /// @notice Verifies the deposit proof and returns the amount of deposit.
     /// @param validatorContainer The validator container.
@@ -38,9 +22,10 @@ interface IExoCapsule {
     /// @dev The container must not have been previously registered, must not be stale,
     /// must be activated at a previous epoch, must have the correct withdrawal credentials,
     /// and must have a valid container root.
-    function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
-        external
-        returns (uint256);
+    function verifyDepositProof(
+        bytes32[] calldata validatorContainer,
+        BeaconChainProofs.ValidatorContainerProof calldata proof
+    ) external returns (uint256);
 
     /// @notice Verifies the withdrawal proof and returns the partial withdrawal status and the withdrawal amount.
     /// @param validatorContainer The validator container.
@@ -55,24 +40,25 @@ interface IExoCapsule {
     /// withdrawable epoch of the validator.
     function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata validatorProof,
+        BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external returns (bool partialWithdrawal, uint256 withdrawalAmount);
 
-    /// @notice Allows the owner to withdraw the specified amount to the recipient.
+    /// @notice Allows the owner to withdraw the specified unlocked staked ETH to the recipient.
     /// @dev The amount must be available in the withdrawable balance.
     /// @param amount The amount to withdraw.
     /// @param recipient The recipient address.
     function withdraw(uint256 amount, address payable recipient) external;
 
-    /// @notice Updates the principal balance of the ExoCapsule.
-    /// @param lastlyUpdatedPrincipalBalance The final principal balance.
-    function updatePrincipalBalance(uint256 lastlyUpdatedPrincipalBalance) external;
+    /// @notice Withdraws the nonBeaconChainETHBalance
+    /// @param recipient The payable destination address to which the ETH are sent.
+    /// @param amountToWithdraw The amount to withdraw.
+    function withdrawNonBeaconChainETHBalance(address payable recipient, uint256 amountToWithdraw) external;
 
-    /// @notice Increases the withdrawable balance of the ExoCapsule.
-    /// @param unlockPrincipalAmount The additionally unlocked withdrawable amount.
-    function updateWithdrawableBalance(uint256 unlockPrincipalAmount) external;
+    /// @notice Unlock and increase the withdrawable balance of the ExoCapsule for later withdrawal.
+    /// @param amount The amount of the ETH balance unlocked.
+    function unlockETHPrincipal(uint256 amount) external;
 
     /// @notice Returns the withdrawal credentials of the ExoCapsule.
     /// @return The withdrawal credentials.

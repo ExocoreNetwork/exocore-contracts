@@ -5,7 +5,7 @@ import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
-import "../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 
 import {BaseScript} from "./BaseScript.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
@@ -57,7 +57,7 @@ contract DepositScript is BaseScript {
 
     function run() public {
         bytes memory msg_ = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_WITHDRAW_PRINCIPAL_FROM_EXOCORE,
+            Action.REQUEST_WITHDRAW_LST,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
             uint256(WITHDRAW_AMOUNT)
@@ -68,7 +68,7 @@ contract DepositScript is BaseScript {
         uint256 nativeFee = clientGateway.quote(msg_);
         console.log("l0 native fee:", nativeFee);
 
-        clientGateway.withdrawPrincipalFromExocore{value: nativeFee}(address(restakeToken), WITHDRAW_AMOUNT);
+        clientGateway.claimPrincipalFromExocore{value: nativeFee}(address(restakeToken), WITHDRAW_AMOUNT);
         vm.stopBroadcast();
 
         if (useEndpointMock) {

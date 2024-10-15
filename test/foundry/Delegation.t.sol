@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 import "../../src/core/ExocoreGateway.sol";
 
 import "../../src/interfaces/precompiles/IDelegation.sol";
-import "../../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 import "../mocks/DelegationMock.sol";
 import "./ExocoreDeployer.t.sol";
 
@@ -25,11 +25,13 @@ contract DelegateTest is ExocoreDeployer {
 
     string operatorAddress;
 
-    event DelegateResult(
-        bool indexed success, bytes32 indexed token, bytes32 indexed delegator, string operator, uint256 amount
-    );
-    event UndelegateResult(
-        bool indexed success, bytes32 indexed token, bytes32 indexed undelegator, string operator, uint256 amount
+    event DelegationRequest(
+        bool isDelegate,
+        bool indexed accepted,
+        bytes32 indexed token,
+        bytes32 indexed delegator,
+        string operator,
+        uint256 amount
     );
     event DelegateRequestProcessed(
         uint32 clientChainLzId,
@@ -66,6 +68,7 @@ contract DelegateTest is ExocoreDeployer {
         test_AddWhitelistTokens();
 
         _testDelegate(delegateAmount);
+        _validateNonces();
     }
 
     function test_Undelegation() public {
@@ -79,6 +82,7 @@ contract DelegateTest is ExocoreDeployer {
 
         _testDelegate(delegateAmount);
         _testUndelegate(undelegateAmount);
+        _validateNonces();
     }
 
     function _testDelegate(uint256 delegateAmount) internal {
@@ -87,16 +91,15 @@ contract DelegateTest is ExocoreDeployer {
         // 1. first user call client chain gateway to delegate
 
         /// estimate the messaging fee that would be charged from user
-        uint64 delegateRequestNonce = 1;
         bytes memory delegateRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DELEGATE_TO,
+            Action.REQUEST_DELEGATE_TO,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             bytes(operatorAddress),
             delegateAmount
         );
         uint256 requestNativeFee = clientGateway.quote(delegateRequestPayload);
-        bytes32 requestId = generateUID(delegateRequestNonce, true);
+        bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
 
         /// layerzero endpoint should emit the message packet including delegate payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
@@ -104,13 +107,13 @@ contract DelegateTest is ExocoreDeployer {
             exocoreChainId,
             address(clientGateway),
             address(exocoreGateway).toBytes32(),
-            delegateRequestNonce,
+            outboundNonces[clientChainId],
             delegateRequestPayload
         );
 
         /// clientGateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit MessageSent(GatewayStorage.Action.REQUEST_DELEGATE_TO, requestId, delegateRequestNonce, requestNativeFee);
+        emit MessageSent(Action.REQUEST_DELEGATE_TO, requestId, outboundNonces[clientChainId]++, requestNativeFee);
 
         /// delegator call clientGateway to send delegation request
         vm.startPrank(delegator.addr);
@@ -120,40 +123,21 @@ contract DelegateTest is ExocoreDeployer {
         // 2. second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
-        uint64 delegateResponseNonce = 2;
-        bytes memory delegateResponsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, delegateRequestNonce, true);
-        uint256 responseNativeFee = exocoreGateway.quote(clientChainId, delegateResponsePayload);
-        bytes32 responseId = generateUID(delegateResponseNonce, false);
-
         /// DelegationMock contract should receive correct message payload
         vm.expectEmit(true, true, true, true, DELEGATION_PRECOMPILE_ADDRESS);
         emit DelegateRequestProcessed(
             clientChainId,
-            delegateRequestNonce,
+            outboundNonces[clientChainId] - 1,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             operatorAddress,
             delegateAmount
         );
 
-        /// layerzero endpoint should emit the message packet including delegation response payload.
-        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
-        emit NewPacket(
-            clientChainId,
-            address(exocoreGateway),
-            address(clientGateway).toBytes32(),
-            delegateResponseNonce,
-            delegateResponsePayload
-        );
-
-        /// exocoreGateway should emit MessageSent event after finishing sending response
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, delegateResponseNonce, responseNativeFee);
-
         /// exocoreGateway contract should emit DelegateResult event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit DelegateResult(
+        emit DelegationRequest(
+            true,
             true,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(delegator.addr)),
@@ -161,10 +145,13 @@ contract DelegateTest is ExocoreDeployer {
             delegateAmount
         );
 
+        vm.expectEmit(address(exocoreGateway));
+        emit MessageExecuted(Action.REQUEST_DELEGATE_TO, inboundNonces[exocoreChainId]++);
+
         /// relayer call layerzero endpoint to deliver request messages and generate response message
         vm.startPrank(relayer.addr);
         exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), delegateRequestNonce),
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
             address(exocoreGateway),
             requestId,
             delegateRequestPayload,
@@ -177,25 +164,6 @@ contract DelegateTest is ExocoreDeployer {
             delegator.addr, operatorAddress, clientChainId, address(restakeToken)
         );
         assertEq(actualDelegateAmount, delegateAmount);
-
-        // 3. third layerzero relayers should watch the response message packet and relay the message to source chain
-        // endpoint
-
-        /// after relayer relay the response message back to client chain, clientGateway should emit RequestFinished
-        /// event
-        vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(GatewayStorage.Action.REQUEST_DELEGATE_TO, delegateRequestNonce, true);
-
-        /// relayer should watch the response message and relay it back to client chain
-        vm.startPrank(relayer.addr);
-        clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), delegateResponseNonce),
-            address(clientGateway),
-            responseId,
-            delegateResponsePayload,
-            bytes("")
-        );
-        vm.stopPrank();
     }
 
     function _testUndelegate(uint256 undelegateAmount) internal {
@@ -208,16 +176,15 @@ contract DelegateTest is ExocoreDeployer {
         // 1. first user call client chain gateway to undelegate
 
         /// estimate the messaging fee that would be charged from user
-        uint64 undelegateRequestNonce = 2;
         bytes memory undelegateRequestPayload = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_UNDELEGATE_FROM,
+            Action.REQUEST_UNDELEGATE_FROM,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             bytes(operatorAddress),
             undelegateAmount
         );
         uint256 requestNativeFee = clientGateway.quote(undelegateRequestPayload);
-        bytes32 requestId = generateUID(undelegateRequestNonce, true);
+        bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
 
         /// layerzero endpoint should emit the message packet including undelegate payload.
         vm.expectEmit(true, true, true, true, address(clientChainLzEndpoint));
@@ -225,15 +192,13 @@ contract DelegateTest is ExocoreDeployer {
             exocoreChainId,
             address(clientGateway),
             address(exocoreGateway).toBytes32(),
-            undelegateRequestNonce,
+            outboundNonces[clientChainId],
             undelegateRequestPayload
         );
 
         /// clientGateway should emit MessageSent event
         vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit MessageSent(
-            GatewayStorage.Action.REQUEST_UNDELEGATE_FROM, requestId, undelegateRequestNonce, requestNativeFee
-        );
+        emit MessageSent(Action.REQUEST_UNDELEGATE_FROM, requestId, outboundNonces[clientChainId]++, requestNativeFee);
 
         /// delegator call clientGateway to send undelegation request
         vm.startPrank(delegator.addr);
@@ -243,40 +208,21 @@ contract DelegateTest is ExocoreDeployer {
         // 2. second layerzero relayers should watch the request message packet and relay the message to destination
         // endpoint
 
-        uint64 undelegateResponseNonce = 3;
-        bytes memory undelegateResponsePayload =
-            abi.encodePacked(GatewayStorage.Action.RESPOND, undelegateRequestNonce, true);
-        uint256 responseNativeFee = exocoreGateway.quote(clientChainId, undelegateResponsePayload);
-        bytes32 responseId = generateUID(undelegateResponseNonce, false);
-
         /// DelegationMock contract should receive correct message payload
         vm.expectEmit(true, true, true, true, DELEGATION_PRECOMPILE_ADDRESS);
         emit UndelegateRequestProcessed(
             clientChainId,
-            undelegateRequestNonce,
+            outboundNonces[clientChainId] - 1,
             abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
             operatorAddress,
             undelegateAmount
         );
 
-        /// layerzero endpoint should emit the message packet including undelegation response payload.
-        vm.expectEmit(true, true, true, true, address(exocoreLzEndpoint));
-        emit NewPacket(
-            clientChainId,
-            address(exocoreGateway),
-            address(clientGateway).toBytes32(),
-            undelegateResponseNonce,
-            undelegateResponsePayload
-        );
-
-        /// exocoreGateway should emit MessageSent event after finishing sending response
-        vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit MessageSent(GatewayStorage.Action.RESPOND, responseId, undelegateResponseNonce, responseNativeFee);
-
         /// exocoreGateway contract should emit UndelegateResult event
         vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        emit UndelegateResult(
+        emit DelegationRequest(
+            false,
             true,
             bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(delegator.addr)),
@@ -284,10 +230,13 @@ contract DelegateTest is ExocoreDeployer {
             undelegateAmount
         );
 
+        vm.expectEmit(address(exocoreGateway));
+        emit MessageExecuted(Action.REQUEST_UNDELEGATE_FROM, inboundNonces[exocoreChainId]++);
+
         /// relayer call layerzero endpoint to deliver request messages and generate response message
         vm.startPrank(relayer.addr);
         exocoreLzEndpoint.lzReceive(
-            Origin(clientChainId, address(clientGateway).toBytes32(), undelegateRequestNonce),
+            Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[exocoreChainId] - 1),
             address(exocoreGateway),
             requestId,
             undelegateRequestPayload,
@@ -299,25 +248,6 @@ contract DelegateTest is ExocoreDeployer {
             delegator.addr, operatorAddress, clientChainId, address(restakeToken)
         );
         assertEq(actualDelegateAmount, totalDelegate - undelegateAmount);
-
-        // 3. third layerzero relayers should watch the response message packet and relay the message to source chain
-        // endpoint
-
-        /// after relayer relay the response message back to client chain, clientGateway should emit RequestFinished
-        /// event
-        vm.expectEmit(true, true, true, true, address(clientGateway));
-        emit RequestFinished(GatewayStorage.Action.REQUEST_UNDELEGATE_FROM, undelegateRequestNonce, true);
-
-        /// relayer should watch the response message and relay it back to client chain
-        vm.startPrank(relayer.addr);
-        clientChainLzEndpoint.lzReceive(
-            Origin(exocoreChainId, address(exocoreGateway).toBytes32(), undelegateResponseNonce),
-            address(clientGateway),
-            responseId,
-            undelegateResponsePayload,
-            bytes("")
-        );
-        vm.stopPrank();
     }
 
 }

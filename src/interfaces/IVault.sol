@@ -16,27 +16,32 @@ interface IVault {
     /// @notice Deposits a specified amount into the vault.
     /// @param depositor The address initiating the deposit.
     /// @param amount The amount to be deposited.
-    function deposit(address depositor, uint256 amount) external payable;
+    function deposit(address depositor, uint256 amount) external;
 
-    /// @notice Updates the principal balance for a user.
-    /// @param user The address of the user whose principal balance is being updated.
-    /// @param lastlyUpdatedPrincipalBalance The new principal balance for the user.
-    function updatePrincipalBalance(address user, uint256 lastlyUpdatedPrincipalBalance) external;
-
-    /// @notice Updates the reward balance for a user.
-    /// @param user The address of the user whose reward balance is being updated.
-    /// @param lastlyUpdatedRewardBalance The new reward balance for the user.
-    function updateRewardBalance(address user, uint256 lastlyUpdatedRewardBalance) external;
-
-    /// @notice Updates the withdrawable balance for a user.
-    /// @param user The address of the user whose withdrawable balance is being updated.
-    /// @param unlockPrincipalAmount The amount of principal to be unlocked.
-    /// @param unlockRewardAmount The amount of reward to be unlocked.
-    function updateWithdrawableBalance(address user, uint256 unlockPrincipalAmount, uint256 unlockRewardAmount)
-        external;
+    /// @notice Unlock and increase the withdrawable balance of a user for later withdrawal.
+    /// @param staker The address of the staker whose principal balance is being unlocked.
+    /// @param amount The amount of principal to be unlocked.
+    function unlockPrincipal(address staker, uint256 amount) external;
 
     /// @notice Returns the address of the underlying token.
     /// @return The address of the underlying token.
     function getUnderlyingToken() external returns (address);
+
+    /// @notice Sets the TVL limit for the vault.
+    /// @param tvlLimit_ The new TVL limit for the vault.
+    /// @dev It is possible to reduce or increase the TVL limit. Even if the consumed TVL limit is more than the new TVL
+    /// limit, this transaction will go through and future deposits will be blocked until sufficient withdrawals are
+    /// made.
+    function setTvlLimit(uint256 tvlLimit_) external;
+
+    /// @notice Gets the TVL limit for the vault.
+    /// @return The TVL limit for the vault.
+    // This is a function so that IVault can be used in other contracts without importing the Vault contract.
+    function getTvlLimit() external returns (uint256);
+
+    /// @notice Gets the total value locked in the vault.
+    /// @return The total value locked in the vault.
+    // This is a function so that IVault can be used in other contracts without importing the Vault contract.
+    function getConsumedTvl() external returns (uint256);
 
 }

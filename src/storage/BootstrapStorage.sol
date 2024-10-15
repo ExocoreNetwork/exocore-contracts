@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {BeaconProxyBytecode} from "../core/BeaconProxyBytecode.sol";
 import {Vault} from "../core/Vault.sol";
 import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
 import {IVault} from "../interfaces/IVault.sol";
+import {BeaconProxyBytecode} from "../utils/BeaconProxyBytecode.sol";
+
+import {Errors} from "../libraries/Errors.sol";
 import {GatewayStorage} from "./GatewayStorage.sol";
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
@@ -22,8 +24,8 @@ contract BootstrapStorage is GatewayStorage {
     // time and duration
     /// @notice A timestamp representing the scheduled spawn time of the Exocore chain, which influences the contract's
     /// operational restrictions.
-    /// @dev `offsetDuration` before `exocoreSpawnTime`, the contract freezes and most actions are prohibited.
-    uint256 public exocoreSpawnTime;
+    /// @dev `offsetDuration` before `spawnTime`, the contract freezes and most actions are prohibited.
+    uint256 public spawnTime;
 
     /// @notice The amount of time before the Exocore spawn time during which operations are restricted.
     /// @dev The duration before the Exocore spawn time during which most contract operations are locked.
@@ -124,6 +126,9 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev Maps token addresses to their corresponding vault contracts.
     mapping(address token => IVault vault) public tokenToVault;
 
+    /// @dev The (virtual) address for native staking token.
+    address internal constant VIRTUAL_NST_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
     /// @notice Used to identify the specific Exocore chain this contract interacts with for cross-chain
     /// functionalities.
     /// @dev Stores the Layer Zero chain ID of the Exocore chain.
@@ -137,6 +142,14 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev We do not store bytecode of beacon proxy contract in this storage because that would cause the code size of
     /// this contract exceeding the limit and leading to creation failure.
     BeaconProxyBytecode public immutable BEACON_PROXY_BYTECODE;
+
+    /// @notice Mapping to keep track of the consensus keys that have been used.
+    /// @dev A mapping of consensus keys to a boolean indicating whether the key has been used.
+    mapping(bytes32 consensusKey => bool used) public consensusPublicKeyInUse;
+
+    /// @notice Mapping to keep track of the validator names that have been used.
+    /// @dev A mapping of validator names to a boolean indicating whether the name has been used.
+    mapping(string name => bool used) public validatorNameInUse;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -167,9 +180,7 @@ contract BootstrapStorage is GatewayStorage {
     /// @param token The address of the token being withdrawn, on this chain.
     /// @param withdrawer The address of the withdrawer, on this chain.
     /// @param amount The amount of the token available to claim.
-    event WithdrawPrincipalResult(
-        bool indexed success, address indexed token, address indexed withdrawer, uint256 amount
-    );
+    event ClaimPrincipalResult(bool indexed success, address indexed token, address indexed withdrawer, uint256 amount);
 
     /// @notice Emitted when a delegation is made to an operator.
     /// @dev This event is triggered whenever a delegator delegates tokens to an operator.
@@ -214,6 +225,20 @@ contract BootstrapStorage is GatewayStorage {
     /// trigger this event.
     event Bootstrapped();
 
+    /// @notice Emitted when a mark bootstrap call is received before the spawn time.
+    /// @dev This event is triggered when a mark bootstrap call is received before the spawn time.
+    event BootstrapNotTimeYet();
+
+    /// @notice Emitted if the bootstrap upgrade to client chain gateway fails.
+    /// @dev This event is triggered if the upgrade from Bootstrap to Client Chain Gateway fails. It is not an error
+    /// intentionally to prevent blocking the system.
+    event BootstrapUpgradeFailed();
+
+    /// @notice Emitted when the contract is already bootstrapped.
+    /// @dev This event is triggered when the contract is already bootstrapped and an attempt is made to bootstrap it
+    /// again. It is not an error intentionally to prevent blocking the system.
+    event BootstrappedAlready();
+
     /// @notice Emitted when the client chain gateway logic + implementation are updated.
     /// @dev This event is triggered whenever the client chain gateway logic and implementation are updated. It may be
     /// used, before bootstrapping is complete, to upgrade the client chain gateway logic for upgrades or other bugs.
@@ -230,38 +255,18 @@ contract BootstrapStorage is GatewayStorage {
     /// @param _token The address of the token that has been added to the whitelist.
     event WhitelistTokenAdded(address _token);
 
-    /* -------------------------------------------------------------------------- */
-    /*                                   Errors                                   */
-    /* -------------------------------------------------------------------------- */
-
-    /// @dev Indicates an operation failed because the specified vault does not exist.
-    error VaultNotExist();
-
-    /// @dev Indicates that an operation which is not yet supported is requested.
-    error NotYetSupported();
-
-    /// @notice This error is returned when the contract fails to execute a layer zero message due to an error in the
-    /// execution process.
-    /// @dev This error is returned when the execution of a layer zero message fails.
-    /// @param act The action for which the selector or the response function was executed, but failed.
-    /// @param nonce The nonce of the message that failed.
-    /// @param reason The reason for the failure.
-    error RequestOrResponseExecuteFailed(Action act, uint64 nonce, bytes reason);
-
     /// @dev Struct to return detailed information about a token, including its name, symbol, address, decimals, total
     /// supply, and additional metadata for cross-chain operations and contextual data.
     /// @param name The name of the token.
     /// @param symbol The symbol of the token.
     /// @param tokenAddress The contract address of the token.
     /// @param decimals The number of decimals the token uses.
-    /// @param totalSupply The total supply of the token.
     /// @param depositAmount The total amount of the token deposited into the contract.
     struct TokenInfo {
         string name;
         string symbol;
         address tokenAddress;
         uint8 decimals;
-        uint256 totalSupply;
         uint256 depositAmount;
     }
 
@@ -314,7 +319,7 @@ contract BootstrapStorage is GatewayStorage {
     function _getVault(address token) internal view returns (IVault) {
         IVault vault = tokenToVault[token];
         if (address(vault) == address(0)) {
-            revert VaultNotExist();
+            revert Errors.VaultDoesNotExist();
         }
         return vault;
     }
@@ -322,11 +327,16 @@ contract BootstrapStorage is GatewayStorage {
     /// @notice Deploys a new vault for the given underlying token.
     /// @dev Uses the Create2 opcode to deploy the vault.
     /// @param underlyingToken The address of the underlying token.
+    /// @param tvlLimit The TVL limit for the vault.
     /// @return The address of the newly deployed vault.
     // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
     // array, so it would not cause collision for encodePacked
     // slither-disable-next-line encode-packed-collision
-    function _deployVault(address underlyingToken) internal returns (IVault) {
+    function _deployVault(address underlyingToken, uint256 tvlLimit) internal returns (IVault) {
+        if (underlyingToken == VIRTUAL_NST_ADDRESS) {
+            revert Errors.ForbidToDeployVault();
+        }
+
         Vault vault = Vault(
             Create2.deploy(
                 0,
@@ -336,11 +346,17 @@ contract BootstrapStorage is GatewayStorage {
                 abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(VAULT_BEACON), ""))
             )
         );
-        vault.initialize(underlyingToken, address(this));
+        vault.initialize(underlyingToken, tvlLimit, address(this));
         emit VaultCreated(underlyingToken, address(vault));
 
         tokenToVault[underlyingToken] = vault;
         return vault;
+    }
+
+    /// @dev Internal version of getWhitelistedTokensCount; shared between Bootstrap and ClientChainGateway
+    /// @dev Looks a bit redundant because it is, but at least this way, the implementation is shared.
+    function _getWhitelistedTokensCount() internal view returns (uint256) {
+        return whitelistTokens.length;
     }
 
 }

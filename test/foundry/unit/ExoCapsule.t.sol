@@ -28,12 +28,12 @@ contract DepositSetup is Test {
      *         uint256 validatorContainerRootIndex;
      *     }
      */
-    IExoCapsule.ValidatorContainerProof validatorProof;
+    BeaconChainProofs.ValidatorContainerProof validatorProof;
     bytes32 beaconBlockRoot;
 
     ExoCapsule capsule;
     IBeaconChainOracle beaconOracle;
-    address capsuleOwner;
+    address payable capsuleOwner;
 
     uint256 constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
     /// @notice The number of slots each epoch in the beacon chain
@@ -70,22 +70,15 @@ contract DepositSetup is Test {
         beaconOracle = IBeaconChainOracle(address(0x123));
         vm.etch(address(beaconOracle), bytes("aabb"));
 
-        capsuleOwner = address(0x125);
+        capsuleOwner = payable(address(0x125));
 
         ExoCapsule phantomCapsule = new ExoCapsule();
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(phantomCapsule).code);
         capsule = ExoCapsule(payable(capsuleAddress));
-        assertEq(bytes32(capsule.capsuleWithdrawalCredentials()), _getWithdrawalCredentials(validatorContainer));
 
-        stdstore.target(capsuleAddress).sig("gateway()").checked_write(bytes32(uint256(uint160(address(this)))));
-
-        stdstore.target(capsuleAddress).sig("capsuleOwner()").checked_write(bytes32(uint256(uint160(capsuleOwner))));
-
-        stdstore.target(capsuleAddress).sig("beaconOracle()").checked_write(
-            bytes32(uint256(uint160(address(beaconOracle))))
-        );
+        capsule.initialize(address(this), capsuleOwner, address(beaconOracle));
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {
@@ -110,6 +103,33 @@ contract DepositSetup is Test {
 
     function _getExitEpoch(bytes32[] storage vc) internal view returns (uint64) {
         return vc[6].fromLittleEndianUint64();
+    }
+
+}
+
+contract Initialize is DepositSetup {
+
+    using stdStorage for StdStorage;
+
+    function test_success_CapsuleInitialized() public {
+        // Assert that the gateway is set correctly
+        assertEq(address(capsule.gateway()), address(this));
+
+        // Assert that the capsule owner is set correctly
+        assertEq(capsule.capsuleOwner(), capsuleOwner);
+
+        // Assert that the beacon oracle is set correctly
+        assertEq(address(capsule.beaconOracle()), address(beaconOracle));
+
+        // Assert that the reentrancy guard is not entered
+        uint256 NOT_ENTERED = 1;
+        bytes32 reentrancyStatusSlot = bytes32(uint256(1));
+        uint256 status = uint256(vm.load(address(capsule), reentrancyStatusSlot));
+
+        assertEq(status, NOT_ENTERED);
+
+        // Assert that the capsule withdrawal credentials are set correctly
+        assertEq(bytes32(capsule.capsuleWithdrawalCredentials()), _getWithdrawalCredentials(validatorContainer));
     }
 
 }
@@ -264,7 +284,7 @@ contract VerifyDepositProof is DepositSetup {
         vm.store(address(anotherCapsule), gatewaySlot, bytes32(uint256(uint160(address(this)))));
 
         bytes32 ownerSlot = bytes32(stdstore.target(address(anotherCapsule)).sig("capsuleOwner()").find());
-        vm.store(address(anotherCapsule), ownerSlot, bytes32(uint256(uint160(capsuleOwner))));
+        vm.store(address(anotherCapsule), ownerSlot, bytes32(uint256(uint160(address(capsuleOwner)))));
 
         bytes32 beaconOraclerSlot = bytes32(stdstore.target(address(anotherCapsule)).sig("beaconOracle()").find());
         vm.store(address(anotherCapsule), beaconOraclerSlot, bytes32(uint256(uint160(address(beaconOracle)))));
@@ -312,7 +332,7 @@ contract WithdrawalSetup is Test {
      *     uint256 validatorIndex;
      * }
      */
-    IExoCapsule.ValidatorContainerProof validatorProof;
+    BeaconChainProofs.ValidatorContainerProof validatorProof;
 
     bytes32[] withdrawalContainer;
     BeaconChainProofs.WithdrawalProof withdrawalProof;
@@ -466,11 +486,16 @@ contract WithdrawalSetup is Test {
         return vc[6].fromLittleEndianUint64();
     }
 
+    function _getWithdrawalIndex(bytes32[] storage wc) internal view returns (uint64) {
+        return wc[0].fromLittleEndianUint64();
+    }
+
 }
 
 contract VerifyWithdrawalProof is WithdrawalSetup {
 
     using BeaconChainProofs for bytes32;
+    using WithdrawalContainer for bytes32[];
     using stdStorage for StdStorage;
 
     function test_NonBeaconChainETHWithdraw() public {
@@ -484,7 +509,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
         vm.stopPrank();
 
         address recipient = vm.addr(2);
-        capsule.withdrawNonBeaconChainETHBalance(recipient, 0.2 ether);
+        capsule.withdrawNonBeaconChainETHBalance(payable(recipient), 0.2 ether);
         assertEq(recipient.balance, 0.2 ether);
         assertEq(capsule.nonBeaconChainETHBalance(), 0.3 ether);
 
@@ -493,7 +518,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
                 "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
             )
         );
-        capsule.withdrawNonBeaconChainETHBalance(recipient, 0.5 ether);
+        capsule.withdrawNonBeaconChainETHBalance(payable(recipient), 0.5 ether);
     }
 
     function test_processFullWithdrawal_success() public setValidatorContainerAndTimestampForFullWithdrawal {
@@ -510,7 +535,7 @@ contract VerifyWithdrawalProof is WithdrawalSetup {
             abi.encodeWithSelector(
                 ExoCapsule.WithdrawalAlreadyProven.selector,
                 _getPubkey(validatorContainer),
-                withdrawalProof.withdrawalIndex
+                uint256(_getWithdrawalIndex(withdrawalContainer))
             )
         );
         capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);

@@ -3,12 +3,15 @@ pragma solidity ^0.8.19;
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-import "../src/core/BeaconProxyBytecode.sol";
 import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
-import {CustomProxyAdmin} from "../src/core/CustomProxyAdmin.sol";
+
 import "../src/core/ExoCapsule.sol";
+
+import {RewardVault} from "../src/core/RewardVault.sol";
 import {Vault} from "../src/core/Vault.sol";
+import "../src/utils/BeaconProxyBytecode.sol";
+import {CustomProxyAdmin} from "../src/utils/CustomProxyAdmin.sol";
 
 import {BaseScript} from "./BaseScript.sol";
 import {ILayerZeroEndpointV2} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
@@ -18,6 +21,8 @@ import "forge-std/Script.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 contract DeployBootstrapOnly is BaseScript {
+
+    address wstETH;
 
     function setUp() public virtual override {
         // load keys
@@ -37,37 +42,68 @@ contract DeployBootstrapOnly is BaseScript {
         beaconProxyBytecode =
             BeaconProxyBytecode(stdJson.readAddress(prerequisiteContracts, ".clientChain.beaconProxyBytecode"));
         require(address(beaconProxyBytecode) != address(0), "Beacon proxy bytecode not found");
+        // wstETH on Sepolia
+        // https://docs.lido.fi/deployed-contracts/sepolia/
+        wstETH = stdJson.readAddress(prerequisiteContracts, ".clientChain.wstETH");
+        require(wstETH != address(0), "wstETH not found");
     }
 
     function run() public {
         vm.selectFork(clientChain);
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         whitelistTokens.push(address(restakeToken));
+        tvlLimits.push(restakeToken.totalSupply() / 20);
+        whitelistTokens.push(wstETH);
+        // doesn't matter if it's actually ERC20PresetFixedSupply, just need the total supply
+        tvlLimits.push(ERC20PresetFixedSupply(wstETH).totalSupply() / 20);
 
         // proxy deployment
-        CustomProxyAdmin proxyAdmin = new CustomProxyAdmin();
+        clientChainProxyAdmin = new CustomProxyAdmin();
         // vault, shared between bootstrap and client chain gateway
         vaultImplementation = new Vault();
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+
         // bootstrap logic
         Bootstrap bootstrapLogic = new Bootstrap(
             address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
         );
+        // client chain constructor (upgrade details)
+        capsuleImplementation = new ExoCapsule();
+        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+        rewardVaultImplementation = new RewardVault();
+        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
+        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
+            address(clientChainLzEndpoint),
+            exocoreChainId,
+            address(beaconOracle),
+            address(vaultBeacon),
+            address(rewardVaultBeacon),
+            address(capsuleBeacon),
+            address(beaconProxyBytecode)
+        );
+        // then the client chain initialization
+        address[] memory emptyList;
+        bytes memory initialization =
+            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr, emptyList);
         // bootstrap implementation
         Bootstrap bootstrap = Bootstrap(
             payable(
                 address(
                     new TransparentUpgradeableProxy(
                         address(bootstrapLogic),
-                        address(proxyAdmin),
+                        address(clientChainProxyAdmin),
                         abi.encodeCall(
                             Bootstrap.initialize,
                             (
                                 exocoreValidatorSet.addr,
-                                block.timestamp + 365 days + 24 hours,
-                                24 hours,
+                                // 1 week from now
+                                block.timestamp + 168 hours,
+                                2 seconds,
                                 whitelistTokens, // vault is auto deployed
-                                address(proxyAdmin)
+                                tvlLimits,
+                                address(clientChainProxyAdmin),
+                                address(clientGatewayLogic),
+                                initialization
                             )
                         )
                     )
@@ -76,31 +112,15 @@ contract DeployBootstrapOnly is BaseScript {
         );
 
         // initialize proxyAdmin with bootstrap address
-        proxyAdmin.initialize(address(bootstrap));
-
-        // now, focus on the client chain constructor
-        capsuleImplementation = new ExoCapsule();
-        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(beaconOracle),
-            address(vaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
-        );
-        // then the client chain initialization
-        address[] memory emptyList;
-        bytes memory initialization =
-            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr, emptyList);
-        bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
+        clientChainProxyAdmin.initialize(address(bootstrap));
 
         vm.stopBroadcast();
 
         string memory clientChainContracts = "clientChainContracts";
         vm.serializeAddress(clientChainContracts, "lzEndpoint", address(clientChainLzEndpoint));
         vm.serializeAddress(clientChainContracts, "erc20Token", address(restakeToken));
-        vm.serializeAddress(clientChainContracts, "proxyAdmin", address(proxyAdmin));
+        vm.serializeAddress(clientChainContracts, "wstETH", wstETH);
+        vm.serializeAddress(clientChainContracts, "proxyAdmin", address(clientChainProxyAdmin));
         vm.serializeAddress(clientChainContracts, "vaultImplementation", address(vaultImplementation));
         vm.serializeAddress(clientChainContracts, "vaultBeacon", address(vaultBeacon));
         vm.serializeAddress(clientChainContracts, "beaconProxyBytecode", address(beaconProxyBytecode));
@@ -109,6 +129,8 @@ contract DeployBootstrapOnly is BaseScript {
         vm.serializeAddress(clientChainContracts, "beaconOracle", address(beaconOracle));
         vm.serializeAddress(clientChainContracts, "capsuleImplementation", address(capsuleImplementation));
         vm.serializeAddress(clientChainContracts, "capsuleBeacon", address(capsuleBeacon));
+        vm.serializeAddress(clientChainContracts, "rewardVaultImplementation", address(rewardVaultImplementation));
+        vm.serializeAddress(clientChainContracts, "rewardVaultBeacon", address(rewardVaultBeacon));
         string memory clientChainContractsOutput =
             vm.serializeAddress(clientChainContracts, "clientGatewayLogic", address(clientGatewayLogic));
 

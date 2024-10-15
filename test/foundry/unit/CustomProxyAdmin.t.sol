@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {CustomProxyAdmin} from "src/core/CustomProxyAdmin.sol";
 import {ICustomProxyAdmin} from "src/interfaces/ICustomProxyAdmin.sol";
+import {CustomProxyAdmin} from "src/utils/CustomProxyAdmin.sol";
 
 import "forge-std/Test.sol";
 import "forge-std/console.sol";
@@ -141,7 +141,7 @@ contract CustomProxyAdminTest is Test {
         try proxyAdmin.changeImplementation(
             // the call is made to the ProxyAdmin from address(0x1)
             // when instead it should have been made from the TransparentUpgradeableProxy
-            address(implementationChanger),
+            ITransparentUpgradeableProxy(address(implementationChanger)),
             address(new NewImplementation()),
             abi.encodeCall(NewImplementation.initialize, ())
         ) {

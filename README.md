@@ -46,7 +46,7 @@ We have several tests against the local anvil testnet. To pass these tests, you 
 
 Then run the test like:
 
-`forge script script/1_Prerequisities.s.sol --broadcast -vvvv`
+`forge script script/1_Prerequisites.s.sol --broadcast -vvvv`
 
 `forge test -vvvv --match-path/--match-path xxxx`
 

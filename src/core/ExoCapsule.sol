@@ -23,15 +23,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     using ValidatorContainer for bytes32[];
     using WithdrawalContainer for bytes32[];
 
-    /// @notice Emitted when the principal balance of the capsule is updated.
+    /// @notice Emitted when the ETH principal balance is unlocked.
     /// @param owner The address of the capsule owner.
-    /// @param balance The new principal balance.
-    event PrincipalBalanceUpdated(address owner, uint256 balance);
-
-    /// @notice Emitted when the withdrawable balance of the capsule is updated.
-    /// @param owner The address of the capsule owner.
-    /// @param additionalAmount The amount added to the withdrawable balance.
-    event WithdrawableBalanceUpdated(address owner, uint256 additionalAmount);
+    /// @param unlockedAmount The amount added to the withdrawable balance.
+    event ETHPrincipalUnlocked(address owner, uint256 unlockedAmount);
 
     /// @notice Emitted when a withdrawal is successfully completed.
     /// @param owner The address of the capsule owner.
@@ -148,7 +143,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @inheritdoc IExoCapsule
-    function initialize(address gateway_, address capsuleOwner_, address beaconOracle_) external initializer {
+    function initialize(address gateway_, address payable capsuleOwner_, address beaconOracle_) external initializer {
         require(gateway_ != address(0), "ExoCapsule: gateway address can not be empty");
         require(capsuleOwner_ != address(0), "ExoCapsule: capsule owner address can not be empty");
         require(beaconOracle_ != address(0), "ExoCapsule: beacon chain oracle address should not be empty");
@@ -157,15 +152,16 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         beaconOracle = IBeaconChainOracle(beaconOracle_);
         capsuleOwner = capsuleOwner_;
 
+        __ReentrancyGuard_init_unchained();
+
         emit RestakingActivated(capsuleOwner);
     }
 
     /// @inheritdoc IExoCapsule
-    function verifyDepositProof(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
-        external
-        onlyGateway
-        returns (uint256 depositAmount)
-    {
+    function verifyDepositProof(
+        bytes32[] calldata validatorContainer,
+        BeaconChainProofs.ValidatorContainerProof calldata proof
+    ) external onlyGateway returns (uint256 depositAmount) {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
         Validator storage validator = _capsuleValidators[validatorPubkey];
@@ -203,7 +199,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     /// @inheritdoc IExoCapsule
     function verifyWithdrawalProof(
         bytes32[] calldata validatorContainer,
-        ValidatorContainerProof calldata validatorProof,
+        BeaconChainProofs.ValidatorContainerProof calldata validatorProof,
         bytes32[] calldata withdrawalContainer,
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external onlyGateway returns (bool partialWithdrawal, uint256 withdrawalAmount) {
@@ -211,6 +207,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         Validator storage validator = _capsuleValidators[validatorPubkey];
         uint64 withdrawalEpoch = withdrawalProof.slotRoot.getWithdrawalEpoch();
         partialWithdrawal = withdrawalEpoch < validatorContainer.getWithdrawableEpoch();
+        uint256 withdrawalId = uint256(withdrawalContainer.getWithdrawalIndex());
 
         if (!validatorContainer.verifyValidatorContainerBasic()) {
             revert InvalidValidatorContainer(validatorPubkey);
@@ -219,11 +216,11 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
             revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
         }
 
-        if (provenWithdrawal[validatorPubkey][withdrawalProof.withdrawalIndex]) {
-            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalProof.withdrawalIndex);
+        if (provenWithdrawal[validatorPubkey][withdrawalId]) {
+            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalId);
         }
 
-        provenWithdrawal[validatorPubkey][withdrawalProof.withdrawalIndex] = true;
+        provenWithdrawal[validatorPubkey][withdrawalId] = true;
 
         // Validate if validator and withdrawal proof state roots are the same
         if (validatorProof.stateRoot != withdrawalProof.stateRoot) {
@@ -266,11 +263,14 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @notice Withdraws the nonBeaconChainETHBalance
-    /// @dev This function must be called through the gateway. @param amount must be greater than
+    /// @dev This function must be called through the gateway. @param amountToWithdraw can not be greater than
     /// the available nonBeaconChainETHBalance.
-    /// @param recipient The destination address to which the ETH are sent.
+    /// @param recipient The payable destination address to which the ETH are sent.
     /// @param amountToWithdraw The amount to withdraw.
-    function withdrawNonBeaconChainETHBalance(address recipient, uint256 amountToWithdraw) external onlyGateway {
+    function withdrawNonBeaconChainETHBalance(address payable recipient, uint256 amountToWithdraw)
+        external
+        onlyGateway
+    {
         require(
             amountToWithdraw <= nonBeaconChainETHBalance,
             "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
@@ -283,17 +283,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @inheritdoc IExoCapsule
-    function updatePrincipalBalance(uint256 lastlyUpdatedPrincipalBalance) external onlyGateway {
-        principalBalance = lastlyUpdatedPrincipalBalance;
-
-        emit PrincipalBalanceUpdated(capsuleOwner, lastlyUpdatedPrincipalBalance);
-    }
-
-    /// @inheritdoc IExoCapsule
-    function updateWithdrawableBalance(uint256 unlockPrincipalAmount) external onlyGateway {
+    function unlockETHPrincipal(uint256 unlockPrincipalAmount) external onlyGateway {
         withdrawableBalance += unlockPrincipalAmount;
 
-        emit WithdrawableBalanceUpdated(capsuleOwner, unlockPrincipalAmount);
+        emit ETHPrincipalUnlocked(capsuleOwner, unlockPrincipalAmount);
     }
 
     /// @inheritdoc IExoCapsule
@@ -346,10 +339,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @dev Sends @param amountWei of ETH to the @param recipient.
-    /// @param recipient The address of the recipient.
+    /// @param recipient The address of the payable recipient.
     /// @param amountWei The amount of ETH to send, in wei.
     // slither-disable-next-line arbitrary-send-eth
-    function _sendETH(address recipient, uint256 amountWei) internal nonReentrant {
+    function _sendETH(address payable recipient, uint256 amountWei) internal nonReentrant {
         (bool sent,) = recipient.call{value: amountWei}("");
         if (!sent) {
             revert WithdrawalFailure(capsuleOwner, recipient, amountWei);
@@ -359,10 +352,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     /// @dev Verifies a validator container.
     /// @param validatorContainer The validator container to verify.
     /// @param proof The proof of the validator container.
-    function _verifyValidatorContainer(bytes32[] calldata validatorContainer, ValidatorContainerProof calldata proof)
-        internal
-        view
-    {
+    function _verifyValidatorContainer(
+        bytes32[] calldata validatorContainer,
+        BeaconChainProofs.ValidatorContainerProof calldata proof
+    ) internal view {
         bytes32 beaconBlockRoot = getBeaconBlockRoot(proof.beaconBlockTimestamp);
         bytes32 validatorContainerRoot = validatorContainer.merkleizeValidatorContainer();
         bool valid = validatorContainerRoot.isValidValidatorContainerRoot(

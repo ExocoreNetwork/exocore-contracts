@@ -2,6 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {IClientChainGateway} from "../interfaces/IClientChainGateway.sol";
+
+import {IRewardVault} from "../interfaces/IRewardVault.sol";
+import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
+import {IVault} from "../interfaces/IVault.sol";
 import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {OAppReceiverUpgradeable} from "../lzApp/OAppReceiverUpgradeable.sol";
 import {MessagingFee, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
@@ -12,11 +16,13 @@ import {LSTRestakingController} from "./LSTRestakingController.sol";
 import {NativeRestakingController} from "./NativeRestakingController.sol";
 
 import {Errors} from "../libraries/Errors.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
 import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 
 /// @title ClientChainGateway
 /// @author ExocoreNetwork
@@ -26,6 +32,7 @@ contract ClientChainGateway is
     PausableUpgradeable,
     OwnableUpgradeable,
     IClientChainGateway,
+    ITokenWhitelister,
     LSTRestakingController,
     NativeRestakingController,
     ClientGatewayLzReceiver
@@ -44,6 +51,7 @@ contract ClientChainGateway is
         uint32 exocoreChainId_,
         address beaconOracleAddress_,
         address vaultBeacon_,
+        address rewardVaultBeacon_,
         address exoCapsuleBeacon_,
         address beaconProxyBytecode_
     )
@@ -52,6 +60,7 @@ contract ClientChainGateway is
             exocoreChainId_,
             beaconOracleAddress_,
             vaultBeacon_,
+            rewardVaultBeacon_,
             exoCapsuleBeacon_,
             beaconProxyBytecode_
         )
@@ -69,10 +78,14 @@ contract ClientChainGateway is
             revert Errors.ZeroAddress();
         }
 
-        _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKENS] =
-            this.afterReceiveAddWhitelistTokensRequest.selector;
+        _whiteListFunctionSelectors[Action.REQUEST_ADD_WHITELIST_TOKEN] =
+            this.afterReceiveAddWhitelistTokenRequest.selector;
+        // overwrite the bootstrap function selector
+        _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.afterReceiveMarkBootstrapRequest.selector;
 
         bootstrapped = true;
+
+        _deployRewardVault();
 
         _transferOwnership(owner_);
         __OAppCore_init_unchained(owner_);
@@ -82,19 +95,18 @@ contract ClientChainGateway is
 
     /// @dev Clears the bootstrap data.
     function _clearBootstrapData() internal {
-        // mandatory to clear!
-        delete _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP];
         // the set below is recommended to clear, so that any possibilities of upgrades
         // can then be removed.
         delete customProxyAdmin;
         delete clientChainGatewayLogic;
         delete clientChainInitializationData;
         // no risk keeping these but they are cheap to clear.
-        delete exocoreSpawnTime;
+        delete spawnTime;
         delete offsetDuration;
-        // previously, we tried clearing the loops but it is too expensive.
+        // previously, we tried clearing the contents of these in loops but it is too expensive.
         delete depositors;
         delete registeredValidators;
+        // mappings cannot be deleted
     }
 
     /// @notice Pauses the contract.
@@ -107,14 +119,32 @@ contract ClientChainGateway is
         _unpause();
     }
 
-    /// @notice Gets the count of whitelisted tokens.
-    /// @return The count of whitelisted tokens.
+    /// @inheritdoc ITokenWhitelister
     function getWhitelistedTokensCount() external view returns (uint256) {
-        return whitelistTokens.length;
+        return _getWhitelistedTokensCount();
+    }
+
+    /// @inheritdoc ITokenWhitelister
+    function addWhitelistTokens(address[] calldata, uint256[] calldata) external view onlyOwner whenNotPaused {
+        revert Errors.ClientChainGatewayTokenAdditionViaExocore();
+    }
+
+    /// @inheritdoc ITokenWhitelister
+    function updateTvlLimit(address token, uint256 tvlLimit) external onlyOwner whenNotPaused {
+        if (!isWhitelistedToken[token]) {
+            // grave error, should never happen
+            revert Errors.TokenNotWhitelisted(token);
+        }
+        if (token == VIRTUAL_NST_ADDRESS) {
+            // not possible to set a TVL limit for native restaking
+            revert Errors.NoTvlLimitForNativeRestaking();
+        }
+        IVault vault = _getVault(token);
+        vault.setTvlLimit(tvlLimit);
     }
 
     /// @inheritdoc IClientChainGateway
-    function quote(bytes memory _message) public view returns (uint256 nativeFee) {
+    function quote(bytes calldata _message) public view returns (uint256 nativeFee) {
         bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
             DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
         ).addExecutorOrderedExecutionOption();
@@ -131,6 +161,22 @@ contract ClientChainGateway is
         returns (uint64 senderVersion, uint64 receiverVersion)
     {
         return (SENDER_VERSION, RECEIVER_VERSION);
+    }
+
+    // The bytecode returned by the BEACON_PROXY_BYTECODE contract is static, so there is no risk of collision.
+    // slither-disable-next-line encode-packed-collision
+    function _deployRewardVault() internal {
+        rewardVault = IRewardVault(
+            Create2.deploy(
+                0,
+                bytes32(bytes("REWARD_VAULT")),
+                // for clarity, this BEACON_PROXY is not related to beacon chain
+                // but rather it is the bytecode for the beacon proxy upgrade pattern.
+                abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(REWARD_VAULT_BEACON), ""))
+            )
+        );
+        rewardVault.initialize(address(this));
+        emit RewardVaultCreated(address(rewardVault));
     }
 
 }

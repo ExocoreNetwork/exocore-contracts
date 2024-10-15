@@ -10,6 +10,9 @@ evm_version = "paris"
 ignored_error_codes = [5667]
 # ignore warnings from script folder and test folder
 ignored_warnings_from = ["script", "test"]
+# fail compilation if the warnings are not fixed.
+# this is super useful for the code size warning.
+deny_warnings = true
 
 [rpc_endpoints]
 ethereum_local_rpc = "${ETHEREUM_LOCAL_RPC}"

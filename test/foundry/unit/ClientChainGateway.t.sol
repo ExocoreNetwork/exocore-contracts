@@ -3,6 +3,8 @@ pragma solidity ^0.8.19;
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
+
+import {Origin} from "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 
@@ -18,17 +20,22 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "src/core/ClientChainGateway.sol";
+import "src/storage/ClientChainGatewayStorage.sol";
 
 import "src/core/ExoCapsule.sol";
 import "src/core/ExocoreGateway.sol";
 import {Vault} from "src/core/Vault.sol";
-import "src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "src/storage/GatewayStorage.sol";
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
+
+import {RewardVault} from "src/core/RewardVault.sol";
 import "src/interfaces/IExoCapsule.sol";
+import {IRewardVault} from "src/interfaces/IRewardVault.sol";
 import "src/interfaces/IVault.sol";
 
-import "src/core/BeaconProxyBytecode.sol";
+import {Errors} from "src/libraries/Errors.sol";
+import "src/utils/BeaconProxyBytecode.sol";
 
 contract SetUp is Test {
 
@@ -53,8 +60,10 @@ contract SetUp is Test {
     ILayerZeroEndpointV2 exocoreLzEndpoint;
     IBeaconChainOracle beaconOracle;
     IVault vaultImplementation;
+    IRewardVault rewardVaultImplementation;
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
+    IBeacon rewardVaultBeacon;
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
 
@@ -64,7 +73,7 @@ contract SetUp is Test {
 
     event Paused(address account);
     event Unpaused(address account);
-    event MessageSent(GatewayStorage.Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
+    event MessageSent(Action indexed act, bytes32 packetId, uint64 nonce, uint256 nativeFee);
 
     function setUp() public virtual {
         players.push(Player({privateKey: uint256(0x1), addr: vm.addr(uint256(0x1))}));
@@ -96,9 +105,11 @@ contract SetUp is Test {
         beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
 
         vaultImplementation = new Vault();
+        rewardVaultImplementation = new RewardVault();
         capsuleImplementation = new ExoCapsule();
 
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
 
         beaconProxyBytecode = new BeaconProxyBytecode();
@@ -113,6 +124,7 @@ contract SetUp is Test {
             exocoreChainId,
             address(beaconOracle),
             address(vaultBeacon),
+            address(rewardVaultBeacon),
             address(capsuleBeacon),
             address(beaconProxyBytecode)
         );
@@ -212,7 +224,7 @@ contract Pausable is SetUp {
         clientGateway.pause();
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.claim(address(restakeToken), uint256(1), deployer.addr);
+        clientGateway.withdrawPrincipal(address(restakeToken), uint256(1), deployer.addr);
 
         vm.expectRevert("Pausable: paused");
         clientGateway.delegateTo(operatorAddress, address(restakeToken), uint256(1));
@@ -221,7 +233,7 @@ contract Pausable is SetUp {
         clientGateway.deposit(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
-        clientGateway.withdrawPrincipalFromExocore(address(restakeToken), uint256(1));
+        clientGateway.claimPrincipalFromExocore(address(restakeToken), uint256(1));
 
         vm.expectRevert("Pausable: paused");
         clientGateway.undelegateFrom(operatorAddress, address(restakeToken), uint256(1));
@@ -270,6 +282,142 @@ contract Initialize is SetUp {
 
     function test_Bootstrapped() public {
         assertTrue(clientGateway.bootstrapped());
+    }
+
+}
+
+contract WithdrawNonBeaconChainETHFromCapsule is SetUp {
+
+    using stdStorage for StdStorage;
+
+    address payable user;
+    address payable capsuleAddress;
+    uint256 depositAmount = 1 ether;
+    uint256 withdrawAmount = 0.5 ether;
+
+    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    function setUp() public override {
+        super.setUp();
+
+        // we use this hacking way to add virtual staked ETH to the whitelist to enable native restaking
+        bytes32 whitelistedSlot = bytes32(
+            stdstore.target(address(clientGatewayLogic)).sig("isWhitelistedToken(address)").with_key(
+                VIRTUAL_STAKED_ETH_ADDRESS
+            ).find()
+        );
+        vm.store(address(clientGateway), whitelistedSlot, bytes32(uint256(1)));
+
+        user = payable(players[0].addr);
+        vm.deal(user, 10 ether);
+
+        // 1. User creates capsule through ClientChainGateway
+        vm.prank(user);
+        capsuleAddress = payable(clientGateway.createExoCapsule());
+    }
+
+    function test_success_withdrawNonBeaconChainETH() public {
+        // 2. User directly transfers some ETH to created capsule
+        vm.prank(user);
+        (bool success,) = capsuleAddress.call{value: depositAmount}("");
+        require(success, "ETH transfer failed");
+
+        uint256 userBalanceBefore = user.balance;
+        uint256 capsuleBalanceBefore = capsuleAddress.balance;
+
+        // 3. User withdraws ETH by calling withdrawNonBeaconChainETHFromCapsule
+        vm.prank(user);
+        clientGateway.withdrawNonBeaconChainETHFromCapsule(user, withdrawAmount);
+
+        // Assert balance changes
+        assertEq(user.balance, userBalanceBefore + withdrawAmount, "User balance didn't increase correctly");
+        assertEq(
+            capsuleAddress.balance, capsuleBalanceBefore - withdrawAmount, "Capsule balance didn't decrease correctly"
+        );
+    }
+
+    function test_revert_capsuleNotFound() public {
+        address payable userWithoutCapsule = payable(address(0x123));
+
+        vm.prank(userWithoutCapsule);
+        vm.expectRevert(Errors.CapsuleDoesNotExist.selector);
+        clientGateway.withdrawNonBeaconChainETHFromCapsule(userWithoutCapsule, withdrawAmount);
+    }
+
+    function test_revert_insufficientBalance() public {
+        // User directly transfers some ETH to created capsule
+        vm.prank(user);
+        (bool success,) = capsuleAddress.call{value: depositAmount}("");
+        require(success, "ETH transfer failed");
+
+        uint256 excessiveWithdrawAmount = 2 ether;
+
+        vm.prank(user);
+        vm.expectRevert(
+            "ExoCapsule.withdrawNonBeaconChainETHBalance: amountToWithdraw is greater than nonBeaconChainETHBalance"
+        );
+        clientGateway.withdrawNonBeaconChainETHFromCapsule(user, excessiveWithdrawAmount);
+    }
+
+}
+
+contract WithdrawalPrincipalFromExocore is SetUp {
+
+    using stdStorage for StdStorage;
+    using AddressCast for address;
+
+    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    uint256 constant WITHDRAWAL_AMOUNT = 1 ether;
+
+    address payable user;
+
+    function setUp() public override {
+        super.setUp();
+
+        user = payable(players[0].addr);
+        vm.deal(user, 10 ether);
+
+        bytes32[] memory tokens = new bytes32[](2);
+        tokens[0] = bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        tokens[1] = bytes32(bytes20(address(restakeToken)));
+
+        // Simulate adding VIRTUAL_STAKED_ETH_ADDRESS to whitelist via lzReceive
+        bytes memory message =
+            abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(tokens[0], uint128(0)));
+        Origin memory origin = Origin({srcEid: exocoreChainId, sender: address(exocoreGateway).toBytes32(), nonce: 1});
+
+        vm.prank(address(clientChainLzEndpoint));
+        clientGateway.lzReceive(origin, bytes32(0), message, address(0), bytes(""));
+        // assert that VIRTUAL_STAKED_ETH_ADDRESS and restake token is whitelisted
+        assertTrue(clientGateway.isWhitelistedToken(VIRTUAL_STAKED_ETH_ADDRESS));
+        origin.nonce = 2;
+        message = abi.encodePacked(
+            Action.REQUEST_ADD_WHITELIST_TOKEN, abi.encodePacked(tokens[1], uint128(restakeToken.totalSupply() / 20))
+        );
+        vm.prank(address(clientChainLzEndpoint));
+        clientGateway.lzReceive(origin, bytes32(0), message, address(0), bytes(""));
+        assertTrue(clientGateway.isWhitelistedToken(address(restakeToken)));
+    }
+
+    function test_revert_withdrawVirtualStakedETH() public {
+        // Try to withdraw VIRTUAL_STAKED_ETH
+        vm.prank(user);
+        vm.expectRevert(Errors.VaultDoesNotExist.selector);
+        clientGateway.claimPrincipalFromExocore(VIRTUAL_STAKED_ETH_ADDRESS, WITHDRAWAL_AMOUNT);
+    }
+
+    function test_revert_withdrawNonWhitelistedToken() public {
+        address nonWhitelistedToken = address(0x1234);
+
+        vm.prank(players[0].addr);
+        vm.expectRevert("BootstrapStorage: token is not whitelisted");
+        clientGateway.claimPrincipalFromExocore(nonWhitelistedToken, WITHDRAWAL_AMOUNT);
+    }
+
+    function test_revert_withdrawZeroAmount() public {
+        vm.prank(user);
+        vm.expectRevert("BootstrapStorage: amount should be greater than zero");
+        clientGateway.claimPrincipalFromExocore(address(restakeToken), 0);
     }
 
 }

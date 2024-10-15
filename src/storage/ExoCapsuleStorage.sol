@@ -47,9 +47,6 @@ contract ExoCapsuleStorage {
     /// @notice The maximum amount of balance that a validator can restake, in gwei.
     uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
 
-    /// @notice The principal balance of the ExoCapsule (TODO: which unit?)
-    uint256 public principalBalance;
-
     /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon
     /// Chain but not from Exocore)
     uint256 public withdrawableBalance;
@@ -59,7 +56,7 @@ contract ExoCapsuleStorage {
     uint256 public nonBeaconChainETHBalance;
 
     /// @notice The owner of the ExoCapsule.
-    address public capsuleOwner;
+    address payable public capsuleOwner;
 
     /// @notice The address of the NativeRestakingController contract.
     INativeRestakingController public gateway;

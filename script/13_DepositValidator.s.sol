@@ -5,7 +5,7 @@ import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExocoreGateway.sol";
 import "../src/interfaces/IVault.sol";
 
-import "../src/storage/GatewayStorage.sol";
+import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
 import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
@@ -13,6 +13,7 @@ import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
+import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
 
 import {BaseScript} from "./BaseScript.sol";
@@ -24,7 +25,7 @@ contract DepositScript is BaseScript {
     using Endian for bytes32;
 
     bytes32[] validatorContainer;
-    IExoCapsule.ValidatorContainerProof validatorProof;
+    BeaconChainProofs.ValidatorContainerProof validatorProof;
 
     uint256 internal constant GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
     uint256 internal constant SECONDS_PER_SLOT = 12;
@@ -32,7 +33,7 @@ contract DepositScript is BaseScript {
 
     function setUp() public virtual override {
         super.setUp();
-
+        string memory validatorInfo = vm.readFile("script/validatorProof_staker1_testnetV6.json");
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 
         clientGateway =
@@ -43,12 +44,8 @@ contract DepositScript is BaseScript {
         require(address(beaconOracle) != address(0), "beacon oracle address should not be empty");
 
         // load beacon chain validator container and proof from json file
-        _loadValidatorContainer();
-        _loadValidatorProof();
-
-        if (!useExocorePrecompileMock) {
-            _bindPrecompileMocks();
-        }
+        _loadValidatorContainer(validatorInfo);
+        _loadValidatorProof(validatorInfo);
 
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
@@ -56,6 +53,10 @@ contract DepositScript is BaseScript {
 
         exocore = vm.createSelectFork(exocoreRPCURL);
         _topUpPlayer(exocore, address(0), exocoreGenesis, address(exocoreGateway), 1 ether);
+
+        if (!useExocorePrecompileMock) {
+            _bindPrecompileMocks();
+        }
     }
 
     function run() public {
@@ -73,7 +74,7 @@ contract DepositScript is BaseScript {
 
         vm.startBroadcast(depositor.privateKey);
         bytes memory msg_ = abi.encodePacked(
-            GatewayStorage.Action.REQUEST_DEPOSIT,
+            Action.REQUEST_DEPOSIT_LST,
             abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))),
             abi.encodePacked(bytes32(bytes20(depositor.addr))),
             uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI
@@ -87,26 +88,20 @@ contract DepositScript is BaseScript {
         vm.stopBroadcast();
     }
 
-    function _loadValidatorContainer() internal {
-        string memory validatorInfo = vm.readFile("script/validator_container_proof_1711400.json");
-
-        validatorContainer = stdJson.readBytes32Array(validatorInfo, ".ValidatorFields");
+    function _loadValidatorContainer(string memory validatorInfo) internal {
+        validatorContainer = stdJson.readBytes32Array(validatorInfo, ".validatorContainer");
         require(validatorContainer.length > 0, "validator container should not be empty");
     }
 
-    function _loadValidatorProof() internal {
-        string memory validatorInfo = vm.readFile("script/validator_container_proof_1711400.json");
-
+    function _loadValidatorProof(string memory validatorInfo) internal {
         uint256 slot = stdJson.readUint(validatorInfo, ".slot");
         validatorProof.beaconBlockTimestamp = GENESIS_BLOCK_TIMESTAMP + SECONDS_PER_SLOT * slot;
 
-        validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".beaconStateRoot");
+        validatorProof.stateRoot = stdJson.readBytes32(validatorInfo, ".stateRoot");
         require(validatorProof.stateRoot != bytes32(0), "state root should not be empty");
-        validatorProof.stateRootProof =
-            stdJson.readBytes32Array(validatorInfo, ".StateRootAgainstLatestBlockHeaderProof");
+        validatorProof.stateRootProof = stdJson.readBytes32Array(validatorInfo, ".stateRootProof");
         require(validatorProof.stateRootProof.length == 3, "state root proof should have 3 nodes");
-        validatorProof.validatorContainerRootProof =
-            stdJson.readBytes32Array(validatorInfo, ".WithdrawalCredentialProof");
+        validatorProof.validatorContainerRootProof = stdJson.readBytes32Array(validatorInfo, ".validatorContainerProof");
         require(validatorProof.validatorContainerRootProof.length == 46, "validator root proof should have 46 nodes");
         validatorProof.validatorIndex = stdJson.readUint(validatorInfo, ".validatorIndex");
         require(validatorProof.validatorIndex != 0, "validator root index should not be 0");

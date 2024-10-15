@@ -22,7 +22,9 @@ import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
 import {Errors} from "../libraries/Errors.sol";
+
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
+import {Action} from "../storage/GatewayStorage.sol";
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 
 /// @title Bootstrap
@@ -57,49 +59,44 @@ contract Bootstrap is
     /// @param spawnTime_ The spawn time of the Exocore chain.
     /// @param offsetDuration_ The offset duration before the spawn time.
     /// @param whitelistTokens_ The list of whitelisted tokens.
+    /// @param tvlLimits_ The list of TVL limits for the tokens, in the same order as the whitelist.
     /// @param customProxyAdmin_ The address of the custom proxy admin.
     function initialize(
         address owner,
         uint256 spawnTime_,
         uint256 offsetDuration_,
         address[] calldata whitelistTokens_,
-        address customProxyAdmin_
+        uint256[] calldata tvlLimits_,
+        address customProxyAdmin_,
+        address clientChainGatewayLogic_,
+        bytes calldata clientChainInitializationData_
     ) external initializer {
         if (owner == address(0)) {
             revert Errors.ZeroAddress();
         }
-        if (spawnTime_ <= block.timestamp) {
-            revert Errors.BootstrapSpawnTimeAlreadyPast();
-        }
-        if (offsetDuration_ == 0) {
-            revert Errors.ZeroValue();
-        }
-        if (spawnTime_ <= offsetDuration_) {
-            revert Errors.BootstrapSpawnTimeLessThanDuration();
-        }
-        uint256 lockTime = spawnTime_ - offsetDuration_;
-        if (lockTime <= block.timestamp) {
-            revert Errors.BootstrapLockTimeAlreadyPast();
-        }
+
+        _validateSpawnTimeAndOffsetDuration(spawnTime_, offsetDuration_);
+        spawnTime = spawnTime_;
+        offsetDuration = offsetDuration_;
+
         if (customProxyAdmin_ == address(0)) {
             revert Errors.ZeroAddress();
         }
 
-        exocoreSpawnTime = spawnTime_;
-        offsetDuration = offsetDuration_;
-
-        _addWhitelistTokens(whitelistTokens_);
+        _addWhitelistTokens(whitelistTokens_, tvlLimits_);
 
         _whiteListFunctionSelectors[Action.REQUEST_MARK_BOOTSTRAP] = this.markBootstrapped.selector;
 
         customProxyAdmin = customProxyAdmin_;
         bootstrapped = false;
+        _setClientChainGatewayLogic(clientChainGatewayLogic_, clientChainInitializationData_);
 
         // msg.sender is not the proxy admin but the transparent proxy itself, and hence,
         // cannot be used here. we must require a separate owner. since the Exocore validator
         // set can not sign without the chain, the owner is likely to be an EOA or a
         // contract controlled by one.
         _transferOwnership(owner);
+        __OAppCore_init_unchained(owner);
         __Pausable_init_unchained();
         __ReentrancyGuard_init_unchained();
     }
@@ -109,7 +106,7 @@ contract Bootstrap is
     /// @dev Returns true if the contract is locked, false otherwise.
     /// @return bool Returns `true` if the contract is locked, `false` otherwise.
     function isLocked() public view returns (bool) {
-        return block.timestamp >= exocoreSpawnTime - offsetDuration;
+        return block.timestamp >= spawnTime - offsetDuration;
     }
 
     /// @dev Modifier to restrict operations based on the contract's defined timeline, that is,
@@ -136,67 +133,93 @@ contract Bootstrap is
     /// @notice Allows the contract owner to modify the spawn time of the Exocore chain.
     /// @dev This function can only be called by the contract owner and must
     /// be called before the currently set lock time has started.
-    /// @param _spawnTime The new spawn time in seconds.
-    function setSpawnTime(uint256 _spawnTime) external onlyOwner beforeLocked {
-        if (_spawnTime <= block.timestamp) {
-            revert Errors.BootstrapSpawnTimeAlreadyPast();
-        }
-        if (_spawnTime <= offsetDuration) {
-            revert Errors.BootstrapSpawnTimeLessThanDuration();
-        }
-        uint256 lockTime = _spawnTime - offsetDuration;
-        if (lockTime <= block.timestamp) {
-            revert Errors.BootstrapLockTimeAlreadyPast();
-        }
+    /// @param spawnTime_ The new spawn time in seconds.
+    function setSpawnTime(uint256 spawnTime_) external onlyOwner beforeLocked {
+        _validateSpawnTimeAndOffsetDuration(spawnTime_, offsetDuration);
         // technically the spawn time can be moved backwards in time as well.
-        exocoreSpawnTime = _spawnTime;
-        emit SpawnTimeUpdated(_spawnTime);
+        spawnTime = spawnTime_;
+        emit SpawnTimeUpdated(spawnTime);
     }
 
     /// @notice Allows the contract owner to modify the offset duration that determines
     /// the lock period before the Exocore spawn time.
     /// @dev This function can only be called by the contract owner and must be called
     /// before the currently set lock time has started.
-    /// @param _offsetDuration The new offset duration in seconds.
-    function setOffsetDuration(uint256 _offsetDuration) external onlyOwner beforeLocked {
-        if (exocoreSpawnTime <= _offsetDuration) {
+    /// @param offsetDuration_ The new offset duration in seconds.
+    function setOffsetDuration(uint256 offsetDuration_) external onlyOwner beforeLocked {
+        _validateSpawnTimeAndOffsetDuration(spawnTime, offsetDuration_);
+        offsetDuration = offsetDuration_;
+        emit OffsetDurationUpdated(offsetDuration);
+    }
+
+    /// @dev Validates the spawn time and offset duration.
+    ///      The spawn time must be in the future and greater than the offset duration.
+    ///      The difference of the two must be greater than the current time.
+    /// @param spawnTime_ The spawn time of the Exocore chain to validate.
+    /// @param offsetDuration_ The offset duration before the spawn time to validate.
+    function _validateSpawnTimeAndOffsetDuration(uint256 spawnTime_, uint256 offsetDuration_) internal view {
+        if (offsetDuration_ == 0) {
+            revert Errors.ZeroValue();
+        }
+        // spawnTime_ == 0 is included in the below check, since the timestamp
+        // is always greater than 0. the spawn time must not be equal to the
+        // present time either, although, when marking as bootstrapped, we do
+        // allow that case intentionally.
+        if (block.timestamp > spawnTime_) {
+            revert Errors.BootstrapSpawnTimeAlreadyPast();
+        }
+        // guard against underflow of lockTime calculation
+        if (offsetDuration_ > spawnTime_) {
             revert Errors.BootstrapSpawnTimeLessThanDuration();
         }
-        uint256 lockTime = exocoreSpawnTime - _offsetDuration;
-        if (lockTime <= block.timestamp) {
+        uint256 lockTime = spawnTime_ - offsetDuration_;
+        if (block.timestamp >= lockTime) {
             revert Errors.BootstrapLockTimeAlreadyPast();
         }
-        offsetDuration = _offsetDuration;
-        emit OffsetDurationUpdated(_offsetDuration);
     }
 
     /// @inheritdoc ITokenWhitelister
-    function addWhitelistTokens(address[] calldata tokens) external beforeLocked onlyOwner whenNotPaused {
-        _addWhitelistTokens(tokens);
+    function addWhitelistTokens(address[] calldata tokens, uint256[] calldata tvlLimits)
+        external
+        beforeLocked
+        onlyOwner
+        whenNotPaused
+    {
+        _addWhitelistTokens(tokens, tvlLimits);
     }
 
     /// @dev The internal function to add tokens to the whitelist.
     /// @param tokens The list of token addresses to be added to the whitelist.
+    /// @param tvlLimits The list of TVL limits for the corresponding tokens.
     // Though `_deployVault` would make external call to newly created `Vault` contract and initialize it,
     // `Vault` contract belongs to Exocore and we could make sure its implementation does not have dangerous behavior
     // like reentrancy.
     // slither-disable-next-line reentrancy-no-eth
-    function _addWhitelistTokens(address[] calldata tokens) internal {
-        for (uint256 i; i < tokens.length; i++) {
+    function _addWhitelistTokens(address[] calldata tokens, uint256[] calldata tvlLimits) internal {
+        if (tokens.length != tvlLimits.length) {
+            revert Errors.ArrayLengthMismatch();
+        }
+        for (uint256 i = 0; i < tokens.length; ++i) {
             address token = tokens[i];
+            uint256 tvlLimit = tvlLimits[i];
             if (token == address(0)) {
                 revert Errors.ZeroAddress();
             }
             if (isWhitelistedToken[token]) {
                 revert Errors.BootstrapAlreadyWhitelisted(token);
             }
-
             whitelistTokens.push(token);
             isWhitelistedToken[token] = true;
 
-            // deploy the corresponding vault if not deployed before
-            if (address(tokenToVault[token]) == address(0)) {
-                _deployVault(token);
+            // tokens cannot be removed from the whitelist. hence, if the token is not in the
+            // whitelist, it means that it is missing a vault. we do not need to check for a
+            // pre-existing vault. however, we still do ensure that the vault is not deployed
+            // for restaking natively staked ETH.
+            if (token != VIRTUAL_NST_ADDRESS) {
+                // setting a tvlLimit higher than the supply is permitted.
+                // it allows for some margin for minting of the token, and lets us use
+                // a value of type(uint256).max to indicate no limit.
+                _deployVault(token, tvlLimit);
             }
 
             emit WhitelistTokenAdded(token);
@@ -205,7 +228,19 @@ contract Bootstrap is
 
     /// @inheritdoc ITokenWhitelister
     function getWhitelistedTokensCount() external view returns (uint256) {
-        return whitelistTokens.length;
+        return _getWhitelistedTokensCount();
+    }
+
+    /// @inheritdoc ITokenWhitelister
+    function updateTvlLimit(address token, uint256 tvlLimit) external beforeLocked onlyOwner whenNotPaused {
+        if (!isWhitelistedToken[token]) {
+            revert Errors.TokenNotWhitelisted(token);
+        }
+        if (token == VIRTUAL_NST_ADDRESS) {
+            revert Errors.NoTvlLimitForNativeRestaking();
+        }
+        IVault vault = _getVault(token);
+        vault.setTvlLimit(tvlLimit);
     }
 
     /// @inheritdoc IValidatorRegistry
@@ -223,12 +258,12 @@ contract Bootstrap is
         if (bytes(validators[validatorAddress].name).length > 0) {
             revert Errors.BootstrapValidatorAlreadyRegistered();
         }
-        // check that the consensus key is unique.
-        if (consensusPublicKeyInUse(consensusPublicKey)) {
-            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(consensusPublicKey);
+        _validateConsensusKey(consensusPublicKey);
+        // and that the name (meta info) is non-empty and unique.
+        if (bytes(name).length == 0) {
+            revert Errors.BootstrapValidatorNameLengthZero();
         }
-        // and that the name (meta info) is unique.
-        if (nameInUse(name)) {
+        if (validatorNameInUse[name]) {
             revert Errors.BootstrapValidatorNameAlreadyUsed();
         }
         // check that the commission is valid.
@@ -239,26 +274,9 @@ contract Bootstrap is
         validators[validatorAddress] =
             IValidatorRegistry.Validator({name: name, commission: commission, consensusPublicKey: consensusPublicKey});
         registeredValidators.push(msg.sender);
+        consensusPublicKeyInUse[consensusPublicKey] = true;
+        validatorNameInUse[name] = true;
         emit ValidatorRegistered(msg.sender, validatorAddress, name, commission, consensusPublicKey);
-    }
-
-    /// @notice Checks if the given consensus public key is already in use by any registered validator.
-    /// @dev Iterates over all validators to determine if the key is in use.
-    /// @param newKey The input key to check.
-    /// @return bool Returns `true` if the key is already in use, `false` otherwise.
-    function consensusPublicKeyInUse(bytes32 newKey) public view returns (bool) {
-        if (newKey == bytes32(0)) {
-            revert Errors.ZeroValue();
-        }
-        uint256 arrayLength = registeredValidators.length;
-        for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredValidators[i];
-            string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (validators[exoAddress].consensusPublicKey == newKey) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /// @notice Checks if the provided commission is valid.
@@ -274,30 +292,15 @@ contract Bootstrap is
                commission.maxChangeRate <= commission.maxRate;
     }
 
-    /// @notice Checks if the given name is already in use by any registered validator.
-    /// @dev Iterates over all validators to determine if the name is in use.
-    /// @param newName The input name to check.
-    /// @return bool Returns `true` if the name is already in use, `false` otherwise.
-    function nameInUse(string memory newName) public view returns (bool) {
-        uint256 arrayLength = registeredValidators.length;
-        for (uint256 i = 0; i < arrayLength; i++) {
-            address ethAddress = registeredValidators[i];
-            string memory exoAddress = ethToExocoreAddress[ethAddress];
-            if (keccak256(abi.encodePacked(validators[exoAddress].name)) == keccak256(abi.encodePacked(newName))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     /// @inheritdoc IValidatorRegistry
     function replaceKey(bytes32 newKey) external beforeLocked whenNotPaused {
         if (bytes(ethToExocoreAddress[msg.sender]).length == 0) {
             revert Errors.BootstrapValidatorNotExist();
         }
-        if (consensusPublicKeyInUse(newKey)) {
-            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(newKey);
-        }
+        _validateConsensusKey(newKey);
+        bytes32 oldKey = validators[ethToExocoreAddress[msg.sender]].consensusPublicKey;
+        consensusPublicKeyInUse[oldKey] = false;
+        consensusPublicKeyInUse[newKey] = true;
         validators[ethToExocoreAddress[msg.sender]].consensusPublicKey = newKey;
         emit ValidatorKeyReplaced(ethToExocoreAddress[msg.sender], newKey);
     }
@@ -332,6 +335,20 @@ contract Bootstrap is
         emit ValidatorCommissionUpdated(newRate);
     }
 
+    /// @notice Validates a consensus key.
+    /// @dev The validation checks include non-empty key and uniqueness.
+    /// @param key The consensus key to validate.
+    function _validateConsensusKey(bytes32 key) internal view {
+        // check that the consensus key is not empty.
+        if (key == bytes32(0)) {
+            revert Errors.ZeroValue();
+        }
+        // check that the consensus key is unique.
+        if (consensusPublicKeyInUse[key]) {
+            revert Errors.BootstrapConsensusPubkeyAlreadyUsed(key);
+        }
+    }
+
     /// @inheritdoc ILSTRestakingController
     function deposit(address token, uint256 amount)
         external
@@ -343,6 +360,9 @@ contract Bootstrap is
         isValidAmount(amount)
         nonReentrant // interacts with Vault
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _deposit(msg.sender, token, amount);
     }
 
@@ -366,14 +386,11 @@ contract Bootstrap is
         withdrawableAmounts[depositor][token] += amount;
         depositsByToken[token] += amount;
 
-        // afterReceiveDepositResponse stores the TotalDepositAmount in the principal.
-        vault.updatePrincipalBalance(depositor, totalDepositAmounts[depositor][token]);
-
         emit DepositResult(true, token, depositor, amount);
     }
 
     /// @inheritdoc ILSTRestakingController
-    function withdrawPrincipalFromExocore(address token, uint256 amount)
+    function claimPrincipalFromExocore(address token, uint256 amount)
         external
         payable
         override
@@ -383,14 +400,17 @@ contract Bootstrap is
         isValidAmount(amount)
         nonReentrant // interacts with Vault
     {
-        _withdraw(msg.sender, token, amount);
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
+        _claim(msg.sender, token, amount);
     }
 
-    /// @dev Internal version of withdraw.
+    /// @dev Internal version of claim.
     /// @param user The address of the withdrawer.
     /// @param token The address of the token.
     /// @param amount The amount of the @param token to withdraw.
-    function _withdraw(address user, address token, uint256 amount) internal {
+    function _claim(address user, address token, uint256 amount) internal {
         IVault vault = _getVault(token);
 
         uint256 deposited = totalDepositAmounts[user][token];
@@ -408,20 +428,31 @@ contract Bootstrap is
         depositsByToken[token] -= amount;
 
         // afterReceiveWithdrawPrincipalResponse
-        vault.updatePrincipalBalance(user, totalDepositAmounts[user][token]);
-        vault.updateWithdrawableBalance(user, amount, 0);
+        vault.unlockPrincipal(user, amount);
 
-        emit WithdrawPrincipalResult(true, token, user, amount);
-    }
-
-    /// @inheritdoc ILSTRestakingController
-    /// @dev This is not yet supported.
-    function withdrawRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
-        revert NotYetSupported();
+        emit ClaimPrincipalResult(true, token, user, amount);
     }
 
     /// @inheritdoc IBaseRestakingController
-    function claim(address token, uint256 amount, address recipient)
+    /// @dev This is not yet supported.
+    function submitReward(address, address, uint256) external payable override beforeLocked whenNotPaused {
+        revert Errors.NotYetSupported();
+    }
+
+    /// @inheritdoc IBaseRestakingController
+    /// @dev This is not yet supported.
+    function claimRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
+        revert Errors.NotYetSupported();
+    }
+
+    /// @inheritdoc IBaseRestakingController
+    /// @dev This is not yet supported.
+    function withdrawReward(address, address, uint256) external view override beforeLocked whenNotPaused {
+        revert Errors.NotYetSupported();
+    }
+
+    /// @inheritdoc IBaseRestakingController
+    function withdrawPrincipal(address token, uint256 amount, address recipient)
         external
         override
         beforeLocked
@@ -430,6 +461,11 @@ contract Bootstrap is
         isValidAmount(amount)
         nonReentrant // because it interacts with vault
     {
+        if (recipient == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        // getting a vault for native restaked token will fail so no need to check that.
+        // if native restaking is supported in Bootstrap someday, that will change.
         IVault vault = _getVault(token);
         vault.withdraw(msg.sender, recipient, amount);
     }
@@ -446,6 +482,9 @@ contract Bootstrap is
         isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _delegateTo(msg.sender, validator, token, amount);
     }
 
@@ -465,7 +504,7 @@ contract Bootstrap is
         // validator can't be frozen and amount can't be negative
         // asset validity has been checked.
         // now check amounts.
-        uint256 withdrawable = withdrawableAmounts[msg.sender][token];
+        uint256 withdrawable = withdrawableAmounts[user][token];
         if (withdrawable < amount) {
             revert Errors.BootstrapInsufficientWithdrawableBalance();
         }
@@ -488,6 +527,9 @@ contract Bootstrap is
         isValidBech32Address(validator)
     // does not need a reentrancy guard
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _undelegateFrom(msg.sender, validator, token, amount);
     }
 
@@ -536,6 +578,9 @@ contract Bootstrap is
         isValidBech32Address(validator)
         nonReentrant // because it interacts with vault in deposit
     {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
         _deposit(msg.sender, token, amount);
         _delegateTo(msg.sender, validator, token, amount);
     }
@@ -547,6 +592,7 @@ contract Bootstrap is
     /// initialization data must be set. The contract must not have been bootstrapped before.
     /// Once it is marked bootstrapped, the implementation of the contract is upgraded to the
     /// client chain gateway logic contract.
+    /// @dev This call can never fail, since such failures are not handled by ExocoreGateway.
     function markBootstrapped() public onlyCalledFromThis whenNotPaused {
         // whenNotPaused is applied so that the upgrade does not proceed without unpausing it.
         // LZ checks made so far include:
@@ -554,24 +600,28 @@ contract Bootstrap is
         // correct address on remote (peer match)
         // chainId match
         // nonce match, which requires that inbound nonce is uint64(1).
-        // TSS checks are not super clear since they can be set by anyone
-        // but at this point that does not matter since it is not fully implemented anyway.
-        if (block.timestamp < exocoreSpawnTime) {
-            revert Errors.BootstrapNotSpawnTime();
+        if (block.timestamp < spawnTime) {
+            // technically never possible unless the block producer does some time-based shenanigans.
+            emit BootstrapNotTimeYet();
+            return;
         }
+        // bootstrapped = true is only actioned by the clientchaingateway after upgrade
+        // so no need to check for that here but better to be safe.
         if (bootstrapped) {
-            revert Errors.BootstrapAlreadyBootstrapped();
+            emit BootstrappedAlready();
+            return;
         }
-        if (clientChainGatewayLogic == address(0)) {
-            revert Errors.ZeroAddress();
-        }
-        ICustomProxyAdmin(customProxyAdmin).changeImplementation(
+        try ICustomProxyAdmin(customProxyAdmin).changeImplementation(
             // address(this) is storage address and not logic address. so it is a proxy.
             ITransparentUpgradeableProxy(address(this)),
             clientChainGatewayLogic,
             clientChainInitializationData
-        );
-        emit Bootstrapped();
+        ) {
+            emit Bootstrapped();
+        } catch {
+            // to allow retries, never fail
+            emit BootstrapUpgradeFailed();
+        }
     }
 
     /// @notice Sets a new client chain gateway logic and its initialization data.
@@ -585,9 +635,22 @@ contract Bootstrap is
         public
         onlyOwner
     {
+        _setClientChainGatewayLogic(_clientChainGatewayLogic, _clientChainInitializationData);
+    }
+
+    /// @dev Internal version of `setClientChainGatewayLogic`.
+    /// @param _clientChainGatewayLogic The address of the new client chain gateway logic
+    /// contract.
+    /// @param _clientChainInitializationData The initialization data to be used when setting up
+    /// the new logic contract.
+    function _setClientChainGatewayLogic(
+        address _clientChainGatewayLogic,
+        bytes calldata _clientChainInitializationData
+    ) internal {
         if (_clientChainGatewayLogic == address(0)) {
             revert Errors.ZeroAddress();
         }
+        // selector is 4 bytes long
         if (_clientChainInitializationData.length < 4) {
             revert Errors.BootstrapClientChainDataMalformed();
         }
@@ -628,7 +691,6 @@ contract Bootstrap is
             symbol: token.symbol(),
             tokenAddress: tokenAddress,
             decimals: token.decimals(),
-            totalSupply: token.totalSupply(),
             depositAmount: depositsByToken[tokenAddress]
         });
     }

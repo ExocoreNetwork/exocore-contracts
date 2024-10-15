@@ -1,22 +1,23 @@
 {
   "clientChain": {
-    "beaconOracle": "0xA4EB871bA2aEE36aE252AfB27c9c9BCB71b2c83B",
-    "beaconProxyBytecode": "0x0d495CbA922109EC9bA3DDF92EC5d1C86B04c756",
-    "capsuleBeacon": "0xa984d1a622Ef87B11e2D47c53e274E9193579eD5",
-    "clientChainGateway": "0x3162099542238eE33771A1db89cD07F12fC352A3",
+    "beaconOracle": "0xd3D285cd1516038dAED61B8BF7Ae2daD63662492",
+    "beaconProxyBytecode": "0xA15Ce26ba8E50ac21ecDa1791BAa3bf22a95b575",
+    "bootstrap": "0xDf9caDCfb027d9f6264Ecd5eAEc839a8335d8520",
+    "bootstrapLogic": "0xB97A39004Ba6900FAE801Ac04F8ce4DA70689879",
+    "capsuleBeacon": "0xB8D032a30a3B950CBcc6c1689E2381ab4290D4BB",
+    "capsuleImplementation": "0x02266413cdaaaF4092C5e48d6434040B63F62215",
+    "clientGatewayLogic": "0xf60F5af658C85aF56F6D811c9AA9F94fBe17A67d",
     "erc20Token": "0x83E6850591425e3C1E263c054f4466838B9Bd9e4",
-    "lzEndpoint": "0x43B57f4fA1E4445296c133B1C3814655E2d77c35",
-    "proxyAdmin": "0x0F1067E0941196f7670ed6bc62bE86ef852375bA",
-    "resVault": "0x6668cd7049AEc6a68947c2c7da7982825C8e775c",
-    "vaultBeacon": "0x7b4Eb85D502FD8eFe0dA55BBdb17C40143780566"
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f",
+    "proxyAdmin": "0x4317A7f62dA871E4512424Df8CaE91A6Ccc2afEA",
+    "vaultBeacon": "0x737e311Bf34B838943A30110289C5a9b22eba2A8",
+    "vaultImplementation": "0x69c1435EF73BA19e11a76481275EE6A8490942Db",
+    "wstETH": "0xB82381A3fBD3FaFA77B3a7bE693342618240067b"
   },
   "exocore": {
-    "claimRewardPrecompileMock": "0xE66204F6BdE875035C63437dbfbf1B497e8CF455",
-    "delegationPrecompileMock": "0x0b63680102cba1F0eD462028e2DBDde4234c1C7B",
-    "depositPrecompileMock": "0x07097210995b2ec23582Feeb0a8c234BB0c50787",
-    "exocoreGateway": "0xC025454388d52CBCc92B8D1F573c677bA3F8f1b8",
-    "lzEndpoint": "0x90153d62284B67A2D8e9F3473F9CaF2078731da2",
-    "proxyAdmin": "0x1F7eF30141c7cC86E237ad0B097608640Be62f5E",
-    "withdrawPrecompileMock": "0x07097210995b2ec23582Feeb0a8c234BB0c50787"
+    "exocoreGateway": "0xEAf4E4D09b9CeB936492518A852026c914beb11E",
+    "exocoreGatewayLogic": "0x42397BFa2601B85E838750A10E652eea2238B5B6",
+    "exocoreProxyAdmin": "0x9bBDDb68B47b88d3Dd2eF7E1682C1EFE4E2e2315",
+    "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
   }
 }

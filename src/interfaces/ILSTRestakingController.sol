@@ -18,18 +18,13 @@ interface ILSTRestakingController is IBaseRestakingController {
     /// @param amount The amount of the token that the user wants to deposit.
     function deposit(address token, uint256 amount) external payable;
 
-    /// @notice Requests withdrawal of the principal amount from Exocore to the client chain.
-    /// @dev This function requests withdrawal approval from Exocore. If approved, the assets are
-    /// unlocked and can be claimed by the user. Otherwise, they remain locked.
-    /// @param token The address of the specific token that the user wants to withdraw from Exocore.
+    /// @notice Send request to Exocore to claim the LST principal.
+    /// @dev This function requests claim approval from Exocore. If approved, the assets are
+    /// unlocked and can be withdrawn by the user. Otherwise, they remain locked.
+    /// @param token The address of the specific token that the user wants to claim from Exocore.
     /// @param principalAmount The principal amount of assets the user deposited into Exocore for delegation and
     /// staking.
-    function withdrawPrincipalFromExocore(address token, uint256 principalAmount) external payable;
-
-    /// @notice Withdraws reward tokens from Exocore.
-    /// @param token The address of the specific token that the user wants to withdraw as a reward.
-    /// @param rewardAmount The amount of reward tokens that the user wants to withdraw.
-    function withdrawRewardFromExocore(address token, uint256 rewardAmount) external payable;
+    function claimPrincipalFromExocore(address token, uint256 principalAmount) external payable;
 
     /// @notice Deposits tokens and then delegates them to a specific node operator.
     /// @dev This function locks the specified amount of tokens into a vault, informs Exocore, and

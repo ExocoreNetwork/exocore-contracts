@@ -1,7 +1,7 @@
----
-name: Forge CI to build, test and format
+name: Forge CI to build, test, format and compare storage layout
 
 on:
+  merge_group:
   pull_request:
   push:
     branches:
@@ -23,7 +23,8 @@ jobs:
       installation-dir: ${{ needs.setup.outputs.installation-dir }}
       cache-key: ${{ needs.setup.outputs.cache-key }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Restore cached Foundry toolchain
@@ -61,7 +62,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
@@ -78,9 +80,9 @@ jobs:
             ./cache
             ./broadcast
           key: ${{ runner.os }}-build-${{ github.sha }}
-      - name: Run tests
+      - name: Test
         run: forge test -vvv
-      - name: Run test snapshot
+      - name: Set test snapshot as summary
         run: NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
       - name: Add comment for test failure
         if: failure()
@@ -95,11 +97,12 @@ jobs:
               body: 'The tests have failed. Please check the logs.'
             })
 
-  fmt:
+  format:
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
@@ -118,7 +121,7 @@ jobs:
           key: ${{ runner.os }}-build-${{ github.sha }}
       - name: Check formatting
         run: forge fmt --check
-      - name: Add comment for format failure
+      - name: Add comment for format check failure
         if: failure()
         uses: actions/github-script@v6
         with:
@@ -129,4 +132,51 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               body: 'The code is not formatted correctly. Please run `forge fmt` and push the changes.'
+            })
+
+  compare-storage-layout:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Restore cached Foundry toolchain
+        uses: actions/cache/restore@v3
+        with:
+          path: ${{ needs.build.outputs.installation-dir }}
+          key: ${{ needs.build.outputs.cache-key }}
+      - name: Add Foundry to PATH
+        run: echo "${{ needs.build.outputs.installation-dir }}" >> $GITHUB_PATH
+      - name: Restore build artifacts
+        uses: actions/cache/restore@v3
+        with:
+          path: |
+            ./lib
+            ./out
+            ./cache
+            ./broadcast
+          key: ${{ runner.os }}-build-${{ github.sha }}
+      - name: Run forge inspect storage layout on ClientChainGateway
+        run: forge inspect --pretty src/core/ClientChainGateway.sol:ClientChainGateway storageLayout > ClientChainGateway.md
+      - name: Run forge inspect storage layout on Bootstrap
+        run: forge inspect --pretty src/core/Bootstrap.sol:Bootstrap storageLayout > Bootstrap.md
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.4'
+      - name: Install pandas
+        run: pip install --root-user-action=ignore pandas==2.2.2
+      - name: Run the comparison script
+        run: python .github/workflows/compare_storage_layout.py
+      - name: Add comment for storage layout mismatch failure
+        if: failure()
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'The storage layout of Bootstrap and ClientChainGateway is not the same. Please check the logs.'
             })
