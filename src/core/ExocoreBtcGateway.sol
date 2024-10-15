@@ -415,19 +415,15 @@ contract ExocoreBtcGateway is
     {
         bytes memory withdrawer = abi.encodePacked(bytes32(bytes20(msg.sender)));
         _nextNonce(CLIENT_CHAIN_ID, withdrawer);
-        try REWARD_CONTRACT.claimReward(CLIENT_CHAIN_ID, BTC_TOKEN, withdrawer, amount) returns (
-            bool success, uint256 updatedBalance
-        ) {
-            if (!success) {
-                revert WithdrawRewardFailed();
-            }
-            (bytes32 requestId, bytes memory _btcAddress) =
-                _initiatePegOut(token, amount, withdrawer, WithdrawType.WithdrawReward);
-            emit WithdrawRewardRequested(requestId, msg.sender, token, _btcAddress, amount, updatedBalance);
-        } catch {
-            emit ExocorePrecompileError(address(REWARD_CONTRACT));
+        (bool success, uint256 updatedBalance) =
+            REWARD_CONTRACT.claimReward(CLIENT_CHAIN_ID, BTC_TOKEN, withdrawer, amount);
+        if (!success) {
             revert WithdrawRewardFailed();
         }
+        (bytes32 requestId, bytes memory _btcAddress) =
+            _initiatePegOut(token, amount, withdrawer, WithdrawType.WithdrawReward);
+
+        emit WithdrawRewardRequested(requestId, msg.sender, token, _btcAddress, amount, updatedBalance);
     }
 
     // Function to initiate a peg-out request

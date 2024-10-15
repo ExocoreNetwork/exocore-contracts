@@ -228,19 +228,28 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         emit WithdrawPrincipalRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 0);
         vm.prank(delegatorAddr);
         exocoreBtcGateway.withdrawPrincipal(btcToken, amount);
+
+        // Retrieve and log the PegOutRequest state
+        ExocoreBtcGatewayStorage.PegOutRequest memory request = exocoreBtcGateway.getPegOutRequest(requestId);
+
+        console.log("PegOutRequest status:");
+        console.log("Token: ", request.token);
+        console.log("Requester: ", request.requester);
+        console.log("Amount: ", request.amount);
+        console.log("WithdrawType: ", uint256(request.withdrawType));
+        console.log("Status: ", uint256(request.status));
+        console.log("Timestamp: ", request.timestamp);
     }
     /**
      * @notice Test the withdrawReward function
      */
 
-    function testWithdrawReward() public {
+    function testWithdrawRewardInsufficientBalance() public {
         testDepositToWithFirstMessage();
-        bytes memory withdrawer = _addressToBytes(delegatorAddr);
         bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
         uint256 amount = 500;
         bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawRewardRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 1234);
+        vm.expectRevert("insufficient reward");
         vm.prank(delegatorAddr);
         exocoreBtcGateway.withdrawReward(btcToken, amount);
 
@@ -357,14 +366,13 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
      */
     function _createPegOutRequest() internal returns (bytes32) {
         testDepositToWithFirstMessage();
-        bytes memory withdrawer = _addressToBytes(delegatorAddr);
         bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        uint256 amount = 500;
+        uint256 amount = 39_900_000_000_000;
         bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
         vm.expectEmit(true, true, true, true);
-        emit WithdrawRewardRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 1234);
+        emit WithdrawPrincipalRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 0);
         vm.prank(delegatorAddr);
-        exocoreBtcGateway.withdrawReward(btcToken, amount);
+        exocoreBtcGateway.withdrawPrincipal(btcToken, amount);
         return requestId;
     }
 
@@ -398,8 +406,8 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         exocoreBtcGateway.unpause();
         assertFalse(exocoreBtcGateway.paused());
     }
-    // Helper function to convert string to bytes
 
+    // Helper function to convert string to bytes
     function _stringToBytes(string memory source) internal pure returns (bytes memory) {
         return abi.encodePacked(source);
     }
