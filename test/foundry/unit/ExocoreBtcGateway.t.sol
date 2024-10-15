@@ -3,8 +3,9 @@ pragma solidity ^0.8.19;
 
 import "src/core/ExocoreBtcGateway.sol";
 import "src/interfaces/precompiles/IAssets.sol";
-import "src/interfaces/precompiles/IClaimReward.sol";
+
 import "src/interfaces/precompiles/IDelegation.sol";
+import "src/interfaces/precompiles/IReward.sol";
 import "src/libraries/SignatureVerifier.sol";
 import "src/storage/ExocoreBtcGatewayStorage.sol";
 
@@ -27,7 +28,7 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
     // Mock contracts
     IDelegation internal mockDelegation;
     IAssets internal mockAssets;
-    IClaimReward internal mockClaimReward;
+    IReward internal mockClaimReward;
 
     function setUp() public {
         // Deploy mock contracts
@@ -54,8 +55,8 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
         bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
         vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
 
-        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("ClaimRewardMock.sol");
-        vm.etch(CLAIM_REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("RewardMock.sol");
+        vm.etch(REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
     }
 
     /**
@@ -221,7 +222,6 @@ contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
     function testWithdrawPrincipal() public {
         testDepositToWithFirstMessage();
         bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        bytes memory withdrawer = _addressToBytes(delegatorAddr);
         uint256 amount = 39_900_000_000_000;
         bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
         vm.expectEmit(true, true, true, true);

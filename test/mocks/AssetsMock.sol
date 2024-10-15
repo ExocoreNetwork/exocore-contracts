@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+// import "forge-std/console.sol";
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
 
 contract AssetsMock is IAssets {
@@ -68,10 +69,13 @@ contract AssetsMock is IAssets {
     ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid staker address");
-        if (bytes32(assetsAddress) == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))) {
-            return (false, 0);
-        }
-        if (!isRegisteredToken[clientChainLzId][assetsAddress]) {
+
+        bytes32 assetAddressBytes32 = bytes32(assetsAddress);
+        bool isEth = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        bool isBtc = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
+
+        // Disallow ETH withdrawals or non-registered tokens (except BTC)
+        if (isEth || (!isRegisteredToken[clientChainLzId][assetsAddress] && !isBtc)) {
             return (false, 0);
         }
 

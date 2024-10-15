@@ -2,8 +2,9 @@
 pragma solidity ^0.8.19;
 
 import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
-import {CLAIM_REWARD_CONTRACT} from "../interfaces/precompiles/IClaimReward.sol";
+
 import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
+import {REWARD_CONTRACT} from "../interfaces/precompiles/IReward.sol";
 import {SignatureVerifier} from "../libraries/SignatureVerifier.sol";
 import {ExocoreBtcGatewayStorage} from "../storage/ExocoreBtcGatewayStorage.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
@@ -304,7 +305,7 @@ contract ExocoreBtcGateway is
         bytes memory depositorBtcAddr = _msg.srcAddress;
         console.log("ASSETS_CONTRACT:", address(ASSETS_CONTRACT));
         //TODO: this depositor can be exocore address or btc address.
-        try ASSETS_CONTRACT.depositTo(_msg.srcChainID, BTC_TOKEN, depositorExoAddr, _msg.amount) returns (
+        try ASSETS_CONTRACT.depositLST(_msg.srcChainID, BTC_TOKEN, depositorExoAddr, _msg.amount) returns (
             bool success, uint256 updatedBalance
         ) {
             if (!success) {
@@ -389,19 +390,15 @@ contract ExocoreBtcGateway is
     {
         bytes memory withdrawer = abi.encodePacked(bytes32(bytes20(msg.sender)));
         _nextNonce(CLIENT_CHAIN_ID, withdrawer);
-        try ASSETS_CONTRACT.withdrawPrincipal(CLIENT_CHAIN_ID, BTC_TOKEN, withdrawer, amount) returns (
-            bool success, uint256 updatedBalance
-        ) {
-            if (!success) {
-                revert WithdrawPrincipalFailed();
-            }
-            (bytes32 requestId, bytes memory _btcAddress) =
-                _initiatePegOut(token, amount, withdrawer, WithdrawType.WithdrawPrincipal);
-            emit WithdrawPrincipalRequested(requestId, msg.sender, token, _btcAddress, amount, updatedBalance);
-        } catch {
-            emit ExocorePrecompileError(address(ASSETS_CONTRACT));
+        (bool success, uint256 updatedBalance) =
+            ASSETS_CONTRACT.withdrawLST(CLIENT_CHAIN_ID, BTC_TOKEN, withdrawer, amount);
+        if (!success) {
             revert WithdrawPrincipalFailed();
         }
+        (bytes32 requestId, bytes memory _btcAddress) =
+            _initiatePegOut(token, amount, withdrawer, WithdrawType.WithdrawPrincipal);
+
+        emit WithdrawPrincipalRequested(requestId, msg.sender, token, _btcAddress, amount, updatedBalance);
     }
 
     /**
@@ -418,7 +415,7 @@ contract ExocoreBtcGateway is
     {
         bytes memory withdrawer = abi.encodePacked(bytes32(bytes20(msg.sender)));
         _nextNonce(CLIENT_CHAIN_ID, withdrawer);
-        try CLAIM_REWARD_CONTRACT.claimReward(CLIENT_CHAIN_ID, BTC_TOKEN, withdrawer, amount) returns (
+        try REWARD_CONTRACT.claimReward(CLIENT_CHAIN_ID, BTC_TOKEN, withdrawer, amount) returns (
             bool success, uint256 updatedBalance
         ) {
             if (!success) {
@@ -428,7 +425,7 @@ contract ExocoreBtcGateway is
                 _initiatePegOut(token, amount, withdrawer, WithdrawType.WithdrawReward);
             emit WithdrawRewardRequested(requestId, msg.sender, token, _btcAddress, amount, updatedBalance);
         } catch {
-            emit ExocorePrecompileError(address(CLAIM_REWARD_CONTRACT));
+            emit ExocorePrecompileError(address(REWARD_CONTRACT));
             revert WithdrawRewardFailed();
         }
     }
@@ -520,7 +517,7 @@ contract ExocoreBtcGateway is
         bytes memory btcTxTag,
         bytes memory operator
     ) internal {
-        try ASSETS_CONTRACT.depositTo(clientChainId, btcToken, depositor, amount) returns (
+        try ASSETS_CONTRACT.depositLST(clientChainId, btcToken, depositor, amount) returns (
             bool depositSuccess, uint256 updatedBalance
         ) {
             if (!depositSuccess) {
