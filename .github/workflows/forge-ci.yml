@@ -137,7 +137,14 @@ jobs:
   compare-storage-layout:
     runs-on: ubuntu-latest
     needs: build
+    env:
+      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
     steps:
+      - name: Debug Secrets
+        run: |
+          echo "ALCHEMY_API_KEY is set: ${{ secrets.ALCHEMY_API_KEY != '' }}"
+          echo "ETHERSCAN_API_KEY is set: ${{ secrets.ETHERSCAN_API_KEY != '' }}"
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Restore cached Foundry toolchain
@@ -188,9 +195,6 @@ jobs:
         run: python .github/workflows/compare_storage_layout.py
       - name: Run the comparison script for deployed contracts
         run: python .github/workflows/compare_deployed_storage_layout.py
-        env:
-          ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
-          ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
       - name: Add comment for storage layout mismatch failure
         if: failure()
         uses: actions/github-script@v6
