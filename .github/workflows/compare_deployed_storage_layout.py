@@ -17,12 +17,12 @@ def get_deployed_addresses():
         'ExoCapsule': data['clientChain'].get('capsuleImplementation')
     }
 
-def get_storage_layout(contract_name, address, rpc_url):
+def get_storage_layout(contract_name, address, rpc_url, etherscan_api_key):
     if not address:
         print(f"Skipping {contract_name} as it's not deployed.")
         return pd.DataFrame()
     
-    result = subprocess.run(['cast', 'storage', address, '--rpc-url', rpc_url], capture_output=True, text=True)
+    result = subprocess.run(['cast', 'storage', address, '--rpc-url', rpc_url, '--etherscan-api-key', etherscan_api_key], capture_output=True, text=True)
     print(f"finish executing: cast storage {address} --rpc-url ...")
 
     if result.returncode != 0:
@@ -40,6 +40,9 @@ if __name__ == "__main__":
         api_key = os.environ.get('ALCHEMY_API_KEY')
         if not api_key:
             raise ValueError("ALCHEMY_API_KEY environment variable is not set")
+        etherscan_api_key = os.environ.get('ETHERSCAN_API_KEY')
+        if not etherscan_api_key:
+            raise ValueError("ETHERSCAN_API_KEY environment variable is not set")
         
         # Construct the RPC URL for Sepolia
         rpc_url = f"https://eth-sepolia.g.alchemy.com/v2/{api_key}"
@@ -49,7 +52,7 @@ if __name__ == "__main__":
 
         for contract_name, address in addresses.items():
             print(f"Checking {contract_name}...")
-            deployed_layout = get_storage_layout(contract_name, address, rpc_url)
+            deployed_layout = get_storage_layout(contract_name, address, rpc_url, etherscan_api_key)
             if deployed_layout.empty:
                 print(f"No deployed layout found for {contract_name}.")
                 continue
