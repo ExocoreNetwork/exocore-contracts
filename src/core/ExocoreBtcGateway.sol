@@ -12,8 +12,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import "forge-std/console.sol";
-
 contract ExocoreBtcGateway is
     Initializable,
     PausableUpgradeable,
@@ -174,9 +172,7 @@ contract ExocoreBtcGateway is
             _msg.txTag,
             _msg.payload
         );
-        console.logBytes(encodeMsg);
         bytes32 messageHash = keccak256(encodeMsg);
-        console.logBytes32(messageHash);
 
         SignatureVerifier.verifyMsgSig(msg.sender, messageHash, signature);
     }
@@ -205,7 +201,6 @@ contract ExocoreBtcGateway is
         if (depositor.length == 0) {
             revert BtcAddressNotRegistered();
         }
-        console.log("verify addr done");
 
         if (processedBtcTxs[btcTxTag].processed) {
             revert BtcTxAlreadyProcessed();
@@ -216,8 +211,6 @@ contract ExocoreBtcGateway is
 
         // Verify signature
         _verifySignature(_msg, signature);
-
-        console.log("verify sig done, nonce: ", _msg.nonce);
     }
 
     // Function to submit a proof with InterchainMsg and signature
@@ -303,23 +296,15 @@ contract ExocoreBtcGateway is
         require(authorizedWitnesses[msg.sender], "Not an authorized witness");
         (bytes memory btcTxTag, bytes memory depositorExoAddr) = _processAndVerify(_msg, signature);
         bytes memory depositorBtcAddr = _msg.srcAddress;
-        console.log("ASSETS_CONTRACT:", address(ASSETS_CONTRACT));
         //TODO: this depositor can be exocore address or btc address.
-        try ASSETS_CONTRACT.depositLST(_msg.srcChainID, BTC_TOKEN, depositorExoAddr, _msg.amount) returns (
-            bool success, uint256 updatedBalance
-        ) {
-            if (!success) {
-                console.log("depositTo failed");
-                revert DepositFailed(btcTxTag);
-            }
-            console.log("depositTo success");
-            processedBtcTxs[btcTxTag] = TxInfo(true, block.timestamp);
-            emit DepositCompleted(btcTxTag, depositorExoAddr, BTC_ADDR, depositorBtcAddr, _msg.amount, updatedBalance);
-        } catch {
-            console.log("depositTo Error");
-            emit ExocorePrecompileError(address(ASSETS_CONTRACT));
+        (bool success, uint256 updatedBalance) =
+            ASSETS_CONTRACT.depositLST(_msg.srcChainID, BTC_TOKEN, depositorExoAddr, _msg.amount);
+        if (!success) {
             revert DepositFailed(btcTxTag);
         }
+        // console.log("depositTo success");
+        processedBtcTxs[btcTxTag] = TxInfo(true, block.timestamp);
+        emit DepositCompleted(btcTxTag, depositorExoAddr, BTC_ADDR, depositorBtcAddr, _msg.amount, updatedBalance);
     }
 
     /**
@@ -437,7 +422,6 @@ contract ExocoreBtcGateway is
         }
 
         requestId = keccak256(abi.encodePacked(_token, msg.sender, _btcAddress, _amount, block.number));
-        console.log("blocknumber:", block.number);
         require(pegOutRequests[requestId].status == TxStatus.Pending, "Request already exists");
 
         pegOutRequests[requestId] = PegOutRequest({
