@@ -139,6 +139,7 @@ jobs:
     needs: build
     env:
       ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
