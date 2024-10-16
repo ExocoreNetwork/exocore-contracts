@@ -1,10 +1,14 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+// import "forge-std/console.sol";
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
 
 contract AssetsMock is IAssets {
 
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address constant VIRTUAL_STAKED_BTC_ADDRESS = 0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599;
+    uint32 internal constant clientBtcChainId = 111;
 
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principalBalances;
     mapping(bytes => mapping(bytes => bool)) public inValidatorSet;
@@ -25,12 +29,21 @@ contract AssetsMock is IAssets {
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
-        require(stakerAddress.length == 32, "invalid staker address");
-        require(bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), "only support LST");
-        require(isRegisteredToken[clientChainLzId][assetsAddress], "the token is not registered before");
+
+        if (clientChainLzId != clientBtcChainId) {
+            require(stakerAddress.length == 32, "invalid staker address");
+        }
+
+        // Validate the asset address
+        // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered
+        bool notEth = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        bool notBtc = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
+
+        if (notEth && notBtc) {
+            require(isRegisteredToken[clientChainLzId][assetsAddress], "the token not registered");
+        }
 
         principalBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
-
         return (true, principalBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
@@ -56,10 +69,13 @@ contract AssetsMock is IAssets {
     ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid staker address");
-        if (bytes32(assetsAddress) == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))) {
-            return (false, 0);
-        }
-        if (!isRegisteredToken[clientChainLzId][assetsAddress]) {
+
+        bytes32 assetAddressBytes32 = bytes32(assetsAddress);
+        bool isEth = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        bool isBtc = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
+
+        // Disallow ETH withdrawals or non-registered tokens (except BTC)
+        if (isEth || (!isRegisteredToken[clientChainLzId][assetsAddress] && !isBtc)) {
             return (false, 0);
         }
 
