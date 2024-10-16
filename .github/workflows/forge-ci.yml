@@ -138,13 +138,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: build
     env:
-      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
-      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+      ALCHEMY_API_KEY: ${{ vars.ALCHEMY_API_KEY }}
+      ETHERSCAN_API_KEY: ${{ vars.ETHERSCAN_API_KEY }}
     steps:
-      - name: Debug Secrets
-        run: |
-          echo "ALCHEMY_API_KEY is set: ${{ secrets.ALCHEMY_API_KEY != '' }}"
-          echo "ETHERSCAN_API_KEY is set: ${{ secrets.ETHERSCAN_API_KEY != '' }}"
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Restore cached Foundry toolchain
