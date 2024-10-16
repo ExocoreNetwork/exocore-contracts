@@ -12,6 +12,8 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
+// import "forge-std/console.sol";
+
 contract ExocoreBtcGateway is
     Initializable,
     PausableUpgradeable,
@@ -295,7 +297,9 @@ contract ExocoreBtcGateway is
     {
         require(authorizedWitnesses[msg.sender], "Not an authorized witness");
         (bytes memory btcTxTag, bytes memory depositorExoAddr) = _processAndVerify(_msg, signature);
-        bytes memory depositorBtcAddr = _msg.srcAddress;
+
+        processedBtcTxs[btcTxTag] = TxInfo(true, block.timestamp);
+
         //TODO: this depositor can be exocore address or btc address.
         (bool success, uint256 updatedBalance) =
             ASSETS_CONTRACT.depositLST(_msg.srcChainID, BTC_TOKEN, depositorExoAddr, _msg.amount);
@@ -303,8 +307,7 @@ contract ExocoreBtcGateway is
             revert DepositFailed(btcTxTag);
         }
         // console.log("depositTo success");
-        processedBtcTxs[btcTxTag] = TxInfo(true, block.timestamp);
-        emit DepositCompleted(btcTxTag, depositorExoAddr, BTC_ADDR, depositorBtcAddr, _msg.amount, updatedBalance);
+        emit DepositCompleted(btcTxTag, depositorExoAddr, BTC_ADDR, _msg.srcAddress, _msg.amount, updatedBalance);
     }
 
     /**
@@ -382,7 +385,6 @@ contract ExocoreBtcGateway is
         }
         (bytes32 requestId, bytes memory _btcAddress) =
             _initiatePegOut(token, amount, withdrawer, WithdrawType.WithdrawPrincipal);
-
         emit WithdrawPrincipalRequested(requestId, msg.sender, token, _btcAddress, amount, updatedBalance);
     }
 
@@ -411,31 +413,58 @@ contract ExocoreBtcGateway is
         emit WithdrawRewardRequested(requestId, msg.sender, token, _btcAddress, amount, updatedBalance);
     }
 
-    // Function to initiate a peg-out request
+    /**
+     * @notice Initiates a peg-out request for a given token amount to a Bitcoin address
+     * @dev This function creates a new peg-out request and stores it in the contract's state
+     * @param _token The address of the token to be pegged out
+     * @param _amount The amount of tokens to be pegged out
+     * @param withdrawer The Exocore address associated with the Bitcoin address
+     * @param _withdrawType The type of withdrawal (e.g., normal, fast)
+     * @return requestId The unique identifier for the peg-out request
+     * @return _btcAddress The Bitcoin address for the peg-out
+     * @custom:throws BtcAddressNotRegistered if the Bitcoin address is not registered for the given Exocore address
+     * @custom:throws RequestAlreadyExists if a request with the same parameters already exists
+     */
     function _initiatePegOut(address _token, uint256 _amount, bytes memory withdrawer, WithdrawType _withdrawType)
         internal
         returns (bytes32 requestId, bytes memory _btcAddress)
     {
+        // Use storage pointer to reduce gas consumption
+        PegOutRequest storage request;
+
+        // 1. Check BTC address
         _btcAddress = exocoreToBtcAddress[withdrawer];
         if (_btcAddress.length == 0) {
             revert BtcAddressNotRegistered();
         }
 
+        // 2. Generate unique requestId
         requestId = keccak256(abi.encodePacked(_token, msg.sender, _btcAddress, _amount, block.number));
-        require(pegOutRequests[requestId].status == TxStatus.Pending, "Request already exists");
 
-        pegOutRequests[requestId] = PegOutRequest({
-            token: _token,
-            requester: msg.sender,
-            btcAddress: _btcAddress,
-            amount: _amount,
-            withdrawType: _withdrawType,
-            status: TxStatus.Pending,
-            timestamp: block.timestamp
-        });
+        // 3. Check if request already exists
+        request = pegOutRequests[requestId];
+        if (request.requester != address(0)) {
+            revert RequestAlreadyExists(requestId);
+        }
+
+        // 4. Create new PegOutRequest
+        request.token = _token;
+        request.requester = msg.sender;
+        request.btcAddress = _btcAddress;
+        request.amount = _amount;
+        request.withdrawType = _withdrawType;
+        request.status = TxStatus.Pending;
+        request.timestamp = block.timestamp;
     }
 
-    // Function for witnesses to process a peg-out request
+    /**
+     * @notice Process a pending peg-out request
+     * @dev Only authorized witnesses can call this function
+     * @param _requestId The unique identifier of the peg-out request
+     * @param _btcTxTag The Bitcoin transaction tag associated with the peg-out
+     * @custom:throws InvalidRequestStatus if the request status is not Pending
+     * @custom:throws RequestNotFound if the request does not exist
+     */
     function processPegOut(bytes32 _requestId, bytes32 _btcTxTag)
         public
         onlyAuthorizedWitness
@@ -443,9 +472,19 @@ contract ExocoreBtcGateway is
         whenNotPaused
     {
         PegOutRequest storage request = pegOutRequests[_requestId];
-        require(request.status == TxStatus.Pending, "Invalid request status");
 
+        // Check if the request exists and has the correct status
+        if (request.requester == address(0)) {
+            revert RequestNotFound(_requestId);
+        }
+        if (request.status != TxStatus.Pending) {
+            revert InvalidRequestStatus(_requestId);
+        }
+
+        // Update request status
         request.status = TxStatus.Processed;
+
+        // Emit event
         emit PegOutProcessed(_requestId, _btcTxTag);
     }
 
@@ -600,9 +639,9 @@ contract ExocoreBtcGateway is
      * @param exoSrcAddress The exocore source address.
      * @return The next nonce for corresponding btcAddress.
      */
-    function _nextNonce(uint32 srcChainId, bytes memory exoSrcAddress) internal returns (uint64) {
+    function _nextNonce(uint32 srcChainId, bytes memory exoSrcAddress) internal view returns (uint64) {
         bytes memory depositor = exocoreToBtcAddress[exoSrcAddress];
-        return inboundBytesNonce[srcChainId][depositor]++;
+        return inboundBytesNonce[srcChainId][depositor] + 1;
     }
 
     /**

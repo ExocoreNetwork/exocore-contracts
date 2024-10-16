@@ -24,9 +24,9 @@ library SignatureVerifier {
 
     function verifyMsgSig(address signer, bytes32 messageHash, bytes memory signature) internal pure {
         // Declare r, s, and v signature parameters.
-        bytes32 r;
-        bytes32 s;
-        uint8 v;
+        bytes32 r = 0;
+        bytes32 s = 0;
+        uint8 v = 0;
         if (signature.length == 64) {
             // If signature contains 64 bytes, parse as EIP-2098 sig. (r+s&v)
             // Declare temporary vs that will be decomposed into s and v.
