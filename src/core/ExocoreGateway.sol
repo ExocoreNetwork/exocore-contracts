@@ -502,9 +502,12 @@ contract ExocoreGateway is
         whenNotPaused
     {
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
-            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
-        ).addExecutorOrderedExecutionOption();
+        bytes memory options =
+            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE);
+        if (srcChainId != 40_168) {
+            options.addExecutorOrderedExecutionOption();
+        }
+
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
         address refundAddress = payByApp ? address(this) : msg.sender;
@@ -515,9 +518,12 @@ contract ExocoreGateway is
 
     /// @inheritdoc IExocoreGateway
     function quote(uint32 srcChainid, bytes calldata _message) public view returns (uint256 nativeFee) {
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
-            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
-        ).addExecutorOrderedExecutionOption();
+        bytes memory options =
+            OptionsBuilder.newOptions().addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE);
+        if (srcChainid != 40_168) {
+            options.addExecutorOrderedExecutionOption();
+        }
+
         MessagingFee memory fee = _quote(srcChainid, _message, options, false);
         return fee.nativeFee;
     }
