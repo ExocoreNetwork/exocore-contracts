@@ -167,10 +167,20 @@ jobs:
       - name: Generate target branch layout files
         run: |
           forge inspect src/core/ExocoreGateway.sol:ExocoreGateway storage-layout --pretty > ExocoreGateway_target.txt
+      - name: Cache target branch layout file
+        uses: actions/cache/save@v3
+        with:
+          path: ExocoreGateway_target.txt
+          key: ${{ runner.os }}-exocore-target-${{ github.sha }}
       - name: Checkout back to PR
         uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Restore target branch layout file
+        uses: actions/cache/restore@v3
+        with:
+          path: ExocoreGateway_target.txt
+          key: ${{ runner.os }}-exocore-target-${{ github.sha }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
