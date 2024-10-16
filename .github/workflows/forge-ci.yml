@@ -158,10 +158,17 @@ jobs:
             ./cache
             ./broadcast
           key: ${{ runner.os }}-build-${{ github.sha }}
-      - name: Run forge inspect storage layout on ClientChainGateway
-        run: forge inspect --pretty src/core/ClientChainGateway.sol:ClientChainGateway storageLayout > ClientChainGateway.md
-      - name: Run forge inspect storage layout on Bootstrap
-        run: forge inspect --pretty src/core/Bootstrap.sol:Bootstrap storageLayout > Bootstrap.md
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+      - name: Generate target branch layout files
+        run: |
+          forge inspect src/core/ExocoreGateway.sol:ExocoreGateway storage-layout --pretty > ExocoreGateway_target.txt
+      - name: Checkout back to PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
