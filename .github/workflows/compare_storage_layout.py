@@ -52,7 +52,7 @@ def compare_layouts(old_layout, new_layout):
                 mismatches.append(f"Variable {row['Name']} has changed")
     
     if not mismatches:
-        print(f"No mismatches found")
+        print("No mismatches found")
 
     return mismatches
 
