@@ -11,9 +11,12 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-
 // import "forge-std/console.sol";
-
+/**
+ * @title ExocoreBtcGateway
+ * @dev This contract manages the gateway between Bitcoin and the Exocore system.
+ * It handles deposits, delegations, withdrawals, and peg-out requests for BTC.
+ */
 contract ExocoreBtcGateway is
     Initializable,
     PausableUpgradeable,
@@ -26,6 +29,9 @@ contract ExocoreBtcGateway is
     address internal constant BTC_ADDR = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
     bytes internal constant BTC_TOKEN = abi.encodePacked(bytes32(bytes20(BTC_ADDR)));
 
+    /**
+     * @dev Modifier to restrict access to authorized witnesses only.
+     */
     modifier onlyAuthorizedWitness() {
         if (!_isAuthorizedWitness(msg.sender)) {
             revert UnauthorizedWitness();
@@ -34,14 +40,16 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Pauses the contract. Can only be called by an authorized witness.
+     * @notice Pauses the contract.
+     * @dev Can only be called by the contract owner.
      */
     function pause() external onlyOwner {
         _pause();
     }
 
     /**
-     * @notice Unpauses the contract. Can only be called by an authorized witness.
+     * @notice Unpauses the contract.
+     * @dev Can only be called by the contract owner.
      */
     function unpause() external onlyOwner {
         _unpause();
@@ -49,6 +57,7 @@ contract ExocoreBtcGateway is
 
     /**
      * @notice Constructor to initialize the contract with the client chain ID.
+     * @dev Sets up initial configuration for testing purposes.
      */
     constructor() {
         // todo: for test.
@@ -67,6 +76,11 @@ contract ExocoreBtcGateway is
         __Pausable_init_unchained();
     }
 
+    /**
+     * @notice Adds a new authorized witness.
+     * @param _witness The address of the witness to be added.
+     * @dev Can only be called by the contract owner.
+     */
     function addWitness(address _witness) public onlyOwner {
         if (_witness == address(0)) {
             revert ZeroAddressNotAllowed();
@@ -76,21 +90,33 @@ contract ExocoreBtcGateway is
         emit WitnessAdded(_witness);
     }
 
-    // Function to remove a witness
+    /**
+     * @notice Removes an authorized witness.
+     * @param _witness The address of the witness to be removed.
+     * @dev Can only be called by the contract owner.
+     */
     function removeWitness(address _witness) public onlyOwner {
         require(authorizedWitnesses[_witness], "Witness not authorized");
         authorizedWitnesses[_witness] = false;
         emit WitnessRemoved(_witness);
     }
 
-    // Function to update bridge fee
+    /**
+     * @notice Updates the bridge fee.
+     * @param _newFee The new fee to be set (in basis points, max 1000 or 10%).
+     * @dev Can only be called by the contract owner.
+     */
     function updateBridgeFee(uint256 _newFee) public onlyOwner {
         require(_newFee <= 1000, "Fee cannot exceed 10%"); // Max fee of 10%
         bridgeFee = _newFee;
         emit BridgeFeeUpdated(_newFee);
     }
 
-    // Function to check if proofs are consistent
+    /**
+     * @notice Checks if the proofs for a transaction are consistent.
+     * @param _txTag The transaction tag to check.
+     * @return bool True if proofs are consistent, false otherwise.
+     */
     function _areProofsConsistent(bytes memory _txTag) internal view returns (bool) {
         Proof[] storage txProofs = proofs[_txTag];
         if (txProofs.length < REQUIRED_PROOFS) {
@@ -101,12 +127,15 @@ contract ExocoreBtcGateway is
         for (uint256 i = 1; i < txProofs.length; i++) {
             InterchainMsg memory currentMsg = txProofs[i].message;
             if (
-                firstMsg.srcChainID != currentMsg.srcChainID || firstMsg.dstChainID != currentMsg.dstChainID
-                    || keccak256(firstMsg.srcAddress) != keccak256(currentMsg.srcAddress)
-                    || keccak256(firstMsg.dstAddress) != keccak256(currentMsg.dstAddress)
-                    || firstMsg.token != currentMsg.token || firstMsg.amount != currentMsg.amount
-                    || firstMsg.nonce != currentMsg.nonce || keccak256(firstMsg.txTag) != keccak256(currentMsg.txTag)
-                    || keccak256(firstMsg.payload) != keccak256(currentMsg.payload)
+                firstMsg.srcChainID != currentMsg.srcChainID || 
+                firstMsg.dstChainID != currentMsg.dstChainID ||
+                keccak256(firstMsg.srcAddress) != keccak256(currentMsg.srcAddress) ||
+                keccak256(firstMsg.dstAddress) != keccak256(currentMsg.dstAddress) ||
+                firstMsg.token != currentMsg.token || 
+                firstMsg.amount != currentMsg.amount ||
+                firstMsg.nonce != currentMsg.nonce || 
+                keccak256(firstMsg.txTag) != keccak256(currentMsg.txTag) ||
+                keccak256(firstMsg.payload) != keccak256(currentMsg.payload)
             ) {
                 return false;
             }
@@ -114,7 +143,10 @@ contract ExocoreBtcGateway is
         return true;
     }
 
-    // Function to check and update expired transactions
+    /**
+     * @notice Checks and updates expired transactions.
+     * @param _txTags An array of transaction tags to check.
+     */
     function checkExpiredTransactions(bytes[] calldata _txTags) public {
         for (uint256 i = 0; i < _txTags.length; i++) {
             Transaction storage txn = transactions[_txTags[i]];
@@ -144,6 +176,7 @@ contract ExocoreBtcGateway is
      * @notice Registers a BTC address with an Exocore address.
      * @param depositor The BTC address to register.
      * @param exocoreAddress The corresponding Exocore address.
+     * @dev Can only be called by an authorized witness.
      */
     function registerAddress(bytes calldata depositor, bytes calldata exocoreAddress) external onlyAuthorizedWitness {
         require(depositor.length > 0 && exocoreAddress.length > 0, "Invalid address");
@@ -179,6 +212,11 @@ contract ExocoreBtcGateway is
         SignatureVerifier.verifyMsgSig(msg.sender, messageHash, signature);
     }
 
+    /**
+     * @notice Converts a bytes32 to a string.
+     * @param _bytes32 The bytes32 to convert.
+     * @return string The resulting string.
+     */
     function bytes32ToString(bytes32 _bytes32) public pure returns (string memory) {
         bytes memory bytesArray = new bytes(32);
         for (uint256 i; i < 32; i++) {
@@ -215,7 +253,11 @@ contract ExocoreBtcGateway is
         _verifySignature(_msg, signature);
     }
 
-    // Function to submit a proof with InterchainMsg and signature
+    /**
+     * @notice Submits a proof for a transaction.
+     * @param _message The interchain message.
+     * @param _signature The signature of the message.
+     */
     function submitProof(InterchainMsg calldata _message, bytes calldata _signature)
         public
         nonReentrant
@@ -260,7 +302,10 @@ contract ExocoreBtcGateway is
         }
     }
 
-    // Function to process the deposit
+    /**
+     * @notice Processes a deposit after sufficient proofs have been submitted.
+     * @param _txTag The transaction tag of the deposit to process.
+     */
     function _processDeposit(bytes memory _txTag) internal {
         Transaction storage txn = transactions[_txTag];
         require(txn.status == TxStatus.Pending, "Transaction not pending");
