@@ -17,6 +17,7 @@ import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/se
  * @dev This contract manages the gateway between Bitcoin and the Exocore system.
  * It handles deposits, delegations, withdrawals, and peg-out requests for BTC.
  */
+
 contract ExocoreBtcGateway is
     Initializable,
     PausableUpgradeable,
@@ -127,15 +128,12 @@ contract ExocoreBtcGateway is
         for (uint256 i = 1; i < txProofs.length; i++) {
             InterchainMsg memory currentMsg = txProofs[i].message;
             if (
-                firstMsg.srcChainID != currentMsg.srcChainID || 
-                firstMsg.dstChainID != currentMsg.dstChainID ||
-                keccak256(firstMsg.srcAddress) != keccak256(currentMsg.srcAddress) ||
-                keccak256(firstMsg.dstAddress) != keccak256(currentMsg.dstAddress) ||
-                firstMsg.token != currentMsg.token || 
-                firstMsg.amount != currentMsg.amount ||
-                firstMsg.nonce != currentMsg.nonce || 
-                keccak256(firstMsg.txTag) != keccak256(currentMsg.txTag) ||
-                keccak256(firstMsg.payload) != keccak256(currentMsg.payload)
+                firstMsg.srcChainID != currentMsg.srcChainID || firstMsg.dstChainID != currentMsg.dstChainID
+                    || keccak256(firstMsg.srcAddress) != keccak256(currentMsg.srcAddress)
+                    || keccak256(firstMsg.dstAddress) != keccak256(currentMsg.dstAddress)
+                    || firstMsg.token != currentMsg.token || firstMsg.amount != currentMsg.amount
+                    || firstMsg.nonce != currentMsg.nonce || keccak256(firstMsg.txTag) != keccak256(currentMsg.txTag)
+                    || keccak256(firstMsg.payload) != keccak256(currentMsg.payload)
             ) {
                 return false;
             }
