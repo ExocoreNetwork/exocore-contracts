@@ -23,3 +23,4 @@ node_modules
 .idea
 
 .gas-snapshot
+yarn-error.log
