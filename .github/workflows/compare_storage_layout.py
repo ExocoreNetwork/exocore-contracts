@@ -6,7 +6,7 @@ import subprocess
 def parse_output(contract_name, lines):
     # Clean up the output and create a dataframe
     data = []
-    separator_line = len(lines);
+    separator_line = len(lines)
     for i, line in enumerate(lines):  # start from the line next to the separator
         if i > separator_line and line.startswith('|'):
             parts = [part.strip() for part in line.split('|')[1:-1]]  # Remove empty first and last elements
