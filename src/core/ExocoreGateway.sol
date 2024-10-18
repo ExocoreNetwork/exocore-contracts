@@ -414,6 +414,9 @@ contract ExocoreGateway is
         } else {
             (success,) = REWARD_CONTRACT.claimReward(srcChainId, token, avsOrWithdrawer, amount);
         }
+        if (isSubmitReward && !success) {
+            revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
+        }
         emit RewardOperation(isSubmitReward, success, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
         response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
