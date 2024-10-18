@@ -23,3 +23,6 @@ node_modules
 .idea
 
 .gas-snapshot
+
+## secret
+.secrets
