@@ -37,10 +37,10 @@ def load_and_parse_layout(contract_name, path):
 
 if __name__ == "__main__":
     try:
-        api_key = os.environ.get('ALCHEMY_API_KEY')
+        api_key = os.getenv('ALCHEMY_API_KEY')
         if not api_key:
             raise ValueError("ALCHEMY_API_KEY environment variable is not set")
-        etherscan_api_key = os.environ.get('ETHERSCAN_API_KEY')
+        etherscan_api_key = os.getenv('ETHERSCAN_API_KEY')
         if not etherscan_api_key:
             raise ValueError("ETHERSCAN_API_KEY environment variable is not set")
         
