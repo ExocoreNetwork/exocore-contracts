@@ -1,59 +1,73 @@
 #!/usr/bin/env python
 
 import pandas as pd
-import os
+import subprocess
 
-def parse_layout(file_path):
-    expected_headers = ['Unnamed: 0', 'Name', 'Type', 'Slot', 'Offset', 'Bytes', 'Contract', 'Unnamed: 7']
+def parse_output(contract_name, lines):
+    # Clean up the output and create a dataframe
+    data = []
+    separator_line = len(lines)
+    for i, line in enumerate(lines):  # start from the line next to the separator
+        if i > separator_line and line.startswith('|'):
+            parts = [part.strip() for part in line.split('|')[1:-1]]  # Remove empty first and last elements
+            data.append(parts[:6])  # Keep Name, Type, Slot, Offset, Bytes, Contract
+        elif line.startswith('|') and 'Name' in line:
+            separator_line = i + 1
+    
+    if not data:
+        raise Exception(f"No valid storage layout data found for {contract_name}")
 
-    if not os.path.isfile(file_path):
-        raise FileNotFoundError(f"Error: File {file_path} does not exist.")
+    df = pd.DataFrame(data, columns=['Name', 'Type', 'Slot', 'Offset', 'Bytes', 'Contract'])
+    
+    # Convert numeric columns
+    for col in ['Slot', 'Offset', 'Bytes']:
+        df[col] = pd.to_numeric(df[col])
 
-    # Read the file using pandas, with '|' as the delimiter
-    df = pd.read_csv(file_path, delimiter='|', engine='python', header=0)
+    return df
 
-    # Trim leading/trailing whitespace from all columns
-    df.columns = [col.strip() for col in df.columns]
-    df = df.apply(lambda x: x.strip() if isinstance(x, str) else x)
+def get_current_layout(contract_name):
+    result = subprocess.run(['forge', 'inspect', f'src/core/{contract_name}.sol:{contract_name}', 'storage-layout', '--pretty'], capture_output=True, text=True)
+    print(f"finished executing forge inspect for {contract_name}")
 
-    # Check headers
-    if not all([df.columns[i] == expected_headers[i] for i in range(len(expected_headers))]):
-        raise ValueError(f"Error: Headers in {file_path} do not match expected headers.")
+    if result.returncode != 0:
+        raise Exception(f"Error getting current layout for {contract_name}: {result.stderr}")
 
-    # Drop the second row (assuming it's a separator row)
-    df = df.drop(df.index[1])
-
-    # Combine relevant columns into a single string for comparison
-    df['Combined'] = df[['Name', 'Type', 'Slot', 'Offset', 'Bytes']].apply(lambda row: '|'.join(row.values), axis=1)
-
-    return df['Combined'].tolist()
-
-def compare_layouts(clientChainGateway_entries, bootstrap_entries):
+    return parse_output(contract_name, result.stdout.split('\n'))
+    
+def compare_layouts(old_layout, new_layout):
     mismatches = []
-    length = len(bootstrap_entries)
 
-    if length > len(clientChainGateway_entries):
-        mismatches.append("Error: Bootstrap entries are more than ClientChainGateway entries.")
-        return mismatches
+    # Ensure both dataframes have the same columns
+    columns = ['Name', 'Type', 'Slot', 'Offset', 'Bytes']
+    old_layout = old_layout[columns].copy()
+    new_layout = new_layout[columns].copy()
 
-    for i in range(length):
-        if bootstrap_entries[i] != clientChainGateway_entries[i]:
-            mismatches.append(f"Mismatch at position {i + 1}: {bootstrap_entries[i]} != {clientChainGateway_entries[i]}")
+    # Compare non-gap variables
+    for index, row in old_layout.iterrows():
+        if row['Name'] != '__gap':
+            current_row = new_layout.loc[new_layout['Name'] == row['Name']]
+            if current_row.empty:
+                mismatches.append(f"Variable {row['Name']} is missing in the current layout")
+            elif not current_row.iloc[0].equals(row):
+                mismatches.append(f"Variable {row['Name']} has changed")
+    
+    if not mismatches:
+        print("No mismatches found")
 
     return mismatches
 
 if __name__ == "__main__":
     try:
-        clientChainGateway_entries = parse_layout("ClientChainGateway.md")
-        bootstrap_entries = parse_layout("Bootstrap.md")
+        clientChainGateway_layout = get_current_layout("ClientChainGateway")
+        bootstrap_layout = get_current_layout("Bootstrap")
 
-        if not clientChainGateway_entries:
-            raise ValueError("Error: No valid entries found in ClientChainGateway.md.")
+        if clientChainGateway_layout.empty:
+            raise ValueError("Error: No valid entries found for ClientChainGateway.")
 
-        if not bootstrap_entries:
-            raise ValueError("Error: No valid entries found in Bootstrap.md.")
+        if bootstrap_layout.empty:
+            raise ValueError("Error: No valid entries found for Bootstrap.")
 
-        mismatches = compare_layouts(clientChainGateway_entries, bootstrap_entries)
+        mismatches = compare_layouts(bootstrap_layout, clientChainGateway_layout)
 
         if mismatches:
             print(f"Mismatches found: {len(mismatches)}")
@@ -61,8 +75,7 @@ if __name__ == "__main__":
                 print(mismatch)
             exit(1)
         else:
-            print("All entries in Bootstrap are present in ClientChainGateway at the correct positions.")
+            print("All entries in Bootstrap match ClientChainGateway at the correct positions.")
     except Exception as e:
-        print(e)
+        print(f"Error: {e}")
         exit(1)
-
