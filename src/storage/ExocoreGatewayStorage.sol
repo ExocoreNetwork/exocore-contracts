@@ -28,7 +28,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     uint32 internal constant SOLANA_DEVNET_CHAIN_ID = 40_168;
 
     /// @dev the msg.value for send addTokenWhiteList message
-    uint128 internal constant SOLANA_MSG_VALUE = 3_000_000;
+    uint128 internal constant SOLANA_WHITELIST_TOKEN_MSG_VALUE = 3_000_000;
 
     /// @notice Emitted when a precompile call fails.
     /// @param precompile Address of the precompile contract.

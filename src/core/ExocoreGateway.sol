@@ -525,6 +525,7 @@ contract ExocoreGateway is
         whenNotPaused
     {
         bytes memory payload = abi.encodePacked(act, actionArgs);
+
         bytes memory options = _buildOptions(srcChainId, act);
 
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
@@ -538,6 +539,7 @@ contract ExocoreGateway is
     /// @inheritdoc IExocoreGateway
     function quote(uint32 srcChainId, bytes calldata _message) public view returns (uint256 nativeFee) {
         Action act = Action(uint8(_message[0]));
+
         bytes memory options = _buildOptions(srcChainId, act);
 
         MessagingFee memory fee = _quote(srcChainId, _message, options, false);
@@ -553,7 +555,7 @@ contract ExocoreGateway is
 
         if (srcChainId == SOLANA_DEVNET_CHAIN_ID || srcChainId == SOLANA_MAINNET_CHAIN_ID) {
             if (act == Action.REQUEST_ADD_WHITELIST_TOKEN) {
-                options = options.addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, SOLANA_MSG_VALUE);
+                options = options.addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, SOLANA_WHITELIST_TOKEN_MSG_VALUE);
             } else {
                 options = options.addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE);
             }
