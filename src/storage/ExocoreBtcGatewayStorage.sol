@@ -8,6 +8,13 @@ pragma solidity ^0.8.19;
 contract ExocoreBtcGatewayStorage {
 
     /**
+     * @notice Enum to represent the type of supported token
+     */
+    enum TokenType {
+        BTC
+    }
+
+    /**
      * @dev Enum to represent the status of a transaction
      */
     enum TxStatus {
@@ -84,6 +91,18 @@ contract ExocoreBtcGatewayStorage {
     }
 
     // Constants
+    uint32 public constant BITCOIN_CHAIN_ID = 1;
+    uint8 public constant BITCOIN_STAKER_ACCOUNT_LENGTH = 20;
+    string public constant BITCOIN_NAME = "Bitcoin";
+    string public constant BITCOIN_METADATA = "Bitcoin";
+    string public constant BITCOIN_SIGNATURE_SCHEME = "ECDSA";
+    address public constant VIRTUAL_BTC_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
+    bytes public constant VIRTUAL_BTC_TOKEN = abi.encodePacked(bytes32(bytes20(VIRTUAL_BTC_ADDRESS)));
+    uint8 public constant BTC_DECIMALS = 8;
+    string public constant BTC_NAME = "BTC";
+    string public constant BTC_METADATA = "BTC";
+    string public constant BTC_ORACLE_INFO = "BTC,BITCOIN,8";
+
     address public constant EXOCORE_WITNESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     uint256 public constant REQUIRED_PROOFS = 2;
     uint256 public constant PROOF_TIMEOUT = 1 days;
@@ -134,6 +153,8 @@ contract ExocoreBtcGatewayStorage {
      * @dev Mapping to store inbound bytes nonce for each chain and sender
      */
     mapping(uint32 => mapping(bytes => uint64)) public inboundBytesNonce;
+
+    uint256[40] private __gap;
 
     // Events
     /**
@@ -341,6 +362,24 @@ contract ExocoreBtcGatewayStorage {
      */
     event PegOutRequestStatusUpdated(bytes32 indexed requestId, TxStatus newStatus);
 
+    /// @notice Emitted upon the registration of a new client chain.
+    /// @param clientChainId The LayerZero chain ID of the client chain.
+    event ClientChainRegistered(uint32 clientChainId);
+
+    /// @notice Emitted upon the update of a client chain.
+    /// @param clientChainId The LayerZero chain ID of the client chain.
+    event ClientChainUpdated(uint32 clientChainId);
+
+    /// @notice Emitted when a token is added to the whitelist.
+    /// @param clientChainId The LayerZero chain ID of the client chain.
+    /// @param token The address of the token.
+    event WhitelistTokenAdded(uint32 clientChainId, bytes32 token);
+
+    /// @notice Emitted when a token is updated in the whitelist.
+    /// @param clientChainId The LayerZero chain ID of the client chain.
+    /// @param token The address of the token.
+    event WhitelistTokenUpdated(uint32 clientChainId, bytes32 token);
+
     // Errors
     /**
      * @dev Thrown when an unauthorized witness attempts an action
@@ -429,6 +468,8 @@ contract ExocoreBtcGatewayStorage {
      */
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
 
+    error InvalidTokenType();
+
     /**
      * @dev Modifier to check if a token is whitelisted
      * @param token The address of the token to check
@@ -461,6 +502,12 @@ contract ExocoreBtcGatewayStorage {
         inboundBytesNonce[srcChainId][srcAddress] = nonce;
     }
 
-    uint256[40] private __gap;
+    function getTokenByType(TokenType _tokenType) public pure returns (bytes memory) {
+        if (_tokenType == TokenType.BTC) {
+            return VIRTUAL_BTC_TOKEN;
+        } else {
+            revert InvalidTokenType();
+        }   
+    }
 
 }
