@@ -139,4 +139,12 @@ contract ExocoreGatewayStorage is GatewayStorage {
         }
     }
 
+    /**
+     * @dev return true if chain is either Solana devnet or Solana mainnet
+     * @param srcChainId remote Chain Id
+     */
+    function _isSolana(uint32 srcChainId) internal pure returns (bool) {
+        return srcChainId == SOLANA_DEVNET_CHAIN_ID || srcChainId == SOLANA_MAINNET_CHAIN_ID;
+    }
+
 }

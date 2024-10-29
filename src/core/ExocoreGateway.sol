@@ -553,14 +553,12 @@ contract ExocoreGateway is
     function _buildOptions(uint32 srcChainId, Action act) private pure returns (bytes memory) {
         bytes memory options = OptionsBuilder.newOptions();
 
-        bool isSolana = srcChainId == SOLANA_DEVNET_CHAIN_ID || srcChainId == SOLANA_MAINNET_CHAIN_ID;
-
-        if (!isSolana) {
+        if (!_isSolana(srcChainId)) {
             // currently, LZ does not support ordered execution for Solana
             options = options.addExecutorOrderedExecutionOption();
         }
 
-        uint128 value = isSolana && act == Action.REQUEST_ADD_WHITELIST_TOKEN
+        uint128 value = _isSolana(srcChainId) && act == Action.REQUEST_ADD_WHITELIST_TOKEN
             ? SOLANA_WHITELIST_TOKEN_MSG_VALUE
             : DESTINATION_MSG_VALUE;
 

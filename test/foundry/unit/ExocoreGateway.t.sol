@@ -134,36 +134,30 @@ contract SetUp is Test {
     }
 
     function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
-        uid = generateUID(nonce, fromClientChainToExocore, true);
+        uid = generateUID(nonce, fromClientChainToExocore, false);
     }
 
-    function generateUID(uint64 nonce, bool fromClientChainToExocore, bool isEVM) internal view returns (bytes32 uid) {
+    function generateUID(uint64 nonce, bool fromClientChainToExocore, bool isSolanaClient)
+        internal
+        view
+        returns (bytes32 uid)
+    {
         if (fromClientChainToExocore) {
-            if (isEVM) {
-                uid = GUID.generate(
-                    nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
-                );
-            } else {
-                uid = GUID.generate(
-                    nonce,
-                    solanaClientChainId,
-                    address(solanaClientGateway),
-                    exocoreChainId,
-                    address(exocoreGateway).toBytes32()
-                );
-            }
+            uid = GUID.generate(
+                nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
+            );
         } else {
-            if (isEVM) {
-                uid = GUID.generate(
-                    nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
-                );
-            } else {
+            if (isSolanaClient) {
                 uid = GUID.generate(
                     nonce,
                     exocoreChainId,
                     address(exocoreGateway),
                     solanaClientChainId,
                     address(solanaClientGateway).toBytes32()
+                );
+            } else {
+                uid = GUID.generate(
+                    nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
                 );
             }
         }
@@ -638,7 +632,7 @@ contract AddWhitelistTokens is SetUp {
         vm.expectEmit(address(exocoreGateway));
         emit WhitelistTokenAdded(solanaClientChainId, bytes32(bytes20(address(restakeToken))));
         vm.expectEmit(address(exocoreGateway));
-        emit MessageSent(Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false, false), 1, nativeFeeForSolana);
+        emit MessageSent(Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false, true), 1, nativeFeeForSolana);
         exocoreGateway.addWhitelistToken{value: nativeFeeForSolana}(
             solanaClientChainId,
             bytes32(bytes20(address(restakeToken))),
