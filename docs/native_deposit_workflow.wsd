@@ -20,7 +20,7 @@ ETHPOS -> NativeStakingController: 1.3:DepositSuccess
 deactivate ETHPOS
 deactivate NativeStakingController
 
-User -> NativeStakingController: 2.1:depositBeaconChainValidator(validatorContainer, proof)
+User -> NativeStakingController: 2.1:verifyAndDepositNativeStake(validatorContainer, proof)
 activate NativeStakingController
 NativeStakingController -> ExoCapsule: 2.2:verifyDepositProof(validatorContainer, proof)
 activate ExoCapsule
@@ -52,7 +52,7 @@ deactivate ExocoreL0Endpoint
 
 
 @startuml
-title NativeRestakingController: depositBeaconChainValidator() function
+title NativeRestakingController: verifyAndDepositNativeStake() function
 
 start
 

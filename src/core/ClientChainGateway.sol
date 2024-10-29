@@ -42,28 +42,15 @@ contract ClientChainGateway is
 
     /// @notice This constructor initializes only immutable state variables
     /// @param endpoint_ is the layerzero endpoint address deployed on this chain
-    /// @param exocoreChainId_ is the id of layerzero endpoint on Exocore chain
-    /// @param beaconOracleAddress_ is the Ethereum beacon chain oracle that is used for fetching beacon block root
-    /// @param exoCapsuleBeacon_ is the UpgradeableBeacon contract address for ExoCapsule beacon proxy
-    /// @param vaultBeacon_ is the UpgradeableBeacon contract address for Vault beacon proxy
+    /// @param params_ is the struct containing the immutable state variables
+    /// @param rewardVaultBeacon_ is the UpgradeableBeacon contract address for RewardVault beacon proxy
     constructor(
         address endpoint_,
-        uint32 exocoreChainId_,
-        address beaconOracleAddress_,
-        address vaultBeacon_,
-        address rewardVaultBeacon_,
-        address exoCapsuleBeacon_,
-        address beaconProxyBytecode_
+        ImmutableConfig memory params_,
+        address rewardVaultBeacon_
     )
         OAppCoreUpgradeable(endpoint_)
-        ClientChainGatewayStorage(
-            exocoreChainId_,
-            beaconOracleAddress_,
-            vaultBeacon_,
-            rewardVaultBeacon_,
-            exoCapsuleBeacon_,
-            beaconProxyBytecode_
-        )
+        ClientChainGatewayStorage(params_, rewardVaultBeacon_)
     {
         _disableInitializers();
     }

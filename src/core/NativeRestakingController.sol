@@ -31,14 +31,6 @@ abstract contract NativeRestakingController is
 
     using ValidatorContainer for bytes32[];
 
-    /// @dev Ensures that native restaking is enabled for this contract.
-    modifier nativeRestakingEnabled() {
-        if (!isWhitelistedToken[VIRTUAL_NST_ADDRESS]) {
-            revert Errors.NativeRestakingControllerNotWhitelisted();
-        }
-        _;
-    }
-
     /// @notice Stakes 32 ETH on behalf of the validators in the Ethereum beacon chain, and
     /// points the withdrawal credentials to the capsule contract, creating it if necessary.
     /// @param pubkey The validator's BLS12-381 public key.
@@ -95,7 +87,7 @@ abstract contract NativeRestakingController is
     /// @notice Verifies a deposit proof from the beacon chain and forwards the information to Exocore.
     /// @param validatorContainer The validator container which made the deposit.
     /// @param proof The proof of the validator container.
-    function depositBeaconChainValidator(
+    function verifyAndDepositNativeStake(
         bytes32[] calldata validatorContainer,
         BeaconChainProofs.ValidatorContainerProof calldata proof
     ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {

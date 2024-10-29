@@ -17,6 +17,7 @@ import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/Upgradeabl
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
+import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 
 contract DeployScript is BaseScript {
 
@@ -59,33 +60,34 @@ contract DeployScript is BaseScript {
         // deploy beacon chain oracle
         beaconOracle = _deployBeaconOracle();
 
-        /// deploy vault implementation contract, capsule implementation contract, reward vault implementation contract
-        /// that has logics called by proxy
+        /// deploy implementations and beacons
         vaultImplementation = new Vault();
         capsuleImplementation = new ExoCapsule();
         rewardVaultImplementation = new RewardVault();
 
-        /// deploy the vault beacon, capsule beacon, reward vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
         rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
 
-        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
         beaconProxyBytecode = new BeaconProxyBytecode();
-
-        // deploy custom proxy admin
         clientChainProxyAdmin = new CustomProxyAdmin();
+
+        // Create ImmutableConfig struct
+        BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
+            exocoreChainId: exocoreChainId,
+            beaconOracleAddress: address(beaconOracle),
+            vaultBeacon: address(vaultBeacon),
+            exoCapsuleBeacon: address(capsuleBeacon),
+            beaconProxyBytecode: address(beaconProxyBytecode)
+        });
 
         /// deploy client chain gateway
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(beaconOracle),
-            address(vaultBeacon),
-            address(rewardVaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
+            config,
+            address(rewardVaultBeacon)
         );
+
         clientGateway = ClientChainGateway(
             payable(
                 address(

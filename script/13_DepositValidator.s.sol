@@ -80,7 +80,7 @@ contract DepositScript is BaseScript {
             uint256(_getEffectiveBalance(validatorContainer)) * GWEI_TO_WEI
         );
         uint256 nativeFee = clientGateway.quote(msg_);
-        try clientGateway.depositBeaconChainValidator{value: nativeFee}(validatorContainer, validatorProof) {
+        try clientGateway.verifyAndDepositNativeStake{value: nativeFee}(validatorContainer, validatorProof) {
             console.log("finish");
         } catch {
             console.log("fire anyway");

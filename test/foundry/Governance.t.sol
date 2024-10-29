@@ -35,6 +35,8 @@ import "src/interfaces/IVault.sol";
 
 import "src/utils/BeaconProxyBytecode.sol";
 
+import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
+
 contract GovernanceTest is Test {
 
     struct Player {
@@ -149,15 +151,23 @@ contract GovernanceTest is Test {
 
         clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, owner);
         ProxyAdmin proxyAdmin = new ProxyAdmin();
+
+        // Create ImmutableConfig struct
+        BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
+            exocoreChainId: exocoreChainId,
+            beaconOracleAddress: address(beaconOracle),
+            vaultBeacon: address(vaultBeacon),
+            exoCapsuleBeacon: address(capsuleBeacon),
+            beaconProxyBytecode: address(beaconProxyBytecode)
+        });
+
+        // Update ClientChainGateway constructor call
         clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(beaconOracle),
-            address(vaultBeacon),
-            address(rewardVaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
+            config,
+            address(rewardVaultBeacon)
         );
+
         clientGateway = ClientChainGateway(
             payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))
         );

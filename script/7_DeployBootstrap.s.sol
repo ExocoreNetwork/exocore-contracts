@@ -19,6 +19,7 @@ import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/preset
 import "forge-std/Script.sol";
 
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
+import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 
 contract DeployBootstrapOnly is BaseScript {
 
@@ -59,32 +60,48 @@ contract DeployBootstrapOnly is BaseScript {
 
         // proxy deployment
         clientChainProxyAdmin = new CustomProxyAdmin();
-        // vault, shared between bootstrap and client chain gateway
+        
+        // deploy beacon chain oracle
+        beaconOracle = _deployBeaconOracle();
+
+        /// deploy vault implementation contract, capsule implementation contract, reward vault implementation contract
+        /// that has logics called by proxy
         vaultImplementation = new Vault();
+        capsuleImplementation = new ExoCapsule();
+
+        /// deploy the vault beacon, capsule beacon, reward vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+
+        // Create ImmutableConfig struct
+        BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
+            exocoreChainId: exocoreChainId,
+            beaconOracleAddress: address(beaconOracle),
+            vaultBeacon: address(vaultBeacon),
+            exoCapsuleBeacon: address(capsuleBeacon),
+            beaconProxyBytecode: address(beaconProxyBytecode)
+        });
 
         // bootstrap logic
         Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
+            address(clientChainLzEndpoint),
+            config
         );
-        // client chain constructor (upgrade details)
-        capsuleImplementation = new ExoCapsule();
-        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
+        
+        // client chain constructor
         rewardVaultImplementation = new RewardVault();
         rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
         ClientChainGateway clientGatewayLogic = new ClientChainGateway(
             address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(beaconOracle),
-            address(vaultBeacon),
-            address(rewardVaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
+            config,
+            address(rewardVaultBeacon)
         );
+
         // then the client chain initialization
         address[] memory emptyList;
         bytes memory initialization =
             abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr, emptyList);
+
         // bootstrap implementation
         Bootstrap bootstrap = Bootstrap(
             payable(
@@ -96,10 +113,9 @@ contract DeployBootstrapOnly is BaseScript {
                             Bootstrap.initialize,
                             (
                                 exocoreValidatorSet.addr,
-                                // 1 week from now
                                 block.timestamp + 168 hours,
                                 2 seconds,
-                                whitelistTokens, // vault is auto deployed
+                                whitelistTokens,
                                 tvlLimits,
                                 address(clientChainProxyAdmin),
                                 address(clientGatewayLogic),
