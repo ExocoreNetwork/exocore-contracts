@@ -44,11 +44,7 @@ contract ClientChainGateway is
     /// @param endpoint_ is the layerzero endpoint address deployed on this chain
     /// @param params_ is the struct containing the immutable state variables
     /// @param rewardVaultBeacon_ is the UpgradeableBeacon contract address for RewardVault beacon proxy
-    constructor(
-        address endpoint_,
-        ImmutableConfig memory params_,
-        address rewardVaultBeacon_
-    )
+    constructor(address endpoint_, ImmutableConfig memory params_, address rewardVaultBeacon_)
         OAppCoreUpgradeable(endpoint_)
         ClientChainGatewayStorage(params_, rewardVaultBeacon_)
     {

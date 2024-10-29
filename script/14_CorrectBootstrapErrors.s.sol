@@ -19,8 +19,8 @@ import {ILayerZeroEndpointV2} from "@layerzero-v2/protocol/contracts/interfaces/
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 // This script uses the address in `deployedBootstrapOnly` and redeploys on top of it. For that to work, the
 // modifier for the initialize function needs to be changed from `initializer` to `reinitializer(2)`. At the same
@@ -99,10 +99,7 @@ contract CorrectBootstrapErrors is BaseScript {
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
 
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
 
         bytes memory data = abi.encodeCall(
             Bootstrap.initialize,

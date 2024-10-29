@@ -53,10 +53,7 @@ contract Bootstrap is
     /// @notice Constructor for the Bootstrap contract.
     /// @param endpoint_ is the address of the layerzero endpoint on Exocore chain
     /// @param params is the struct containing the values for immutable state variables
-    constructor(
-        address endpoint_,
-        ImmutableConfig memory params
-    )
+    constructor(address endpoint_, ImmutableConfig memory params)
         OAppCoreUpgradeable(endpoint_)
         BootstrapStorage(params)
     {

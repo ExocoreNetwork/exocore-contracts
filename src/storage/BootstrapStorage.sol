@@ -350,10 +350,21 @@ contract BootstrapStorage is GatewayStorage {
     /// @param params The parameters to initialize the contract immutable variables.
     constructor(ImmutableConfig memory params) {
         require(params.exocoreChainId != 0, "BootstrapStorage: exocore chain id should not be empty");
-        require(params.beaconOracleAddress != address(0), "BootstrapStorage: the beaconOracleAddress address should not be empty");
-        require(params.vaultBeacon != address(0), "BootstrapStorage: the vaultBeacon address for beacon proxy should not be empty");
-        require(params.beaconProxyBytecode != address(0), "BootstrapStorage: the beaconProxyBytecode address should not be empty");
-        require(params.exoCapsuleBeacon != address(0), "BootstrapStorage: the exoCapsuleBeacon address should not be empty");
+        require(
+            params.beaconOracleAddress != address(0),
+            "BootstrapStorage: the beaconOracleAddress address should not be empty"
+        );
+        require(
+            params.vaultBeacon != address(0),
+            "BootstrapStorage: the vaultBeacon address for beacon proxy should not be empty"
+        );
+        require(
+            params.beaconProxyBytecode != address(0),
+            "BootstrapStorage: the beaconProxyBytecode address should not be empty"
+        );
+        require(
+            params.exoCapsuleBeacon != address(0), "BootstrapStorage: the exoCapsuleBeacon address should not be empty"
+        );
 
         EXOCORE_CHAIN_ID = params.exocoreChainId;
         BEACON_ORACLE_ADDRESS = params.beaconOracleAddress;

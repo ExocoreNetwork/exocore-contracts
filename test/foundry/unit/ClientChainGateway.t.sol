@@ -20,8 +20,9 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "src/core/ClientChainGateway.sol";
-import "src/storage/ClientChainGatewayStorage.sol";
+
 import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
+import "src/storage/ClientChainGatewayStorage.sol";
 
 import "src/core/ExoCapsule.sol";
 import "src/core/ExocoreGateway.sol";
@@ -129,11 +130,7 @@ contract SetUp is Test {
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
 
-        clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            config,
-            address(rewardVaultBeacon)
-        );
+        clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         clientGateway = ClientChainGateway(
             payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))

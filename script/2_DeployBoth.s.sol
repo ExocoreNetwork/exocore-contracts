@@ -10,6 +10,7 @@ import "../src/utils/BeaconProxyBytecode.sol";
 import "../src/utils/CustomProxyAdmin.sol";
 import {ExocoreGatewayMock} from "../test/mocks/ExocoreGatewayMock.sol";
 
+import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 import {BaseScript} from "./BaseScript.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
@@ -17,7 +18,6 @@ import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/Upgradeabl
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
-import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 
 contract DeployScript is BaseScript {
 
@@ -82,11 +82,8 @@ contract DeployScript is BaseScript {
         });
 
         /// deploy client chain gateway
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            config,
-            address(rewardVaultBeacon)
-        );
+        ClientChainGateway clientGatewayLogic =
+            new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         clientGateway = ClientChainGateway(
             payable(

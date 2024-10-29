@@ -18,8 +18,8 @@ import {ILayerZeroEndpointV2} from "@layerzero-v2/protocol/contracts/interfaces/
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 contract DeployBootstrapOnly is BaseScript {
 
@@ -60,7 +60,7 @@ contract DeployBootstrapOnly is BaseScript {
 
         // proxy deployment
         clientChainProxyAdmin = new CustomProxyAdmin();
-        
+
         // deploy beacon chain oracle
         beaconOracle = _deployBeaconOracle();
 
@@ -83,19 +83,13 @@ contract DeployBootstrapOnly is BaseScript {
         });
 
         // bootstrap logic
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
-        
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
+
         // client chain constructor
         rewardVaultImplementation = new RewardVault();
         rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            config,
-            address(rewardVaultBeacon)
-        );
+        ClientChainGateway clientGatewayLogic =
+            new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         // then the client chain initialization
         address[] memory emptyList;

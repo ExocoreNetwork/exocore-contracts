@@ -2,8 +2,9 @@
 pragma solidity ^0.8.0;
 
 import {Bootstrap} from "src/core/Bootstrap.sol";
-import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
+
 import {ClientChainGateway} from "src/core/ClientChainGateway.sol";
+import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
 
 import {Vault} from "src/core/Vault.sol";
 import {CustomProxyAdmin} from "src/utils/CustomProxyAdmin.sol";
@@ -114,20 +115,14 @@ contract BootstrapTest is Test {
             exoCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         // set up the upgrade params
         // deploy capsule implementation contract that has logics called by proxy
         capsuleImplementation = new ExoCapsule();
         // deploy the capsule beacon that store the implementation contract address
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            config,
-            address(rewardVaultBeacon)
-        );
+        ClientChainGateway clientGatewayLogic =
+            new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
         // we could also use encodeWithSelector and supply .initialize.selector instead.
         bytes memory initialization = abi.encodeCall(clientGatewayLogic.initialize, (payable(exocoreValidatorSet)));
         // then the params + proxy
@@ -1133,10 +1128,7 @@ contract BootstrapTest is Test {
             exoCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroAddress.selector);
         Bootstrap(
             payable(
@@ -1172,10 +1164,7 @@ contract BootstrapTest is Test {
             exoCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.warp(20);
         vm.expectRevert(Errors.BootstrapSpawnTimeAlreadyPast.selector);
         Bootstrap(
@@ -1212,10 +1201,7 @@ contract BootstrapTest is Test {
             exoCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroValue.selector);
         Bootstrap(
             payable(
@@ -1251,10 +1237,7 @@ contract BootstrapTest is Test {
             exoCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.BootstrapSpawnTimeLessThanDuration.selector);
         vm.warp(20);
         Bootstrap(
@@ -1291,10 +1274,7 @@ contract BootstrapTest is Test {
             exoCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
         vm.warp(20);
         Bootstrap(
@@ -1331,10 +1311,7 @@ contract BootstrapTest is Test {
             exoCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroAddress.selector);
         Bootstrap(
             payable(
@@ -1370,10 +1347,7 @@ contract BootstrapTest is Test {
             exoCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroAddress.selector);
         Bootstrap(
             payable(
@@ -1409,10 +1383,7 @@ contract BootstrapTest is Test {
             exoCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.BootstrapClientChainDataMalformed.selector);
         Bootstrap(
             payable(

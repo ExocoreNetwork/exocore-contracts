@@ -4,8 +4,9 @@ import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/Upgradeabl
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {Bootstrap} from "../src/core/Bootstrap.sol";
-import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
+
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
+import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 
 import "../src/core/ExoCapsule.sol";
 
@@ -67,11 +68,8 @@ contract RedeployClientChainGateway is BaseScript {
         });
 
         // Update ClientChainGateway constructor call
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            config,
-            address(rewardVaultBeacon)
-        );
+        ClientChainGateway clientGatewayLogic =
+            new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         // then the client chain initialization
         address[] memory emptyList;

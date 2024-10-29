@@ -4,21 +4,22 @@ pragma solidity ^0.8.0;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 import {EndpointV2Mock} from "../../test/mocks/EndpointV2Mock.sol";
 
 import {Bootstrap} from "../../src/core/Bootstrap.sol";
 import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
 
+import {ExoCapsule} from "../../src/core/ExoCapsule.sol";
 import {Vault} from "../../src/core/Vault.sol";
+import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
 import {IValidatorRegistry} from "../../src/interfaces/IValidatorRegistry.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
-import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
-import {ExoCapsule} from "../../src/core/ExoCapsule.sol";
+
 import "../../src/utils/BeaconProxyBytecode.sol";
 import {CustomProxyAdmin} from "../../src/utils/CustomProxyAdmin.sol";
 import {MyToken} from "../../test/foundry/unit/MyToken.sol";
@@ -139,10 +140,7 @@ contract DeployContracts is Script {
             beaconProxyBytecode: address(beaconProxyBytecode)
         });
 
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint),
-            config
-        );
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
 
         bootstrap = Bootstrap(
             payable(
@@ -169,7 +167,7 @@ contract DeployContracts is Script {
         );
         vm.stopBroadcast();
         console.log("Bootstrap address: ", address(bootstrap));
-        
+
         // set the vaults
         for (uint256 i = 0; i < whitelistTokens.length; i++) {
             IVault vault = bootstrap.tokenToVault(whitelistTokens[i]);

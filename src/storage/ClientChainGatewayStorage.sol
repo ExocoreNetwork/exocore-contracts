@@ -72,10 +72,9 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     /// @notice Initializes the ClientChainGatewayStorage contract.
     /// @param params The parameters to initialize the contract immutable variables.
     /// @param rewardVaultBeacon_ The address of the reward vault beacon.
-    constructor(ImmutableConfig memory params, address rewardVaultBeacon_) 
-        BootstrapStorage(params) 
-    {
-        require(rewardVaultBeacon_ != address(0), 
+    constructor(ImmutableConfig memory params, address rewardVaultBeacon_) BootstrapStorage(params) {
+        require(
+            rewardVaultBeacon_ != address(0),
             "ClientChainGatewayStorage: the reward vault beacon address for beacon proxy should not be empty"
         );
         REWARD_VAULT_BEACON = IBeacon(rewardVaultBeacon_);
