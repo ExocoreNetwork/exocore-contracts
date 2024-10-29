@@ -147,19 +147,11 @@ contract SetUp is Test {
                 nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
             );
         } else {
-            if (isSolanaClient) {
-                uid = GUID.generate(
-                    nonce,
-                    exocoreChainId,
-                    address(exocoreGateway),
-                    solanaClientChainId,
-                    address(solanaClientGateway).toBytes32()
-                );
-            } else {
-                uid = GUID.generate(
-                    nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
-                );
-            }
+            uint16 targetChainId = isSolanaClient ? solanaClientChainId : clientChainId;
+            bytes32 targetGateway =
+                isSolanaClient ? address(solanaClientGateway).toBytes32() : address(clientGateway).toBytes32();
+
+            return GUID.generate(nonce, exocoreChainId, address(exocoreGateway), targetChainId, targetGateway);
         }
     }
 

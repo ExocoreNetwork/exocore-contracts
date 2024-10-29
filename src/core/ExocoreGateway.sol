@@ -354,7 +354,7 @@ contract ExocoreGateway is
         }
         emit LSTTransfer(isDeposit, success, bytes32(token), bytes32(staker), amount);
 
-        if (srcChainId == SOLANA_DEVNET_CHAIN_ID || srcChainId == SOLANA_MAINNET_CHAIN_ID) {
+        if (_isSolana(srcChainId)) {
             response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success, bytes32(token), bytes32(staker));
         } else {
             response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
@@ -423,7 +423,7 @@ contract ExocoreGateway is
         }
         emit RewardOperation(isSubmitReward, success, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
-        if (srcChainId == SOLANA_DEVNET_CHAIN_ID || srcChainId == SOLANA_MAINNET_CHAIN_ID) {
+        if (_isSolana(srcChainId)) {
             response = isSubmitReward
                 ? bytes("")
                 : abi.encodePacked(lzNonce, success, bytes32(token), bytes32(avsOrWithdrawer));
