@@ -30,9 +30,7 @@ import {Errors} from "../libraries/Errors.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {Action} from "../storage/GatewayStorage.sol";
 
-import {BaseRestakingController} from "./BaseRestakingController.sol";
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
-import {NativeRestakingController} from "./NativeRestakingController.sol";
 
 /// @title Bootstrap
 /// @author ExocoreNetwork

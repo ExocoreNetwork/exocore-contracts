@@ -1,10 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {IRewardVault} from "../interfaces/IRewardVault.sol";
 
-import {Errors} from "../libraries/Errors.sol";
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {Action} from "../storage/GatewayStorage.sol";
 
