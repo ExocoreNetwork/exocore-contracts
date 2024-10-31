@@ -27,8 +27,8 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed account, uint256 amount
     );
     event Transfer(address indexed from, address indexed to, uint256 amount);
-    event CapsuleCreated(address owner, address capsule);
-    event StakedWithCapsule(address staker, address capsule);
+    event CapsuleCreated(address indexed owner, address indexed capsule);
+    event StakedWithCapsule(address indexed staker, address indexed capsule);
     event PrincipalDeposited(address indexed depositor, uint256 amount);
     event PrincipalUnlocked(address indexed staker, uint256 amount);
     event PrincipalWithdrawn(address indexed src, address indexed dst, uint256 amount);

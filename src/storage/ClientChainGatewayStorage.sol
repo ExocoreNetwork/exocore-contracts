@@ -2,6 +2,7 @@
 pragma solidity ^0.8.19;
 
 import {IRewardVault} from "../interfaces/IRewardVault.sol";
+import {Errors} from "../libraries/Errors.sol";
 
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {Action} from "../storage/GatewayStorage.sol";
@@ -68,13 +69,12 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     event RewardVaultCreated(address vault);
 
     /// @notice Initializes the ClientChainGatewayStorage contract.
-    /// @param params The parameters to initialize the contract immutable variables.
+    /// @param config The parameters to initialize the contract immutable variables.
     /// @param rewardVaultBeacon_ The address of the reward vault beacon.
-    constructor(ImmutableConfig memory params, address rewardVaultBeacon_) BootstrapStorage(params) {
-        require(
-            rewardVaultBeacon_ != address(0),
-            "ClientChainGatewayStorage: the reward vault beacon address for beacon proxy should not be empty"
-        );
+    constructor(ImmutableConfig memory config, address rewardVaultBeacon_) BootstrapStorage(config) {
+        if (rewardVaultBeacon_ == address(0)) {
+            revert Errors.InvalidImmutableConfig();
+        }
         REWARD_VAULT_BEACON = IBeacon(rewardVaultBeacon_);
     }
 

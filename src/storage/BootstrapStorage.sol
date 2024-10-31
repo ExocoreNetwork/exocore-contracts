@@ -276,12 +276,12 @@ contract BootstrapStorage is GatewayStorage {
     /// @notice Emitted when a new ExoCapsule is created.
     /// @param owner Owner of the ExoCapsule.
     /// @param capsule Address of the ExoCapsule.
-    event CapsuleCreated(address owner, address capsule);
+    event CapsuleCreated(address indexed owner, address indexed capsule);
 
     /// @notice Emitted when a staker stakes with a capsule.
     /// @param staker Address of the staker.
     /// @param capsule Address of the capsule.
-    event StakedWithCapsule(address staker, address capsule);
+    event StakedWithCapsule(address indexed staker, address indexed capsule);
 
     /// @dev Struct to return detailed information about a token, including its name, symbol, address, decimals, total
     /// supply, and additional metadata for cross-chain operations and contextual data.
@@ -347,30 +347,20 @@ contract BootstrapStorage is GatewayStorage {
     }
 
     /// @notice Initializes the contract with the given parameters.
-    /// @param params The parameters to initialize the contract immutable variables.
-    constructor(ImmutableConfig memory params) {
-        require(params.exocoreChainId != 0, "BootstrapStorage: exocore chain id should not be empty");
-        require(
-            params.beaconOracleAddress != address(0),
-            "BootstrapStorage: the beaconOracleAddress address should not be empty"
-        );
-        require(
-            params.vaultBeacon != address(0),
-            "BootstrapStorage: the vaultBeacon address for beacon proxy should not be empty"
-        );
-        require(
-            params.beaconProxyBytecode != address(0),
-            "BootstrapStorage: the beaconProxyBytecode address should not be empty"
-        );
-        require(
-            params.exoCapsuleBeacon != address(0), "BootstrapStorage: the exoCapsuleBeacon address should not be empty"
-        );
+    /// @param config The parameters to initialize the contract immutable variables.
+    constructor(ImmutableConfig memory config) {
+        if (
+            config.exocoreChainId == 0 || config.beaconOracleAddress == address(0) || config.vaultBeacon == address(0)
+                || config.exoCapsuleBeacon == address(0) || config.beaconProxyBytecode == address(0)
+        ) {
+            revert Errors.InvalidImmutableConfig();
+        }
 
-        EXOCORE_CHAIN_ID = params.exocoreChainId;
-        BEACON_ORACLE_ADDRESS = params.beaconOracleAddress;
-        VAULT_BEACON = IBeacon(params.vaultBeacon);
-        EXO_CAPSULE_BEACON = IBeacon(params.exoCapsuleBeacon);
-        BEACON_PROXY_BYTECODE = BeaconProxyBytecode(params.beaconProxyBytecode);
+        EXOCORE_CHAIN_ID = config.exocoreChainId;
+        BEACON_ORACLE_ADDRESS = config.beaconOracleAddress;
+        VAULT_BEACON = IBeacon(config.vaultBeacon);
+        EXO_CAPSULE_BEACON = IBeacon(config.exoCapsuleBeacon);
+        BEACON_PROXY_BYTECODE = BeaconProxyBytecode(config.beaconProxyBytecode);
     }
 
     /// @notice Returns the vault associated with the given token.

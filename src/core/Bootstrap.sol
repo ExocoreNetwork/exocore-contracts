@@ -50,10 +50,10 @@ contract Bootstrap is
 
     /// @notice Constructor for the Bootstrap contract.
     /// @param endpoint_ is the address of the layerzero endpoint on Exocore chain
-    /// @param params is the struct containing the values for immutable state variables
-    constructor(address endpoint_, ImmutableConfig memory params)
+    /// @param config is the struct containing the values for immutable state variables
+    constructor(address endpoint_, ImmutableConfig memory config)
         OAppCoreUpgradeable(endpoint_)
-        BootstrapStorage(params)
+        BootstrapStorage(config)
     {
         _disableInitializers();
     }
@@ -786,6 +786,8 @@ contract Bootstrap is
     }
 
     /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Exocore.
+    /// @notice This function is not yet supported, but staker could call this function after bootstrapping to withdraw
+    /// their stake.
     function processBeaconChainWithdrawal(
         bytes32[] calldata,
         BeaconChainProofs.ValidatorContainerProof calldata,
