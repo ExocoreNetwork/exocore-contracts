@@ -20,6 +20,8 @@ import "forge-std/Test.sol";
 import "forge-std/console.sol";
 
 import "src/core/ClientChainGateway.sol";
+
+import {BootstrapStorage} from "src/storage/BootstrapStorage.sol";
 import "src/storage/ClientChainGatewayStorage.sol";
 
 import "src/core/ExoCapsule.sol";
@@ -119,15 +121,17 @@ contract SetUp is Test {
 
         clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(beaconOracle),
-            address(vaultBeacon),
-            address(rewardVaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
-        );
+
+        BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
+            exocoreChainId: exocoreChainId,
+            beaconOracleAddress: address(beaconOracle),
+            vaultBeacon: address(vaultBeacon),
+            exoCapsuleBeacon: address(capsuleBeacon),
+            beaconProxyBytecode: address(beaconProxyBytecode)
+        });
+
+        clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
+
         clientGateway = ClientChainGateway(
             payable(address(new TransparentUpgradeableProxy(address(clientGatewayLogic), address(proxyAdmin), "")))
         );

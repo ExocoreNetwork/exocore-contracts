@@ -44,6 +44,8 @@ import "src/libraries/BeaconChainProofs.sol";
 import "src/libraries/Endian.sol";
 import "test/mocks/ETHPOSDepositMock.sol";
 
+import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
+
 contract ExocoreDeployer is Test {
 
     using AddressCast for address;
@@ -350,15 +352,19 @@ contract ExocoreDeployer is Test {
         // deploy and initialize client chain contracts
 
         ProxyAdmin proxyAdmin = new ProxyAdmin();
-        clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(beaconOracle),
-            address(vaultBeacon),
-            address(rewardVaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
-        );
+
+        // Create ImmutableConfig struct
+        BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
+            exocoreChainId: exocoreChainId,
+            beaconOracleAddress: address(beaconOracle),
+            vaultBeacon: address(vaultBeacon),
+            exoCapsuleBeacon: address(capsuleBeacon),
+            beaconProxyBytecode: address(beaconProxyBytecode)
+        });
+
+        // Update ClientChainGateway constructor call
+        clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
+
         clientGateway = ClientChainGateway(
             payable(
                 address(

@@ -60,6 +60,9 @@ library Errors {
     //  Bootstrap Errors  //
     ////////////////////////
 
+    /// @dev Bootstrap: invalid immutable config, typically due to zero address or zero value
+    error InvalidImmutableConfig();
+
     /// @dev Bootstrap: spawn time should be in the future
     error BootstrapSpawnTimeAlreadyPast();
 

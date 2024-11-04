@@ -4,7 +4,9 @@ import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/Upgradeabl
 import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {Bootstrap} from "../src/core/Bootstrap.sol";
+
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
+import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 
 import "../src/core/ExoCapsule.sol";
 
@@ -56,15 +58,19 @@ contract RedeployClientChainGateway is BaseScript {
         vm.selectFork(clientChain);
         vm.startBroadcast(exocoreValidatorSet.privateKey);
 
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(beaconOracle),
-            address(vaultBeacon),
-            address(rewardVaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
-        );
+        // Create ImmutableConfig struct
+        BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
+            exocoreChainId: exocoreChainId,
+            beaconOracleAddress: address(beaconOracle),
+            vaultBeacon: address(vaultBeacon),
+            exoCapsuleBeacon: address(capsuleBeacon),
+            beaconProxyBytecode: address(beaconProxyBytecode)
+        });
+
+        // Update ClientChainGateway constructor call
+        ClientChainGateway clientGatewayLogic =
+            new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
+
         // then the client chain initialization
         address[] memory emptyList;
         bytes memory initialization =
