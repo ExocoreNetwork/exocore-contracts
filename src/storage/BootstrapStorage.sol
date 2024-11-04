@@ -165,6 +165,7 @@ contract BootstrapStorage is GatewayStorage {
     mapping(string name => bool used) public validatorNameInUse;
 
     /// @dev Storage gap to allow for future upgrades.
+    // slither-disable-next-line shadowing-state
     uint256[40] private __gap;
 
     /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
