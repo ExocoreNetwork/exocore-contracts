@@ -130,10 +130,6 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev Maps token addresses to their corresponding vault contracts.
     mapping(address token => IVault vault) public tokenToVault;
 
-    /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
-    /// @dev Maps owner addresses to their corresponding ExoCapsule contracts.
-    mapping(address owner => IExoCapsule capsule) public ownerToCapsule;
-
     /// @notice The beacon for the ExoCapsule contract, which stores the ExoCapsule implementation.
     IBeacon public immutable EXO_CAPSULE_BEACON;
 
@@ -167,6 +163,15 @@ contract BootstrapStorage is GatewayStorage {
     /// @notice Mapping to keep track of the validator names that have been used.
     /// @dev A mapping of validator names to a boolean indicating whether the name has been used.
     mapping(string name => bool used) public validatorNameInUse;
+
+    /// @dev Storage gap to allow for future upgrades.
+    uint256[40] private __gap;
+
+    /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
+    /// @dev Maps owner addresses to their corresponding ExoCapsule contracts.
+    /// @dev This state has been moved from ClientChainGatewayStorage to BootstrapStorage since it is shared by both
+    /// contracts and we put it after __gap to maintain the storage layout compatible with deployed contracts.
+    mapping(address owner => IExoCapsule capsule) public ownerToCapsule;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
@@ -313,9 +318,6 @@ contract BootstrapStorage is GatewayStorage {
         address exoCapsuleBeacon;
         address beaconProxyBytecode;
     }
-
-    /// @dev Storage gap to allow for future upgrades.
-    uint256[40] private __gap;
 
     /// @dev Ensures that native restaking is enabled for this contract.
     modifier nativeRestakingEnabled() {
