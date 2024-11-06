@@ -9,18 +9,28 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @notice Enum to represent the type of supported token
+     * @dev Each field should be matched with the corresponding field of ClientChainID
      */
-    enum TokenType {
+    enum Token {
         BTC
+    }
+
+    /**
+     * @notice Enum to represent the supported client chain ID
+     * @dev Each field should be matched with the corresponding field of TokenType
+     */
+    enum ClientChain {
+        Bitcoin
     }
 
     /**
      * @dev Enum to represent the status of a transaction
      */
     enum TxStatus {
-        Pending,
-        Processed,
-        Expired
+        NotStarted,    // 0: Default state - transaction hasn't started collecting proofs
+        Pending,       // 1: Currently collecting witness proofs
+        Processed,     // 2: Successfully processed
+        Expired        // 3: Failed due to timeout, but can be retried
     }
 
     /**
@@ -43,16 +53,14 @@ contract ExocoreBtcGatewayStorage {
     /**
      * @dev Struct to store interchain message information
      */
-    struct InterchainMsg {
-        uint32 srcChainID;
-        uint32 dstChainID;
-        bytes srcAddress;
-        bytes dstAddress;
-        address token; // btc virtual token
-        uint256 amount; // btc deposit amount
+    struct StakeMsg {
+        ClientChain clientChain;
+        bytes srcAddress; // the address of the depositor on the source chain
+        address exocoreAddress; // the address of the depositor on the Exocore chain
+        string operator; // the operator to delegate to, would only deposit to exocore address if operator is empty
+        uint256 amount; // deposit amount
         uint64 nonce;
-        bytes txTag; // btc lowercase(txid-vout)
-        bytes payload;
+        bytes txTag; // lowercase(txid-vout)
     }
 
     /**
@@ -60,7 +68,7 @@ contract ExocoreBtcGatewayStorage {
      */
     struct Proof {
         address witness;
-        InterchainMsg message;
+        StakeMsg message;
         uint256 timestamp;
         bytes signature;
     }
@@ -70,34 +78,41 @@ contract ExocoreBtcGatewayStorage {
      */
     struct Transaction {
         TxStatus status;
+        ClientChain clientChain;
         uint256 amount;
+        bytes srcAddress;
         address recipient;
         uint256 expiryTime;
         uint256 proofCount;
-        mapping(address => bool) hasWitnessed;
+        mapping(address => uint256) witnessTime;
     }
 
     /**
      * @dev Struct for peg-out requests
      */
     struct PegOutRequest {
-        address token;
+        ClientChain clientChain;
         address requester;
-        bytes btcAddress;
+        bytes clientChainAddress;
         uint256 amount;
         WithdrawType withdrawType;
         TxStatus status;
         uint256 timestamp;
     }
 
-    // Constants
-    uint32 public constant BITCOIN_CHAIN_ID = 1;
-    uint8 public constant BITCOIN_STAKER_ACCOUNT_LENGTH = 20;
+    /* -------------------------------------------------------------------------- */
+    /*                                  Constants                                 */
+    /* -------------------------------------------------------------------------- */
+    // chain id from layerzero, virtual for bitcoin since it's not yet a layerzero chain
     string public constant BITCOIN_NAME = "Bitcoin";
     string public constant BITCOIN_METADATA = "Bitcoin";
     string public constant BITCOIN_SIGNATURE_SCHEME = "ECDSA";
-    address public constant VIRTUAL_BTC_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
-    bytes public constant VIRTUAL_BTC_TOKEN = abi.encodePacked(bytes32(bytes20(VIRTUAL_BTC_ADDRESS)));
+    uint8 public constant STAKER_ACCOUNT_LENGTH = 20;
+
+    // virtual token address and token, shared for tokens supported by the gateway
+    address public constant VIRTUAL_TOKEN_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
+    bytes public constant VIRTUAL_TOKEN = abi.encodePacked(bytes32(bytes20(VIRTUAL_TOKEN_ADDRESS)));
+
     uint8 public constant BTC_DECIMALS = 8;
     string public constant BTC_NAME = "BTC";
     string public constant BTC_METADATA = "BTC";
@@ -137,40 +152,42 @@ contract ExocoreBtcGatewayStorage {
     /**
      * @dev Mapping to store Bitcoin to Exocore address mappings
      */
-    mapping(bytes => bytes) public btcToExocoreAddress;
+    mapping(bytes => address) public btcToExocoreAddress;
 
     /**
      * @dev Mapping to store Exocore to Bitcoin address mappings
      */
-    mapping(bytes => bytes) public exocoreToBtcAddress;
-
-    /**
-     * @dev Mapping to store whitelisted tokens
-     */
-    mapping(address => bool) public isWhitelistedToken;
+    mapping(address => bytes) public exocoreToBtcAddress;
 
     /**
      * @dev Mapping to store inbound bytes nonce for each chain and sender
      */
     mapping(uint32 => mapping(bytes => uint64)) public inboundBytesNonce;
 
+    /**
+     * @notice Mapping to store delegation nonce for each chain and delegator
+     * @dev The nonce is incremented for each delegate/undelegate operation
+     * @dev The nonce is provided to the precompile as operation id
+     */
+    mapping(uint32 => mapping(address => uint64)) public delegationNonce;
+
     uint256[40] private __gap;
 
     // Events
     /**
      * @dev Emitted when a deposit is completed
-     * @param btcTxTag The Bitcoin transaction tag
+     * @param srcChainId The source chain ID
+     * @param txTag The txid + vout-index
      * @param depositorExoAddr The depositor's Exocore address
-     * @param token The token address
-     * @param depositorBtcAddr The depositor's Bitcoin address
+     * @param depositorClientChainAddr The depositor's client chain address
      * @param amount The amount deposited
      * @param updatedBalance The updated balance after deposit
      */
     event DepositCompleted(
-        bytes btcTxTag,
-        bytes depositorExoAddr,
-        address indexed token,
-        bytes depositorBtcAddr,
+        uint32 indexed srcChainId,
+        bytes txTag,
+        address indexed depositorExoAddr,
+        bytes depositorClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
     );
@@ -178,17 +195,17 @@ contract ExocoreBtcGatewayStorage {
     /**
      * @dev Emitted when a principal withdrawal is requested
      * @param requestId The unique identifier for the withdrawal request
+     * @param srcChainId The source chain ID
      * @param withdrawerExoAddr The withdrawer's Exocore address
-     * @param token The token address
-     * @param withdrawerBtcAddr The withdrawer's Bitcoin address
+     * @param withdrawerClientChainAddr The withdrawer's client chain address
      * @param amount The amount to withdraw
      * @param updatedBalance The updated balance after withdrawal request
      */
     event WithdrawPrincipalRequested(
+        uint32 indexed srcChainId,
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
-        address indexed token,
-        bytes withdrawerBtcAddr,
+        bytes withdrawerClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
     );
@@ -196,99 +213,91 @@ contract ExocoreBtcGatewayStorage {
     /**
      * @dev Emitted when a reward withdrawal is requested
      * @param requestId The unique identifier for the withdrawal request
+     * @param srcChainId The source chain ID
      * @param withdrawerExoAddr The withdrawer's Exocore address
-     * @param token The token address
-     * @param withdrawerBtcAddr The withdrawer's Bitcoin address
+     * @param withdrawerClientChainAddr The withdrawer's client chain address
      * @param amount The amount to withdraw
      * @param updatedBalance The updated balance after withdrawal request
      */
     event WithdrawRewardRequested(
+        uint32 indexed srcChainId,
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
-        address indexed token,
-        bytes withdrawerBtcAddr,
+        bytes withdrawerClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
     );
 
     /**
      * @dev Emitted when a principal withdrawal is completed
+     * @param srcChainId The source chain ID
      * @param requestId The unique identifier for the withdrawal request
      * @param withdrawerExoAddr The withdrawer's Exocore address
-     * @param token The token address
-     * @param withdrawerBtcAddr The withdrawer's Bitcoin address
+     * @param withdrawerClientChainAddr The withdrawer's client chain address
      * @param amount The amount withdrawn
      * @param updatedBalance The updated balance after withdrawal
      */
     event WithdrawPrincipalCompleted(
+        uint32 indexed srcChainId,
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
-        address indexed token,
-        bytes withdrawerBtcAddr,
+        bytes withdrawerClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
     );
 
     /**
      * @dev Emitted when a reward withdrawal is completed
+     * @param srcChainId The source chain ID
      * @param requestId The unique identifier for the withdrawal request
      * @param withdrawerExoAddr The withdrawer's Exocore address
-     * @param token The token address
-     * @param withdrawerBtcAddr The withdrawer's Bitcoin address
+     * @param withdrawerClientChainAddr The withdrawer's client chain address
      * @param amount The amount withdrawn
      * @param updatedBalance The updated balance after withdrawal
      */
     event WithdrawRewardCompleted(
+        uint32 indexed srcChainId,
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
-        address indexed token,
-        bytes withdrawerBtcAddr,
+        bytes withdrawerClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
     );
 
     /**
      * @dev Emitted when a delegation is completed
-     * @param token The token address
-     * @param delegator The delegator's address
+     * @param clientChainId The LayerZero chain ID of the client chain
+     * @param exoDelegator The delegator's Exocore address
      * @param operator The operator's address
      * @param amount The amount delegated
      */
-    event DelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
+    event DelegationCompleted(uint32 clientChainId, address exoDelegator, string operator, uint256 amount);
 
     /**
      * @dev Emitted when an undelegation is completed
-     * @param token The token address
-     * @param delegator The delegator's address
+     * @param clientChainId The LayerZero chain ID of the client chain
+     * @param exoDelegator The delegator's Exocore address
      * @param operator The operator's address
      * @param amount The amount undelegated
      */
-    event UndelegationCompleted(address token, bytes delegator, bytes operator, uint256 amount);
+    event UndelegationCompleted(uint32 clientChainId, address exoDelegator, string operator, uint256 amount);
 
     /**
      * @dev Emitted when a deposit and delegation is completed
-     * @param token The token address
-     * @param depositor The depositor's address
+     * @param clientChainId The LayerZero chain ID of the client chain
+     * @param exoDepositor The depositor's Exocore address
      * @param operator The operator's address
      * @param amount The amount deposited and delegated
      * @param updatedBalance The updated balance after the operation
      */
-    event DepositAndDelegationCompleted(
-        address token, bytes depositor, bytes operator, uint256 amount, uint256 updatedBalance
-    );
+    event DepositAndDelegationCompleted(uint32 clientChainId, address exoDepositor, string operator, uint256 amount, uint256 updatedBalance);
 
     /**
      * @dev Emitted when an address is registered
      * @param depositor The depositor's address
      * @param exocoreAddress The corresponding Exocore address
      */
-    event AddressRegistered(bytes depositor, bytes exocoreAddress);
-
-    /**
-     * @dev Emitted when an Exocore precompile error occurs
-     * @param precompileAddress The address of the precompile that caused the error
-     */
-    event ExocorePrecompileError(address precompileAddress);
+    event AddressRegistered(bytes depositor, address indexed exocoreAddress);
 
     /**
      * @dev Emitted when a new witness is added
@@ -304,25 +313,25 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @dev Emitted when a proof is submitted
-     * @param btcTxTag The Bitcoin transaction tag
+     * @param txTag The txid + vout-index
      * @param witness The address of the witness submitting the proof
      * @param message The interchain message associated with the proof
      */
-    event ProofSubmitted(bytes btcTxTag, address indexed witness, InterchainMsg message);
+    event ProofSubmitted(bytes txTag, address indexed witness, StakeMsg message);
 
     /**
      * @dev Emitted when a deposit is processed
-     * @param btcTxTag The Bitcoin transaction tag
+     * @param txTag The txid + vout-index
      * @param recipient The address of the recipient
      * @param amount The amount processed
      */
-    event DepositProcessed(bytes btcTxTag, address indexed recipient, uint256 amount);
+    event DepositProcessed(bytes txTag, address indexed recipient, uint256 amount);
 
     /**
      * @dev Emitted when a transaction expires
-     * @param btcTxTag The Bitcoin transaction tag of the expired transaction
+     * @param txTag The txid + vout-index of the expired transaction
      */
-    event TransactionExpired(bytes btcTxTag);
+    event TransactionExpired(bytes txTag);
 
     /**
      * @dev Emitted when a peg-out transaction expires
@@ -373,12 +382,12 @@ contract ExocoreBtcGatewayStorage {
     /// @notice Emitted when a token is added to the whitelist.
     /// @param clientChainId The LayerZero chain ID of the client chain.
     /// @param token The address of the token.
-    event WhitelistTokenAdded(uint32 clientChainId, bytes32 token);
+    event WhitelistTokenAdded(uint32 clientChainId, address indexed token);
 
     /// @notice Emitted when a token is updated in the whitelist.
     /// @param clientChainId The LayerZero chain ID of the client chain.
     /// @param token The address of the token.
-    event WhitelistTokenUpdated(uint32 clientChainId, bytes32 token);
+    event WhitelistTokenUpdated(uint32 clientChainId, address indexed token);
 
     // Errors
     /**
@@ -469,15 +478,7 @@ contract ExocoreBtcGatewayStorage {
     error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
 
     error InvalidTokenType();
-
-    /**
-     * @dev Modifier to check if a token is whitelisted
-     * @param token The address of the token to check
-     */
-    modifier isTokenWhitelisted(address token) {
-        require(isWhitelistedToken[token], "ExocoreBtcGatewayStorage: token is not whitelisted");
-        _;
-    }
+    error InvalidClientChainId();
 
     /**
      * @dev Modifier to check if an amount is valid
@@ -502,12 +503,11 @@ contract ExocoreBtcGatewayStorage {
         inboundBytesNonce[srcChainId][srcAddress] = nonce;
     }
 
-    function getTokenByType(TokenType _tokenType) public pure returns (bytes memory) {
-        if (_tokenType == TokenType.BTC) {
-            return VIRTUAL_BTC_TOKEN;
-        } else {
-            revert InvalidTokenType();
-        }   
+    function getChainIdByToken(Token token) public pure returns (uint32) {
+        return uint32(uint8(token)) + 1;
     }
 
+    function getChainId(ClientChain clientChain) public pure returns (uint32) {
+        return uint32(uint8(clientChain)) + 1;
+    }
 }

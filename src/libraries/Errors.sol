@@ -311,4 +311,11 @@ library Errors {
     /// @dev RewardVault: insufficient balance
     error InsufficientBalance();
 
+    /* -------------------------------------------------------------------------- */
+    /*                          ExocoreBtcGateway Errors                          */
+    /* -------------------------------------------------------------------------- */
+
+    /// @dev ExocoreBtcGateway: witness has already submitted proof
+    error WitnessAlreadySubmittedProof();
+
 }
