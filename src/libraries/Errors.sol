@@ -318,4 +318,10 @@ library Errors {
     /// @dev ExocoreBtcGateway: witness has already submitted proof
     error WitnessAlreadySubmittedProof();
 
+    /// @dev ExocoreBtcGateway: invalid stake message
+    error InvalidStakeMessage();
+
+    /// @dev ExocoreBtcGateway: transaction tag has already been processed
+    error TxTagAlreadyProcessed();
+
 }

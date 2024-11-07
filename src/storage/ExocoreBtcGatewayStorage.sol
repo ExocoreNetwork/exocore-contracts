@@ -12,15 +12,17 @@ contract ExocoreBtcGatewayStorage {
      * @dev Each field should be matched with the corresponding field of ClientChainID
      */
     enum Token {
-        BTC
+        None,    // 0: Invalid/uninitialized token
+        BTC      // 1: Bitcoin token, matches with ClientChainID.Bitcoin
     }
 
     /**
      * @notice Enum to represent the supported client chain ID
-     * @dev Each field should be matched with the corresponding field of TokenType
+     * @dev Each field should be matched with the corresponding field of Token
      */
-    enum ClientChain {
-        Bitcoin
+    enum ClientChainID {
+        None,    // 0: Invalid/uninitialized chain
+        Bitcoin  // 1: Bitcoin chain, matches with Token.BTC
     }
 
     /**
@@ -29,8 +31,7 @@ contract ExocoreBtcGatewayStorage {
     enum TxStatus {
         NotStarted,    // 0: Default state - transaction hasn't started collecting proofs
         Pending,       // 1: Currently collecting witness proofs
-        Processed,     // 2: Successfully processed
-        Expired        // 3: Failed due to timeout, but can be retried
+        Expired        // 2: Failed due to timeout, but can be retried
     }
 
     /**
@@ -54,7 +55,7 @@ contract ExocoreBtcGatewayStorage {
      * @dev Struct to store interchain message information
      */
     struct StakeMsg {
-        ClientChain clientChain;
+        ClientChainID chainId;
         bytes srcAddress; // the address of the depositor on the source chain
         address exocoreAddress; // the address of the depositor on the Exocore chain
         string operator; // the operator to delegate to, would only deposit to exocore address if operator is empty
@@ -78,25 +79,22 @@ contract ExocoreBtcGatewayStorage {
      */
     struct Transaction {
         TxStatus status;
-        ClientChain clientChain;
-        uint256 amount;
-        bytes srcAddress;
-        address recipient;
-        uint256 expiryTime;
         uint256 proofCount;
+        uint256 expiryTime;
         mapping(address => uint256) witnessTime;
+        StakeMsg stakeMsg;
     }
 
     /**
      * @dev Struct for peg-out requests
      */
     struct PegOutRequest {
-        ClientChain clientChain;
+        ClientChainID chainId;
+        uint64 nonce;
         address requester;
         bytes clientChainAddress;
         uint256 amount;
         WithdrawType withdrawType;
-        TxStatus status;
         uint256 timestamp;
     }
 
@@ -123,16 +121,10 @@ contract ExocoreBtcGatewayStorage {
     uint256 public constant PROOF_TIMEOUT = 1 days;
     uint256 public bridgeFee; // Fee percentage (in basis points, e.g., 100 = 1%)
 
-    // Mappings
     /**
-     * @dev Mapping to store proofs submitted by witnesses
+     * @dev Mapping to store transaction information, key is the message hash
      */
-    mapping(bytes => Proof[]) public proofs;
-
-    /**
-     * @dev Mapping to store transaction information
-     */
-    mapping(bytes => Transaction) public transactions;
+    mapping(bytes32 => Transaction) public transactions;
 
     /**
      * @dev Mapping to store processed Bitcoin transactions
@@ -140,9 +132,9 @@ contract ExocoreBtcGatewayStorage {
     mapping(bytes => TxInfo) public processedBtcTxs;
 
     /**
-     * @dev Mapping to store peg-out requests
+     * @dev Mapping to store peg-out requests, key is the nonce
      */
-    mapping(bytes32 => PegOutRequest) public pegOutRequests;
+    mapping(uint64 => PegOutRequest) public pegOutRequests;
 
     /**
      * @dev Mapping to store authorized witnesses
@@ -160,16 +152,26 @@ contract ExocoreBtcGatewayStorage {
     mapping(address => bytes) public exocoreToBtcAddress;
 
     /**
-     * @dev Mapping to store inbound bytes nonce for each chain and sender
+     * @dev Mapping to store inbound nonce for each chain
      */
-    mapping(uint32 => mapping(bytes => uint64)) public inboundBytesNonce;
+    mapping(ClientChainID => uint64) public inboundNonce;
+
+    /**
+     * @notice Mapping to store outbound nonce for each chain
+     */
+    mapping(ClientChainID => uint64) public outboundNonce;
+
+    /**
+     * @notice Mapping to store peg-out nonce for each chain
+     */
+    mapping(ClientChainID => uint64) public pegOutNonce;
 
     /**
      * @notice Mapping to store delegation nonce for each chain and delegator
      * @dev The nonce is incremented for each delegate/undelegate operation
      * @dev The nonce is provided to the precompile as operation id
      */
-    mapping(uint32 => mapping(address => uint64)) public delegationNonce;
+    mapping(ClientChainID => mapping(address => uint64)) public delegationNonce;
 
     uint256[40] private __gap;
 
@@ -184,7 +186,7 @@ contract ExocoreBtcGatewayStorage {
      * @param updatedBalance The updated balance after deposit
      */
     event DepositCompleted(
-        uint32 indexed srcChainId,
+        ClientChainID indexed srcChainId,
         bytes txTag,
         address indexed depositorExoAddr,
         bytes depositorClientChainAddr,
@@ -202,8 +204,8 @@ contract ExocoreBtcGatewayStorage {
      * @param updatedBalance The updated balance after withdrawal request
      */
     event WithdrawPrincipalRequested(
-        uint32 indexed srcChainId,
-        bytes32 indexed requestId,
+        ClientChainID indexed srcChainId,
+        uint64 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
         uint256 amount,
@@ -220,8 +222,8 @@ contract ExocoreBtcGatewayStorage {
      * @param updatedBalance The updated balance after withdrawal request
      */
     event WithdrawRewardRequested(
-        uint32 indexed srcChainId,
-        bytes32 indexed requestId,
+        ClientChainID indexed srcChainId,
+        uint64 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
         uint256 amount,
@@ -238,7 +240,7 @@ contract ExocoreBtcGatewayStorage {
      * @param updatedBalance The updated balance after withdrawal
      */
     event WithdrawPrincipalCompleted(
-        uint32 indexed srcChainId,
+        ClientChainID indexed srcChainId,
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
@@ -256,7 +258,7 @@ contract ExocoreBtcGatewayStorage {
      * @param updatedBalance The updated balance after withdrawal
      */
     event WithdrawRewardCompleted(
-        uint32 indexed srcChainId,
+        ClientChainID indexed srcChainId,
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
@@ -271,7 +273,16 @@ contract ExocoreBtcGatewayStorage {
      * @param operator The operator's address
      * @param amount The amount delegated
      */
-    event DelegationCompleted(uint32 clientChainId, address exoDelegator, string operator, uint256 amount);
+    event DelegationCompleted(ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount);
+
+    /**
+     * @dev Emitted when a delegation fails for a stake message
+     * @param clientChainId The LayerZero chain ID of the client chain
+     * @param exoDelegator The delegator's Exocore address
+     * @param operator The operator's address
+     * @param amount The amount delegated
+     */
+    event DelegationFailedForStake(ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount);
 
     /**
      * @dev Emitted when an undelegation is completed
@@ -280,17 +291,7 @@ contract ExocoreBtcGatewayStorage {
      * @param operator The operator's address
      * @param amount The amount undelegated
      */
-    event UndelegationCompleted(uint32 clientChainId, address exoDelegator, string operator, uint256 amount);
-
-    /**
-     * @dev Emitted when a deposit and delegation is completed
-     * @param clientChainId The LayerZero chain ID of the client chain
-     * @param exoDepositor The depositor's Exocore address
-     * @param operator The operator's address
-     * @param amount The amount deposited and delegated
-     * @param updatedBalance The updated balance after the operation
-     */
-    event DepositAndDelegationCompleted(uint32 clientChainId, address exoDepositor, string operator, uint256 amount, uint256 updatedBalance);
+    event UndelegationCompleted(ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount);
 
     /**
      * @dev Emitted when an address is registered
@@ -313,11 +314,11 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @dev Emitted when a proof is submitted
-     * @param txTag The txid + vout-index
+     * @param messageHash The hash of the stake message
      * @param witness The address of the witness submitting the proof
-     * @param message The interchain message associated with the proof
+     * @param message The stake message associated with the proof
      */
-    event ProofSubmitted(bytes txTag, address indexed witness, StakeMsg message);
+    event ProofSubmitted(bytes32 indexed messageHash, address indexed witness, StakeMsg message);
 
     /**
      * @dev Emitted when a deposit is processed
@@ -329,9 +330,9 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @dev Emitted when a transaction expires
-     * @param txTag The txid + vout-index of the expired transaction
+     * @param txid The message hash of the expired transaction
      */
-    event TransactionExpired(bytes txTag);
+    event TransactionExpired(bytes32 txid);
 
     /**
      * @dev Emitted when a peg-out transaction expires
@@ -360,9 +361,8 @@ contract ExocoreBtcGatewayStorage {
     /**
      * @dev Emitted when a peg-out is processed
      * @param requestId The unique identifier of the processed peg-out request
-     * @param btcTxTag The Bitcoin transaction tag associated with the peg-out
      */
-    event PegOutProcessed(bytes32 indexed requestId, bytes32 btcTxTag);
+    event PegOutProcessed(uint64 indexed requestId);
 
     /**
      * @dev Emitted when a peg-out request status is updated
@@ -426,13 +426,13 @@ contract ExocoreBtcGatewayStorage {
      * @dev Thrown when the requested peg-out does not exist
      * @param requestId The ID of the non-existent request
      */
-    error RequestNotFound(bytes32 requestId);
+    error RequestNotFound(uint64 requestId);
 
     /**
      * @dev Thrown when attempting to create a request that already exists
      * @param requestId The ID of the existing request
      */
-    error RequestAlreadyExists(bytes32 requestId);
+    error RequestAlreadyExists(uint64 requestId);
 
     /**
      * @dev Thrown when a deposit operation fails
@@ -451,7 +451,7 @@ contract ExocoreBtcGatewayStorage {
     error WithdrawRewardFailed();
 
     /**
-     * @dev Thrown when a delegation operation fails
+     * @dev Thrown when a delegation operation fails, not when processing a stake message
      */
     error DelegationFailed();
 
@@ -492,22 +492,11 @@ contract ExocoreBtcGatewayStorage {
     /**
      * @dev Internal function to verify and update the inbound bytes nonce
      * @param srcChainId The source chain ID
-     * @param srcAddress The source address
      * @param nonce The nonce to verify
      */
-    function _verifyAndUpdateBytesNonce(uint32 srcChainId, bytes memory srcAddress, uint64 nonce) internal {
-        uint64 expectedNonce = inboundBytesNonce[srcChainId][srcAddress] + 1;
-        if (nonce != expectedNonce) {
-            revert UnexpectedInboundNonce(expectedNonce, nonce);
+    function _verifyInboundNonce(ClientChainID srcChainId, uint64 nonce) internal view {
+        if (nonce != inboundNonce[srcChainId] + 1) {
+            revert UnexpectedInboundNonce(inboundNonce[srcChainId] + 1, nonce);
         }
-        inboundBytesNonce[srcChainId][srcAddress] = nonce;
-    }
-
-    function getChainIdByToken(Token token) public pure returns (uint32) {
-        return uint32(uint8(token)) + 1;
-    }
-
-    function getChainId(ClientChain clientChain) public pure returns (uint32) {
-        return uint32(uint8(clientChain)) + 1;
     }
 }
