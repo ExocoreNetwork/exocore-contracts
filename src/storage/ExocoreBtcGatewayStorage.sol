@@ -12,8 +12,9 @@ contract ExocoreBtcGatewayStorage {
      * @dev Each field should be matched with the corresponding field of ClientChainID
      */
     enum Token {
-        None,    // 0: Invalid/uninitialized token
-        BTC      // 1: Bitcoin token, matches with ClientChainID.Bitcoin
+        None, // 0: Invalid/uninitialized token
+        BTC // 1: Bitcoin token, matches with ClientChainID.Bitcoin
+
     }
 
     /**
@@ -21,17 +22,19 @@ contract ExocoreBtcGatewayStorage {
      * @dev Each field should be matched with the corresponding field of Token
      */
     enum ClientChainID {
-        None,    // 0: Invalid/uninitialized chain
-        Bitcoin  // 1: Bitcoin chain, matches with Token.BTC
+        None, // 0: Invalid/uninitialized chain
+        Bitcoin // 1: Bitcoin chain, matches with Token.BTC
+
     }
 
     /**
      * @dev Enum to represent the status of a transaction
      */
     enum TxStatus {
-        NotStarted,    // 0: Default state - transaction hasn't started collecting proofs
-        Pending,       // 1: Currently collecting witness proofs
-        Expired        // 2: Failed due to timeout, but can be retried
+        NotStarted, // 0: Default state - transaction hasn't started collecting proofs
+        Pending, // 1: Currently collecting witness proofs
+        Expired // 2: Failed due to timeout, but can be retried
+
     }
 
     /**
@@ -142,14 +145,20 @@ contract ExocoreBtcGatewayStorage {
     mapping(address => bool) public authorizedWitnesses;
 
     /**
-     * @dev Mapping to store Bitcoin to Exocore address mappings
+     * @dev Maps client chain addresses to their registered Exocore addresses
+     * @dev Key1: Client chain ID (Bitcoin, etc.)
+     * @dev Key2: Client chain address in bytes
+     * @dev Value: Registered Exocore address
      */
-    mapping(bytes => address) public btcToExocoreAddress;
+    mapping(ClientChainID => mapping(bytes => address)) public inboundRegistry;
 
     /**
-     * @dev Mapping to store Exocore to Bitcoin address mappings
+     * @dev Maps Exocore addresses to their registered client chain addresses
+     * @dev Key1: Client chain ID (Bitcoin, etc.)
+     * @dev Key2: Exocore address
+     * @dev Value: Registered client chain address in bytes
      */
-    mapping(address => bytes) public exocoreToBtcAddress;
+    mapping(ClientChainID => mapping(address => bytes)) public outboundRegistry;
 
     /**
      * @dev Mapping to store inbound nonce for each chain
@@ -167,11 +176,11 @@ contract ExocoreBtcGatewayStorage {
     mapping(ClientChainID => uint64) public pegOutNonce;
 
     /**
-     * @notice Mapping to store delegation nonce for each chain and delegator
+     * @notice Mapping to store delegation nonce for each chain
      * @dev The nonce is incremented for each delegate/undelegate operation
      * @dev The nonce is provided to the precompile as operation id
      */
-    mapping(ClientChainID => mapping(address => uint64)) public delegationNonce;
+    mapping(ClientChainID => uint64) public delegationNonce;
 
     uint256[40] private __gap;
 
@@ -273,7 +282,9 @@ contract ExocoreBtcGatewayStorage {
      * @param operator The operator's address
      * @param amount The amount delegated
      */
-    event DelegationCompleted(ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount);
+    event DelegationCompleted(
+        ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount
+    );
 
     /**
      * @dev Emitted when a delegation fails for a stake message
@@ -282,7 +293,9 @@ contract ExocoreBtcGatewayStorage {
      * @param operator The operator's address
      * @param amount The amount delegated
      */
-    event DelegationFailedForStake(ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount);
+    event DelegationFailedForStake(
+        ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount
+    );
 
     /**
      * @dev Emitted when an undelegation is completed
@@ -291,14 +304,17 @@ contract ExocoreBtcGatewayStorage {
      * @param operator The operator's address
      * @param amount The amount undelegated
      */
-    event UndelegationCompleted(ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount);
+    event UndelegationCompleted(
+        ClientChainID indexed clientChainId, address indexed exoDelegator, string operator, uint256 amount
+    );
 
     /**
      * @dev Emitted when an address is registered
+     * @param chainId The LayerZero chain ID of the client chain
      * @param depositor The depositor's address
      * @param exocoreAddress The corresponding Exocore address
      */
-    event AddressRegistered(bytes depositor, address indexed exocoreAddress);
+    event AddressRegistered(ClientChainID indexed chainId, bytes depositor, address indexed exocoreAddress);
 
     /**
      * @dev Emitted when a new witness is added
@@ -412,9 +428,9 @@ contract ExocoreBtcGatewayStorage {
     error BtcTxAlreadyProcessed();
 
     /**
-     * @dev Thrown when a Bitcoin address is not registered
+     * @dev Thrown when an address is not registered
      */
-    error BtcAddressNotRegistered();
+    error AddressNotRegistered();
 
     /**
      * @dev Thrown when trying to process a request with an invalid status
@@ -489,6 +505,19 @@ contract ExocoreBtcGatewayStorage {
         _;
     }
 
+    modifier isValidToken(Token token) {
+        require(token != Token.None, "ExocoreBtcGatewayStorage: Invalid token");
+        _;
+    }
+
+    modifier isRegistered(Token token, address exocoreAddress) {
+        require(
+            outboundRegistry[ClientChainID(uint8(token))][exocoreAddress].length > 0,
+            "ExocoreBtcGatewayStorage: Address not registered"
+        );
+        _;
+    }
+
     /**
      * @dev Internal function to verify and update the inbound bytes nonce
      * @param srcChainId The source chain ID
@@ -499,4 +528,5 @@ contract ExocoreBtcGatewayStorage {
             revert UnexpectedInboundNonce(inboundNonce[srcChainId] + 1, nonce);
         }
     }
+
 }

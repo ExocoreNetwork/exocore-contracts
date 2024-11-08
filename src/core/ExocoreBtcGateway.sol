@@ -27,6 +27,7 @@ contract ExocoreBtcGateway is
     ReentrancyGuardUpgradeable,
     ExocoreBtcGatewayStorage
 {
+
     using ExocoreBytes for address;
 
     /**
@@ -79,20 +80,9 @@ contract ExocoreBtcGateway is
     function activateStakingForClientChain(ClientChainID clientChain_) external {
         if (clientChain_ == ClientChainID.Bitcoin) {
             _registerOrUpdateClientChain(
-                clientChain_,
-                STAKER_ACCOUNT_LENGTH,
-                BITCOIN_NAME,
-                BITCOIN_METADATA,
-                BITCOIN_SIGNATURE_SCHEME
+                clientChain_, STAKER_ACCOUNT_LENGTH, BITCOIN_NAME, BITCOIN_METADATA, BITCOIN_SIGNATURE_SCHEME
             );
-            _registerOrUpdateToken(
-                clientChain_,
-                VIRTUAL_TOKEN,
-                BTC_DECIMALS,
-                BTC_NAME,
-                BTC_METADATA,
-                BTC_ORACLE_INFO
-            );
+            _registerOrUpdateToken(clientChain_, VIRTUAL_TOKEN, BTC_DECIMALS, BTC_NAME, BTC_METADATA, BTC_ORACLE_INFO);
         } else {
             revert InvalidTokenType();
         }
@@ -135,16 +125,6 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Registers a BTC address with an Exocore address.
-     * @param depositor The BTC address to register.
-     * @param exocoreAddress The corresponding Exocore address.
-     * @dev Can only be called by an authorized witness.
-     */
-    function registerAddress(bytes calldata depositor, address exocoreAddress) external onlyAuthorizedWitness {
-        _registerAddress(depositor, exocoreAddress);
-    }
-
-    /**
      * @notice Submits a proof for a stake message.
      * @notice The submitted message would be processed after collecting enough proofs from withnesses.
      * @param _message The interchain message.
@@ -163,7 +143,8 @@ contract ExocoreBtcGateway is
         Transaction storage txn = transactions[messageHash];
 
         if (txn.status == TxStatus.Pending) {
-            // if the witness has already submitted proof at or after the start of the proof window, they cannot submit again
+            // if the witness has already submitted proof at or after the start of the proof window, they cannot submit
+            // again
             if (txn.witnessTime[msg.sender] >= txn.expiryTime - PROOF_TIMEOUT) {
                 revert Errors.WitnessAlreadySubmittedProof();
             }
@@ -215,8 +196,11 @@ contract ExocoreBtcGateway is
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
+        isValidToken(token)
+        isRegistered(token, msg.sender)
     {
         ClientChainID chainId = ClientChainID(uint8(token));
+
         bool success = _delegate(chainId, msg.sender, operator, amount);
         if (!success) {
             revert DelegationFailed();
@@ -236,10 +220,15 @@ contract ExocoreBtcGateway is
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
+        isValidToken(token)
+        isRegistered(token, msg.sender)
     {
         ClientChainID chainId = ClientChainID(uint8(token));
-        uint64 nonce = ++delegationNonce[chainId][msg.sender];
-        bool success = DELEGATION_CONTRACT.undelegate(uint32(uint8(chainId)), nonce, VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), bytes(operator), amount);
+
+        uint64 nonce = ++delegationNonce[chainId];
+        bool success = DELEGATION_CONTRACT.undelegate(
+            uint32(uint8(chainId)), nonce, VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), bytes(operator), amount
+        );
         if (!success) {
             revert UndelegationFailed();
         }
@@ -256,8 +245,11 @@ contract ExocoreBtcGateway is
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
+        isValidToken(token)
+        isRegistered(token, msg.sender)
     {
         ClientChainID chainId = ClientChainID(uint8(token));
+
         (bool success, uint256 updatedBalance) =
             ASSETS_CONTRACT.withdrawLST(uint32(uint8(chainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount);
         if (!success) {
@@ -279,8 +271,11 @@ contract ExocoreBtcGateway is
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
+        isValidToken(token)
+        isRegistered(token, msg.sender)
     {
         ClientChainID chainId = ClientChainID(uint8(token));
+
         (bool success, uint256 updatedBalance) =
             REWARD_CONTRACT.claimReward(uint32(uint8(chainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount);
         if (!success) {
@@ -321,12 +316,17 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Gets the BTC address corresponding to an Exocore address.
-     * @param exocoreAddress The Exocore address.
-     * @return The corresponding BTC address.
+     * @notice Gets the client chain address for a given Exocore address
+     * @param chainId The client chain ID
+     * @param exocoreAddress The Exocore address
+     * @return The client chain address
      */
-    function getBtcAddress(address exocoreAddress) external view returns (bytes memory) {
-        return exocoreToBtcAddress[exocoreAddress];
+    function getClientChainAddress(ClientChainID chainId, address exocoreAddress)
+        external
+        view
+        returns (bytes memory)
+    {
+        return outboundRegistry[chainId][exocoreAddress];
     }
 
     /**
@@ -335,7 +335,7 @@ contract ExocoreBtcGateway is
      * @return The current nonce.
      */
     function nextInboundNonce(ClientChainID srcChainId) external view returns (uint64) {
-        return inboundNonce[srcChainId]+1;
+        return inboundNonce[srcChainId] + 1;
     }
 
     /**
@@ -371,7 +371,13 @@ contract ExocoreBtcGateway is
     /**
      * @notice Registers or updates the Bitcoin chain with the Exocore system.
      */
-    function _registerOrUpdateClientChain(ClientChainID chainId, uint8 stakerAccountLength, string memory name, string memory metadata, string memory signatureScheme) internal {
+    function _registerOrUpdateClientChain(
+        ClientChainID chainId,
+        uint8 stakerAccountLength,
+        string memory name,
+        string memory metadata,
+        string memory signatureScheme
+    ) internal {
         uint32 chainIdUint32 = uint32(uint8(chainId));
         (bool success, bool updated) = ASSETS_CONTRACT.registerOrUpdateClientChain(
             chainIdUint32, stakerAccountLength, name, metadata, signatureScheme
@@ -386,7 +392,14 @@ contract ExocoreBtcGateway is
         }
     }
 
-    function _registerOrUpdateToken(ClientChainID chainId, bytes memory token, uint8 decimals, string memory name, string memory metadata, string memory oracleInfo) internal {
+    function _registerOrUpdateToken(
+        ClientChainID chainId,
+        bytes memory token,
+        uint8 decimals,
+        string memory name,
+        string memory metadata,
+        string memory oracleInfo
+    ) internal {
         uint32 chainIdUint32 = uint32(uint8(chainId));
         bool registered = ASSETS_CONTRACT.registerToken(chainIdUint32, token, decimals, name, metadata, oracleInfo);
         if (!registered) {
@@ -405,15 +418,14 @@ contract ExocoreBtcGateway is
      * @param _msg The interchain message.
      * @param signature The signature to verify.
      */
-    function _verifySignature(StakeMsg calldata _msg, bytes memory signature) internal view returns (bytes32 messageHash) {
+    function _verifySignature(StakeMsg calldata _msg, bytes memory signature)
+        internal
+        view
+        returns (bytes32 messageHash)
+    {
         // StakeMsg, EIP721 is preferred next step.
         bytes memory encodeMsg = abi.encode(
-            _msg.chainId,
-            _msg.srcAddress,
-            _msg.operator,
-            _msg.amount,
-            _msg.nonce,
-            _msg.txTag
+            _msg.chainId, _msg.srcAddress, _msg.exocoreAddress, _msg.operator, _msg.amount, _msg.nonce, _msg.txTag
         );
         messageHash = keccak256(encodeMsg);
 
@@ -426,13 +438,12 @@ contract ExocoreBtcGateway is
      */
     function _verifyStakeMsgFields(StakeMsg calldata _msg) internal pure {
         // Combine all non-zero checks into a single value
-        uint256 validityCheck = uint8(_msg.chainId) 
-            | _msg.srcAddress.length 
-            | _msg.amount
-            | _msg.nonce 
-            | _msg.txTag.length;
-            
-        if (validityCheck == 0) revert Errors.InvalidStakeMessage();
+        uint256 validityCheck =
+            uint8(_msg.chainId) | _msg.srcAddress.length | _msg.amount | _msg.nonce | _msg.txTag.length;
+
+        if (validityCheck == 0) {
+            revert Errors.InvalidStakeMessage();
+        }
     }
 
     function _verifyTxTagNotProcessed(bytes calldata txTag) internal view {
@@ -479,12 +490,11 @@ contract ExocoreBtcGateway is
     function _initiatePegOut(ClientChainID clientChain, uint256 _amount, address withdrawer, WithdrawType _withdrawType)
         internal
         returns (uint64 requestId, bytes memory clientChainAddress)
-    {        
-
+    {
         // 1. Check client c address
-        clientChainAddress = exocoreToBtcAddress[withdrawer];
+        clientChainAddress = outboundRegistry[clientChain][withdrawer];
         if (clientChainAddress.length == 0) {
-            revert BtcAddressNotRegistered();
+            revert AddressNotRegistered();
         }
 
         // 2. increase the peg-out nonce for the client chain and return as requestId
@@ -520,8 +530,9 @@ contract ExocoreBtcGateway is
         uint256 amount,
         bytes memory txTag
     ) internal {
-        (bool success, uint256 updatedBalance) =
-            ASSETS_CONTRACT.depositLST(uint32(uint8(clientChainId)), VIRTUAL_TOKEN, depositorExoAddr.toExocoreBytes(), amount);
+        (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.depositLST(
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, depositorExoAddr.toExocoreBytes(), amount
+        );
         if (!success) {
             revert DepositFailed(txTag);
         }
@@ -538,14 +549,14 @@ contract ExocoreBtcGateway is
      * @return success True if the delegation was successful, false otherwise.
      * @dev Sometimes we may not want to revert on failure, so we return a boolean.
      */
-    function _delegate(
-        ClientChainID clientChainId,
-        address delegator,
-        string memory operator,
-        uint256 amount
-    ) internal returns(bool success){
-        uint64 nonce = ++delegationNonce[clientChainId][delegator];
-        success = DELEGATION_CONTRACT.delegate(uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, delegator.toExocoreBytes(), bytes(operator), amount);
+    function _delegate(ClientChainID clientChainId, address delegator, string memory operator, uint256 amount)
+        internal
+        returns (bool success)
+    {
+        uint64 nonce = ++delegationNonce[clientChainId];
+        success = DELEGATION_CONTRACT.delegate(
+            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, delegator.toExocoreBytes(), bytes(operator), amount
+        );
     }
 
     function _revokeTxIfExpired(bytes32 txid) internal {
@@ -556,15 +567,15 @@ contract ExocoreBtcGateway is
         }
     }
 
-    function _registerAddress(bytes memory depositor, address exocoreAddress) internal {
+    function _registerAddress(ClientChainID chainId, bytes memory depositor, address exocoreAddress) internal {
         require(depositor.length > 0 && exocoreAddress != address(0), "Invalid address");
-        require(btcToExocoreAddress[depositor] != address(0), "Depositor address already registered");
-        require(exocoreToBtcAddress[exocoreAddress].length == 0, "Exocore address already registered");
+        require(inboundRegistry[chainId][depositor] != address(0), "Depositor address already registered");
+        require(outboundRegistry[chainId][exocoreAddress].length == 0, "Exocore address already registered");
 
-        btcToExocoreAddress[depositor] = exocoreAddress;
-        exocoreToBtcAddress[exocoreAddress] = depositor;
+        inboundRegistry[chainId][depositor] = exocoreAddress;
+        outboundRegistry[chainId][exocoreAddress] = depositor;
 
-        emit AddressRegistered(depositor, exocoreAddress);
+        emit AddressRegistered(chainId, depositor, exocoreAddress);
     }
 
     function _processStakeMsg(StakeMsg memory _msg) internal {
@@ -573,14 +584,17 @@ contract ExocoreBtcGateway is
         processedBtcTxs[_msg.txTag] = TxInfo(true, block.timestamp);
 
         // register address if not already registered
-        if (btcToExocoreAddress[_msg.srcAddress] == address(0) && exocoreToBtcAddress[_msg.exocoreAddress].length == 0) {
+        if (
+            inboundRegistry[_msg.chainId][_msg.srcAddress] == address(0)
+                && outboundRegistry[_msg.chainId][_msg.exocoreAddress].length == 0
+        ) {
             if (_msg.exocoreAddress == address(0)) {
                 revert Errors.ZeroAddress();
             }
-            _registerAddress(_msg.srcAddress, _msg.exocoreAddress);
+            _registerAddress(_msg.chainId, _msg.srcAddress, _msg.exocoreAddress);
         }
 
-        address stakerExoAddr = btcToExocoreAddress[_msg.srcAddress];
+        address stakerExoAddr = inboundRegistry[_msg.chainId][_msg.srcAddress];
         uint256 fee = _msg.amount * bridgeFee;
         uint256 amountAfterFee = _msg.amount - fee;
 
@@ -588,7 +602,8 @@ contract ExocoreBtcGateway is
         // this should always succeed and never revert, otherwise something is wrong.
         _deposit(_msg.chainId, _msg.srcAddress, stakerExoAddr, amountAfterFee, _msg.txTag);
 
-        // delegate to operator if operator is provided, and do not revert if it fails since we need to count the stake as deposited
+        // delegate to operator if operator is provided, and do not revert if it fails since we need to count the stake
+        // as deposited
         if (bytes(_msg.operator).length > 0) {
             bool success = _delegate(_msg.chainId, stakerExoAddr, _msg.operator, amountAfterFee);
             if (!success) {
