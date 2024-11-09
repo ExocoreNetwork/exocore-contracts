@@ -37,6 +37,7 @@ import {IRewardVault} from "src/interfaces/IRewardVault.sol";
 import "src/interfaces/IVault.sol";
 
 import {Errors} from "src/libraries/Errors.sol";
+import {NetworkConstants} from "src/libraries/NetworkConstants.sol";
 import "src/utils/BeaconProxyBytecode.sol";
 
 contract SetUp is Test {
@@ -104,11 +105,11 @@ contract SetUp is Test {
     function _deploy() internal {
         vm.startPrank(deployer.addr);
 
-        beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
+        beaconOracle = IBeaconChainOracle(new EigenLayerBeaconOracle(NetworkConstants.getBeaconGenesisTimestamp()));
 
         vaultImplementation = new Vault();
         rewardVaultImplementation = new RewardVault();
-        capsuleImplementation = new ExoCapsule();
+        capsuleImplementation = new ExoCapsule(address(0));
 
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
@@ -127,7 +128,8 @@ contract SetUp is Test {
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
 
         clientGatewayLogic = new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
@@ -139,29 +141,6 @@ contract SetUp is Test {
         clientGateway.initialize(payable(exocoreValidatorSet.addr));
 
         vm.stopPrank();
-    }
-
-    function _deployBeaconOracle() internal returns (EigenLayerBeaconOracle) {
-        uint256 GENESIS_BLOCK_TIMESTAMP;
-
-        // mainnet
-        if (block.chainid == 1) {
-            GENESIS_BLOCK_TIMESTAMP = 1_606_824_023;
-            // goerli
-        } else if (block.chainid == 5) {
-            GENESIS_BLOCK_TIMESTAMP = 1_616_508_000;
-            // sepolia
-        } else if (block.chainid == 11_155_111) {
-            GENESIS_BLOCK_TIMESTAMP = 1_655_733_600;
-            // holesky
-        } else if (block.chainid == 17_000) {
-            GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
-        } else {
-            revert("Unsupported chainId.");
-        }
-
-        EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
-        return oracle;
     }
 
     function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {

@@ -132,7 +132,8 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     }
 
     /// @notice Constructor to create the ExoCapsule contract.
-    constructor() {
+    /// @param networkConfig_ network configuration contract address.
+    constructor(address networkConfig_) ExoCapsuleStorage(networkConfig_) {
         _disableInitializers();
     }
 
@@ -205,7 +206,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     ) external onlyGateway returns (bool partialWithdrawal, uint256 withdrawalAmount) {
         bytes32 validatorPubkey = validatorContainer.getPubkey();
         Validator storage validator = _capsuleValidators[validatorPubkey];
-        uint64 withdrawalEpoch = withdrawalProof.slotRoot.getWithdrawalEpoch();
+        uint64 withdrawalEpoch = withdrawalProof.slotRoot.getWithdrawalEpoch(getSlotsPerEpoch());
         partialWithdrawal = withdrawalEpoch < validatorContainer.getWithdrawableEpoch();
         uint256 withdrawalId = uint256(withdrawalContainer.getWithdrawalIndex());
 
@@ -379,7 +380,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     ) internal view {
         // To-do check withdrawalContainer length is valid
         bytes32 withdrawalContainerRoot = withdrawalContainer.merkleizeWithdrawalContainer();
-        bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(proof);
+        bool valid = withdrawalContainerRoot.isValidWithdrawalContainerRoot(proof, getDenebHardForkTimestamp());
         if (!valid) {
             revert InvalidWithdrawalContainer(withdrawalContainer.getValidatorIndex());
         }
@@ -404,11 +405,10 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     /// reference: https://github.com/ethereum/consensus-specs/blob/dev/specs/bellatrix/beacon-chain.md
     /// @param timestamp The timestamp to convert.
     /// @return The epoch number.
-    function _timestampToEpoch(uint256 timestamp) internal pure returns (uint64) {
-        require(
-            timestamp >= BEACON_CHAIN_GENESIS_TIME, "timestamp should be greater than beacon chain genesis timestamp"
-        );
-        return uint64((timestamp - BEACON_CHAIN_GENESIS_TIME) / BeaconChainProofs.SECONDS_PER_EPOCH);
+    function _timestampToEpoch(uint256 timestamp) internal view returns (uint64) {
+        uint256 beaconChainGenesisTime = getBeaconGenesisTimestamp();
+        require(timestamp >= beaconChainGenesisTime, "timestamp should be greater than beacon chain genesis timestamp");
+        return uint64((timestamp - beaconChainGenesisTime) / getSecondsPerEpoch());
     }
 
 }

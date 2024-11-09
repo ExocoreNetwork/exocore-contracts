@@ -102,7 +102,7 @@ contract BootstrapTest is Test {
         // deploy vault implementationcontract that has logics called by proxy
         vaultImplementation = new Vault();
         rewardVaultImplementation = new RewardVault();
-        capsuleImplementation = new ExoCapsule();
+        capsuleImplementation = new ExoCapsule(address(0));
 
         // deploy the vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -122,7 +122,8 @@ contract BootstrapTest is Test {
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
 
@@ -1131,7 +1132,8 @@ contract BootstrapTest is Test {
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroAddress.selector);
@@ -1167,7 +1169,8 @@ contract BootstrapTest is Test {
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.warp(20);
@@ -1204,7 +1207,8 @@ contract BootstrapTest is Test {
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroValue.selector);
@@ -1240,7 +1244,8 @@ contract BootstrapTest is Test {
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.BootstrapSpawnTimeLessThanDuration.selector);
@@ -1277,7 +1282,8 @@ contract BootstrapTest is Test {
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
@@ -1314,7 +1320,8 @@ contract BootstrapTest is Test {
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroAddress.selector);
@@ -1350,7 +1357,8 @@ contract BootstrapTest is Test {
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.ZeroAddress.selector);
@@ -1386,7 +1394,8 @@ contract BootstrapTest is Test {
             beaconOracleAddress: address(0x1),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
         vm.expectRevert(Errors.BootstrapClientChainDataMalformed.selector);

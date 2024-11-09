@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 import "../src/interfaces/IClientChainGateway.sol";
 import "../src/interfaces/IExoCapsule.sol";
 import "../src/interfaces/IExocoreGateway.sol";
-
 import "../src/interfaces/IRewardVault.sol";
 import "../src/interfaces/IVault.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
@@ -109,25 +108,6 @@ contract BaseScript is Script, StdCheats {
 
         clientChainRPCURL = vm.envString("CLIENT_CHAIN_RPC");
         exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
-    }
-
-    function _deployBeaconOracle() internal returns (EigenLayerBeaconOracle) {
-        uint256 GENESIS_BLOCK_TIMESTAMP;
-
-        if (block.chainid == 1) {
-            GENESIS_BLOCK_TIMESTAMP = 1_606_824_023;
-        } else if (block.chainid == 5) {
-            GENESIS_BLOCK_TIMESTAMP = 1_616_508_000;
-        } else if (block.chainid == 11_155_111) {
-            GENESIS_BLOCK_TIMESTAMP = 1_655_733_600;
-        } else if (block.chainid == 17_000) {
-            GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
-        } else {
-            revert("Unsupported chainId.");
-        }
-
-        EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
-        return oracle;
     }
 
     function _bindPrecompileMocks() internal {

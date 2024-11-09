@@ -13,6 +13,8 @@ ignored_warnings_from = ["script", "test"]
 # fail compilation if the warnings are not fixed.
 # this is super useful for the code size warning.
 deny_warnings = true
+# for tests, use the mainnet chain_id for NetworkConstants to work.
+chain_id = 1
 
 [rpc_endpoints]
 ethereum_local_rpc = "${ETHEREUM_LOCAL_RPC}"

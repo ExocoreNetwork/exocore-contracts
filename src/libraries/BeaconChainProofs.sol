@@ -22,55 +22,39 @@ library BeaconChainProofs {
 
     uint256 internal constant BEACON_STATE_FIELD_TREE_HEIGHT = 5;
 
-    uint256 internal constant DENEB_FORK_TIMESTAMP = 1_710_338_135;
     uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA = 4;
-    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB = 5; // After deneb hard fork, it's
+    // After deneb hard fork, it's increased from 4 to 5
+    uint256 internal constant EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB = 5;
 
-    // increased from 4 to 5
     // SLOTS_PER_HISTORICAL_ROOT = 2**13, so tree height is 13
     uint256 internal constant BLOCK_ROOTS_TREE_HEIGHT = 13;
 
-    //Index of block_summary_root in historical_summary container
+    // Index of block_summary_root in historical_summary container
     uint256 internal constant BLOCK_SUMMARY_ROOT_INDEX = 0;
-    //HISTORICAL_ROOTS_LIMIT = 2**24, so tree height is 24
+    // HISTORICAL_ROOTS_LIMIT = 2**24, so tree height is 24
     uint256 internal constant HISTORICAL_SUMMARIES_TREE_HEIGHT = 24;
-
+    // VALIDATOR_REGISTRY_LIMIT = 2 ** 40, so tree height is 40
     uint256 internal constant VALIDATOR_TREE_HEIGHT = 40;
-
     // MAX_WITHDRAWALS_PER_PAYLOAD = 2**4, making tree height = 4
     uint256 internal constant WITHDRAWALS_TREE_HEIGHT = 4;
 
-    // in beacon block body
+    // In beacon block body, these data points are indexed by the following numbers. The API does not change
+    // without incrmenting the version number, so these constants are safe to use.
     // https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconblockbody
     uint256 internal constant EXECUTION_PAYLOAD_INDEX = 9;
-
     uint256 internal constant SLOT_INDEX = 0;
-    // in beacon block header
+    // in beacon block header, ... same as above.
     // https://github.com/ethereum/consensus-specs/blob/dev/specs/phase0/beacon-chain.md#beaconblockheader
     uint256 internal constant STATE_ROOT_INDEX = 3;
     uint256 internal constant BODY_ROOT_INDEX = 4;
-    // in beacon state
+    // in beacon state, ... same as above
     // https://github.com/ethereum/consensus-specs/blob/dev/specs/capella/beacon-chain.md#beaconstate
     uint256 internal constant VALIDATOR_TREE_ROOT_INDEX = 11;
     uint256 internal constant HISTORICAL_SUMMARIES_INDEX = 27;
-
-    // in execution payload header
+    // in execution payload header, ... same as above
     uint256 internal constant TIMESTAMP_INDEX = 9;
-    //in execution payload
+    // in execution payload, .... same as above
     uint256 internal constant WITHDRAWALS_INDEX = 14;
-
-    //Misc Constants
-
-    /// @notice The number of slots each epoch in the beacon chain
-    uint64 internal constant SLOTS_PER_EPOCH = 32;
-
-    /// @notice The number of seconds in a slot in the beacon chain
-    uint64 internal constant SECONDS_PER_SLOT = 12;
-
-    /// @notice Number of seconds per epoch: 384 == 32 slots/epoch * 12 seconds/slot
-    /// @dev This constant would be used by other contracts that import this library
-    // slither-disable-next-line unused-state
-    uint64 internal constant SECONDS_PER_EPOCH = SLOTS_PER_EPOCH * SECONDS_PER_SLOT;
 
     /// @notice This struct contains the information needed for validator container validity verification
     struct ValidatorContainerProof {
@@ -157,17 +141,17 @@ library BeaconChainProofs {
         });
     }
 
-    function isValidWithdrawalContainerRoot(bytes32 withdrawalContainerRoot, WithdrawalProof calldata proof)
-        internal
-        view
-        returns (bool valid)
-    {
+    function isValidWithdrawalContainerRoot(
+        bytes32 withdrawalContainerRoot,
+        WithdrawalProof calldata proof,
+        uint256 denebForkTimestamp
+    ) internal view returns (bool valid) {
         require(proof.blockRootIndex < 2 ** BLOCK_ROOTS_TREE_HEIGHT, "blockRootIndex too large");
         require(proof.withdrawalIndex < 2 ** WITHDRAWALS_TREE_HEIGHT, "withdrawalIndex too large");
         require(
             proof.historicalSummaryIndex < 2 ** HISTORICAL_SUMMARIES_TREE_HEIGHT, "historicalSummaryIndex too large"
         );
-        bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(proof);
+        bool validExecutionPayloadRoot = isValidExecutionPayloadRoot(proof, denebForkTimestamp);
         bool validHistoricalSummary = isValidHistoricalSummaryRoot(proof);
         bool validWCRootAgainstExecutionPayloadRoot = isValidWCRootAgainstBlockRoot(proof, withdrawalContainerRoot);
         if (validExecutionPayloadRoot && validHistoricalSummary && validWCRootAgainstExecutionPayloadRoot) {
@@ -175,10 +159,14 @@ library BeaconChainProofs {
         }
     }
 
-    function isValidExecutionPayloadRoot(WithdrawalProof calldata withdrawalProof) internal pure returns (bool) {
+    function isValidExecutionPayloadRoot(WithdrawalProof calldata withdrawalProof, uint256 denebForkTimestamp)
+        internal
+        pure
+        returns (bool)
+    {
         uint256 withdrawalTimestamp = getWithdrawalTimestamp(withdrawalProof);
         // Post deneb hard fork, executionPayloadHeader fields increased
-        uint256 executionPayloadHeaderFieldTreeHeight = withdrawalTimestamp < DENEB_FORK_TIMESTAMP
+        uint256 executionPayloadHeaderFieldTreeHeight = withdrawalTimestamp < denebForkTimestamp
             ? EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_CAPELLA
             : EXECUTION_PAYLOAD_HEADER_FIELD_TREE_HEIGHT_DENEB;
         require(
@@ -292,8 +280,8 @@ library BeaconChainProofs {
     /**
      * @dev Converts the withdrawal's slot to an epoch
      */
-    function getWithdrawalEpoch(bytes32 slotRoot) internal pure returns (uint64) {
-        return Endian.fromLittleEndianUint64(slotRoot) / SLOTS_PER_EPOCH;
+    function getWithdrawalEpoch(bytes32 slotRoot, uint64 slotsPerEpoch) internal pure returns (uint64) {
+        return Endian.fromLittleEndianUint64(slotRoot) / slotsPerEpoch;
     }
 
 }

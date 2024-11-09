@@ -1,13 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {NetworkConstants} from "../libraries/NetworkConstants.sol";
+
 import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
+import {INetworkConfig} from "../interfaces/INetworkConfig.sol";
 
 import {IBeaconChainOracle} from "@beacon-oracle/contracts/src/IBeaconChainOracle.sol";
 
 /// @title ExoCapsuleStorage
 /// @author ExocoreNetwork
 /// @notice The storage contract for the ExoCapsule contract.
+/// @dev It does not inherit from INetworkConfig because the functions are `internal` and not `external` or `public`.
+/// Additionally, not all functions are used in the ExoCapsule contract.
 contract ExoCapsuleStorage {
 
     /// @notice Enum representing the status of a validator.
@@ -32,13 +37,17 @@ contract ExoCapsuleStorage {
     }
 
     // constant state variables
-    /// @notice The address of the Beacon Chain's roots contract.
-    address public constant BEACON_ROOTS_ADDRESS = 0x000F3df6D732807Ef1319fB7B8bB8522d0Beac02;
-
-    /// @notice The genesis time of the Beacon Chain.
-    uint256 public constant BEACON_CHAIN_GENESIS_TIME = 1_606_824_023;
-
-    /// @notice The maximum time after the withdrawal proof timestamp that a withdrawal can be proven.
+    /// @notice The maximum time after the deposit proof timestamp that a deposit can be proven.
+    /// @dev It is measured from the proof generation timestamp and not the deposit timestamp. If the proof becomes too
+    /// old, it can be regenerated and then submitted, as long as the beacon block root for the proof timestamp is
+    /// available (within the oracle or through the system contract).
+    /// @dev Without the beacon oracle, the maximum permissible window would be 8,191 blocks * 12 seconds / block
+    /// = 27.3 hours, according to EIP-4788. However, with the beacon oracle, the root is available for any timestamp
+    /// and hence, there is no technical limit.
+    /// @dev A smaller value is chosen to be more conservative, that is, the limit is more a practical one than a
+    /// technical one.
+    /// @dev On our integration test network, the seconds per slot is 4, so the maximum window becomes 9.1 hours, which
+    /// is higher than this one. So, there is no need to make this parameter configurable based on the network.
     uint256 internal constant VERIFY_BALANCE_UPDATE_WINDOW_SECONDS = 4.5 hours;
 
     /// @notice Conversion factor from gwei to wei.
@@ -46,6 +55,10 @@ contract ExoCapsuleStorage {
 
     /// @notice The maximum amount of balance that a validator can restake, in gwei.
     uint64 public constant MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32e9;
+
+    /// @notice The address of the NetworkConfig contract.
+    /// @dev If it is set to the 0 address, the NetworkConstants library is used instead.
+    address public immutable networkConfig;
 
     /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon
     /// Chain but not from Exocore)
@@ -76,5 +89,47 @@ contract ExoCapsuleStorage {
 
     /// @dev Storage gap to allow for future upgrades.
     uint256[40] private __gap;
+
+    /// @notice Sets the network configuration contract address for the ExoCapsule contract.
+    /// @param networkConfig_ The address of the NetworkConfig contract.
+    constructor(address networkConfig_) {
+        networkConfig = networkConfig_;
+    }
+
+    /// @dev Gets the deneb hard fork timestamp, either from the NetworkConfig contract or the NetworkConstants library.
+    function getDenebHardForkTimestamp() internal view returns (uint256) {
+        if (networkConfig == address(0)) {
+            return NetworkConstants.getDenebHardForkTimestamp();
+        } else {
+            return INetworkConfig(networkConfig).getDenebHardForkTimestamp();
+        }
+    }
+
+    /// @dev Gets the slots per epoch, either from the NetworkConfig contract or the NetworkConstants library.
+    function getSlotsPerEpoch() internal view returns (uint64) {
+        if (networkConfig == address(0)) {
+            return NetworkConstants.getSlotsPerEpoch();
+        } else {
+            return INetworkConfig(networkConfig).getSlotsPerEpoch();
+        }
+    }
+
+    /// @dev Gets the seconds per slot, either from the NetworkConfig contract or the NetworkConstants library.
+    function getSecondsPerEpoch() internal view returns (uint64) {
+        if (networkConfig == address(0)) {
+            return NetworkConstants.getSecondsPerEpoch();
+        } else {
+            return INetworkConfig(networkConfig).getSecondsPerEpoch();
+        }
+    }
+
+    /// @dev Gets the beacon genesis timestamp, either from the NetworkConfig contract or the NetworkConstants library.
+    function getBeaconGenesisTimestamp() internal view returns (uint256) {
+        if (networkConfig == address(0)) {
+            return NetworkConstants.getBeaconGenesisTimestamp();
+        } else {
+            return INetworkConfig(networkConfig).getBeaconGenesisTimestamp();
+        }
+    }
 
 }

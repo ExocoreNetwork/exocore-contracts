@@ -61,13 +61,12 @@ contract DeployBootstrapOnly is BaseScript {
         // proxy deployment
         clientChainProxyAdmin = new CustomProxyAdmin();
 
-        // deploy beacon chain oracle
-        beaconOracle = _deployBeaconOracle();
+        // do not deploy beacon chain oracle, instead use the pre-requisite
 
         /// deploy vault implementation contract, capsule implementation contract, reward vault implementation contract
         /// that has logics called by proxy
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule();
+        capsuleImplementation = new ExoCapsule(address(0));
 
         /// deploy the vault beacon, capsule beacon, reward vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -79,7 +78,8 @@ contract DeployBootstrapOnly is BaseScript {
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
 
         // bootstrap logic

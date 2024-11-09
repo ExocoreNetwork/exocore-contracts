@@ -24,7 +24,7 @@ contract UpgradeExoCapsuleScript is BaseScript {
         vm.selectFork(clientChain);
         vm.startBroadcast(deployer.privateKey);
         console.log("owner", capsuleBeaconContract.owner());
-        ExoCapsule capsule = new ExoCapsule();
+        ExoCapsule capsule = new ExoCapsule(address(0));
         capsuleBeaconContract.upgradeTo(address(capsule));
         vm.stopBroadcast();
 

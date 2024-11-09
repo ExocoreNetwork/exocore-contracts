@@ -81,7 +81,7 @@ contract BootstrapDepositNSTTest is Test {
 
         // deploy vault implementationcontract that has logics called by proxy
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule();
+        capsuleImplementation = new ExoCapsule(address(0));
 
         // deploy the vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -100,7 +100,8 @@ contract BootstrapDepositNSTTest is Test {
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
         bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
 

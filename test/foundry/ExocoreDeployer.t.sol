@@ -46,6 +46,8 @@ import "test/mocks/ETHPOSDepositMock.sol";
 
 import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
 
+import {NetworkConstants} from "src/libraries/NetworkConstants.sol";
+
 contract ExocoreDeployer is Test {
 
     using AddressCast for address;
@@ -329,12 +331,12 @@ contract ExocoreDeployer is Test {
         restakeToken = new ERC20PresetFixedSupply("rest", "rest", 1e34, exocoreValidatorSet.addr);
         clientChainLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
         exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
-        beaconOracle = IBeaconChainOracle(_deployBeaconOracle());
+        beaconOracle = IBeaconChainOracle(new EigenLayerBeaconOracle(NetworkConstants.getBeaconGenesisTimestamp()));
 
         // deploy vault implementation contract and capsule implementation contract
         // that has logics called by proxy
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule();
+        capsuleImplementation = new ExoCapsule(address(0));
         rewardVaultImplementation = new RewardVault();
 
         // deploy the vault beacon and capsule beacon that store the implementation contract address
@@ -359,7 +361,8 @@ contract ExocoreDeployer is Test {
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
 
         // Update ClientChainGateway constructor call
@@ -422,29 +425,6 @@ contract ExocoreDeployer is Test {
             "secp256k1"
         );
         vm.stopPrank();
-    }
-
-    function _deployBeaconOracle() internal returns (EigenLayerBeaconOracle) {
-        uint256 GENESIS_BLOCK_TIMESTAMP;
-
-        // mainnet
-        if (block.chainid == 1) {
-            GENESIS_BLOCK_TIMESTAMP = 1_606_824_023;
-            // goerli
-        } else if (block.chainid == 5) {
-            GENESIS_BLOCK_TIMESTAMP = 1_616_508_000;
-            // sepolia
-        } else if (block.chainid == 11_155_111) {
-            GENESIS_BLOCK_TIMESTAMP = 1_655_733_600;
-            // holesky
-        } else if (block.chainid == 17_000) {
-            GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
-        } else {
-            revert("Unsupported chainId.");
-        }
-
-        EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
-        return oracle;
     }
 
     function _getCapsuleFromWithdrawalCredentials(bytes32 withdrawalCredentials) internal pure returns (address) {

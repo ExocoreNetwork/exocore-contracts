@@ -6,6 +6,7 @@ import "../src/core/ExocoreGateway.sol";
 
 import {RewardVault} from "../src/core/RewardVault.sol";
 import {Vault} from "../src/core/Vault.sol";
+import {NetworkConstants} from "../src/libraries/NetworkConstants.sol";
 import "../src/utils/BeaconProxyBytecode.sol";
 import "../src/utils/CustomProxyAdmin.sol";
 import {ExocoreGatewayMock} from "../test/mocks/ExocoreGatewayMock.sol";
@@ -58,11 +59,11 @@ contract DeployScript is BaseScript {
         vm.startBroadcast(deployer.privateKey);
 
         // deploy beacon chain oracle
-        beaconOracle = _deployBeaconOracle();
+        beaconOracle = new EigenLayerBeaconOracle(NetworkConstants.getBeaconGenesisTimestamp());
 
         /// deploy implementations and beacons
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule();
+        capsuleImplementation = new ExoCapsule(address(0));
         rewardVaultImplementation = new RewardVault();
 
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -78,7 +79,8 @@ contract DeployScript is BaseScript {
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
 
         /// deploy client chain gateway
