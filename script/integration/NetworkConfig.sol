@@ -3,6 +3,9 @@ pragma solidity ^0.8.0;
 
 import {INetworkConfig, NetworkParams} from "src/interfaces/INetworkConfig.sol";
 
+/// @dev The chain ID that is allowed for integration tests.
+uint256 constant ALLOWED_CHAIN_ID = 31_337;
+
 /// @title NetworkConfig
 /// @author ExocoreNetwork
 /// @notice This contract provides an interface to expose the network configuration.
@@ -34,7 +37,7 @@ contract NetworkConfig is INetworkConfig {
         // the downside of this number is that another chain id must be configured in `foundry.toml` to be used
         // by default, during tests. setting this configuration also prevents NetworkConstants from complaining
         // about Unsupported Network during tests, so it is worth it.
-        require(block.chainid == 31_337, "unsupported network");
+        require(block.chainid == ALLOWED_CHAIN_ID, "only the 31337 chain ID is supported for integration tests");
         require(deposit != address(0), "Deposit contract address must be set for integration network");
         require(denebTimestamp > 0, "Deneb timestamp must be set for integration network");
         require(slotsPerEpoch > 0, "Slots per epoch must be set for integration network");

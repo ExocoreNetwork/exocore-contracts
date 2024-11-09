@@ -2,17 +2,22 @@
 pragma solidity ^0.8.0;
 
 import "forge-std/Script.sol";
+
+import "forge-std/StdJson.sol";
 import "forge-std/console.sol";
 
-import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
-import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import {EndpointV2Mock} from "../../test/mocks/EndpointV2Mock.sol";
 
 import {Bootstrap} from "../../src/core/Bootstrap.sol";
+
 import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
+
+import {BeaconOracle} from "./BeaconOracle.sol";
+import {ALLOWED_CHAIN_ID, NetworkConfig} from "./NetworkConfig.sol";
 
 import {ExoCapsule} from "../../src/core/ExoCapsule.sol";
 import {Vault} from "../../src/core/Vault.sol";
@@ -20,27 +25,33 @@ import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
 import {IValidatorRegistry} from "../../src/interfaces/IValidatorRegistry.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
 
-import "../../src/utils/BeaconProxyBytecode.sol";
+import {BeaconProxyBytecode} from "../../src/utils/BeaconProxyBytecode.sol";
 import {CustomProxyAdmin} from "../../src/utils/CustomProxyAdmin.sol";
 import {MyToken} from "../../test/foundry/unit/MyToken.sol";
 
 // Technically this is used for testing but it is marked as a script
-// because it is a script that is used to deploy the contracts on Anvil
+// because it is a script that is used to deploy the contracts on Anvil / Prysm PoS
 // and setup the initial state of the Exocore chain.
 
 // The keys provided in the dot-env file are required to be already
 // initialized by Anvil by `anvil --accounts 20`.
 // When you run with this config, the keys already in the file will work
-// because Anvil uses a common mnemonic across systems.
+// because Anvil uses a common mnemonic across systems, which is also shared by Prysm.
 contract DeployContracts is Script {
 
+    using stdJson for string;
+
+    // no cross-chain communication is part of this test so these are not relevant
     uint16 exocoreChainId = 1;
     uint16 clientChainId = 2;
+    // neither is the ownership of the contract being tested here
     address exocoreValidatorSet = vm.addr(uint256(0x8));
+
     // assumes 3 validators, to add more - change registerValidators and delegate.
     uint256[] validators;
     uint256[] stakers;
     uint256 contractDeployer;
+    uint256 nstDepositor;
     Bootstrap bootstrap;
     // to add more tokens,
     // 0. add deployer private keys
@@ -56,15 +67,27 @@ contract DeployContracts is Script {
     IVault[] vaults;
     CustomProxyAdmin proxyAdmin;
 
-    EigenLayerBeaconOracle beaconOracle;
+    BeaconOracle beaconOracle;
     IVault vaultImplementation;
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
+    NetworkConfig networkConfig;
+
+    address internal constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+
+    address depositAddress;
+    uint256 denebTimestamp;
+    uint64 secondsPerSlot;
+    uint64 slotsPerEpoch;
+    uint256 beaconGenesisTimestamp;
 
     function setUp() private {
+        // placate the pre-simulation runner
+        vm.chainId(ALLOWED_CHAIN_ID);
         // these are default values for Anvil's usual mnemonic.
+        // the addresses are also funded in the prysm ethpos devnet!
         uint256[] memory ANVIL_VALIDATORS = new uint256[](3);
         ANVIL_VALIDATORS[0] = uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80);
         ANVIL_VALIDATORS[1] = uint256(0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d);
@@ -85,13 +108,36 @@ contract DeployContracts is Script {
 
         uint256 CONTRACT_DEPLOYER = uint256(0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897);
 
+        uint256 NST_DEPOSITOR = uint256(0x47c99abed3324a2707c28affff1267e45918ec8c3f20b8aa892e8b065d2942dd);
+
         validators = vm.envOr("ANVIL_VALIDATORS", ",", ANVIL_VALIDATORS);
         stakers = vm.envOr("ANVIL_STAKERS", ",", ANVIL_STAKERS);
         tokenDeployers = vm.envOr("ANVIL_TOKEN_DEPLOYERS", ",", ANVIL_TOKEN_DEPLOYERS);
         contractDeployer = vm.envOr("CONTRACT_DEPLOYER", CONTRACT_DEPLOYER);
+        nstDepositor = vm.envOr("NST_DEPOSITOR", NST_DEPOSITOR);
+
+        // read the network configuration parameters and validate them
+        depositAddress = vm.envOr("INTEGRATION_DEPOSIT_ADDRESS", address(0x6969696969696969696969696969696969696969));
+        denebTimestamp = vm.envUint("INTEGRATION_DENEB_TIMESTAMP");
+        require(denebTimestamp > 0, "Deneb timestamp must be set");
+        beaconGenesisTimestamp = vm.envUint("INTEGRATION_BEACON_GENESIS_TIMESTAMP");
+        require(beaconGenesisTimestamp > 0, "Beacon timestamp must be set");
+        // can not read uint64 from env
+        uint256 secondsPerSlot_ = vm.envOr("INTEGRATION_SECONDS_PER_SLOT", uint256(4));
+        require(secondsPerSlot_ > 0, "Seconds per slot must be set");
+        require(secondsPerSlot_ <= type(uint64).max, "Seconds per slot must be less than or equal to uint64 max");
+        secondsPerSlot = uint64(secondsPerSlot_);
+        uint256 slotsPerEpoch_ = vm.envOr("INTEGRATION_SLOTS_PER_EPOCH", uint256(3));
+        require(slotsPerEpoch_ > 0, "Slots per epoch must be set");
+        require(slotsPerEpoch_ <= type(uint64).max, "Slots per epoch must be less than or equal to uint64 max");
+        slotsPerEpoch = uint64(slotsPerEpoch_);
     }
 
     function deployTokens() private {
+        // first, add this guy to the whitelist so we can start from i = 1
+        whitelistTokens.push(VIRTUAL_STAKED_ETH_ADDRESS);
+        tvlLimits.push(0); // not enforced for virtual staked eth
+
         string[2] memory names = ["MyToken1", "MyToken2"];
         string[2] memory symbols = ["MT1", "MT2"];
         uint256[2] memory initialBalances = [2000 * 10 ** decimals[0], 5000 * 10 ** decimals[1]];
@@ -113,13 +159,13 @@ contract DeployContracts is Script {
 
     function deployContract() private {
         vm.startBroadcast(contractDeployer);
-
-        // deploy beacon chain oracle
-        beaconOracle = _deployBeaconOracle();
+        networkConfig =
+            new NetworkConfig(depositAddress, denebTimestamp, slotsPerEpoch, secondsPerSlot, beaconGenesisTimestamp);
+        beaconOracle = new BeaconOracle(address(networkConfig));
 
         /// deploy vault implementation contract, capsule implementation contract
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule();
+        capsuleImplementation = new ExoCapsule(address(networkConfig));
 
         /// deploy the vault beacon and capsule beacon
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -137,7 +183,8 @@ contract DeployContracts is Script {
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(networkConfig)
         });
 
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
@@ -152,12 +199,15 @@ contract DeployContracts is Script {
                             bootstrap.initialize,
                             (
                                 vm.addr(contractDeployer),
-                                block.timestamp + 3 minutes,
+                                // keep a large buffer because we are going to be depositing a lot of tokens
+                                // and we do one tx per block
+                                block.timestamp + 24 hours,
                                 1 seconds,
                                 whitelistTokens,
                                 tvlLimits,
                                 address(proxyAdmin),
-                                address(0x1), // these values don't matter for the localnet generate.js test
+                                // the implementation upgrade and data don't matter for this test
+                                address(0x1),
                                 bytes("123456")
                             )
                         )
@@ -169,33 +219,49 @@ contract DeployContracts is Script {
         console.log("Bootstrap address: ", address(bootstrap));
 
         // set the vaults
-        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+        for (uint256 i = 1; i < whitelistTokens.length; i++) {
             IVault vault = bootstrap.tokenToVault(whitelistTokens[i]);
             vaults.push(vault);
         }
     }
 
-    function approveAndDeposit() private {
+    function approveAndDepositLST() private {
         // amounts deposited by each validators, for the tokens 1 and 2.
         uint256[2] memory validatorAmounts = [1500 * 10 ** decimals[0], 2000 * 10 ** decimals[1]];
         // stakerAmounts - keep divisible by 3 for delegate
         uint256[2] memory stakerAmounts = [300 * 10 ** decimals[0], 600 * 10 ** decimals[1]];
-        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+        for (uint256 i = 1; i < whitelistTokens.length; i++) {
             for (uint256 j = 0; j < validators.length; j++) {
                 vm.startBroadcast(validators[j]);
-                MyToken(whitelistTokens[i]).approve(address(vaults[i]), type(uint256).max);
-                bootstrap.deposit(whitelistTokens[i], validatorAmounts[i]);
+                MyToken(whitelistTokens[i]).approve(address(vaults[i - 1]), type(uint256).max);
+                bootstrap.deposit(whitelistTokens[i], validatorAmounts[i - 1]);
                 vm.stopBroadcast();
             }
         }
-        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+        for (uint256 i = 1; i < whitelistTokens.length; i++) {
             for (uint256 j = 0; j < stakers.length; j++) {
                 vm.startBroadcast(stakers[j]);
-                MyToken(whitelistTokens[i]).approve(address(vaults[i]), type(uint256).max);
-                bootstrap.deposit(whitelistTokens[i], stakerAmounts[i]);
+                MyToken(whitelistTokens[i]).approve(address(vaults[i - 1]), type(uint256).max);
+                bootstrap.deposit(whitelistTokens[i], stakerAmounts[i - 1]);
                 vm.stopBroadcast();
             }
         }
+    }
+
+    function stakeNST() private {
+        vm.startBroadcast(nstDepositor);
+        address myAddress = address(bootstrap.ownerToCapsule(vm.addr(nstDepositor)));
+        if (myAddress == address(0)) {
+            myAddress = bootstrap.createExoCapsule();
+        }
+        console.log("ExoCapsule address", myAddress);
+        bootstrap.stake{value: 32 ether}(
+            // mnemonic: margin tank lunch prison top episode peanut approve dish seat nominee illness
+            hex"98db81971df910a5d46314d21320f897060d76fdf137d22f0eb91a8693a4767d2a22730a3aaa955f07d13ad604f968e9", // pubkey
+            hex"922a316bdc3516bfa66e88259d5e93e339ef81bc85b70e6c715542222025a28fa1e3644c853beb8c3ba76a2c5c03b726081bf605bde3a16e1f33f902cc1b6c01093c19609de87da9383fa4b1f347bd2d4222e1ae5428727a7896c8e553cc8071", // signature
+            bytes32(0x456934ced8f08ff106857418a6d885ba69d31e1b7fab9a931be06da25490cd1d) // deposit data root
+        );
+        vm.stopBroadcast();
     }
 
     function registerValidators() private {
@@ -247,11 +313,11 @@ contract DeployContracts is Script {
                 [120 * 10 ** decimals[1], 80 * 10 ** decimals[1], 400 * 10 ** decimals[1]]
             ]
         ];
-        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+        for (uint256 i = 1; i < whitelistTokens.length; i++) {
             for (uint256 j = 0; j < validators.length; j++) {
                 uint256 delegator = validators[j];
                 for (uint256 k = 0; k < validators.length; k++) {
-                    uint256 amount = validatorDelegations[i][j][k];
+                    uint256 amount = validatorDelegations[i - 1][j][k];
                     address validator = vm.addr(validators[k]);
                     string memory validatorExo = bootstrap.ethToExocoreAddress(validator);
                     vm.startBroadcast(delegator);
@@ -267,12 +333,12 @@ contract DeployContracts is Script {
         // respectively
         // find a random number for those amounts for each validators
         // op1 = random1, op2 = random2, op3 = 1/3 - random1 - random2
-        for (uint256 i = 0; i < whitelistTokens.length; i++) {
+        for (uint256 i = 1; i < whitelistTokens.length; i++) {
             for (uint256 j = 0; j < stakers.length; j++) {
                 uint256 delegator = stakers[j];
                 address delegatorAddress = vm.addr(delegator);
                 uint256 deposit = bootstrap.totalDepositAmounts(delegatorAddress, whitelistTokens[i]);
-                uint256 stakerDelegationToDo = (deposit * (i + 1)) / 3;
+                uint256 stakerDelegationToDo = (deposit * i) / 3;
                 for (uint256 k = 0; k < validators.length; k++) {
                     uint256 amount;
                     if (k == validators.length - 1) {
@@ -299,41 +365,30 @@ contract DeployContracts is Script {
         console.log("Tokens deployed");
         deployContract();
         console.log("Contract deployed");
-        approveAndDeposit();
-        console.log("Approved and deposited");
+        approveAndDepositLST();
+        console.log("Approved and deposited LSTs");
+        stakeNST();
+        console.log("Staked NST (will have to submit proof later to count the deposit)");
         registerValidators();
         console.log("Validators registered");
         delegate();
-        console.log("[Delegated]; done!");
+        console.log("Delegated; done!");
 
         for (uint256 i = 0; i < whitelistTokens.length; i++) {
-            console.log("Token ", i, " address: ", whitelistTokens[i]);
+            console.log("Token", i, " address", whitelistTokens[i]);
         }
+
+        // finally save the bootstrap address
+        string memory key = "deployments";
+        key.serialize("beaconOracleAddress", address(beaconOracle));
+        string memory start = key.serialize("bootstrapAddress", address(bootstrap));
+        vm.writeFile("script/integration/deployments.json", start);
     }
 
     // Helper function to generate a random number within a range
     function random(uint256 _range) internal view returns (uint256) {
         // Basic random number generation; consider a more robust approach for production
         return (uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % (_range - 1)) + 1;
-    }
-
-    function _deployBeaconOracle() internal returns (EigenLayerBeaconOracle) {
-        uint256 GENESIS_BLOCK_TIMESTAMP;
-
-        if (block.chainid == 1) {
-            GENESIS_BLOCK_TIMESTAMP = 1_606_824_023;
-        } else if (block.chainid == 5) {
-            GENESIS_BLOCK_TIMESTAMP = 1_616_508_000;
-        } else if (block.chainid == 11_155_111) {
-            GENESIS_BLOCK_TIMESTAMP = 1_655_733_600;
-        } else if (block.chainid == 17_000) {
-            GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
-        } else {
-            revert("Unsupported chainId.");
-        }
-
-        EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
-        return oracle;
     }
 
 }

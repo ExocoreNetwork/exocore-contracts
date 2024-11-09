@@ -26,3 +26,5 @@ node_modules
 
 ## secret
 .secrets
+
+script/integration/*.json
