@@ -19,7 +19,6 @@ contract VerifyDepositNST is Script {
     using Endian for bytes32;
     using stdJson for string;
 
-    bytes32[] validatorContainer;
     BeaconChainProofs.ValidatorContainerProof validatorProof;
     bytes32 beaconBlockRoot;
 
@@ -40,7 +39,9 @@ contract VerifyDepositNST is Script {
     }
 
     function run() external {
+        bytes32[] memory validatorContainer;
         vm.startBroadcast(nstDepositor);
+        Bootstrap bootstrap = Bootstrap(bootstrapAddress);
         string memory data = vm.readFile("script/integration/proof.json");
         // load the validator container
         validatorContainer = data.readBytes32Array(".validatorContainer");
@@ -55,9 +56,12 @@ contract VerifyDepositNST is Script {
         // since the oracle is not necessarily active during integration testing, trigger it manually
         BeaconOracle oracle = BeaconOracle(beaconOracleAddress);
         oracle.addTimestamp(validatorProof.beaconBlockTimestamp);
-        // now, the transaction
-        Bootstrap bootstrap = Bootstrap(bootstrapAddress);
+        // now, the transactions
         bootstrap.verifyAndDepositNativeStake(validatorContainer, validatorProof);
+        // delegate only a small portion of the deposit for our test
+        bootstrap.delegateTo(
+            "exo1rtg0cgw94ep744epyvanc0wdd5kedwql73vlmr", address(0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE), 18 ether
+        );
         vm.stopBroadcast();
     }
 

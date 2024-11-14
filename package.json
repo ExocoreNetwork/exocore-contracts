@@ -9,6 +9,7 @@
     "test": "test"
   },
   "dependencies": {
+    "@lodestar/api": "^1.23.0",
     "abbrev": "^1.0.9",
     "abstract-level": "^1.0.3",
     "acorn": "^8.11.2",
@@ -386,6 +387,7 @@
   "scripts": {
     "test": "mocha"
   },
+  "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC"

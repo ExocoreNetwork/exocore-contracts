@@ -26,6 +26,7 @@ import {IVault} from "../interfaces/IVault.sol";
 
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {Errors} from "../libraries/Errors.sol";
+import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {Action} from "../storage/GatewayStorage.sol";
@@ -47,6 +48,8 @@ contract Bootstrap is
     INativeRestakingController,
     BootstrapLzReceiver
 {
+
+    using ValidatorContainer for bytes32[];
 
     /// @notice Constructor for the Bootstrap contract.
     /// @param endpoint_ is the address of the layerzero endpoint on Exocore chain
@@ -687,6 +690,15 @@ contract Bootstrap is
             revert Errors.IndexOutOfBounds();
         }
         address tokenAddress = whitelistTokens[index];
+        if (tokenAddress == VIRTUAL_NST_ADDRESS) {
+            return TokenInfo({
+                name: "Native Staked ETH",
+                symbol: "ETH",
+                tokenAddress: tokenAddress,
+                decimals: 18,
+                depositAmount: depositsByToken[tokenAddress]
+            });
+        }
         ERC20 token = ERC20(tokenAddress);
         return TokenInfo({
             name: token.name(),
@@ -781,6 +793,7 @@ contract Bootstrap is
         totalDepositAmounts[msg.sender][VIRTUAL_NST_ADDRESS] += depositValue;
         withdrawableAmounts[msg.sender][VIRTUAL_NST_ADDRESS] += depositValue;
         depositsByToken[VIRTUAL_NST_ADDRESS] += depositValue;
+        stakerToPubkeys[msg.sender].push(validatorContainer.getPubkey());
 
         emit DepositResult(true, VIRTUAL_NST_ADDRESS, msg.sender, depositValue);
     }
@@ -809,6 +822,15 @@ contract Bootstrap is
     {
         IExoCapsule capsule = _getCapsule(msg.sender);
         capsule.withdrawNonBeaconChainETHBalance(recipient, amountToWithdraw);
+    }
+
+    /// @notice Returns the number of pubkeys (across all validators) deposited
+    /// by a staker. The deposit must include deposit + verification for inclusion
+    /// into the beacon chain.
+    /// @param stakerAddress the address of the staker.
+    /// @return the number of pubkeys deposited by the staker.
+    function getPubkeysCount(address stakerAddress) external view returns (uint256) {
+        return stakerToPubkeys[stakerAddress].length;
     }
 
 }

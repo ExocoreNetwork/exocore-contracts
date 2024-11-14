@@ -11,14 +11,16 @@ const clientChainInfo = {
 };
 // this must be in the same order as whitelistTokens
 const tokenMetaInfos = [
-  'Exocore testnet ETH', // first we did push exoETH
-  'Lido wrapped staked ETH', // then push wstETH
+  'Staked ETH',
+  'Exocore testnet ETH',
+  'Lido wrapped staked ETH',
 ];
 // this must be in the same order as whitelistTokens
 // they are provided because the symbol may not match what we are using from the price feeder.
 // for example, exoETH is not a real token and we are using the price feed for ETH.
+// the script will take care of mapping the duplicates to a common token for x/oracle params.
 const tokenNamesForOracle = [
-  'ETH', 'wstETH' // not case sensitive
+  'ETH', 'ETH', 'wstETH' // not case sensitive
 ]
 const nativeChain = {
   "name": "Exocore",
@@ -39,14 +41,19 @@ const nativeAsset = {
   },
   "staking_total_amount": "0"
 };
+const EXOCORE_BECH32_PREFIX = 'exo';
+const VIRTUAL_STAKED_ETH_ADDR = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+const GWEI_TO_WEI = new Decimal(1e9);
 
-const exocoreBech32Prefix = 'exo';
+import dotenv from 'dotenv';
+dotenv.config();
+import { decode } from 'bech32';
+import { promises as fs } from 'fs';
+import { Web3 } from 'web3';
+import Decimal from 'decimal.js';
 
-require('dotenv').config();
-let { decode } = require('bech32');
-const fs = require('fs').promises;
-const { Web3 } = require('web3');
-const Decimal = require('decimal.js');
+import { getClient } from "@lodestar/api";
+import { config } from "@lodestar/config/default";
 
 const isValidBech32 = (address) => {
   try {
@@ -54,7 +61,7 @@ const isValidBech32 = (address) => {
     if (!prefix || !words.length) {
       return false;
     }
-    return prefix === exocoreBech32Prefix;
+    return prefix === EXOCORE_BECH32_PREFIX;
   } catch (error) {
     // If there's any error in decoding, return false
     return false;
@@ -63,10 +70,14 @@ const isValidBech32 = (address) => {
 
 
 // Load variables from .env file
-const { CLIENT_CHAIN_RPC, BOOTSTRAP_ADDRESS, BASE_GENESIS_FILE_PATH, RESULT_GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
+const { BEACON_CHAIN_ENDPOINT, CLIENT_CHAIN_RPC, BOOTSTRAP_ADDRESS, BASE_GENESIS_FILE_PATH, RESULT_GENESIS_FILE_PATH, EXCHANGE_RATES } = process.env;
 
-const { keccak256 } = require('js-sha3');
-const JSONbig = require('json-bigint')({ "useNativeBigInt": true });
+import pkg from 'js-sha3';
+const { keccak256 } = pkg;
+
+import JSONbig from 'json-bigint';
+const jsonBig = JSONbig({ useNativeBigInt: true });
+
 
 function getChainIDWithoutPrevision(chainID) {
   const splitStr = chainID.split('-');
@@ -96,13 +107,27 @@ async function updateGenesisFile() {
 
     // Create contract instance
     const myContract = new web3.eth.Contract(contractABI, BOOTSTRAP_ADDRESS);
+    // Create beacon API client
+    const api = getClient({baseUrl: BEACON_CHAIN_ENDPOINT}, {config});
+    const spec = (await api.config.getSpec()).value();
+    const maxEffectiveBalance = new Decimal(spec.MAX_EFFECTIVE_BALANCE).mul(GWEI_TO_WEI);
+    const ejectIonBalance = new Decimal(spec.EJECTION_BALANCE).mul(GWEI_TO_WEI);
+    const slotsPerEpoch = spec.SLOTS_PER_EPOCH;
+    let lastHeader = (await api.beacon.getBlockHeader({blockId: "finalized"})).value();
+    const finalizedSlot = lastHeader.header.message.slot;
+    const finalizedEpoch = Math.floor(finalizedSlot / slotsPerEpoch);
+    if (finalizedSlot % slotsPerEpoch != 0) {
+      // change the header
+      lastHeader = (await api.beacon.getBlockHeader({blockId: finalizedEpoch * slotsPerEpoch})).value();
+    }
+    const stateRoot = web3.utils.bytesToHex(lastHeader.header.message.stateRoot);
 
     // Read exchange rates
     const exchangeRates = EXCHANGE_RATES.split(',').map(Decimal);
 
     // Read the genesis file
     const genesisData = await fs.readFile(BASE_GENESIS_FILE_PATH);
-    const genesisJSON = JSONbig.parse(genesisData);
+    const genesisJSON = jsonBig.parse(genesisData);
 
     const height = parseInt(genesisJSON.initial_height, 10);
     const bootstrapped = await myContract.methods.bootstrapped().call();
@@ -182,6 +207,9 @@ async function updateGenesisFile() {
     const decimals = [];
     const supportedTokens = [];
     const assetIds = [];
+    const oracleTokens = {};
+    const oracleTokenFeeders = [];
+    let offset = 0;
     for (let i = 0; i < supportedTokensCount; i++) {
       let token = await myContract.methods.getWhitelistedTokenAtIndex(i).call();
       const deposit_amount = await myContract.methods.depositsByToken(token.tokenAddress).call();
@@ -203,24 +231,34 @@ async function updateGenesisFile() {
       assetIds.push(token.tokenAddress.toLowerCase() + clientChainSuffix);
       const oracleToken = {
         name: tokenNamesForOracle[i],
-        chain_id: 1,  // constant intentionally, representing the first chain in the list
+        chain_id: 1,  // constant intentionally, representing the first chain in the list (after the reserved blank one)
         contract_address: token.tokenAddress,
         active: true,
         asset_id: token.tokenAddress.toLowerCase() + clientChainSuffix,
         decimal: 8, // price decimals, not token decimals
       }
-      genesisJSON.app_state.oracle.params.tokens.push(oracleToken);
       const oracleTokenFeeder = {
-        token_id: (i + 1).toString(), // first is reserved
+        index: offset,
+        token_id: (i + 1 - offset).toString(), // first is reserved
         rule_id: "1",
         start_round_id: "1",
         start_base_block: (height + 10000).toString(),
         interval: "30",
         end_block: "0",
       }
-      genesisJSON.app_state.oracle.params.token_feeders.push(oracleTokenFeeder);
+      if (oracleTokens.name in oracleTokens) {
+        oracleTokens[oracleTokens.name].asset_id += ',' + oracleToken.asset_id;
+        offset += 1;
+      } else {
+        oracleTokens[oracleTokens.name] = oracleToken;
+        oracleTokenFeeders.push(oracleTokenFeeder);
+      }
       // break;
     }
+    genesisJSON.app_state.oracle.params.tokens = Object.values(oracleTokens)
+      .sort((a, b) => {a.index - b.uindex})
+      .map(({index, ...rest}) => rest);
+    genesisJSON.app_state.oracle.params.token_feeders = oracleTokenFeeders;
     supportedTokens.sort((a, b) => {
       if (a.asset_basic_info.symbol < b.asset_basic_info.symbol) {
         return -1;
@@ -240,6 +278,9 @@ async function updateGenesisFile() {
     }
     const depositorsCount = await myContract.methods.getDepositorsCount().call();
     const deposits = [];
+    const nativeTokenDepositors = [];
+    const staker_infos = [];
+    let staker_index_counter = 0;
     for (let i = 0; i < depositorsCount; i++) {
       const stakerAddress = await myContract.methods.depositors(i).call();
       const depositsByStaker = [];
@@ -247,15 +288,98 @@ async function updateGenesisFile() {
         // do not reuse the older array since it has been sorted.
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
-        const depositValue = await myContract.methods.totalDepositAmounts(
+        let depositValue = new Decimal((await myContract.methods.totalDepositAmounts(
           stakerAddress, tokenAddress
-        ).call();
-        const withdrawableValue = await myContract.methods.withdrawableAmounts(
+        ).call()).toString());
+        let withdrawableValue = new Decimal((await myContract.methods.withdrawableAmounts(
           stakerAddress, tokenAddress
-        ).call();
+        ).call()).toString());
+        if ((tokenAddress == VIRTUAL_STAKED_ETH_ADDR) && (depositValue > 0)) {
+          // we have to use the effective balance calculation
+          nativeTokenDepositors.push(stakerAddress.toLowerCase());
+          const pubKeyCount = await myContract.methods.getPubkeysCount(stakerAddress).call();
+          const pubKeys = [];
+          for(let k = 0; k < pubKeyCount; k++) {
+            // TODO: the contract stores not pubkeys but pubkey hashes. figure out where
+            // to get the correct value. it affects ClientChainGateway and the network 
+            // overall as well.
+            pubKeys.push("0x98db81971df910a5d46314d21320f897060d76fdf137d22f0eb91a8693a4767d2a22730a3aaa955f07d13ad604f968e9");
+          }
+          const validatorStates = (await api.beacon.getStateValidators({stateId: stateRoot, validatorIds: pubKeys})).value();
+          let totalEffectiveBalance = new Decimal(0);;
+          for(let k = 0; k < validatorStates.length; k++) {
+            const validator = validatorStates[k];
+            // https://hackmd.io/@protolambda/validator_status
+            // it is sufficient to check for active_ongoing
+            if (validator.status != "active_ongoing") {
+              console.log(`Skipping staker ${stakerAddress} due to inactive validator ${pubKeys[k]}`);
+              continue;
+            }
+            const valEffectiveBalance = new Decimal(validator.validator.effectiveBalance).mul(GWEI_TO_WEI);
+            if (valEffectiveBalance.gt(maxEffectiveBalance)) {
+              throw new Error(`The effective balance of staker ${stakerAddress} exceeds the maximum effective balance.`);
+            }
+            if (valEffectiveBalance.lt(ejectIonBalance)) {
+              console.log(`Skipping staker ${stakerAddress} due to low validator balance ${valEffectiveBalance}`);
+              continue;
+            }
+            totalEffectiveBalance = totalEffectiveBalance.plus(valEffectiveBalance);
+          }
+          console.log(`Total effective balance for staker ${stakerAddress}: ${totalEffectiveBalance}`);
+          console.log(`Total deposit value for staker ${stakerAddress}: ${depositValue}`);
+          if (depositValue > totalEffectiveBalance) {
+            console.log("Staker has more deposit than effective balance.");
+            // deposited 32 ETH and left with 31 ETH, aka downtime slashing
+            let toSlash = depositValue.minus(totalEffectiveBalance);
+            // if withdrawableValue can take the full slashing, do it.
+            if (withdrawableValue.gt(toSlash)) {
+              withdrawableValue = withdrawableValue.minus(toSlash);
+            } else {
+              // if not, only do it partially.
+              toSlash = toSlash.minus(withdrawableValue);
+              withdrawableValue = new Decimal(0);
+            }
+            // there is still some left, so do it from the deposit.
+            if (toSlash.gt(0)) {
+              if (depositValue.gt(toSlash)) {
+                depositValue = depositValue.minus(toSlash);
+              } else {
+                console.log(`Skipping staker ${stakerAddress} due to insufficient deposit ${depositValue}`);
+                continue;
+              }
+            }
+            let pendingSlashAmount = toSlash.sub(withdrawableValue);
+            if (pendingSlashAmount.gt(0)) {
+              withdrawableValue = withdrawableValue.minus(pendingSlashAmount);
+              depositValue = depositValue.minus(pendingSlashAmount);
+            }
+          } else if (depositValue < totalEffectiveBalance) {
+            // deposited 32 ETH and left with 33 ETH, aka rewards
+            const delta = totalEffectiveBalance.minus(depositValue);
+            depositValue = depositValue.plus(delta);
+            withdrawableValue = withdrawableValue.plus(delta);
+          }
+          staker_infos.push({
+            staker_addr: stakerAddress.toLowerCase(),
+            staker_index: staker_index_counter,
+            validator_pubkey_list: pubKeys,
+            balance_list: [
+              {
+                // TODO: check these values with Qing
+                round_id: 0,
+                block: height,
+                index: 0,
+                change: 0,
+                balance: depositValue.toString(),
+              }
+            ]
+          });
+          staker_index_counter += 1;
+        }
         const depositByStakerForAsset = {
           asset_id: tokenAddress.toLowerCase() + clientChainSuffix,
           info: {
+            // adjusted for slashing by ETH beacon chain
             total_deposit_amount: depositValue.toString(),
             withdrawable_amount: withdrawableValue.toString(),
             pending_undelegation_amount: "0",
@@ -677,6 +801,20 @@ async function updateGenesisFile() {
     genesisJSON.app_state.delegation.delegation_states = delegation_states;
     genesisJSON.app_state.delegation.stakers_by_operator = stakers_by_operator;
 
+    // x/oracle - native restaking for ETH
+    genesisJSON.app_state.oracle.staker_list_assets = [
+      {
+        asset_id: VIRTUAL_STAKED_ETH_ADDR.toLowerCase() + clientChainSuffix,
+        staker_list: {
+          staker_addrs: nativeTokenDepositors,
+        }
+      }
+    ];
+    genesisJSON.app_state.oracle.staker_infos_assets = {
+      asset_id: VIRTUAL_STAKED_ETH_ADDR.toLowerCase() + clientChainSuffix,
+      staker_infos: staker_infos,
+    };
+
     // add the native chain and at the end so that count-related issues don't arise.
     genesisJSON.app_state.assets.client_chains.push(nativeChain);
     genesisJSON.app_state.assets.tokens.push(nativeAsset);
@@ -686,12 +824,12 @@ async function updateGenesisFile() {
       nativeAsset.asset_basic_info.layer_zero_chain_id.toString(16)
     );
 
-    await fs.writeFile(RESULT_GENESIS_FILE_PATH, JSONbig.stringify(genesisJSON, null, 2));
+    await fs.writeFile(RESULT_GENESIS_FILE_PATH, jsonBig.stringify(genesisJSON, null, 2));
     console.log('Genesis file updated successfully.');
   } catch (error) {
     console.error('Error updating genesis file:', error.message);
     console.error('Stack trace:', error.stack); 
   }
-}
+};
 
 updateGenesisFile();

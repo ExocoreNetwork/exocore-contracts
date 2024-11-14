@@ -58,7 +58,7 @@ contract ExoCapsuleStorage {
 
     /// @notice The address of the NetworkConfig contract.
     /// @dev If it is set to the 0 address, the NetworkConstants library is used instead.
-    address public immutable networkConfig;
+    address public immutable NETWORK_CONFIG;
 
     /// @notice the amount of execution layer ETH in this contract that is staked in(i.e. withdrawn from the Beacon
     /// Chain but not from Exocore)
@@ -93,42 +93,42 @@ contract ExoCapsuleStorage {
     /// @notice Sets the network configuration contract address for the ExoCapsule contract.
     /// @param networkConfig_ The address of the NetworkConfig contract.
     constructor(address networkConfig_) {
-        networkConfig = networkConfig_;
+        NETWORK_CONFIG = networkConfig_;
     }
 
     /// @dev Gets the deneb hard fork timestamp, either from the NetworkConfig contract or the NetworkConstants library.
     function getDenebHardForkTimestamp() internal view returns (uint256) {
-        if (networkConfig == address(0)) {
+        if (NETWORK_CONFIG == address(0)) {
             return NetworkConstants.getDenebHardForkTimestamp();
         } else {
-            return INetworkConfig(networkConfig).getDenebHardForkTimestamp();
+            return INetworkConfig(NETWORK_CONFIG).getDenebHardForkTimestamp();
         }
     }
 
     /// @dev Gets the slots per epoch, either from the NetworkConfig contract or the NetworkConstants library.
     function getSlotsPerEpoch() internal view returns (uint64) {
-        if (networkConfig == address(0)) {
+        if (NETWORK_CONFIG == address(0)) {
             return NetworkConstants.getSlotsPerEpoch();
         } else {
-            return INetworkConfig(networkConfig).getSlotsPerEpoch();
+            return INetworkConfig(NETWORK_CONFIG).getSlotsPerEpoch();
         }
     }
 
     /// @dev Gets the seconds per slot, either from the NetworkConfig contract or the NetworkConstants library.
     function getSecondsPerEpoch() internal view returns (uint64) {
-        if (networkConfig == address(0)) {
+        if (NETWORK_CONFIG == address(0)) {
             return NetworkConstants.getSecondsPerEpoch();
         } else {
-            return INetworkConfig(networkConfig).getSecondsPerEpoch();
+            return INetworkConfig(NETWORK_CONFIG).getSecondsPerEpoch();
         }
     }
 
     /// @dev Gets the beacon genesis timestamp, either from the NetworkConfig contract or the NetworkConstants library.
     function getBeaconGenesisTimestamp() internal view returns (uint256) {
-        if (networkConfig == address(0)) {
+        if (NETWORK_CONFIG == address(0)) {
             return NetworkConstants.getBeaconGenesisTimestamp();
         } else {
-            return INetworkConfig(networkConfig).getBeaconGenesisTimestamp();
+            return INetworkConfig(NETWORK_CONFIG).getBeaconGenesisTimestamp();
         }
     }
 

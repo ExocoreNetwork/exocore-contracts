@@ -123,11 +123,11 @@ contract DeployContracts is Script {
         beaconGenesisTimestamp = vm.envUint("INTEGRATION_BEACON_GENESIS_TIMESTAMP");
         require(beaconGenesisTimestamp > 0, "Beacon timestamp must be set");
         // can not read uint64 from env
-        uint256 secondsPerSlot_ = vm.envOr("INTEGRATION_SECONDS_PER_SLOT", uint256(4));
+        uint256 secondsPerSlot_ = vm.envUint("INTEGRATION_SECONDS_PER_SLOT");
         require(secondsPerSlot_ > 0, "Seconds per slot must be set");
         require(secondsPerSlot_ <= type(uint64).max, "Seconds per slot must be less than or equal to uint64 max");
         secondsPerSlot = uint64(secondsPerSlot_);
-        uint256 slotsPerEpoch_ = vm.envOr("INTEGRATION_SLOTS_PER_EPOCH", uint256(3));
+        uint256 slotsPerEpoch_ = vm.envUint("INTEGRATION_SLOTS_PER_EPOCH");
         require(slotsPerEpoch_ > 0, "Slots per epoch must be set");
         require(slotsPerEpoch_ <= type(uint64).max, "Slots per epoch must be less than or equal to uint64 max");
         slotsPerEpoch = uint64(slotsPerEpoch_);

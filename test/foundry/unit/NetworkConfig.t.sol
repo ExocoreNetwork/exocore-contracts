@@ -64,7 +64,7 @@ contract NetworkConfigTest is Test {
     function testRevertUnsupportedChainId() public {
         // Change the chain ID to something other than 31337
         vm.chainId(1);
-        vm.expectRevert("unsupported network");
+        vm.expectRevert("only the 31337 chain ID is supported for integration tests");
         new NetworkConfig(
             DEPOSIT_CONTRACT_ADDRESS, DENEB_TIMESTAMP, SLOTS_PER_EPOCH, SECONDS_PER_SLOT, BEACON_GENESIS_TIMESTAMP
         );
