@@ -116,7 +116,8 @@ abstract contract NativeRestakingController is
             capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
         if (!partialWithdrawal) {
             // request full withdraw
-            bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(msg.sender)), withdrawalAmount, validatorProof.validatorIndex);
+            bytes memory actionArgs =
+                abi.encodePacked(bytes32(bytes20(msg.sender)), withdrawalAmount, validatorProof.validatorIndex);
             bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, withdrawalAmount);
 
             // a full withdrawal needs response from Exocore, so we don't pass empty bytes
