@@ -82,11 +82,11 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @notice Emitted when a NST transfer happens.
     /// @param isDeposit Whether the transfer is a deposit or a withdraw.
     /// @param success Whether the transfer was successful.
-    /// @param validatorPubkey The validator public key.
+    /// @param validatorID The validator ID (index or pubkey).
     /// @param staker The address that makes the transfer.
     /// @param amount The amount of the token transferred.
     event NSTTransfer(
-        bool isDeposit, bool indexed success, bytes32 indexed validatorPubkey, bytes32 indexed staker, uint256 amount
+        bool isDeposit, bool indexed success, bytes indexed validatorID, bytes32 indexed staker, uint256 amount
     );
 
     /// @notice Emitted upon receiving a delegation request.
@@ -128,13 +128,17 @@ contract ExocoreGatewayStorage is GatewayStorage {
             revert Errors.InvalidMessageLength();
         }
         Action action = Action(uint8(message[0]));
-        uint256 expectedLength = action.getMessageLength();
+        (bool isMinLength, uint256 expectedLength) = action.getMessageLength();
 
         if (expectedLength == 0) {
             revert Errors.UnsupportedRequest(action);
         }
 
-        if (message.length != expectedLength) {
+        if (isMinLength) {
+            if (message.length < expectedLength) {
+                revert Errors.InvalidMessageLength();
+            }
+        } else if (message.length != expectedLength) {
             revert Errors.InvalidMessageLength();
         }
     }

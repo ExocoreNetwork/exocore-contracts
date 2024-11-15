@@ -374,21 +374,25 @@ contract ExocoreGateway is
         onlyCalledFromThis
         returns (bytes memory response)
     {
-        bytes calldata validatorPubkey = payload[:32];
-        bytes calldata staker = payload[32:64];
-        uint256 amount = uint256(bytes32(payload[64:96]));
+        bytes calldata staker = payload[:32];
+        uint256 amount = uint256(bytes32(payload[32:64]));
+        // the length of the validatorID is not known. it depends on the chain.
+        // for Ethereum, it is the validatorIndex uint256 as bytes so it becomes 32. its value may be 0.
+        // for Solana, the pubkey is 32 bytes long but for Sui it is 96 bytes long.
+        // these chains do not have the concept of validatorIndex, so the raw key must be used.
+        bytes calldata validatorID = payload[64:];
 
         bool isDeposit = act == Action.REQUEST_DEPOSIT_NST;
         bool success;
         if (isDeposit) {
-            (success,) = ASSETS_CONTRACT.depositNST(srcChainId, validatorPubkey, staker, amount);
+            (success,) = ASSETS_CONTRACT.depositNST(srcChainId, validatorID, staker, amount);
         } else {
-            (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, validatorPubkey, staker, amount);
+            (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, validatorID, staker, amount);
         }
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
-        emit NSTTransfer(isDeposit, success, bytes32(validatorPubkey), bytes32(staker), amount);
+        emit NSTTransfer(isDeposit, success, validatorID, bytes32(staker), amount);
 
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }

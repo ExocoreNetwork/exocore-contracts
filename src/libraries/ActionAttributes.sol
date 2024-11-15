@@ -20,6 +20,7 @@ library ActionAttributes {
 
     uint256 internal constant MESSAGE_LENGTH_MASK = 0xFF; // 8 bits for message length
     uint256 internal constant MESSAGE_LENGTH_SHIFT = 8;
+    uint256 internal constant MIN_LENGTH_FLAG = 1 << 16; // Flag at the 16th bit
 
     function getAttributes(Action action) internal pure returns (uint256) {
         uint256 attributes = 0;
@@ -29,13 +30,15 @@ library ActionAttributes {
             attributes = LST | PRINCIPAL;
             messageLength = ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_DEPOSIT_NST) {
-            attributes = NST | PRINCIPAL;
+            // we assume that a validatorID is at least 32 bytes, however, it is up for review.
+            attributes = NST | PRINCIPAL | MIN_LENGTH_FLAG;
             messageLength = ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_WITHDRAW_LST) {
             attributes = LST | PRINCIPAL | WITHDRAWAL;
             messageLength = ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_WITHDRAW_NST) {
-            attributes = NST | PRINCIPAL | WITHDRAWAL;
+            // we assume that a validatorID is at least 32 bytes, however, it is up for review.
+            attributes = NST | PRINCIPAL | WITHDRAWAL | MIN_LENGTH_FLAG;
             messageLength = ASSET_OPERATION_LENGTH;
         } else if (action == Action.REQUEST_CLAIM_REWARD) {
             attributes = REWARD | WITHDRAWAL;
@@ -80,8 +83,11 @@ library ActionAttributes {
         return (getAttributes(action) & REWARD) != 0;
     }
 
-    function getMessageLength(Action action) internal pure returns (uint256) {
-        return (getAttributes(action) >> MESSAGE_LENGTH_SHIFT) & MESSAGE_LENGTH_MASK;
+    function getMessageLength(Action action) internal pure returns (bool, uint256) {
+        uint256 attributes = getAttributes(action);
+        uint256 length = (attributes >> MESSAGE_LENGTH_SHIFT) & MESSAGE_LENGTH_MASK;
+        bool isMinLength = (attributes & MIN_LENGTH_FLAG) != 0;
+        return (isMinLength, length);
     }
 
 }
