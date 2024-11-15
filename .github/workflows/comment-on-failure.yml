@@ -10,6 +10,8 @@ jobs:
   comment_on_failure:
     if: ${{ github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
     steps:
       - name: Comment on Pull Requests
         uses: actions/github-script@v6
@@ -21,12 +23,17 @@ jobs:
               console.log('No pull requests associated with this workflow run.');
             } else {
               for (const pr of pullRequests) {
-                github.rest.issues.createComment({
-                  issue_number: pr.number,
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  body: "The CI workflow has failed. Please check the logs for details."
-                });
-                console.log(`Commented on PR #${pr.number}`);
+                try {
+                  const workflowRunUrl = github.event.workflow_run.html_url;
+                  await github.rest.issues.createComment({
+                    issue_number: pr.number,
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    body: `⚠️ The CI workflow has failed! Please check the [workflow run](${workflowRunUrl}) for detailed error logs. If you need help interpreting the errors or have questions, feel free to ask for assistance.`
+                  });
+                  console.log(`Successfully commented on PR #${pr.number}`);
+                } catch (error) {
+                  console.error(`Failed to comment on PR #${pr.number}: ${error.message}`);
+                }
               }
             }
