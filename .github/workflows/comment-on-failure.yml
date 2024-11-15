@@ -1,0 +1,32 @@
+name: Comment on CI Failure
+
+on:
+  workflow_run:
+    workflows: ["Forge CI"]
+    types:
+      - completed
+
+jobs:
+  comment_on_failure:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Comment on Pull Requests
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pullRequests = github.event.workflow_run.pull_requests;
+            if (pullRequests.length === 0) {
+              console.log('No pull requests associated with this workflow run.');
+            } else {
+              for (const pr of pullRequests) {
+                github.rest.issues.createComment({
+                  issue_number: pr.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: "The CI workflow has failed. Please check the logs for details."
+                });
+                console.log(`Commented on PR #${pr.number}`);
+              }
+            }

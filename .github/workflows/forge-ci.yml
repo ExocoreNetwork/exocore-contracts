@@ -1,4 +1,4 @@
-name: Forge CI to build, test, format and compare storage layout
+name: Forge CI to
 
 on:
   merge_group:
@@ -36,18 +36,6 @@ jobs:
         run: echo "${{ needs.setup.outputs.installation-dir }}" >> $GITHUB_PATH
       - name: Build
         run: forge build
-      - name: Add comment for build failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'The build has failed. Please check the logs.'
-            })
       - name: Cache build artifacts
         uses: actions/cache/save@v3
         with:
@@ -84,18 +72,6 @@ jobs:
         run: forge test -vvv
       - name: Set test snapshot as summary
         run: NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
-      - name: Add comment for test failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'The tests have failed. Please check the logs.'
-            })
 
   format:
     runs-on: ubuntu-latest
@@ -121,18 +97,6 @@ jobs:
           key: ${{ runner.os }}-build-${{ github.sha }}
       - name: Check formatting
         run: forge fmt --check
-      - name: Add comment for format check failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'The code is not formatted correctly. Please run `forge fmt` and push the changes.'
-            })
 
   compare-storage-layout:
     runs-on: ubuntu-latest
@@ -191,15 +155,3 @@ jobs:
         run: python .github/workflows/compare_storage_layout.py
       - name: Run the comparison script for deployed contracts
         run: python .github/workflows/compare_deployed_storage_layout.py
-      - name: Add comment for storage layout mismatch failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Storage layout compatibility check failed. This could be due to a mismatch between Bootstrap and ClientChainGateway, or incompatibility with deployed contracts on Sepolia. Please check the logs for details.'
-            })
