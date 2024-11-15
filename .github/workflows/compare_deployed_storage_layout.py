@@ -21,7 +21,7 @@ def get_storage_layout(contract_name, address, rpc_url, etherscan_api_key):
     if not address:
         print(f"Skipping {contract_name} as it's not deployed.")
         return pd.DataFrame()
-    
+
     result = subprocess.run(['cast', 'storage', address, '--rpc-url', rpc_url, '--etherscan-api-key', etherscan_api_key], capture_output=True, text=True)
     print(f"finish executing: cast storage {address} --rpc-url ...")
 
@@ -43,7 +43,7 @@ if __name__ == "__main__":
         etherscan_api_key = os.getenv('ETHERSCAN_API_KEY')
         if not etherscan_api_key:
             raise ValueError("ETHERSCAN_API_KEY environment variable is not set")
-        
+
         # Construct the RPC URL for Sepolia
         rpc_url = f"https://eth-sepolia.g.alchemy.com/v2/{api_key}"
 
@@ -56,15 +56,15 @@ if __name__ == "__main__":
             if deployed_layout.empty:
                 print(f"No deployed layout found for {contract_name}.")
                 continue
-            
+
             current_layout = get_current_layout(contract_name)
             if current_layout.empty:
                 raise ValueError(f"Error: No valid entries of current layout found for {contract_name}.")
-            
+
             mismatches = compare_layouts(deployed_layout, current_layout)
             if mismatches:
                 all_mismatches[contract_name] = mismatches
-        
+
         # then we load the layout file of ExocoreGateway on target branch and compare it with the current layout
         print("Checking ExocoreGateway...")
         target_branch_layout = load_and_parse_layout('ExocoreGateway', 'ExocoreGateway_target.txt')
