@@ -1,4 +1,4 @@
-name: Forge CI to
+name: Forge CI
 
 on:
   merge_group:
