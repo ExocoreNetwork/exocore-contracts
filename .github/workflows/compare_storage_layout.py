@@ -13,12 +13,12 @@ def parse_output(contract_name, lines):
             data.append(parts[:6])  # Keep Name, Type, Slot, Offset, Bytes, Contract
         elif line.startswith('|') and 'Name' in line:
             separator_line = i + 1
-    
+
     if not data:
         raise Exception(f"No valid storage layout data found for {contract_name}")
 
     df = pd.DataFrame(data, columns=['Name', 'Type', 'Slot', 'Offset', 'Bytes', 'Contract'])
-    
+
     # Convert numeric columns
     for col in ['Slot', 'Offset', 'Bytes']:
         df[col] = pd.to_numeric(df[col])
@@ -33,7 +33,7 @@ def get_current_layout(contract_name):
         raise Exception(f"Error getting current layout for {contract_name}: {result.stderr}")
 
     return parse_output(contract_name, result.stdout.split('\n'))
-    
+
 def compare_layouts(old_layout, new_layout):
     mismatches = []
 
@@ -50,7 +50,7 @@ def compare_layouts(old_layout, new_layout):
                 mismatches.append(f"Variable {row['Name']} is missing in the current layout")
             elif not current_row.iloc[0].equals(row):
                 mismatches.append(f"Variable {row['Name']} has changed")
-    
+
     if not mismatches:
         print("No mismatches found")
 
