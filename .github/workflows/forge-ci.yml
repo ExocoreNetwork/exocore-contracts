@@ -2,7 +2,7 @@ name: Forge CI to build, test, format and compare storage layout
 
 on:
   merge_group:
-  pull_request:
+  pull_request_target:
   push:
     branches:
       - main
