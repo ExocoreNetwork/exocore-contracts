@@ -707,8 +707,7 @@ contract Bootstrap is
     /// @param signature Value signed by the @param pubkey.
     /// @param depositDataRoot The SHA-256 hash of the SSZ-encoded DepositData object.
     function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot)
-        external
-        payable
+        external payable
         whenNotPaused
         nonReentrant
         nativeRestakingEnabled
