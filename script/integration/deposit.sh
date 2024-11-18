@@ -62,7 +62,7 @@ if ! [[ "$slots_per_epoch" =~ ^[0-9]+$ ]]; then
 fi
 seconds_per_slot=$(jq -r .data.SECONDS_PER_SLOT "$SCRIPT_DIR/spec.json")
 if ! [[ "$seconds_per_slot" =~ ^[0-9]+$ ]]; then
-    echo "Error: Invalid slots per epoch"
+    echo "Error: Invalid seconds per slot"
     exit 1
 fi
 

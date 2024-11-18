@@ -66,7 +66,6 @@ fi
 slot=$((slots_per_epoch * epoch))
 
 # Now derive the proof using the proof generation binary, which must already be running configured to the localnet
-echo $INTEGRATION_PROVE_ENDPOINT
 response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/json" \
     -d "{\"slot\": $slot, \"validator_index\": $validator_index}" \
     $INTEGRATION_PROVE_ENDPOINT/v1/validator-proof)

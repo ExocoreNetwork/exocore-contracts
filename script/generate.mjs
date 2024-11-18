@@ -79,6 +79,18 @@ const {
   INTEGRATION_EXCHANGE_RATES
 } = process.env;
 
+
+if (
+    !INTEGRATION_BEACON_CHAIN_ENDPOINT ||
+    !CLIENT_CHAIN_RPC ||
+    !INTEGRATION_BOOTSTRAP_ADDRESS ||
+    !INTEGRATION_BASE_GENESIS_FILE_PATH ||
+    !INTEGRATION_RESULT_GENESIS_FILE_PATH ||
+    !INTEGRATION_EXCHANGE_RATES
+) {
+    throw new Error('One or more required environment variables are missing.');
+}
+
 import pkg from 'js-sha3';
 const { keccak256 } = pkg;
 
@@ -118,7 +130,7 @@ async function updateGenesisFile() {
     const api = getClient({baseUrl: INTEGRATION_BEACON_CHAIN_ENDPOINT}, {config});
     const spec = (await api.config.getSpec()).value();
     const maxEffectiveBalance = new Decimal(spec.MAX_EFFECTIVE_BALANCE).mul(GWEI_TO_WEI);
-    const ejectIonBalance = new Decimal(spec.EJECTION_BALANCE).mul(GWEI_TO_WEI);
+    const ejectionBalance = new Decimal(spec.EJECTION_BALANCE).mul(GWEI_TO_WEI);
     const slotsPerEpoch = spec.SLOTS_PER_EPOCH;
     let lastHeader = (await api.beacon.getBlockHeader({blockId: "finalized"})).value();
     const finalizedSlot = lastHeader.header.message.slot;
@@ -196,7 +208,9 @@ async function updateGenesisFile() {
       );
     } else if (genesisJSON.app_state.oracle.params.token_feeders.length > 1) {
       // remove the ETH default token
-      genesisJSON.app_state.oracle.params.token_feeders = genesisJSON.app_state.oracle.params.token_feeders.slice(0, 1);
+      genesisJSON.app_state.oracle.params.token_feeders = genesisJSON.app_state.oracle.params.token_feeders.slice(
+        0, 1
+      );
     }
     const supportedTokensCount = await myContract.methods.getWhitelistedTokensCount().call();
     if (supportedTokensCount != tokenMetaInfos.length) {
@@ -264,7 +278,7 @@ async function updateGenesisFile() {
       // break;
     }
     genesisJSON.app_state.oracle.params.tokens = Object.values(oracleTokens)
-      .sort((a, b) => {a.index - b.index})
+      .sort((a, b) => a.index - b.index)
       .map(({index, ...rest}) => rest);
     genesisJSON.app_state.oracle.params.token_feeders = oracleTokenFeeders;
     supportedTokens.sort((a, b) => {
@@ -308,12 +322,11 @@ async function updateGenesisFile() {
           const pubKeyCount = await myContract.methods.getPubkeysCount(stakerAddress).call();
           const pubKeys = [];
           for(let k = 0; k < pubKeyCount; k++) {
-            // TODO: the contract stores not pubkeys but pubkey hashes. figure out where
-            // to get the correct value. it affects ClientChainGateway and the network 
-            // overall as well.
-            pubKeys.push("0x98db81971df910a5d46314d21320f897060d76fdf137d22f0eb91a8693a4767d2a22730a3aaa955f07d13ad604f968e9");
+            pubKeys.push(await myContract.methods.stakerToPubkeyIDs(stakerAddress, k).call());
           }
-          const validatorStates = (await api.beacon.getStateValidators({stateId: stateRoot, validatorIds: pubKeys})).value();
+          const validatorStates = (await api.beacon.getStateValidators(
+            {stateId: stateRoot, validatorIds: pubKeys.map(pubKey => parseInt(pubKey, 16))}
+          )).value();
           let totalEffectiveBalance = new Decimal(0);;
           for(let k = 0; k < validatorStates.length; k++) {
             const validator = validatorStates[k];
@@ -325,9 +338,11 @@ async function updateGenesisFile() {
             }
             const valEffectiveBalance = new Decimal(validator.validator.effectiveBalance).mul(GWEI_TO_WEI);
             if (valEffectiveBalance.gt(maxEffectiveBalance)) {
-              throw new Error(`The effective balance of staker ${stakerAddress} exceeds the maximum effective balance.`);
+              throw new Error(
+                `The effective balance of staker ${stakerAddress} exceeds the maximum effective balance.`
+              );
             }
-            if (valEffectiveBalance.lt(ejectIonBalance)) {
+            if (valEffectiveBalance.lt(ejectionBalance)) {
               console.log(`Skipping staker ${stakerAddress} due to low validator balance ${valEffectiveBalance}`);
               continue;
             }
@@ -563,7 +578,9 @@ async function updateGenesisFile() {
       for (let j = 0; j < supportedTokens.length; j++) {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
-        const selfDelegationAmount = await myContract.methods.delegations(opAddressHex, opAddressExo, tokenAddress).call();
+        const selfDelegationAmount = await myContract.methods.delegations(
+            opAddressHex, opAddressExo, tokenAddress
+        ).call();
         amount = amount.plus(
           new Decimal(selfDelegationAmount.toString()).
             div('1e' + decimals[j]).

@@ -793,7 +793,7 @@ contract Bootstrap is
         totalDepositAmounts[msg.sender][VIRTUAL_NST_ADDRESS] += depositValue;
         withdrawableAmounts[msg.sender][VIRTUAL_NST_ADDRESS] += depositValue;
         depositsByToken[VIRTUAL_NST_ADDRESS] += depositValue;
-        stakerToPubkeys[msg.sender].push(validatorContainer.getPubkey());
+        stakerToPubkeyIDs[msg.sender].push(bytes32(proof.validatorIndex));
 
         emit DepositResult(true, VIRTUAL_NST_ADDRESS, msg.sender, depositValue);
     }
@@ -830,7 +830,7 @@ contract Bootstrap is
     /// @param stakerAddress the address of the staker.
     /// @return the number of pubkeys deposited by the staker.
     function getPubkeysCount(address stakerAddress) external view returns (uint256) {
-        return stakerToPubkeys[stakerAddress].length;
+        return stakerToPubkeyIDs[stakerAddress].length;
     }
 
 }

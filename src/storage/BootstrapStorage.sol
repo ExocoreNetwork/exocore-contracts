@@ -177,9 +177,9 @@ contract BootstrapStorage is GatewayStorage {
     /// contracts and we put it after __gap to maintain the storage layout compatible with deployed contracts.
     mapping(address owner => IExoCapsule capsule) public ownerToCapsule;
 
-    /// @notice Mapping of staker addresses to their corresponding public keys.
-    /// @dev Maps staker addresses to their corresponding public keys used on the beacon chain.
-    mapping(address staker => bytes32[]) public stakerToPubkeys;
+    /// @notice Mapping of staker addresses to their corresponding validator indexes.
+    /// @dev Maps staker addresses to their corresponding validator indexes used on the beacon chain.
+    mapping(address staker => bytes32[]) public stakerToPubkeyIDs;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
