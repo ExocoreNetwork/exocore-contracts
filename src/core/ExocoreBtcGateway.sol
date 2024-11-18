@@ -62,29 +62,38 @@ contract ExocoreBtcGateway is
      */
     constructor() {
         authorizedWitnesses[EXOCORE_WITNESS] = true;
+        authorizedWitnessCount = 1;
         _disableInitializers();
     }
 
     /**
-     * @notice Initializes the contract with the Exocore witness address.
-     * @param _witness The address of the Exocore witness .
+     * @notice Initializes the contract with the Exocore witness address and owner address.
+     * @param owner_ The address of the owner.
+     * @param witnesses The addresses of the witnesses.
      */
-    function initialize(address _witness) external initializer {
-        addWitness(_witness);
+    function initialize(address owner_, address[] calldata witnesses) external initializer {
+        if (owner_ == address(0) || witnesses.length == 0) {
+            revert Errors.ZeroAddress();
+        }
+        for (uint256 i = 0; i < witnesses.length; i++) {
+            _addWitness(witnesses[i]);
+        }
         __Pausable_init_unchained();
+        __ReentrancyGuard_init_unchained();
+        _transferOwnership(owner_);
     }
 
     /**
      * @notice Activates token staking by registering or updating the chain and token with the Exocore system.
      */
-    function activateStakingForClientChain(ClientChainID clientChain_) external {
+    function activateStakingForClientChain(ClientChainID clientChain_) external onlyOwner whenNotPaused {
         if (clientChain_ == ClientChainID.Bitcoin) {
             _registerOrUpdateClientChain(
                 clientChain_, STAKER_ACCOUNT_LENGTH, BITCOIN_NAME, BITCOIN_METADATA, BITCOIN_SIGNATURE_SCHEME
             );
             _registerOrUpdateToken(clientChain_, VIRTUAL_TOKEN, BTC_DECIMALS, BTC_NAME, BTC_METADATA, BTC_ORACLE_INFO);
         } else {
-            revert InvalidTokenType();
+            revert Errors.InvalidClientChain();
         }
     }
 
@@ -93,49 +102,56 @@ contract ExocoreBtcGateway is
      * @param _witness The address of the witness to be added.
      * @dev Can only be called by the contract owner.
      */
-    function addWitness(address _witness) public onlyOwner {
-        if (_witness == address(0)) {
-            revert ZeroAddressNotAllowed();
-        }
-        require(!authorizedWitnesses[_witness], "Witness already authorized");
-        authorizedWitnesses[_witness] = true;
-        emit WitnessAdded(_witness);
+    function addWitness(address _witness) external onlyOwner whenNotPaused {
+        _addWitness(_witness);
     }
 
     /**
      * @notice Removes an authorized witness.
      * @param _witness The address of the witness to be removed.
      * @dev Can only be called by the contract owner.
+     * @custom:throws CannotRemoveLastWitness if the last witness is being removed
      */
-    function removeWitness(address _witness) external onlyOwner {
-        require(authorizedWitnesses[_witness], "Witness not authorized");
+    function removeWitness(address _witness) external onlyOwner whenNotPaused {
+        if (authorizedWitnessCount <= 1) {
+            revert Errors.CannotRemoveLastWitness();
+        }
+        if (!authorizedWitnesses[_witness]) {
+            revert Errors.WitnessNotAuthorized(_witness);
+        }
         authorizedWitnesses[_witness] = false;
+        authorizedWitnessCount--;
         emit WitnessRemoved(_witness);
     }
 
     /**
-     * @notice Updates the bridge fee.
-     * @param _newFee The new fee to be set (in basis points, max 1000 or 10%).
+     * @notice Updates the bridge fee rate.
+     * @param bridgeFeeRate_ The new bridge fee rate, with basis as 10000, so 100 means 1%
      * @dev Can only be called by the contract owner.
      */
-    function updateBridgeFee(uint256 _newFee) external onlyOwner {
-        require(_newFee <= 1000, "Fee cannot exceed 10%"); // Max fee of 10%
-        bridgeFee = _newFee;
-        emit BridgeFeeUpdated(_newFee);
+    function updateBridgeFeeRate(uint256 bridgeFeeRate_) external onlyOwner whenNotPaused {
+        require(bridgeFeeRate_ <= MAX_BRIDGE_FEE_RATE, "Fee cannot exceed max bridge fee rate");
+        bridgeFeeRate = bridgeFeeRate_;
+        emit BridgeFeeRateUpdated(bridgeFeeRate_);
     }
 
     /**
      * @notice Submits a proof for a stake message.
      * @notice The submitted message would be processed after collecting enough proofs from withnesses.
-     * @param _message The interchain message.
+     * @param witness The witness address that signed the message.
+     * @param _message The stake message.
      * @param _signature The signature of the message.
      */
-    function submitProofForStakeMsg(StakeMsg calldata _message, bytes calldata _signature)
+    function submitProofForStakeMsg(address witness, StakeMsg calldata _message, bytes calldata _signature)
         external
         nonReentrant
         whenNotPaused
     {
-        bytes32 messageHash = _verifyStakeMessage(_message, _signature);
+        if (!_isAuthorizedWitness(witness)) {
+            revert Errors.WitnessNotAuthorized(witness);
+        }
+
+        bytes32 messageHash = _verifyStakeMessage(witness, _message, _signature);
 
         // we should revoke the tx by setting it as expired if it has expired
         _revokeTxIfExpired(messageHash);
@@ -162,6 +178,7 @@ contract ExocoreBtcGateway is
 
         // Check for consensus
         if (txn.proofCount >= REQUIRED_PROOFS) {
+            processedTransactions[messageHash] = true;
             _processStakeMsg(txn.stakeMsg);
             delete transactions[messageHash];
         }
@@ -169,18 +186,19 @@ contract ExocoreBtcGateway is
 
     /**
      * @notice Deposits BTC to the Exocore system.
-     * @param _msg The interchain message containing the deposit details.
-     * @param signature The signature to verify.
+     * @param witness The witness address that signed the message.
+     * @param _msg The stake message.
+     * @param signature The signature of the message.
      */
-    function processStakeMessage(StakeMsg calldata _msg, bytes calldata signature)
+    function processStakeMessage(address witness, StakeMsg calldata _msg, bytes calldata signature)
         external
         nonReentrant
         whenNotPaused
-        isValidAmount(_msg.amount)
-        onlyAuthorizedWitness
     {
-        require(authorizedWitnesses[msg.sender], "Not an authorized witness");
-        _verifyStakeMessage(_msg, signature);
+        if (!_isAuthorizedWitness(witness)) {
+            revert Errors.WitnessNotAuthorized(witness);
+        }
+        _verifyStakeMessage(witness, _msg, signature);
 
         _processStakeMsg(_msg);
     }
@@ -196,14 +214,17 @@ contract ExocoreBtcGateway is
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
-        isValidToken(token)
         isRegistered(token, msg.sender)
     {
+        if (!isValidOperatorAddress(operator)) {
+            revert Errors.InvalidOperator();
+        }
+
         ClientChainID chainId = ClientChainID(uint8(token));
 
         bool success = _delegate(chainId, msg.sender, operator, amount);
         if (!success) {
-            revert DelegationFailed();
+            revert Errors.DelegationFailed();
         }
 
         emit DelegationCompleted(chainId, msg.sender, operator, amount);
@@ -215,14 +236,17 @@ contract ExocoreBtcGateway is
      * @param operator The operator's exocore address.
      * @param amount The amount to undelegate.
      */
-    function undelegateFrom(Token token, string memory operator, uint256 amount)
+    function undelegateFrom(Token token, string calldata operator, uint256 amount)
         external
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
-        isValidToken(token)
         isRegistered(token, msg.sender)
     {
+        if (!isValidOperatorAddress(operator)) {
+            revert Errors.InvalidOperator();
+        }
+
         ClientChainID chainId = ClientChainID(uint8(token));
 
         uint64 nonce = ++delegationNonce[chainId];
@@ -245,7 +269,6 @@ contract ExocoreBtcGateway is
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
-        isValidToken(token)
         isRegistered(token, msg.sender)
     {
         ClientChainID chainId = ClientChainID(uint8(token));
@@ -271,7 +294,6 @@ contract ExocoreBtcGateway is
         nonReentrant
         whenNotPaused
         isValidAmount(amount)
-        isValidToken(token)
         isRegistered(token, msg.sender)
     {
         ClientChainID chainId = ClientChainID(uint8(token));
@@ -348,24 +370,61 @@ contract ExocoreBtcGateway is
     }
 
     /**
+     * @notice Retrieves the status of a transaction.
+     * @param messageHash The hash of the transaction.
+     * @return The status of the transaction.
+     */
+    function getTransactionStatus(bytes32 messageHash) public view returns (TxStatus) {
+        return transactions[messageHash].status;
+    }
+
+    /**
+     * @notice Retrieves the proof count of a transaction.
+     * @param messageHash The hash of the transaction.
+     * @return The proof count of the transaction.
+     */
+    function getTransactionProofCount(bytes32 messageHash) public view returns (uint256) {
+        return transactions[messageHash].proofCount;
+    }
+
+    /**
+     * @notice Retrieves the expiry time of a transaction.
+     * @param messageHash The hash of the transaction.
+     * @return The expiry time of the transaction.
+     */
+    function getTransactionExpiryTime(bytes32 messageHash) public view returns (uint256) {
+        return transactions[messageHash].expiryTime;
+    }
+
+    /**
+     * @notice Retrieves the witness time of a transaction.
+     * @param messageHash The hash of the transaction.
+     * @param witness The witness address.
+     * @return The witness time of the transaction.
+     */
+    function getTransactionWitnessTime(bytes32 messageHash, address witness) public view returns (uint256) {
+        return transactions[messageHash].witnessTime[witness];
+    }
+
+    /**
      * @notice Checks if a witness is authorized.
      * @param witness The witness address.
      * @return True if the witness is authorized, false otherwise.
      */
     function _isAuthorizedWitness(address witness) internal view returns (bool) {
-        // Implementation depends on how you determine if a witness is authorized
-        // For example, you might check against a list of authorized witnesss
-        // or query another contract
         return authorizedWitnesses[witness];
     }
 
-    /**
-     * @notice Converts a string to bytes.
-     * @param source The string to convert.
-     * @return The string as bytes.
-     */
-    function _stringToBytes(string memory source) internal pure returns (bytes memory) {
-        return abi.encodePacked(source);
+    function _addWitness(address _witness) internal {
+        if (_witness == address(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (_isAuthorizedWitness(_witness)) {
+            revert Errors.WitnessAlreadyAuthorized(_witness);
+        }
+        authorizedWitnesses[_witness] = true;
+        authorizedWitnessCount++;
+        emit WitnessAdded(_witness);
     }
 
     /**
@@ -414,13 +473,14 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Verifies the signature of an interchain message.
-     * @param _msg The interchain message.
+     * @notice Verifies the signature of a stake message.
+     * @param signer The signer address.
+     * @param _msg The stake message.
      * @param signature The signature to verify.
      */
-    function _verifySignature(StakeMsg calldata _msg, bytes memory signature)
+    function _verifySignature(address signer, StakeMsg calldata _msg, bytes memory signature)
         internal
-        view
+        pure
         returns (bytes32 messageHash)
     {
         // StakeMsg, EIP721 is preferred next step.
@@ -429,7 +489,7 @@ contract ExocoreBtcGateway is
         );
         messageHash = keccak256(encodeMsg);
 
-        SignatureVerifier.verifyMsgSig(msg.sender, messageHash, signature);
+        SignatureVerifier.verifyMsgSig(signer, messageHash, signature);
     }
 
     /**
@@ -438,26 +498,31 @@ contract ExocoreBtcGateway is
      */
     function _verifyStakeMsgFields(StakeMsg calldata _msg) internal pure {
         // Combine all non-zero checks into a single value
-        uint256 validityCheck =
+        uint256 nonZeroCheck =
             uint8(_msg.chainId) | _msg.srcAddress.length | _msg.amount | _msg.nonce | _msg.txTag.length;
 
-        if (validityCheck == 0) {
+        if (nonZeroCheck == 0) {
             revert Errors.InvalidStakeMessage();
+        }
+
+        if (bytes(_msg.operator).length > 0 && !isValidOperatorAddress(_msg.operator)) {
+            revert Errors.InvalidOperator();
         }
     }
 
-    function _verifyTxTagNotProcessed(bytes calldata txTag) internal view {
-        if (processedBtcTxs[txTag].processed) {
+    function _verifyTxTagNotProcessed(ClientChainID chainId, bytes calldata txTag) internal view {
+        if (processedClientChainTxs[chainId][txTag]) {
             revert Errors.TxTagAlreadyProcessed();
         }
     }
 
     /**
      * @notice Verifies a stake message.
+     * @param witness The witness address that signed the message.
      * @param _msg The stake message.
      * @param signature The signature to verify.
      */
-    function _verifyStakeMessage(StakeMsg calldata _msg, bytes calldata signature)
+    function _verifyStakeMessage(address witness, StakeMsg calldata _msg, bytes calldata signature)
         internal
         view
         returns (bytes32 messageHash)
@@ -469,10 +534,10 @@ contract ExocoreBtcGateway is
         _verifyInboundNonce(_msg.chainId, _msg.nonce);
 
         // Verify that the txTag has not been processed
-        _verifyTxTagNotProcessed(_msg.txTag);
+        _verifyTxTagNotProcessed(_msg.chainId, _msg.txTag);
 
         // Verify signature
-        messageHash = _verifySignature(_msg, signature);
+        messageHash = _verifySignature(witness, _msg, signature);
     }
 
     /**
@@ -534,7 +599,7 @@ contract ExocoreBtcGateway is
             uint32(uint8(clientChainId)), VIRTUAL_TOKEN, depositorExoAddr.toExocoreBytes(), amount
         );
         if (!success) {
-            revert DepositFailed(txTag);
+            revert Errors.DepositFailed(txTag);
         }
 
         emit DepositCompleted(clientChainId, txTag, depositorExoAddr, srcAddress, amount, updatedBalance);
@@ -581,7 +646,7 @@ contract ExocoreBtcGateway is
     function _processStakeMsg(StakeMsg memory _msg) internal {
         // increment inbound nonce for the client chain and mark the tx as processed
         inboundNonce[_msg.chainId]++;
-        processedBtcTxs[_msg.txTag] = TxInfo(true, block.timestamp);
+        processedClientChainTxs[_msg.chainId][_msg.txTag] = true;
 
         // register address if not already registered
         if (
@@ -595,7 +660,7 @@ contract ExocoreBtcGateway is
         }
 
         address stakerExoAddr = inboundRegistry[_msg.chainId][_msg.srcAddress];
-        uint256 fee = _msg.amount * bridgeFee;
+        uint256 fee = _msg.amount * bridgeFeeRate / BASIS_POINTS;
         uint256 amountAfterFee = _msg.amount - fee;
 
         // we use registered exocore address as the depositor

@@ -324,4 +324,28 @@ library Errors {
     /// @dev ExocoreBtcGateway: transaction tag has already been processed
     error TxTagAlreadyProcessed();
 
+    /// @dev ExocoreBtcGateway: invalid operator address
+    error InvalidOperator();
+
+    /// @dev ExocoreBtcGateway: witness has already been authorized
+    error WitnessAlreadyAuthorized(address witness);
+
+    /// @dev ExocoreBtcGateway: witness has not been authorized
+    error WitnessNotAuthorized(address witness);
+
+    /// @dev ExocoreBtcGateway: cannot remove the last witness
+    error CannotRemoveLastWitness();
+
+    /// @dev ExocoreBtcGateway: invalid client chain
+    error InvalidClientChain();
+
+    /// @dev ExocoreBtcGateway: deposit failed
+    error DepositFailed(bytes txTag);
+
+    /// @dev ExocoreBtcGateway: address not registered
+    error AddressNotRegistered();
+
+    /// @dev ExocoreBtcGateway: delegation failed
+    error DelegationFailed();
+
 }

@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {Errors} from "../libraries/Errors.sol";
+
 /**
  * @title ExocoreBtcGatewayStorage
  * @dev This contract manages the storage for the Exocore-Bitcoin gateway
@@ -31,7 +33,7 @@ contract ExocoreBtcGatewayStorage {
      * @dev Enum to represent the status of a transaction
      */
     enum TxStatus {
-        NotStarted, // 0: Default state - transaction hasn't started collecting proofs
+        NotStartedOrProcessed, // 0: Default state - transaction hasn't started collecting proofs
         Pending, // 1: Currently collecting witness proofs
         Expired // 2: Failed due to timeout, but can be retried
 
@@ -44,14 +46,6 @@ contract ExocoreBtcGatewayStorage {
         Undefined,
         WithdrawPrincipal,
         WithdrawReward
-    }
-
-    /**
-     * @dev Struct to store transaction information
-     */
-    struct TxInfo {
-        bool processed;
-        uint256 timestamp;
     }
 
     /**
@@ -104,6 +98,9 @@ contract ExocoreBtcGatewayStorage {
     /* -------------------------------------------------------------------------- */
     /*                                  Constants                                 */
     /* -------------------------------------------------------------------------- */
+    /// @notice the human readable prefix for Exocore bech32 encoded address.
+    bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
+
     // chain id from layerzero, virtual for bitcoin since it's not yet a layerzero chain
     string public constant BITCOIN_NAME = "Bitcoin";
     string public constant BITCOIN_METADATA = "Bitcoin";
@@ -122,7 +119,12 @@ contract ExocoreBtcGatewayStorage {
     address public constant EXOCORE_WITNESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
     uint256 public constant REQUIRED_PROOFS = 2;
     uint256 public constant PROOF_TIMEOUT = 1 days;
-    uint256 public bridgeFee; // Fee percentage (in basis points, e.g., 100 = 1%)
+    uint256 public bridgeFeeRate; // e.g., 100 (basis points) means 1%
+    uint256 public constant BASIS_POINTS = 10_000; // 100% = 10000 basis points
+    uint256 public constant MAX_BRIDGE_FEE_RATE = 1000; // 10%
+
+    /// @notice The count of authorized witnesses
+    uint256 public authorizedWitnessCount;
 
     /**
      * @dev Mapping to store transaction information, key is the message hash
@@ -130,9 +132,14 @@ contract ExocoreBtcGatewayStorage {
     mapping(bytes32 => Transaction) public transactions;
 
     /**
-     * @dev Mapping to store processed Bitcoin transactions
+     * @dev Mapping to store processed transactions
      */
-    mapping(bytes => TxInfo) public processedBtcTxs;
+    mapping(bytes32 => bool) public processedTransactions;
+
+    /**
+     * @dev Mapping to store processed ClientChain transactions
+     */
+    mapping(ClientChainID => mapping(bytes => bool)) public processedClientChainTxs;
 
     /**
      * @dev Mapping to store peg-out requests, key is the nonce
@@ -357,10 +364,10 @@ contract ExocoreBtcGatewayStorage {
     event PegOutTransactionExpired(bytes32 requestId);
 
     /**
-     * @dev Emitted when the bridge fee is updated
-     * @param newFee The new bridge fee
+     * @dev Emitted when the bridge rate is updated
+     * @param newRate The new bridge rate
      */
-    event BridgeFeeUpdated(uint256 newFee);
+    event BridgeFeeRateUpdated(uint256 newRate);
 
     /**
      * @dev Emitted when the deposit limit is updated
@@ -501,21 +508,36 @@ contract ExocoreBtcGatewayStorage {
      * @param amount The amount to check
      */
     modifier isValidAmount(uint256 amount) {
-        require(amount > 0, "ExocoreBtcGatewayStorage: amount should be greater than zero");
-        _;
-    }
-
-    modifier isValidToken(Token token) {
-        require(token != Token.None, "ExocoreBtcGatewayStorage: Invalid token");
+        if (amount == 0) {
+            revert Errors.ZeroAmount();
+        }
         _;
     }
 
     modifier isRegistered(Token token, address exocoreAddress) {
-        require(
-            outboundRegistry[ClientChainID(uint8(token))][exocoreAddress].length > 0,
-            "ExocoreBtcGatewayStorage: Address not registered"
-        );
+        if (outboundRegistry[ClientChainID(uint8(token))][exocoreAddress].length == 0) {
+            revert Errors.AddressNotRegistered();
+        }
         _;
+    }
+
+    /// @notice Checks if the provided string is a valid Exocore address.
+    /// @param addressToValidate The string to check.
+    /// @return True if the string is valid, false otherwise.
+    /// @dev Since implementation of bech32 is difficult in Solidity, this function only
+    /// checks that the address is 42 characters long and starts with "exo1".
+    function isValidOperatorAddress(string calldata addressToValidate) public pure returns (bool) {
+        bytes memory stringBytes = bytes(addressToValidate);
+        if (stringBytes.length != 42) {
+            return false;
+        }
+        for (uint256 i = 0; i < EXO_ADDRESS_PREFIX.length; ++i) {
+            if (stringBytes[i] != EXO_ADDRESS_PREFIX[i]) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**
@@ -525,7 +547,7 @@ contract ExocoreBtcGatewayStorage {
      */
     function _verifyInboundNonce(ClientChainID srcChainId, uint64 nonce) internal view {
         if (nonce != inboundNonce[srcChainId] + 1) {
-            revert UnexpectedInboundNonce(inboundNonce[srcChainId] + 1, nonce);
+            revert Errors.UnexpectedInboundNonce(inboundNonce[srcChainId] + 1, nonce);
         }
     }
 

@@ -1,419 +1,1103 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import "src/core/ExocoreBtcGateway.sol";
-import "src/interfaces/precompiles/IAssets.sol";
+import "forge-std/Test.sol";
+import {ExocoreBtcGateway} from "src/core/ExocoreBtcGateway.sol";
 
+import "src/interfaces/precompiles/IAssets.sol";
 import "src/interfaces/precompiles/IDelegation.sol";
 import "src/interfaces/precompiles/IReward.sol";
-import "src/libraries/SignatureVerifier.sol";
-import "src/storage/ExocoreBtcGatewayStorage.sol";
+import {Errors} from "src/libraries/Errors.sol";
+import {SignatureVerifier} from "src/libraries/SignatureVerifier.sol";
+import {ExocoreBtcGatewayStorage} from "src/storage/ExocoreBtcGatewayStorage.sol";
+import "test/mocks/AssetsMock.sol";
+import "test/mocks/DelegationMock.sol";
+import "test/mocks/RewardMock.sol";
 
-import "forge-std/Test.sol";
+import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-contract ExocoreBtcGatewayTest is ExocoreBtcGatewayStorage, Test {
-
-    ExocoreBtcGateway internal exocoreBtcGateway;
-
-    uint32 internal exocoreChainId = 2;
-    uint32 internal clientBtcChainId = 111;
-
-    address internal validator = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
-    address internal btcToken = address(0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599);
-    address internal delegatorAddr = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
-    bytes internal BTC_TOKEN = abi.encodePacked(bytes32(bytes20(btcToken)));
+contract ExocoreBtcGatewayTest is Test {
 
     using stdStorage for StdStorage;
 
-    // Mock contracts
-    IDelegation internal mockDelegation;
-    IAssets internal mockAssets;
-    IReward internal mockClaimReward;
-
-    function setUp() public {
-        // Deploy mock contracts
-        _bindPrecompileMocks();
-
-        // Deploy the main contract
-        exocoreBtcGateway = new ExocoreBtcGateway();
-
-        // Whitelist the btcToken
-        // Calculate the storage slot for the mapping
-        bytes32 whitelistedSlot = bytes32(
-            stdstore.target(address(exocoreBtcGateway)).sig("isWhitelistedToken(address)").with_key(btcToken).find()
-        );
-
-        // Set the storage value to true (1)
-        vm.store(address(exocoreBtcGateway), whitelistedSlot, bytes32(uint256(1)));
+    struct Player {
+        uint256 privateKey;
+        address addr;
     }
 
-    function _bindPrecompileMocks() internal {
-        // bind precompile mock contracts code to constant precompile address so that local simulation could pass
+    ExocoreBtcGateway gateway;
+    ExocoreBtcGateway gatewayLogic;
+    address owner;
+    address user;
+    address relayer;
+    Player[3] witnesses;
+    bytes btcAddress;
+    string operator;
+    ExocoreBtcGatewayStorage.Transaction txn;
+
+    address public constant EXOCORE_WITNESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
+
+    // chain id from layerzero, virtual for bitcoin since it's not yet a layerzero chain
+    string public constant BITCOIN_NAME = "Bitcoin";
+    string public constant BITCOIN_METADATA = "Bitcoin";
+    string public constant BITCOIN_SIGNATURE_SCHEME = "ECDSA";
+    uint8 public constant STAKER_ACCOUNT_LENGTH = 20;
+
+    // virtual token address and token, shared for tokens supported by the gateway
+    address public constant VIRTUAL_TOKEN_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
+    bytes public constant VIRTUAL_TOKEN = abi.encodePacked(bytes32(bytes20(VIRTUAL_TOKEN_ADDRESS)));
+
+    uint8 public constant BTC_DECIMALS = 8;
+    string public constant BTC_NAME = "BTC";
+    string public constant BTC_METADATA = "BTC";
+    string public constant BTC_ORACLE_INFO = "BTC,BITCOIN,8";
+
+    uint256 public constant REQUIRED_PROOFS = 2;
+    uint256 public constant PROOF_TIMEOUT = 1 days;
+
+    event WitnessAdded(address indexed witness);
+    event WitnessRemoved(address indexed witness);
+    event AddressRegistered(
+        ExocoreBtcGatewayStorage.ClientChainID indexed chainId, bytes depositor, address exocoreAddress
+    );
+    event DepositCompleted(
+        ExocoreBtcGatewayStorage.ClientChainID indexed chainId,
+        bytes txTag,
+        address indexed exocoreAddress,
+        bytes srcAddress,
+        uint256 amount,
+        uint256 updatedBalance
+    );
+    event DelegationCompleted(
+        ExocoreBtcGatewayStorage.ClientChainID indexed chainId,
+        address indexed delegator,
+        string operator,
+        uint256 amount
+    );
+    event ProofSubmitted(bytes32 indexed txId, address indexed witness);
+    event StakeMsgExecuted(bytes32 indexed txId);
+    event BridgeFeeRateUpdated(uint256 newRate);
+
+    event ClientChainRegistered(uint32 clientChainId);
+    event ClientChainUpdated(uint32 clientChainId);
+    event WhitelistTokenAdded(uint32 clientChainId, address indexed token);
+    event WhitelistTokenUpdated(uint32 clientChainId, address indexed token);
+    event DelegationFailedForStake(
+        ExocoreBtcGatewayStorage.ClientChainID indexed clientChainId,
+        address indexed exoDelegator,
+        string operator,
+        uint256 amount
+    );
+
+    function setUp() public {
+        owner = address(1);
+        user = address(2);
+        relayer = address(3);
+        witnesses[0] = Player({privateKey: 0xa, addr: vm.addr(0xa)});
+        witnesses[1] = Player({privateKey: 0xb, addr: vm.addr(0xb)});
+        witnesses[2] = Player({privateKey: 0xc, addr: vm.addr(0xc)});
+
+        btcAddress = bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
+        operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
+
+        // Deploy mock contracts and bind to precompile addresses
         bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
         vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
 
         bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
         vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
 
-        bytes memory WithdrawRewardMockCode = vm.getDeployedCode("RewardMock.sol");
-        vm.etch(REWARD_PRECOMPILE_ADDRESS, WithdrawRewardMockCode);
+        bytes memory RewardMockCode = vm.getDeployedCode("RewardMock.sol");
+        vm.etch(REWARD_PRECOMPILE_ADDRESS, RewardMockCode);
+
+        // Deploy and initialize gateway
+        gatewayLogic = new ExocoreBtcGateway();
+        gateway = ExocoreBtcGateway(address(new TransparentUpgradeableProxy(address(gatewayLogic), address(0), "")));
+        address[] memory initialWitnesses = new address[](1);
+        initialWitnesses[0] = witnesses[0].addr;
+        gateway.initialize(owner, initialWitnesses);
     }
 
-    /**
-     * @notice Test the depositTo function with the first InterchainMsg.
-     */
-    function testDepositToWithFirstMessage() public {
-        assertTrue(exocoreBtcGateway.isWhitelistedToken(btcToken));
+    function test_initialize() public {
+        assertEq(gateway.owner(), owner);
+        assertTrue(gateway.authorizedWitnesses(witnesses[0].addr));
+        assertEq(gateway.authorizedWitnessCount(), 2);
+    }
 
-        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        bytes memory exocoreAddress = _addressToBytes(delegatorAddr);
-        console.logBytes(btcAddress);
+    function test_AddWitness() public {
+        vm.prank(owner);
 
-        // Get the inboundBytesNonce
-        uint256 nonce = exocoreBtcGateway.inboundBytesNonce(clientBtcChainId, btcAddress) + 1;
-        assertEq(nonce, 1, "Nonce should be 1");
+        vm.expectEmit(true, false, false, false);
+        emit WitnessAdded(witnesses[1].addr);
 
-        // register address.
-        vm.prank(validator);
-        exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
-        InterchainMsg memory _msg = InterchainMsg({
-            srcChainID: clientBtcChainId,
-            dstChainID: exocoreChainId,
+        gateway.addWitness(witnesses[1].addr);
+        assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
+        assertEq(gateway.authorizedWitnessCount(), 3);
+    }
+
+    function test_AddWitness_RevertNotOwner() public {
+        vm.prank(user);
+        vm.expectRevert("Ownable: caller is not the owner");
+        gateway.addWitness(witnesses[1].addr);
+    }
+
+    function test_AddWitness_RevertZeroAddress() public {
+        vm.prank(owner);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        gateway.addWitness(address(0));
+    }
+
+    function test_AddWitness_RevertAlreadyAuthorized() public {
+        // First add a witness
+        vm.startPrank(owner);
+        gateway.addWitness(witnesses[1].addr);
+
+        // Try to add the same witness again
+        vm.expectRevert("Witness already authorized");
+        gateway.addWitness(witnesses[1].addr);
+        vm.stopPrank();
+    }
+
+    function test_AddWitness_RevertWhenPaused() public {
+        vm.startPrank(owner);
+        gateway.pause();
+
+        vm.expectRevert("Pausable: paused");
+        gateway.addWitness(witnesses[1].addr);
+        vm.stopPrank();
+    }
+
+    function test_RemoveWitness() public {
+        vm.prank(owner);
+
+        vm.expectEmit(true, false, false, false);
+        emit WitnessRemoved(witnesses[0].addr);
+
+        gateway.removeWitness(witnesses[0].addr);
+        assertFalse(gateway.authorizedWitnesses(witnesses[0].addr));
+        assertEq(gateway.authorizedWitnessCount(), 1);
+    }
+
+    function test_RemoveWitness_RevertNotOwner() public {
+        vm.prank(user);
+        vm.expectRevert("Ownable: caller is not the owner");
+        gateway.removeWitness(witnesses[0].addr);
+    }
+
+    function test_RemoveWitness_RevertWitnessNotAuthorized() public {
+        vm.prank(owner);
+        vm.expectRevert(abi.encodeWithSelector(Errors.WitnessNotAuthorized.selector, witnesses[1].addr));
+        gateway.removeWitness(witnesses[1].addr);
+    }
+
+    function test_RemoveWitness_RevertWhenPaused() public {
+        vm.startPrank(owner);
+        gateway.pause();
+
+        vm.expectRevert("Pausable: paused");
+        gateway.removeWitness(witnesses[0].addr);
+        vm.stopPrank();
+    }
+
+    function test_RemoveWitness_CannotRemoveLastWitness() public {
+        // First remove all witnesses except one
+        vm.startPrank(owner);
+        for (uint256 i = 0; i < witnesses.length; i++) {
+            if (gateway.authorizedWitnesses(witnesses[i].addr)) {
+                gateway.removeWitness(witnesses[i].addr);
+            }
+        }
+
+        // Try to remove the hardcoded witness
+        vm.expectRevert(Errors.CannotRemoveLastWitness.selector);
+        gateway.removeWitness(EXOCORE_WITNESS);
+        vm.stopPrank();
+    }
+
+    function test_RemoveWitness_MultipleRemovals() public {
+        vm.startPrank(owner);
+
+        // First add another witness
+        gateway.addWitness(witnesses[1].addr);
+        assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
+        assertEq(gateway.authorizedWitnessCount(), 3);
+
+        // Remove first witness
+        gateway.removeWitness(witnesses[0].addr);
+        assertFalse(gateway.authorizedWitnesses(witnesses[0].addr));
+        assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
+        assertEq(gateway.authorizedWitnessCount(), 2);
+
+        // Remove second witness
+        gateway.removeWitness(witnesses[1].addr);
+        assertFalse(gateway.authorizedWitnesses(witnesses[1].addr));
+        assertEq(gateway.authorizedWitnessCount(), 1);
+
+        vm.stopPrank();
+    }
+
+    function test_UpdateBridgeFee() public {
+        uint256 newFee = 500; // 5%
+
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit BridgeFeeRateUpdated(newFee);
+
+        gateway.updateBridgeFeeRate(newFee);
+        assertEq(gateway.bridgeFeeRate(), newFee);
+    }
+
+    function test_UpdateBridgeFee_Zero() public {
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit BridgeFeeRateUpdated(0);
+
+        gateway.updateBridgeFeeRate(0);
+        assertEq(gateway.bridgeFeeRate(), 0);
+    }
+
+    function test_UpdateBridgeFee_MaxFee() public {
+        uint256 maxFee = 1000; // 10%
+
+        vm.prank(owner);
+        vm.expectEmit(true, false, false, true);
+        emit BridgeFeeRateUpdated(maxFee);
+
+        gateway.updateBridgeFeeRate(maxFee);
+        assertEq(gateway.bridgeFeeRate(), maxFee);
+    }
+
+    function test_UpdateBridgeFee_RevertExceedMax() public {
+        vm.prank(owner);
+        vm.expectRevert("Fee cannot exceed 10%");
+        gateway.updateBridgeFeeRate(1001); // 10.01%
+    }
+
+    function test_UpdateBridgeFee_RevertNotOwner() public {
+        vm.prank(user);
+        vm.expectRevert("Ownable: caller is not the owner");
+        gateway.updateBridgeFeeRate(500);
+    }
+
+    function test_UpdateBridgeFee_RevertWhenPaused() public {
+        vm.startPrank(owner);
+        gateway.pause();
+
+        vm.expectRevert("Pausable: paused");
+        gateway.updateBridgeFeeRate(500);
+        vm.stopPrank();
+    }
+
+    function test_UpdateBridgeFee_MultipleFeeUpdates() public {
+        vm.startPrank(owner);
+
+        // First update
+        uint256 firstFee = 300;
+        vm.expectEmit(true, false, false, true);
+        emit BridgeFeeRateUpdated(firstFee);
+        gateway.updateBridgeFeeRate(firstFee);
+        assertEq(gateway.bridgeFeeRate(), firstFee);
+
+        // Second update
+        uint256 secondFee = 700;
+        vm.expectEmit(true, false, false, true);
+        emit BridgeFeeRateUpdated(secondFee);
+        gateway.updateBridgeFeeRate(secondFee);
+        assertEq(gateway.bridgeFeeRate(), secondFee);
+
+        vm.stopPrank();
+    }
+
+    function test_ActivateStakingForClientChain() public {
+        vm.startPrank(owner);
+
+        // Mock successful chain registration
+        bytes memory chainRegisterCall = abi.encodeWithSelector(
+            IAssets.registerOrUpdateClientChain.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            STAKER_ACCOUNT_LENGTH,
+            BITCOIN_NAME,
+            BITCOIN_METADATA,
+            BITCOIN_SIGNATURE_SCHEME
+        );
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            chainRegisterCall,
+            abi.encode(true, false) // success = true, updated = false (new registration)
+        );
+
+        // Mock successful token registration
+        bytes memory tokenRegisterCall = abi.encodeWithSelector(
+            IAssets.registerToken.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            VIRTUAL_TOKEN,
+            BTC_DECIMALS,
+            BTC_NAME,
+            BTC_METADATA,
+            BTC_ORACLE_INFO
+        );
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            tokenRegisterCall,
+            abi.encode(true) // success = true
+        );
+
+        vm.expectEmit(true, false, false, false);
+        emit ClientChainRegistered(uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)));
+        vm.expectEmit(true, false, false, false);
+        emit WhitelistTokenAdded(uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)), VIRTUAL_TOKEN_ADDRESS);
+
+        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        vm.stopPrank();
+    }
+
+    function test_ActivateStakingForClientChain_UpdateExisting() public {
+        vm.startPrank(owner);
+
+        // Mock chain update
+        bytes memory chainRegisterCall = abi.encodeWithSelector(
+            IAssets.registerOrUpdateClientChain.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            STAKER_ACCOUNT_LENGTH,
+            BITCOIN_NAME,
+            BITCOIN_METADATA,
+            BITCOIN_SIGNATURE_SCHEME
+        );
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            chainRegisterCall,
+            abi.encode(true, true) // success = true, updated = true (updating existing)
+        );
+
+        // Mock token update
+        bytes memory tokenRegisterCall = abi.encodeWithSelector(
+            IAssets.registerToken.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            VIRTUAL_TOKEN,
+            BTC_DECIMALS,
+            BTC_NAME,
+            BTC_METADATA,
+            BTC_ORACLE_INFO
+        );
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            tokenRegisterCall,
+            abi.encode(false) // registration fails, indicating existing token
+        );
+
+        // Mock token update call
+        bytes memory tokenUpdateCall = abi.encodeWithSelector(
+            IAssets.updateToken.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            VIRTUAL_TOKEN,
+            BTC_METADATA
+        );
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            tokenUpdateCall,
+            abi.encode(true) // update succeeds
+        );
+
+        vm.expectEmit(true, false, false, false);
+        emit ClientChainUpdated(uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)));
+        vm.expectEmit(true, false, false, false);
+        emit WhitelistTokenUpdated(uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)), VIRTUAL_TOKEN_ADDRESS);
+
+        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        vm.stopPrank();
+    }
+
+    function test_ActivateStakingForClientChain_RevertChainRegistrationFailed() public {
+        vm.startPrank(owner);
+
+        // Mock failed chain registration
+        bytes memory chainRegisterCall = abi.encodeWithSelector(
+            IAssets.registerOrUpdateClientChain.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            STAKER_ACCOUNT_LENGTH,
+            BITCOIN_NAME,
+            BITCOIN_METADATA,
+            BITCOIN_SIGNATURE_SCHEME
+        );
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            chainRegisterCall,
+            abi.encode(false, false) // registration failed
+        );
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.RegisterClientChainToExocoreFailed.selector,
+                uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin))
+            )
+        );
+        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        vm.stopPrank();
+    }
+
+    function test_ActivateStakingForClientChain_RevertTokenRegistrationAndUpdateFailed() public {
+        vm.startPrank(owner);
+
+        // Mock successful chain registration
+        bytes memory chainRegisterCall = abi.encodeWithSelector(
+            IAssets.registerOrUpdateClientChain.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            STAKER_ACCOUNT_LENGTH,
+            BITCOIN_NAME,
+            BITCOIN_METADATA,
+            BITCOIN_SIGNATURE_SCHEME
+        );
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, chainRegisterCall, abi.encode(true, false));
+
+        // Mock failed token registration
+        bytes memory tokenRegisterCall = abi.encodeWithSelector(
+            IAssets.registerToken.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            VIRTUAL_TOKEN,
+            BTC_DECIMALS,
+            BTC_NAME,
+            BTC_METADATA,
+            BTC_ORACLE_INFO
+        );
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, tokenRegisterCall, abi.encode(false));
+
+        // Mock failed token update
+        bytes memory tokenUpdateCall = abi.encodeWithSelector(
+            IAssets.updateToken.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            VIRTUAL_TOKEN,
+            BTC_METADATA
+        );
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, tokenUpdateCall, abi.encode(false));
+
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                Errors.AddWhitelistTokenFailed.selector,
+                uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+                bytes32(VIRTUAL_TOKEN)
+            )
+        );
+        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        vm.stopPrank();
+    }
+
+    function test_ActivateStakingForClientChain_RevertInvalidChain() public {
+        vm.prank(owner);
+        vm.expectRevert(Errors.InvalidClientChain.selector);
+        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.None);
+    }
+
+    function test_ActivateStakingForClientChain_RevertNotOwner() public {
+        vm.prank(user);
+        vm.expectRevert("Ownable: caller is not the owner");
+        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+    }
+
+    function test_ActivateStakingForClientChain_RevertWhenPaused() public {
+        vm.startPrank(owner);
+        gateway.pause();
+
+        vm.expectRevert("Pausable: paused");
+        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        vm.stopPrank();
+    }
+
+    function test_SubmitProofForStakeMsg() public {
+        _addAllWitnesses();
+
+        // Create stake message
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
-            dstAddress: _stringToBytes("tb1qqytgqkzvg48p700s46n57wfgaf04h7ca5m03qcschaawv9qqw2vsp67ku4"),
-            token: btcToken,
-            amount: 39_900_000_000_000,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
             nonce: 1,
-            txTag: _stringToBytes("b2c4366e29da536bd1ca5ac1790ba1d3a5e706a2b5e2674dee2678a669432ffc-3"),
-            payload: "0x"
+            txTag: bytes("tx1-0")
         });
 
-        bytes memory signature =
-            hex"aa70b655593f96d19dca3ef0bfc6602b6597a3b6253de2b709b81306a09d46867f857e8a44e64f0c1be6f4ec90a66e28401e007b7efb6fd344164af8316e1f571b";
+        bytes32 txId = _getMessageHash(stakeMsg);
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
 
-        // Check if the event is emitted correctly
-        vm.expectEmit(true, true, true, true);
-        emit DepositCompleted(_msg.txTag, exocoreAddress, btcToken, btcAddress, _msg.amount, 39_900_000_000_000);
+        // Submit proof from first witness
+        vm.prank(relayer);
+        vm.expectEmit(true, true, false, true);
+        emit ProofSubmitted(txId, witnesses[0].addr);
+        gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature);
 
-        // Simulate the validator calling the depositTo function
-        vm.prank(validator);
-        exocoreBtcGateway.depositTo(_msg, signature);
+        // mock Assets precompile deposit success and Delegation precompile delegate success
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.depositLST.selector), abi.encode(true));
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
+        );
+
+        // Submit proof from second witness
+        signature = _generateSignature(stakeMsg, witnesses[1].privateKey);
+        vm.prank(witnesses[1].addr);
+        vm.expectEmit(true, true, false, true);
+        emit ProofSubmitted(txId, witnesses[1].addr);
+
+        // This should trigger message execution as we have enough proofs
+        vm.expectEmit(true, false, false, false);
+        emit StakeMsgExecuted(txId);
+        gateway.submitProofForStakeMsg(witnesses[1].addr, stakeMsg, signature);
+
+        // Verify message was processed
+        assertTrue(gateway.processedClientChainTxs(stakeMsg.chainId, stakeMsg.txTag));
+        assertTrue(gateway.processedTransactions(txId));
     }
 
-    /**
-     * @notice Test the depositTo function with the second InterchainMsg.
-     */
-    function testDepositToWithSecondMessage() public {
-        assertTrue(exocoreBtcGateway.isWhitelistedToken(btcToken));
-        bytes memory btcAddress = _stringToBytes("tb1p43yswl96qlz9v9m6wtvv9c7s0jv7g6dktwfcuzle6nflyyhrqhpqtdacpy");
-        bytes memory exocoreAddress = _addressToBytes(address(0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC));
+    function test_SubmitProofForStakeMsg_RevertInvalidSignature() public {
+        _addAllWitnesses();
 
-        console.logBytes(btcAddress);
-
-        // Get the inboundBytesNonce
-        uint256 nonce = exocoreBtcGateway.inboundBytesNonce(clientBtcChainId, btcAddress) + 1;
-        assertEq(nonce, 1, "Nonce should be 1");
-
-        // register address.
-        vm.prank(validator);
-        exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
-
-        InterchainMsg memory _msg = InterchainMsg({
-            srcChainID: clientBtcChainId,
-            dstChainID: exocoreChainId,
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
-            dstAddress: _stringToBytes("tb1qqytgqkzvg48p700s46n57wfgaf04h7ca5m03qcschaawv9qqw2vsp67ku4"),
-            token: btcToken,
-            amount: 49_000_000_000_000, // 0.000049 BTC
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
             nonce: 1,
-            txTag: _stringToBytes("102f5578c65f78cda5b1c4b35b58281b66c27a4929bb4f938fd15fa8f2d1c58b-1"),
-            payload: "0x"
+            txTag: bytes("tx1-0")
         });
-        // This is a placeholder signature. In a real scenario, you would need to generate a valid signature.
-        bytes memory signature =
-            hex"4eb94c22acf431262f040dbb99bec5acc6b8288c61d4acbe6a8ba7969ab0cea91613579684c664cd81dd876a385c0c493646267fbbdd58f9408d784e8b8e616d1b";
-        // Check if the event is emitted correctly
-        vm.expectEmit(true, true, true, true);
-        emit DepositCompleted(_msg.txTag, exocoreAddress, btcToken, btcAddress, _msg.amount, 49_000_000_000_000);
 
-        // Simulate the validator calling the depositTo function
-        vm.prank(validator);
-        exocoreBtcGateway.depositTo(_msg, signature);
+        bytes memory invalidSignature = bytes("invalid");
+
+        vm.prank(relayer);
+        vm.expectRevert(SignatureVerifier.InvalidSignature.selector);
+        gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, invalidSignature);
     }
 
-    function testEstimateGas() public {
-        bytes memory data =
-            hex"016322c3000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000002e000000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000012000000000000000000000000000000000000000000000000000000000000001800000000000000000000000002260fac5e5542a773aa44fbcfedf7c193bc2c59900000000000000000000000000000000000000000000000000002449f1539800000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000003e74623170647766356172306b787232736468787732387771686a777a796e7a6c6b6472716c6778386a753373723032686b6c64716d6c6673706d306d6d680000000000000000000000000000000000000000000000000000000000000000003e7462317171797467716b7a76673438703730307334366e35377766676166303468376361356d3033716373636861617776397171773276737036376b753400000000000000000000000000000000000000000000000000000000000000000042623263343336366532396461353336626431636135616331373930626131643361356537303661326235653236373464656532363738613636393433326666632d330000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002307800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000411b599ef9aebf5d2a65c6e8288e1e1d3fbcbe30d891a016110c5dbba48a91037f34c5b1b5cc5903b59a19ae5b58ebd3eb659deaf651b74bf4b50ca5bc22e8f7b11c00000000000000000000000000000000000000000000000000000000000000";
+    function test_SubmitProofForStakeMsg_RevertUnauthorizedWitness() public {
+        _addAllWitnesses();
 
-        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        bytes memory exocoreAddress = _stringToBytes("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
-        // register address.
-        vm.prank(validator);
-        exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
-        // Estimate gas
-        vm.prank(validator);
-        (bool success, bytes memory returnData) =
-            address(0x5FC8d32690cc91D4c39d9d3abcBD16989F875707).call{gas: 1_000_000}(data);
-        if (!success) {
-            // Decode revert reason
-            if (returnData.length > 0) {
-                // The call reverted with a reason or a custom error
-                assembly {
-                    let returndata_size := mload(returnData)
-                    revert(add(32, returnData), returndata_size)
-                }
-            } else {
-                revert("Call failed without a reason");
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        Player memory unauthorizedWitness = Player({privateKey: 99, addr: vm.addr(99)});
+        bytes memory signature = _generateSignature(stakeMsg, unauthorizedWitness.privateKey);
+
+        vm.prank(unauthorizedWitness.addr);
+        vm.expectRevert(abi.encodeWithSelector(Errors.WitnessNotAuthorized.selector, unauthorizedWitness.addr));
+        gateway.submitProofForStakeMsg(unauthorizedWitness.addr, stakeMsg, signature);
+    }
+
+    function test_SubmitProofForStakeMsg_ExpiredBeforeConsensus() public {
+        _addAllWitnesses();
+
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // Submit proofs from REQUIRED_PROOFS - 1 witnesses
+        for (uint256 i = 0; i < REQUIRED_PROOFS - 1; i++) {
+            bytes memory signature = _generateSignature(stakeMsg, witnesses[i].privateKey);
+            vm.prank(relayer);
+            gateway.submitProofForStakeMsg(witnesses[i].addr, stakeMsg, signature);
+        }
+
+        // Move time forward past expiry
+        vm.warp(block.timestamp + PROOF_TIMEOUT + 1);
+
+        // Submit the last proof
+        bytes memory lastSignature = _generateSignature(stakeMsg, witnesses[REQUIRED_PROOFS - 1].privateKey);
+        vm.prank(relayer);
+        gateway.submitProofForStakeMsg(witnesses[REQUIRED_PROOFS - 1].addr, stakeMsg, lastSignature);
+
+        // Verify transaction is restarted owing to expired and not processed
+        bytes32 messageHash = _getMessageHash(stakeMsg);
+        assertEq(uint8(gateway.getTransactionStatus(messageHash)), uint8(ExocoreBtcGatewayStorage.TxStatus.Pending));
+        assertEq(gateway.getTransactionProofCount(messageHash), 1);
+        assertFalse(gateway.processedClientChainTxs(stakeMsg.chainId, stakeMsg.txTag));
+    }
+
+    function test_SubmitProofForStakeMsg_RestartExpiredTransaction() public {
+        _addAllWitnesses();
+
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // First witness submits proof
+        bytes memory signature0 = _generateSignature(stakeMsg, witnesses[0].privateKey);
+        vm.prank(relayer);
+        gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature0);
+
+        // Move time forward past expiry
+        vm.warp(block.timestamp + PROOF_TIMEOUT + 1);
+
+        // Same witness submits proof again to restart transaction
+        bytes memory signature0Restart = _generateSignature(stakeMsg, witnesses[0].privateKey);
+        vm.prank(relayer);
+        gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature0Restart);
+
+        bytes32 messageHash = _getMessageHash(stakeMsg);
+
+        // Verify transaction is restarted
+        assertEq(uint8(gateway.getTransactionStatus(messageHash)), uint8(ExocoreBtcGatewayStorage.TxStatus.Pending));
+        assertEq(gateway.getTransactionProofCount(messageHash), 1);
+        assertTrue(gateway.getTransactionWitnessTime(messageHash, witnesses[0].addr) > 0);
+        assertFalse(gateway.processedTransactions(messageHash));
+    }
+
+    function test_SubmitProofForStakeMsg_JoinRestartedTransaction() public {
+        _addAllWitnesses();
+
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // First witness submits proof
+        bytes memory signature0 = _generateSignature(stakeMsg, witnesses[0].privateKey);
+        vm.prank(relayer);
+        gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature0);
+
+        // Move time forward past expiry
+        vm.warp(block.timestamp + PROOF_TIMEOUT + 1);
+
+        // Second witness restarts transaction
+        bytes memory signature1 = _generateSignature(stakeMsg, witnesses[1].privateKey);
+        vm.prank(relayer);
+        gateway.submitProofForStakeMsg(witnesses[1].addr, stakeMsg, signature1);
+
+        // as PROOFS_REQUIRED is 2, the transaction should be processed after another witness submits proof
+
+        // mock Assets precompile deposit success and Delegation precompile delegate success
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.depositLST.selector), abi.encode(true));
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
+        );
+
+        // First witness can submit proof again in new round
+        bytes memory signature0New = _generateSignature(stakeMsg, witnesses[0].privateKey);
+        vm.prank(relayer);
+        gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature0New);
+
+        bytes32 messageHash = _getMessageHash(stakeMsg);
+
+        // Verify both witnesses' proofs are counted
+        assertEq(
+            uint8(gateway.getTransactionStatus(messageHash)),
+            uint8(ExocoreBtcGatewayStorage.TxStatus.NotStartedOrProcessed)
+        );
+        assertTrue(gateway.processedTransactions(messageHash));
+        assertTrue(gateway.processedClientChainTxs(stakeMsg.chainId, stakeMsg.txTag));
+        assertTrue(gateway.getTransactionWitnessTime(messageHash, witnesses[0].addr) > 0); // mapping can not be deleted
+            // even if we delete txn after processing
+        assertTrue(gateway.getTransactionWitnessTime(messageHash, witnesses[1].addr) > 0); // mapping can not be deleted
+            // even if we delete txn after processing
+    }
+
+    function test_SubmitProofForStakeMsg_RevertDuplicateProofInSameRound() public {
+        _addAllWitnesses();
+
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // First submission
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+        vm.prank(relayer);
+        gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature);
+
+        // Try to submit again in same round
+        bytes memory signatureSecond = _generateSignature(stakeMsg, witnesses[0].privateKey);
+        vm.prank(relayer);
+        vm.expectRevert(Errors.WitnessAlreadySubmittedProof.selector);
+        gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signatureSecond);
+    }
+
+    function test_ProcessStakeMessage_RegisterNewAddress() public {
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: "",
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // mock Assets precompile deposit success and Delegation precompile delegate success
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.depositLST.selector), abi.encode(true));
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
+        );
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        vm.expectEmit(true, true, true, true);
+        emit AddressRegistered(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddress, user);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
+
+        // Verify address registration
+        assertEq(gateway.getClientChainAddress(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user), btcAddress);
+    }
+
+    function test_ProcessStakeMessage_WithBridgeFee() public {
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // first owner updates bridge fee
+        vm.prank(owner);
+        gateway.updateBridgeFeeRate(100);
+
+        // then relayer submits proof and we should see the bridge fee deducted from the amount
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        // mock Assets precompile deposit success and Delegation precompile delegate success
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.depositLST.selector), abi.encode(true));
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
+        );
+        uint256 amountAfterFee = 1 ether - 1 ether * 100 / 10_000;
+
+        vm.expectEmit(true, true, true, true, address(gateway));
+        emit DepositCompleted(
+            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            stakeMsg.txTag,
+            user,
+            stakeMsg.srcAddress,
+            amountAfterFee,
+            stakeMsg.amount
+        );
+
+        vm.expectEmit(true, true, true, true, address(gateway));
+        emit DelegationCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, amountAfterFee);
+
+        vm.prank(relayer);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
+    }
+
+    function test_ProcessStakeMessage_WithDelegation() public {
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // mock Assets precompile deposit success and Delegation precompile delegate success
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IAssets.deposit.selector), abi.encode(true));
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IDelegation.delegate.selector), abi.encode(true)
+        );
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        vm.expectEmit(true, true, true, true);
+        emit DelegationCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
+        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+    }
+
+    function test_ProcessStakeMessage_DelegationFailureNotRevert() public {
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // mock Assets precompile deposit success and Delegation precompile delegate failure
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IAssets.deposit.selector), abi.encode(true));
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IDelegation.delegate.selector), abi.encode(false)
+        );
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        // deposit should be successful
+        vm.expectEmit(true, true, true, true);
+        emit DepositCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, 1 ether);
+
+        // delegation should fail
+        vm.expectEmit(true, true, true, true);
+        emit DelegationFailedForStake(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
+
+        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+    }
+
+    function test_ProcessStakeMessage_RevertOnDepositFailure() public {
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: "",
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // mock Assets precompile deposit failure
+        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IAssets.deposit.selector), abi.encode(false));
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        vm.expectRevert(abi.encodeWithSelector(Errors.DepositFailed.selector, bytes("tx1")));
+        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+    }
+
+    function test_ProcessStakeMessage_RevertWhenPaused() public {
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: "",
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(owner);
+        gateway.pause();
+
+        vm.prank(witnesses[0]);
+        vm.expectRevert("Pausable: paused");
+        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+    }
+
+    function test_ProcessStakeMessage_RevertUnauthorizedWitness() public {
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: "",
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        Player memory unauthorizedWitness = Player({addr: vm.addr(0x999), privateKey: 0x999});
+        bytes memory signature = _generateSignature(stakeMsg, unauthorizedWitness.privateKey);
+
+        vm.prank(unauthorizedWitness);
+        vm.expectRevert(abi.encodeWithSelector(Errors.WitnessNotAuthorized.selector, unauthorizedWitness));
+        gateway.processStakeMessage(unauthorizedWitness, stakeMsg, signature);
+    }
+
+    function test_ProcessStakeMessage_RevertInvalidStakeMessage() public {
+        // Create invalid message with all zero values
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.None,
+            srcAddress: bytes(""),
+            exocoreAddress: address(0),
+            operator: "",
+            amount: 0,
+            nonce: 0,
+            txTag: bytes("")
+        });
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        vm.expectRevert(Errors.InvalidStakeMessage.selector);
+        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+    }
+
+    function test_ProcessStakeMessage_RevertZeroExocoreAddressBeforeRegistration() public {
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: address(0), // Zero address
+            operator: "",
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        vm.expectRevert(Errors.ZeroAddress.selector);
+        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+    }
+
+    function test_ProcessStakeMessage_RevertInvalidNonce() public {
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: "",
+            amount: 1 ether,
+            nonce: gateway.nextInboundNonce() + 1,
+            txTag: bytes("tx1")
+        });
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        vm.expectRevert(
+            abi.encodeWithSelector(Errors.UnexpectedInboundNonce.selector, gateway.nextInboundNonce(), stakeMsg.nonce)
+        );
+        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+    }
+
+    function test_DelegateTo() public {
+        // Setup: Register user's client chain address first
+        _mockRegisterAddress(user, btcAddress);
+
+        // mock delegation precompile delegate success
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IDelegation.delegate.selector), abi.encode(true)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit DelegationCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
+
+        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+
+        // Verify nonce increment
+        assertEq(gateway.delegationNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 1);
+    }
+
+    function test_DelegateTo_RevertZeroAmount() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 0);
+    }
+
+    function test_DelegateTo_RevertWhenPaused() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        vm.prank(owner);
+        gateway.pause();
+
+        vm.prank(user);
+        vm.expectRevert("Pausable: paused");
+        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+    }
+
+    function test_DelegateTo_RevertNotRegistered() public {
+        // Don't register user's address
+
+        vm.prank(user);
+        vm.expectRevert(Errors.AddressNotRegistered.selector);
+        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+    }
+
+    function test_DelegateTo_RevertInvalidOperator() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        string memory invalidOperator = "not-a-bech32-address";
+
+        vm.prank(user);
+        vm.expectRevert(Errors.InvalidOperator.selector);
+        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, invalidOperator, 1 ether);
+    }
+
+    function test_DelegateTo_RevertDelegationFailed() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        // Mock delegation failure
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IDelegation.delegate.selector), abi.encode(false)
+        );
+
+        vm.prank(user);
+        vm.expectRevert(abi.encodeWithSelector(Errors.DelegationFailed.selector));
+        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+    }
+
+    // Helper functions
+    function _mockRegisterAddress(address exocoreAddr, bytes memory btcAddr) internal {
+        stdstore.target(address(gateway)).sig("inboundRegistry(ClientChainID, bytes)").with_key(
+            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddr
+        ).checked_write(exocoreAddr);
+        stdstore.target(address(gateway)).sig("outboundRegistry(ClientChainID, address)").with_key(
+            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, exocoreAddr
+        ).checked_write(btcAddr);
+        assertEq(gateway.inboundRegistry(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddr), exocoreAddr);
+        assertEq(gateway.outboundRegistry(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, exocoreAddr), btcAddr);
+    }
+
+    function _addAllWitnesses() internal {
+        for (uint256 i = 0; i < witnesses.length; i++) {
+            if (!gateway.authorizedWitnesses(witnesses[i].addr)) {
+                vm.prank(owner);
+                gateway.addWitness(witnesses[i].addr);
             }
         }
     }
 
-    /**
-     * @notice Test the delegateTo function
-     */
-    function testDelegateTo() public {
-        bytes memory delegator = _addressToBytes(delegatorAddr);
-        bytes memory operator = _stringToBytes("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac");
-        uint256 amount = 1_000_000_000; // 10 BTC
-        vm.expectEmit(true, true, true, true);
-        emit DelegationCompleted(btcToken, delegator, operator, amount);
-        vm.prank(delegatorAddr);
-        exocoreBtcGateway.delegateTo(btcToken, operator, amount);
-    }
-
-    /**
-     * @notice Test the undelegateFrom function
-     */
-    function testUndelegateFrom() public {
-        bytes memory delegator = _addressToBytes(delegatorAddr);
-        bytes memory operator = _stringToBytes("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac");
-        uint256 amount = 500_000_000; // 5 BTC
-
-        // Use exocoreBtcGateway's interface to set the initial delegation amount
-        vm.prank(delegatorAddr); // Assume only the validator can call this function
-        exocoreBtcGateway.delegateTo(btcToken, operator, amount);
-
-        vm.expectEmit(true, true, true, true);
-        emit UndelegationCompleted(btcToken, delegator, operator, amount);
-
-        vm.prank(delegatorAddr);
-        exocoreBtcGateway.undelegateFrom(btcToken, operator, amount);
-
-        // Verify that the delegation amount has not changed
-        vm.prank(validator);
-        (bool success, bytes memory data) = DELEGATION_PRECOMPILE_ADDRESS.call(
-            abi.encodeWithSignature(
-                "getDelegateAmount(address,string,uint32,address)",
-                delegatorAddr,
-                "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac",
-                clientBtcChainId,
-                btcToken
+    function _getMessageHash(ExocoreBtcGatewayStorage.StakeMsg memory msg_) internal pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                msg_.chainId, // ClientChainID
+                msg_.srcAddress, // bytes - Bitcoin address
+                msg_.exocoreAddress, // address
+                msg_.operator, // string
+                msg_.amount, // uint256
+                msg_.nonce, // uint64
+                msg_.txTag // bytes
             )
         );
-        require(success, "Low-level call failed");
-        uint256 invalidAmount = 0;
-        uint256 retrievedAmount = abi.decode(data, (uint256));
-        assertEq(retrievedAmount, invalidAmount);
-    }
-    /**
-     * @notice Test the withdrawPrincipal function
-     */
-
-    function testWithdrawPrincipal() public {
-        testDepositToWithFirstMessage();
-        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        uint256 amount = 39_900_000_000_000;
-        bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawPrincipalRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 0);
-        vm.prank(delegatorAddr);
-        exocoreBtcGateway.withdrawPrincipal(btcToken, amount);
-
-        // Retrieve and log the PegOutRequest state
-        ExocoreBtcGatewayStorage.PegOutRequest memory request = exocoreBtcGateway.getPegOutRequest(requestId);
-
-        console.log("PegOutRequest status:");
-        console.log("Token: ", request.token);
-        console.log("Requester: ", request.requester);
-        console.log("Amount: ", request.amount);
-        console.log("WithdrawType: ", uint256(request.withdrawType));
-        console.log("Status: ", uint256(request.status));
-        console.log("Timestamp: ", request.timestamp);
-    }
-    /**
-     * @notice Test the withdrawReward function
-     */
-
-    function testWithdrawRewardInsufficientBalance() public {
-        testDepositToWithFirstMessage();
-        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        uint256 amount = 500;
-        bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
-        vm.expectRevert("insufficient reward");
-        vm.prank(delegatorAddr);
-        exocoreBtcGateway.withdrawReward(btcToken, amount);
-
-        // Retrieve and log the PegOutRequest state
-        ExocoreBtcGatewayStorage.PegOutRequest memory request = exocoreBtcGateway.getPegOutRequest(requestId);
-
-        console.log("PegOutRequest status:");
-        console.log("Token: ", request.token);
-        console.log("Requester: ", request.requester);
-        console.log("Amount: ", request.amount);
-        console.log("WithdrawType: ", uint256(request.withdrawType));
-        console.log("Status: ", uint256(request.status));
-        console.log("Timestamp: ", request.timestamp);
-    }
-    /**
-     * @notice Test delegateTo with invalid token
-     */
-
-    function testDelegateToInvalidToken() public {
-        bytes memory delegator = _addressToBytes(delegatorAddr);
-        bytes memory operator = _stringToBytes("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac");
-        uint256 amount = 1_000_000_000; // 10 BTC
-        address invalidToken = address(0x1111111111111111111111111111111111111111);
-        vm.expectRevert("ExocoreBtcGatewayStorage: token is not whitelisted");
-        vm.prank(delegatorAddr);
-        exocoreBtcGateway.delegateTo(invalidToken, operator, amount);
-    }
-    /**
-     * @notice Test undelegateFrom with invalid amount
-     */
-
-    function testUndelegateFromInvalidAmount() public {
-        bytes memory delegator = _addressToBytes(delegatorAddr);
-        bytes memory operator = _stringToBytes("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac");
-        uint256 invalidAmount = 0;
-        vm.expectRevert("ExocoreBtcGatewayStorage: amount should be greater than zero");
-        vm.prank(delegatorAddr);
-        exocoreBtcGateway.undelegateFrom(btcToken, operator, invalidAmount);
-    }
-    /**
-     * @notice Test withdrawPrincipal when paused
-     */
-
-    function testWithdrawPrincipalWhenPaused() public {
-        bytes memory withdrawer = _addressToBytes(delegatorAddr);
-        uint256 amount = 300_000_000; // 3 BTC
-        vm.prank(exocoreBtcGateway.owner());
-        exocoreBtcGateway.pause();
-        vm.expectRevert("Pausable: paused");
-        vm.prank(delegatorAddr);
-        exocoreBtcGateway.withdrawPrincipal(btcToken, amount);
     }
 
-    /**
-     * @notice Test depositThenDelegateTo function
-     */
-    function testDepositThenDelegateTo() public {
-        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        bytes memory exocoreAddress = _addressToBytes(delegatorAddr);
-        // bytes memory exocoreAddress = _stringToBytes("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
-        bytes memory operator = _stringToBytes("0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC");
-        // Register address
-        vm.prank(validator);
-        exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
-        InterchainMsg memory _msg = InterchainMsg({
-            srcChainID: clientBtcChainId,
-            dstChainID: exocoreChainId,
-            srcAddress: btcAddress,
-            dstAddress: _stringToBytes("tb1qqytgqkzvg48p700s46n57wfgaf04h7ca5m03qcschaawv9qqw2vsp67ku4"),
-            token: btcToken,
-            amount: 39_900_000_000_000,
-            nonce: 1,
-            txTag: _stringToBytes("b2c4366e29da536bd1ca5ac1790ba1d3a5e706a2b5e2674dee2678a669432ffc-3"),
-            payload: "0x"
-        });
-        bytes memory signature =
-            hex"aa70b655593f96d19dca3ef0bfc6602b6597a3b6253de2b709b81306a09d46867f857e8a44e64f0c1be6f4ec90a66e28401e007b7efb6fd344164af8316e1f571b";
-        vm.expectEmit(true, true, true, true);
-        emit DepositAndDelegationCompleted(btcToken, exocoreAddress, operator, _msg.amount, 39_900_000_000_000);
-        vm.prank(validator);
-        exocoreBtcGateway.depositThenDelegateTo(_msg, operator, signature);
-    }
-    /**
-     * @notice Test registerAddress function
-     */
+    function _generateSignature(ExocoreBtcGatewayStorage.StakeMsg memory msg_, uint256 privateKey)
+        internal
+        pure
+        returns (bytes memory)
+    {
+        // Encode all fields of StakeMsg in order
+        bytes32 messageHash = _getMessageHash(msg_);
 
-    function testRegisterAddress() public {
-        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        bytes memory exocoreAddress = _stringToBytes("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
-        vm.expectEmit(true, true, true, true);
-        emit AddressRegistered(btcAddress, exocoreAddress);
-        vm.prank(validator);
-        exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
-        assertEq(exocoreBtcGateway.btcToExocoreAddress(btcAddress), exocoreAddress);
-        assertEq(exocoreBtcGateway.exocoreToBtcAddress(exocoreAddress), btcAddress);
-    }
-    /**
-     * @notice Test registerAddress with already registered addresses
-     */
+        // Sign the encoded message hash
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, messageHash);
 
-    function testRegisterAddressAlreadyRegistered() public {
-        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        bytes memory exocoreAddress = _stringToBytes("0x70997970C51812dc3A010C7d01b50e0d17dc79C8");
-        vm.prank(validator);
-        exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
-        vm.expectRevert("Depositor address already registered");
-        vm.prank(validator);
-        exocoreBtcGateway.registerAddress(btcAddress, exocoreAddress);
-    }
-
-    /**
-     * @notice Helper function to create a PegOutRequest
-     * @return bytes32 The requestId of the created PegOutRequest
-     */
-    function _createPegOutRequest() internal returns (bytes32) {
-        testDepositToWithFirstMessage();
-        bytes memory btcAddress = _stringToBytes("tb1pdwf5ar0kxr2sdhxw28wqhjwzynzlkdrqlgx8ju3sr02hkldqmlfspm0mmh");
-        uint256 amount = 39_900_000_000_000;
-        bytes32 requestId = keccak256(abi.encodePacked(btcToken, delegatorAddr, btcAddress, amount, block.number));
-        vm.expectEmit(true, true, true, true);
-        emit WithdrawPrincipalRequested(requestId, delegatorAddr, btcToken, btcAddress, amount, 0);
-        vm.prank(delegatorAddr);
-        exocoreBtcGateway.withdrawPrincipal(btcToken, amount);
-        return requestId;
-    }
-
-    /**
-     * @notice Test successful status update for a PegOutRequest
-     * @dev This test creates a PegOutRequest, updates its status, and verifies the update
-     */
-    function testSetPegOutRequestStatusSuccess() public {
-        bytes32 requestId = _createPegOutRequest();
-        vm.prank(validator);
-        vm.expectEmit(true, true, true, true);
-        emit PegOutRequestStatusUpdated(requestId, ExocoreBtcGatewayStorage.TxStatus.Processed);
-        exocoreBtcGateway.setPegOutRequestStatus(requestId, ExocoreBtcGatewayStorage.TxStatus.Processed);
-
-        ExocoreBtcGatewayStorage.PegOutRequest memory request = exocoreBtcGateway.getPegOutRequest(requestId);
-        assertEq(
-            uint256(request.status),
-            uint256(ExocoreBtcGatewayStorage.TxStatus.Processed),
-            "Status was not updated correctly"
-        );
-    }
-
-    /**
-     * @notice Test pause and unpause functions
-     */
-    function testPauseUnpause() public {
-        vm.prank(exocoreBtcGateway.owner());
-        exocoreBtcGateway.pause();
-        assertTrue(exocoreBtcGateway.paused());
-        vm.prank(exocoreBtcGateway.owner());
-        exocoreBtcGateway.unpause();
-        assertFalse(exocoreBtcGateway.paused());
-    }
-
-    // Helper function to convert string to bytes
-    function _stringToBytes(string memory source) internal pure returns (bytes memory) {
-        return abi.encodePacked(source);
-    }
-
-    function _addressToBytes(address _addr) internal pure returns (bytes memory) {
-        return abi.encodePacked(bytes32(bytes20(_addr)));
+        // Return the signature in the format expected by the contract
+        return abi.encodePacked(r, s, v);
     }
 
 }
