@@ -51,6 +51,9 @@ contract BeaconOracle is IBeaconChainOracle {
     }
 
     function addTimestamp(uint256 _targetTimestamp) external {
+        if (_targetTimestamp < GENESIS_BLOCK_TIMESTAMP) {
+            revert InvalidBlockTimestamp();
+        }
         // If the targetTimestamp is not guaranteed to be within the beacon block root ring buffer, revert.
         if ((block.timestamp - _targetTimestamp) >= (BEACON_ROOTS_HISTORY_BUFFER_LENGTH * SECONDS_PER_SLOT)) {
             revert TimestampOutOfRange();

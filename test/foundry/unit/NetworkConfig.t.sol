@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import {stdError} from "forge-std/StdError.sol";
 import "forge-std/Test.sol";
 import {NetworkConfig} from "script/integration/NetworkConfig.sol";
 

@@ -47,19 +47,12 @@ contract DeployContracts is Script {
     // neither is the ownership of the contract being tested here
     address exocoreValidatorSet = vm.addr(uint256(0x8));
 
-    // assumes 3 validators, to add more - change registerValidators and delegate.
     uint256[] validators;
     uint256[] stakers;
+    string[] exos;
     uint256 contractDeployer;
     uint256 nstDepositor;
     Bootstrap bootstrap;
-    // to add more tokens,
-    // 0. add deployer private keys
-    // 1. update the decimals
-    // 2. increase the size of MyToken
-    // 3. add information about tokens to deployTokens.
-    // 4. update deposit and delegate amounts in fundAndApprove and delegate.
-    // everywhere else we use the length of the myTokens array.
     uint256[] tokenDeployers;
     uint8[2] decimals = [18, 6];
     address[] whitelistTokens;
@@ -82,6 +75,9 @@ contract DeployContracts is Script {
     uint64 secondsPerSlot;
     uint64 slotsPerEpoch;
     uint256 beaconGenesisTimestamp;
+    bytes pubkey;
+    bytes signature;
+    bytes32 depositDataRoot;
 
     function setUp() private {
         // placate the pre-simulation runner
@@ -106,15 +102,21 @@ contract DeployContracts is Script {
         ANVIL_TOKEN_DEPLOYERS[0] = uint256(0x701b615bbdfb9de65240bc28bd21bbc0d996645a3dd57e7b12bc2bdf6f192c82);
         ANVIL_TOKEN_DEPLOYERS[1] = uint256(0xa267530f49f8280200edf313ee7af6b827f2a8bce2897751d06a843f644967b1);
 
-        uint256 CONTRACT_DEPLOYER = uint256(0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897);
+        uint256 ANVIL_CONTRACT_DEPLOYER = uint256(0xf214f2b2cd398c806f84e317254e0f0b801d0643303237d97a22a48e01628897);
 
-        uint256 NST_DEPOSITOR = uint256(0x47c99abed3324a2707c28affff1267e45918ec8c3f20b8aa892e8b065d2942dd);
+        uint256 ANVIL_NST_DEPOSITOR = uint256(0x47c99abed3324a2707c28affff1267e45918ec8c3f20b8aa892e8b065d2942dd);
 
-        validators = vm.envOr("ANVIL_VALIDATORS", ",", ANVIL_VALIDATORS);
-        stakers = vm.envOr("ANVIL_STAKERS", ",", ANVIL_STAKERS);
-        tokenDeployers = vm.envOr("ANVIL_TOKEN_DEPLOYERS", ",", ANVIL_TOKEN_DEPLOYERS);
-        contractDeployer = vm.envOr("CONTRACT_DEPLOYER", CONTRACT_DEPLOYER);
-        nstDepositor = vm.envOr("NST_DEPOSITOR", NST_DEPOSITOR);
+        // load the keys for validators, stakers, token deployers, and the contract deployer
+        validators = vm.envOr("INTEGRATION_VALIDATOR_KEYS", ",", ANVIL_VALIDATORS);
+        // we don't validate the contents of the keys because vm.addr will throw if they are invalid
+        require(validators.length == 3, "Modify this script to support validators.length other than 3");
+        stakers = vm.envOr("INTEGRATION_STAKERS", ",", ANVIL_STAKERS);
+        require(stakers.length == 7, "Modify this script to support stakers.length other than 7");
+        tokenDeployers = vm.envOr("INTEGRATION_TOKEN_DEPLOYERS", ",", ANVIL_TOKEN_DEPLOYERS);
+        require(tokenDeployers.length == 2, "Modify this script to support tokenDeployers.length other than 2");
+        require(decimals.length == tokenDeployers.length, "Decimals and tokenDeployers must have the same length");
+        contractDeployer = vm.envOr("INTEGRATION_CONTRACT_DEPLOYER", ANVIL_CONTRACT_DEPLOYER);
+        nstDepositor = vm.envOr("INTEGRATION_NST_DEPOSITOR", ANVIL_NST_DEPOSITOR);
 
         // read the network configuration parameters and validate them
         depositAddress = vm.envOr("INTEGRATION_DEPOSIT_ADDRESS", address(0x6969696969696969696969696969696969696969));
@@ -131,6 +133,13 @@ contract DeployContracts is Script {
         require(slotsPerEpoch_ > 0, "Slots per epoch must be set");
         require(slotsPerEpoch_ <= type(uint64).max, "Slots per epoch must be less than or equal to uint64 max");
         slotsPerEpoch = uint64(slotsPerEpoch_);
+        // then, the Ethereum-native validator configuration
+        pubkey = vm.envBytes("INTEGRATION_PUBKEY");
+        require(pubkey.length == 48, "Pubkey must be 48 bytes");
+        signature = vm.envBytes("INTEGRATION_SIGNATURE");
+        require(signature.length == 96, "Signature must be 96 bytes");
+        depositDataRoot = vm.envBytes32("INTEGRATION_DEPOSIT_DATA_ROOT");
+        require(depositDataRoot != bytes32(0), "Deposit data root must be set");
     }
 
     function deployTokens() private {
@@ -255,20 +264,11 @@ contract DeployContracts is Script {
             myAddress = bootstrap.createExoCapsule();
         }
         console.log("ExoCapsule address", myAddress);
-        bootstrap.stake{value: 32 ether}(
-            // mnemonic: margin tank lunch prison top episode peanut approve dish seat nominee illness
-            hex"98db81971df910a5d46314d21320f897060d76fdf137d22f0eb91a8693a4767d2a22730a3aaa955f07d13ad604f968e9", // pubkey
-            hex"922a316bdc3516bfa66e88259d5e93e339ef81bc85b70e6c715542222025a28fa1e3644c853beb8c3ba76a2c5c03b726081bf605bde3a16e1f33f902cc1b6c01093c19609de87da9383fa4b1f347bd2d4222e1ae5428727a7896c8e553cc8071", // signature
-            bytes32(0x456934ced8f08ff106857418a6d885ba69d31e1b7fab9a931be06da25490cd1d) // deposit data root
-        );
+        bootstrap.stake{value: 32 ether}(pubkey, signature, depositDataRoot);
         vm.stopBroadcast();
     }
 
     function registerValidators() private {
-        // the mnemonics corresponding to the consensus public keys are given here. to recover,
-        // echo "${MNEMONIC}" | exocored init localnet --chain-id exocorelocal_233-1 --recover
-        // the value in this script is this one
-        // exocored keys consensus-pubkey-to-bytes --output json | jq -r .bytes
         string[3] memory exos = [
             // these addresses will accrue rewards but they are not needed to keep the chain
             // running.
@@ -277,6 +277,10 @@ contract DeployContracts is Script {
             "exo1rtg0cgw94ep744epyvanc0wdd5kedwql73vlmr"
         ];
         string[3] memory names = ["validator1", "validator2", "validator3"];
+        // the mnemonics corresponding to the consensus public keys are given here. to recover,
+        // echo "${MNEMONIC}" | exocored init localnet --chain-id exocorelocal_233-1 --recover
+        // the value in this script is this one
+        // exocored keys consensus-pubkey-to-bytes --output json | jq -r .bytes
         bytes32[3] memory pubKeys = [
             // wonder quality resource ketchup occur stadium vicious output situate plug second
             // monkey harbor vanish then myself primary feed earth story real soccer shove like

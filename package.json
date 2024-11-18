@@ -387,7 +387,6 @@
   "scripts": {
     "test": "mocha"
   },
-  "type": "module",
   "keywords": [],
   "author": "",
   "license": "ISC"
