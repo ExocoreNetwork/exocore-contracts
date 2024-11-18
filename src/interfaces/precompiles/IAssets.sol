@@ -37,12 +37,12 @@ interface IAssets {
     /// @param clientChainID is the layerZero chainID if it is supported.
     //  It might be allocated by Exocore when the client chain isn't supported
     //  by layerZero
-    /// @param validatorPubkey The validator's pubkey
+    /// @param validatorID The validator's identifier: index (uint256 as bytes32) or pubkey.
     /// @param stakerAddress The staker address
     /// @param opAmount The amount to deposit
     function depositNST(
         uint32 clientChainID,
-        bytes calldata validatorPubkey,
+        bytes calldata validatorID,
         bytes calldata stakerAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
@@ -67,12 +67,12 @@ interface IAssets {
     /// @param clientChainID is the layerZero chainID if it is supported.
     //  It might be allocated by Exocore when the client chain isn't supported
     //  by layerZero
-    /// @param validatorPubkey The validator's pubkey
+    /// @param validatorID The validator's identifier: index (uint256 as bytes32) or pubkey.
     /// @param withdrawAddress The withdraw address
     /// @param opAmount The withdraw amount
     function withdrawNST(
         uint32 clientChainID,
-        bytes calldata validatorPubkey,
+        bytes calldata validatorID,
         bytes calldata withdrawAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState);
