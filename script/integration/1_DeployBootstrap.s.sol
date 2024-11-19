@@ -4,6 +4,7 @@ pragma solidity ^0.8.0;
 import "forge-std/Script.sol";
 import "forge-std/console.sol";
 
+import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import {IBeacon} from "@openzeppelin/contracts/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin/contracts/proxy/beacon/UpgradeableBeacon.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
@@ -11,10 +12,14 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 import {EndpointV2Mock} from "../../test/mocks/EndpointV2Mock.sol";
 
 import {Bootstrap} from "../../src/core/Bootstrap.sol";
+import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
 
+import {ExoCapsule} from "../../src/core/ExoCapsule.sol";
 import {Vault} from "../../src/core/Vault.sol";
+import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
 import {IValidatorRegistry} from "../../src/interfaces/IValidatorRegistry.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
+
 import "../../src/utils/BeaconProxyBytecode.sol";
 import {CustomProxyAdmin} from "../../src/utils/CustomProxyAdmin.sol";
 import {MyToken} from "../../test/foundry/unit/MyToken.sol";
@@ -51,8 +56,11 @@ contract DeployContracts is Script {
     IVault[] vaults;
     CustomProxyAdmin proxyAdmin;
 
+    EigenLayerBeaconOracle beaconOracle;
     IVault vaultImplementation;
+    IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
+    IBeacon capsuleBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
 
     function setUp() private {
@@ -106,20 +114,34 @@ contract DeployContracts is Script {
     function deployContract() private {
         vm.startBroadcast(contractDeployer);
 
-        /// deploy vault implementationcontract that has logics called by proxy
+        // deploy beacon chain oracle
+        beaconOracle = _deployBeaconOracle();
+
+        /// deploy vault implementation contract, capsule implementation contract
         vaultImplementation = new Vault();
+        capsuleImplementation = new ExoCapsule();
 
-        /// deploy the vault beacon that store the implementation contract address
+        /// deploy the vault beacon and capsule beacon
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
+        capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
 
-        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
+        // deploy BeaconProxyBytecode
         beaconProxyBytecode = new BeaconProxyBytecode();
 
         proxyAdmin = new CustomProxyAdmin();
         EndpointV2Mock clientChainLzEndpoint = new EndpointV2Mock(clientChainId);
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
-        );
+
+        // Create ImmutableConfig struct
+        BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
+            exocoreChainId: exocoreChainId,
+            beaconOracleAddress: address(beaconOracle),
+            vaultBeacon: address(vaultBeacon),
+            exoCapsuleBeacon: address(capsuleBeacon),
+            beaconProxyBytecode: address(beaconProxyBytecode)
+        });
+
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
+
         bootstrap = Bootstrap(
             payable(
                 address(
@@ -145,6 +167,7 @@ contract DeployContracts is Script {
         );
         vm.stopBroadcast();
         console.log("Bootstrap address: ", address(bootstrap));
+
         // set the vaults
         for (uint256 i = 0; i < whitelistTokens.length; i++) {
             IVault vault = bootstrap.tokenToVault(whitelistTokens[i]);
@@ -292,6 +315,25 @@ contract DeployContracts is Script {
     function random(uint256 _range) internal view returns (uint256) {
         // Basic random number generation; consider a more robust approach for production
         return (uint256(keccak256(abi.encodePacked(block.timestamp, block.prevrandao))) % (_range - 1)) + 1;
+    }
+
+    function _deployBeaconOracle() internal returns (EigenLayerBeaconOracle) {
+        uint256 GENESIS_BLOCK_TIMESTAMP;
+
+        if (block.chainid == 1) {
+            GENESIS_BLOCK_TIMESTAMP = 1_606_824_023;
+        } else if (block.chainid == 5) {
+            GENESIS_BLOCK_TIMESTAMP = 1_616_508_000;
+        } else if (block.chainid == 11_155_111) {
+            GENESIS_BLOCK_TIMESTAMP = 1_655_733_600;
+        } else if (block.chainid == 17_000) {
+            GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
+        } else {
+            revert("Unsupported chainId.");
+        }
+
+        EigenLayerBeaconOracle oracle = new EigenLayerBeaconOracle(GENESIS_BLOCK_TIMESTAMP);
+        return oracle;
     }
 
 }

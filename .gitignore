@@ -24,3 +24,6 @@ node_modules
 
 .gas-snapshot
 yarn-error.log
+
+## secret
+.secrets

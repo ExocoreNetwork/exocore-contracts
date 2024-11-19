@@ -354,7 +354,11 @@ contract ExocoreGateway is
         }
         emit LSTTransfer(isDeposit, success, bytes32(token), bytes32(staker), amount);
 
-        response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
+        if (_isSolana(srcChainId)) {
+            response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success, bytes32(token), bytes32(staker));
+        } else {
+            response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
+        }
     }
 
     /// @notice Handles NST transfer from a client chain.
@@ -414,9 +418,18 @@ contract ExocoreGateway is
         } else {
             (success,) = REWARD_CONTRACT.claimReward(srcChainId, token, avsOrWithdrawer, amount);
         }
+        if (isSubmitReward && !success) {
+            revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
+        }
         emit RewardOperation(isSubmitReward, success, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
-        response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
+        if (_isSolana(srcChainId)) {
+            response = isSubmitReward
+                ? bytes("")
+                : abi.encodePacked(lzNonce, success, bytes32(token), bytes32(avsOrWithdrawer));
+        } else {
+            response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
+        }
     }
 
     /// @notice Handles delegation request from a client chain.
@@ -512,9 +525,9 @@ contract ExocoreGateway is
         whenNotPaused
     {
         bytes memory payload = abi.encodePacked(act, actionArgs);
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
-            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
-        ).addExecutorOrderedExecutionOption();
+
+        bytes memory options = _buildOptions(srcChainId, act);
+
         MessagingFee memory fee = _quote(srcChainId, payload, options, false);
 
         address refundAddress = payByApp ? address(this) : msg.sender;
@@ -524,12 +537,32 @@ contract ExocoreGateway is
     }
 
     /// @inheritdoc IExocoreGateway
-    function quote(uint32 srcChainid, bytes calldata _message) public view returns (uint256 nativeFee) {
-        bytes memory options = OptionsBuilder.newOptions().addExecutorLzReceiveOption(
-            DESTINATION_GAS_LIMIT, DESTINATION_MSG_VALUE
-        ).addExecutorOrderedExecutionOption();
-        MessagingFee memory fee = _quote(srcChainid, _message, options, false);
+    function quote(uint32 srcChainId, bytes calldata _message) public view returns (uint256 nativeFee) {
+        Action act = Action(uint8(_message[0]));
+
+        bytes memory options = _buildOptions(srcChainId, act);
+
+        MessagingFee memory fee = _quote(srcChainId, _message, options, false);
         return fee.nativeFee;
+    }
+
+    /// @dev Builds options for interchain messages based on chain and action
+    /// @param srcChainId The source chain ID
+    /// @param act The action being performed
+    /// @return options The built options
+    function _buildOptions(uint32 srcChainId, Action act) private pure returns (bytes memory) {
+        bytes memory options = OptionsBuilder.newOptions();
+        uint128 value = DESTINATION_MSG_VALUE;
+
+        if (!_isSolana(srcChainId)) {
+            options = options.addExecutorOrderedExecutionOption();
+        } else if (act == Action.REQUEST_ADD_WHITELIST_TOKEN) {
+            value = SOLANA_WHITELIST_TOKEN_MSG_VALUE;
+        }
+
+        options = options.addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, value);
+
+        return options;
     }
 
     /// @inheritdoc OAppReceiverUpgradeable

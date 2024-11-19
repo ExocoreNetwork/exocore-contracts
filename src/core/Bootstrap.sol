@@ -6,6 +6,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 import {ITransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
+import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 // Do not use IERC20 because it does not expose the decimals() function.
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -16,15 +17,19 @@ import {OAppCoreUpgradeable} from "../lzApp/OAppCoreUpgradeable.sol";
 import {IBaseRestakingController} from "../interfaces/IBaseRestakingController.sol";
 import {ICustomProxyAdmin} from "../interfaces/ICustomProxyAdmin.sol";
 import {ILSTRestakingController} from "../interfaces/ILSTRestakingController.sol";
+import {INativeRestakingController} from "../interfaces/INativeRestakingController.sol";
 import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
 
+import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {ITokenWhitelister} from "../interfaces/ITokenWhitelister.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
+import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {Errors} from "../libraries/Errors.sol";
 
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {Action} from "../storage/GatewayStorage.sol";
+
 import {BootstrapLzReceiver} from "./BootstrapLzReceiver.sol";
 
 /// @title Bootstrap
@@ -39,17 +44,16 @@ contract Bootstrap is
     ITokenWhitelister,
     ILSTRestakingController,
     IValidatorRegistry,
+    INativeRestakingController,
     BootstrapLzReceiver
 {
 
     /// @notice Constructor for the Bootstrap contract.
-    /// @param endpoint_ The address of the LayerZero endpoint contract.
-    /// @param exocoreChainId_ The chain ID of the Exocore chain.
-    /// @param vaultBeacon_ The address of the beacon contract for the vault.
-    /// @param beaconProxyBytecode_ The address of the beacon proxy bytecode contract.
-    constructor(address endpoint_, uint32 exocoreChainId_, address vaultBeacon_, address beaconProxyBytecode_)
+    /// @param endpoint_ is the address of the layerzero endpoint on Exocore chain
+    /// @param config is the struct containing the values for immutable state variables
+    constructor(address endpoint_, ImmutableConfig memory config)
         OAppCoreUpgradeable(endpoint_)
-        BootstrapStorage(exocoreChainId_, vaultBeacon_, beaconProxyBytecode_)
+        BootstrapStorage(config)
     {
         _disableInitializers();
     }
@@ -435,19 +439,19 @@ contract Bootstrap is
 
     /// @inheritdoc IBaseRestakingController
     /// @dev This is not yet supported.
-    function submitReward(address, address, uint256) external payable override beforeLocked whenNotPaused {
+    function submitReward(address, address, uint256) external payable beforeLocked whenNotPaused {
         revert Errors.NotYetSupported();
     }
 
     /// @inheritdoc IBaseRestakingController
     /// @dev This is not yet supported.
-    function claimRewardFromExocore(address, uint256) external payable override beforeLocked whenNotPaused {
+    function claimRewardFromExocore(address, uint256) external payable beforeLocked whenNotPaused {
         revert Errors.NotYetSupported();
     }
 
     /// @inheritdoc IBaseRestakingController
     /// @dev This is not yet supported.
-    function withdrawReward(address, address, uint256) external view override beforeLocked whenNotPaused {
+    function withdrawReward(address, address, uint256) external view beforeLocked whenNotPaused {
         revert Errors.NotYetSupported();
     }
 
@@ -474,7 +478,6 @@ contract Bootstrap is
     function delegateTo(string calldata validator, address token, uint256 amount)
         external
         payable
-        override
         beforeLocked
         whenNotPaused
         isTokenWhitelisted(token)
@@ -519,7 +522,6 @@ contract Bootstrap is
     function undelegateFrom(string calldata validator, address token, uint256 amount)
         external
         payable
-        override
         beforeLocked
         whenNotPaused
         isTokenWhitelisted(token)
@@ -693,6 +695,120 @@ contract Bootstrap is
             decimals: token.decimals(),
             depositAmount: depositsByToken[tokenAddress]
         });
+    }
+
+    /* -------------------------------------------------------------------------- */
+    /*                     Ethereum Native Restaking Functions                    */
+    /* -------------------------------------------------------------------------- */
+
+    /// @notice Stakes 32 ETH on behalf of the validators in the Ethereum beacon chain, and
+    /// points the withdrawal credentials to the capsule contract, creating it if necessary.
+    /// @param pubkey The validator's BLS12-381 public key.
+    /// @param signature Value signed by the @param pubkey.
+    /// @param depositDataRoot The SHA-256 hash of the SSZ-encoded DepositData object.
+    function stake(bytes calldata pubkey, bytes calldata signature, bytes32 depositDataRoot)
+        external
+        payable
+        whenNotPaused
+        nonReentrant
+        nativeRestakingEnabled
+    {
+        if (msg.value != 32 ether) {
+            revert Errors.NativeRestakingControllerInvalidStakeValue();
+        }
+
+        IExoCapsule capsule = ownerToCapsule[msg.sender];
+        if (address(capsule) == address(0)) {
+            capsule = IExoCapsule(createExoCapsule());
+        }
+
+        ETH_POS.deposit{value: 32 ether}(pubkey, capsule.capsuleWithdrawalCredentials(), signature, depositDataRoot);
+        emit StakedWithCapsule(msg.sender, address(capsule));
+    }
+
+    /// @notice Creates a new ExoCapsule contract for the message sender.
+    /// @notice The message sender must be payable
+    /// @return The address of the newly created ExoCapsule contract.
+    // The bytecode returned by `BEACON_PROXY_BYTECODE` and `EXO_CAPSULE_BEACON` address are actually fixed size of byte
+    // array, so it would not cause collision for encodePacked
+    // slither-disable-next-line encode-packed-collision
+    function createExoCapsule() public whenNotPaused nativeRestakingEnabled returns (address) {
+        if (address(ownerToCapsule[msg.sender]) != address(0)) {
+            revert Errors.NativeRestakingControllerCapsuleAlreadyCreated();
+        }
+        IExoCapsule capsule = IExoCapsule(
+            Create2.deploy(
+                0,
+                bytes32(uint256(uint160(msg.sender))),
+                // set the beacon address for beacon proxy
+                abi.encodePacked(BEACON_PROXY_BYTECODE.getBytecode(), abi.encode(address(EXO_CAPSULE_BEACON), ""))
+            )
+        );
+
+        // we follow check-effects-interactions pattern to write state before external call
+        ownerToCapsule[msg.sender] = capsule;
+        capsule.initialize(address(this), payable(msg.sender), BEACON_ORACLE_ADDRESS);
+
+        emit CapsuleCreated(msg.sender, address(capsule));
+
+        return address(capsule);
+    }
+
+    /**
+     * @notice Verifies a deposit proof from the beacon chain and account for native stake for msg.sender.
+     * @param validatorContainer The validator container which made the deposit.
+     * @param proof The proof of the validator container.
+     */
+    function verifyAndDepositNativeStake(
+        bytes32[] calldata validatorContainer,
+        BeaconChainProofs.ValidatorContainerProof calldata proof
+    ) external payable whenNotPaused nonReentrant nativeRestakingEnabled {
+        if (msg.value > 0) {
+            revert Errors.NonZeroValue();
+        }
+
+        IExoCapsule capsule = _getCapsule(msg.sender);
+        uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
+
+        if (!isDepositor[msg.sender]) {
+            isDepositor[msg.sender] = true;
+            depositors.push(msg.sender);
+        }
+
+        // staker_asset.go duplicate here. the duplication is required (and not simply inferred
+        // from vault) because the vault is not altered by the gateway in response to
+        // delegations or undelegations. hence, this is not something we can do either.
+        totalDepositAmounts[msg.sender][VIRTUAL_NST_ADDRESS] += depositValue;
+        withdrawableAmounts[msg.sender][VIRTUAL_NST_ADDRESS] += depositValue;
+        depositsByToken[VIRTUAL_NST_ADDRESS] += depositValue;
+
+        emit DepositResult(true, VIRTUAL_NST_ADDRESS, msg.sender, depositValue);
+    }
+
+    /// @notice Verifies a withdrawal proof from the beacon chain and forwards the information to Exocore.
+    /// @notice This function is not yet supported, but staker could call this function after bootstrapping to withdraw
+    /// their stake.
+    function processBeaconChainWithdrawal(
+        bytes32[] calldata,
+        BeaconChainProofs.ValidatorContainerProof calldata,
+        bytes32[] calldata,
+        BeaconChainProofs.WithdrawalProof calldata
+    ) external payable whenNotPaused nativeRestakingEnabled {
+        revert Errors.NotYetSupported();
+    }
+
+    /// @notice Withdraws the nonBeaconChainETHBalance from the ExoCapsule contract.
+    /// @dev @param amountToWithdraw can not be greater than the available nonBeaconChainETHBalance.
+    /// @param recipient The payable destination address to which the ETH are sent.
+    /// @param amountToWithdraw The amount to withdraw.
+    function withdrawNonBeaconChainETHFromCapsule(address payable recipient, uint256 amountToWithdraw)
+        external
+        whenNotPaused
+        nonReentrant
+        nativeRestakingEnabled
+    {
+        IExoCapsule capsule = _getCapsule(msg.sender);
+        capsule.withdrawNonBeaconChainETHBalance(recipient, amountToWithdraw);
     }
 
 }

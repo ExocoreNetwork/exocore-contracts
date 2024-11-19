@@ -19,6 +19,17 @@ contract ExocoreGatewayStorage is GatewayStorage {
     /// @dev The msg.value for all the destination chains.
     uint128 internal constant DESTINATION_MSG_VALUE = 0;
 
+    /// constants used for solana mainnet chainId
+    /// @dev the solana mainnet chain id
+    uint32 internal constant SOLANA_MAINNET_CHAIN_ID = 30_168;
+
+    /// constants used for solana devnet chainId
+    /// @dev the solana devnet chain id
+    uint32 internal constant SOLANA_DEVNET_CHAIN_ID = 40_168;
+
+    /// @dev the msg.value for send addTokenWhiteList message
+    uint128 internal constant SOLANA_WHITELIST_TOKEN_MSG_VALUE = 3_000_000;
+
     /// @notice Emitted when a precompile call fails.
     /// @param precompile Address of the precompile contract.
     /// @param nonce The LayerZero nonce
@@ -126,6 +137,14 @@ contract ExocoreGatewayStorage is GatewayStorage {
         if (message.length != expectedLength) {
             revert Errors.InvalidMessageLength();
         }
+    }
+
+    /**
+     * @dev return true if chain is either Solana devnet or Solana mainnet
+     * @param srcChainId remote Chain Id
+     */
+    function _isSolana(uint32 srcChainId) internal pure returns (bool) {
+        return srcChainId == SOLANA_DEVNET_CHAIN_ID || srcChainId == SOLANA_MAINNET_CHAIN_ID;
     }
 
 }

@@ -19,6 +19,7 @@ import {ILayerZeroEndpointV2} from "@layerzero-v2/protocol/contracts/interfaces/
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
 
+import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 
 // This script uses the address in `deployedBootstrapOnly` and redeploys on top of it. For that to work, the
@@ -56,16 +57,28 @@ contract CorrectBootstrapErrors is BaseScript {
         require(wstETH != address(0), "wstETH not found");
 
         string memory deployed = vm.readFile("script/deployedBootstrapOnly.json");
+
         proxyAddress = stdJson.readAddress(deployed, ".clientChain.bootstrap");
         require(address(proxyAddress) != address(0), "bootstrap address should not be empty");
+
         proxyAdmin = stdJson.readAddress(deployed, ".clientChain.proxyAdmin");
         require(address(proxyAdmin) != address(0), "proxy admin address should not be empty");
+
         vaultImplementation = Vault(stdJson.readAddress(deployed, ".clientChain.vaultImplementation"));
         require(address(vaultImplementation) != address(0), "vault implementation should not be empty");
+
         vaultBeacon = UpgradeableBeacon(stdJson.readAddress(deployed, ".clientChain.vaultBeacon"));
         require(address(vaultBeacon) != address(0), "vault beacon should not be empty");
+
         clientGatewayLogic = stdJson.readAddress(deployed, ".clientChain.clientGatewayLogic");
         require(clientGatewayLogic != address(0), "client gateway should not be empty");
+
+        beaconOracle = EigenLayerBeaconOracle(stdJson.readAddress(deployed, ".clientChain.beaconOracle"));
+        require(address(beaconOracle) != address(0), "beacon oracle should not be empty");
+
+        capsuleBeacon = UpgradeableBeacon(stdJson.readAddress(deployed, ".clientChain.capsuleBeacon"));
+        require(address(capsuleBeacon) != address(0), "exo capsule beacon should not be empty");
+
         initialization = abi.encodeCall(ClientChainGateway.initialize, (payable(exocoreValidatorSet.addr)));
     }
 
@@ -76,9 +89,18 @@ contract CorrectBootstrapErrors is BaseScript {
         vm.selectFork(clientChain);
         vm.startBroadcast(exocoreValidatorSet.privateKey);
         ProxyAdmin proxyAdmin = ProxyAdmin(proxyAdmin);
-        Bootstrap bootstrapLogic = new Bootstrap(
-            address(clientChainLzEndpoint), exocoreChainId, address(vaultBeacon), address(beaconProxyBytecode)
-        );
+
+        // Create ImmutableConfig struct
+        BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
+            exocoreChainId: exocoreChainId,
+            beaconOracleAddress: address(beaconOracle),
+            vaultBeacon: address(vaultBeacon),
+            exoCapsuleBeacon: address(capsuleBeacon),
+            beaconProxyBytecode: address(beaconProxyBytecode)
+        });
+
+        Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
+
         bytes memory data = abi.encodeCall(
             Bootstrap.initialize,
             (

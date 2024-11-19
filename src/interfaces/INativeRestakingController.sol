@@ -32,7 +32,7 @@ interface INativeRestakingController is IBaseRestakingController {
     /// @param validatorContainer The data structure included in the `BeaconState` of `BeaconBlock` that contains beacon
     /// chain validator information.
     /// @param proof The proof needed to verify the validator container.
-    function depositBeaconChainValidator(
+    function verifyAndDepositNativeStake(
         bytes32[] calldata validatorContainer,
         BeaconChainProofs.ValidatorContainerProof calldata proof
     ) external payable;
@@ -55,5 +55,11 @@ interface INativeRestakingController is IBaseRestakingController {
         bytes32[] calldata withdrawalContainer,
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external payable;
+
+    /// @notice Withdraws the nonBeaconChainETHBalance from the ExoCapsule contract.
+    /// @dev @param amountToWithdraw can not be greater than the available nonBeaconChainETHBalance.
+    /// @param recipient The payable destination address to which the ETH are sent.
+    /// @param amountToWithdraw The amount to withdraw.
+    function withdrawNonBeaconChainETHFromCapsule(address payable recipient, uint256 amountToWithdraw) external;
 
 }

@@ -137,6 +137,9 @@ jobs:
   compare-storage-layout:
     runs-on: ubuntu-latest
     needs: build
+    env:
+      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -156,18 +159,38 @@ jobs:
             ./cache
             ./broadcast
           key: ${{ runner.os }}-build-${{ github.sha }}
-      - name: Run forge inspect storage layout on ClientChainGateway
-        run: forge inspect --pretty src/core/ClientChainGateway.sol:ClientChainGateway storageLayout > ClientChainGateway.md
-      - name: Run forge inspect storage layout on Bootstrap
-        run: forge inspect --pretty src/core/Bootstrap.sol:Bootstrap storageLayout > Bootstrap.md
+      - name: Checkout target branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          submodules: recursive
+      - name: Generate target branch layout files
+        run: |
+          forge inspect src/core/ExocoreGateway.sol:ExocoreGateway storage-layout --pretty > ExocoreGateway_target.txt
+      - name: Cache target branch layout file
+        uses: actions/cache/save@v3
+        with:
+          path: ExocoreGateway_target.txt
+          key: ${{ runner.os }}-exocore-target-${{ github.sha }}
+      - name: Checkout back to PR
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Restore target branch layout file
+        uses: actions/cache/restore@v3
+        with:
+          path: ExocoreGateway_target.txt
+          key: ${{ runner.os }}-exocore-target-${{ github.sha }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.12.4'
       - name: Install pandas
         run: pip install --root-user-action=ignore pandas==2.2.2
-      - name: Run the comparison script
+      - name: Run the comparison script for Bootstrap and ClientChainGateway
         run: python .github/workflows/compare_storage_layout.py
+      - name: Run the comparison script for deployed contracts
+        run: python .github/workflows/compare_deployed_storage_layout.py
       - name: Add comment for storage layout mismatch failure
         if: failure()
         uses: actions/github-script@v6
@@ -178,5 +201,5 @@ jobs:
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
-              body: 'The storage layout of Bootstrap and ClientChainGateway is not the same. Please check the logs.'
+              body: 'Storage layout compatibility check failed. This could be due to a mismatch between Bootstrap and ClientChainGateway, or incompatibility with deployed contracts on Sepolia. Please check the logs for details.'
             })

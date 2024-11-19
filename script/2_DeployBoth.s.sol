@@ -10,6 +10,7 @@ import "../src/utils/BeaconProxyBytecode.sol";
 import "../src/utils/CustomProxyAdmin.sol";
 import {ExocoreGatewayMock} from "../test/mocks/ExocoreGatewayMock.sol";
 
+import {BootstrapStorage} from "../src/storage/BootstrapStorage.sol";
 import {BaseScript} from "./BaseScript.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
 import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
@@ -59,33 +60,31 @@ contract DeployScript is BaseScript {
         // deploy beacon chain oracle
         beaconOracle = _deployBeaconOracle();
 
-        /// deploy vault implementation contract, capsule implementation contract, reward vault implementation contract
-        /// that has logics called by proxy
+        /// deploy implementations and beacons
         vaultImplementation = new Vault();
         capsuleImplementation = new ExoCapsule();
         rewardVaultImplementation = new RewardVault();
 
-        /// deploy the vault beacon, capsule beacon, reward vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
         capsuleBeacon = new UpgradeableBeacon(address(capsuleImplementation));
         rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
 
-        // deploy BeaconProxyBytecode to store BeaconProxyBytecode
         beaconProxyBytecode = new BeaconProxyBytecode();
-
-        // deploy custom proxy admin
         clientChainProxyAdmin = new CustomProxyAdmin();
 
+        // Create ImmutableConfig struct
+        BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
+            exocoreChainId: exocoreChainId,
+            beaconOracleAddress: address(beaconOracle),
+            vaultBeacon: address(vaultBeacon),
+            exoCapsuleBeacon: address(capsuleBeacon),
+            beaconProxyBytecode: address(beaconProxyBytecode)
+        });
+
         /// deploy client chain gateway
-        ClientChainGateway clientGatewayLogic = new ClientChainGateway(
-            address(clientChainLzEndpoint),
-            exocoreChainId,
-            address(beaconOracle),
-            address(vaultBeacon),
-            address(rewardVaultBeacon),
-            address(capsuleBeacon),
-            address(beaconProxyBytecode)
-        );
+        ClientChainGateway clientGatewayLogic =
+            new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
+
         clientGateway = ClientChainGateway(
             payable(
                 address(

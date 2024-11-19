@@ -40,12 +40,17 @@ contract SetUp is Test {
 
     ExocoreGateway exocoreGateway;
     ClientChainGateway clientGateway;
+    ClientChainGateway solanaClientGateway;
+
     NonShortCircuitEndpointV2Mock exocoreLzEndpoint;
     NonShortCircuitEndpointV2Mock clientLzEndpoint;
+    NonShortCircuitEndpointV2Mock solanaClientLzEndpoint;
+
     ERC20 restakeToken;
 
     uint16 exocoreChainId = 1;
     uint16 clientChainId = 2;
+    uint16 solanaClientChainId = 40_168;
 
     struct Player {
         uint256 privateKey;
@@ -65,6 +70,7 @@ contract SetUp is Test {
         deployer = Player({privateKey: uint256(0xb), addr: vm.addr(uint256(0xb))});
         withdrawer = Player({privateKey: uint256(0xc), addr: vm.addr(uint256(0xb))});
         clientGateway = ClientChainGateway(payable(address(0xd)));
+        solanaClientGateway = ClientChainGateway(payable(address(0xe)));
 
         // bind precompile mock contracts code to constant precompile address
         bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
@@ -89,6 +95,7 @@ contract SetUp is Test {
 
         exocoreLzEndpoint = new NonShortCircuitEndpointV2Mock(exocoreChainId, exocoreValidatorSet.addr);
         clientLzEndpoint = new NonShortCircuitEndpointV2Mock(clientChainId, exocoreValidatorSet.addr);
+        solanaClientLzEndpoint = new NonShortCircuitEndpointV2Mock(solanaClientChainId, exocoreValidatorSet.addr);
 
         ProxyAdmin proxyAdmin = new ProxyAdmin();
         ExocoreGateway exocoreGatewayLogic = new ExocoreGateway(address(exocoreLzEndpoint));
@@ -109,6 +116,17 @@ contract SetUp is Test {
             "EVM compatible client chain",
             "secp256k1"
         );
+
+        exocoreLzEndpoint.setDestLzEndpoint(address(solanaClientGateway), address(clientLzEndpoint));
+        exocoreGateway.registerOrUpdateClientChain(
+            solanaClientChainId,
+            address(solanaClientGateway).toBytes32(),
+            20,
+            "solanaClientChain",
+            "Non-EVM compatible client chain",
+            "ed25519"
+        );
+
         vm.stopPrank();
 
         // transfer some gas fee to exocore gateway as it has to pay for the relay fee to layerzero endpoint when
@@ -117,14 +135,24 @@ contract SetUp is Test {
     }
 
     function generateUID(uint64 nonce, bool fromClientChainToExocore) internal view returns (bytes32 uid) {
+        uid = generateUID(nonce, fromClientChainToExocore, false);
+    }
+
+    function generateUID(uint64 nonce, bool fromClientChainToExocore, bool isSolanaClient)
+        internal
+        view
+        returns (bytes32 uid)
+    {
         if (fromClientChainToExocore) {
             uid = GUID.generate(
                 nonce, clientChainId, address(clientGateway), exocoreChainId, address(exocoreGateway).toBytes32()
             );
         } else {
-            uid = GUID.generate(
-                nonce, exocoreChainId, address(exocoreGateway), clientChainId, address(clientGateway).toBytes32()
-            );
+            uint16 targetChainId = isSolanaClient ? solanaClientChainId : clientChainId;
+            bytes32 targetGateway =
+                isSolanaClient ? address(solanaClientGateway).toBytes32() : address(clientGateway).toBytes32();
+
+            return GUID.generate(nonce, exocoreChainId, address(exocoreGateway), targetChainId, targetGateway);
         }
     }
 
@@ -527,6 +555,7 @@ contract AddWhitelistTokens is SetUp {
 
     uint256 MESSAGE_LENGTH = 1 + 32 + 16; // action + token address as bytes32 + uint128 tvl limit
     uint256 nativeFee;
+    uint256 nativeFeeForSolana;
 
     error IncorrectNativeFee(uint256 amount);
 
@@ -535,6 +564,9 @@ contract AddWhitelistTokens is SetUp {
     function setUp() public virtual override {
         super.setUp();
         nativeFee = exocoreGateway.quote(clientChainId, new bytes(MESSAGE_LENGTH));
+        bytes memory message = new bytes(MESSAGE_LENGTH);
+        message[0] = bytes1(abi.encodePacked(Action.REQUEST_ADD_WHITELIST_TOKEN));
+        nativeFeeForSolana = exocoreGateway.quote(solanaClientChainId, message);
     }
 
     function test_RevertWhen_CallerNotOwner() public {
@@ -584,6 +616,24 @@ contract AddWhitelistTokens is SetUp {
             "ERC20 LST token",
             "oracleInfo",
             5000 * 1e18
+        );
+        vm.stopPrank();
+    }
+
+    function test_Success_AddWhiteListTokenOnSolana() public {
+        vm.startPrank(exocoreValidatorSet.addr);
+        vm.expectEmit(address(exocoreGateway));
+        emit WhitelistTokenAdded(solanaClientChainId, bytes32(bytes20(address(restakeToken))));
+        vm.expectEmit(address(exocoreGateway));
+        emit MessageSent(Action.REQUEST_ADD_WHITELIST_TOKEN, generateUID(1, false, true), 1, nativeFeeForSolana);
+        exocoreGateway.addWhitelistToken{value: nativeFeeForSolana}(
+            solanaClientChainId,
+            bytes32(bytes20(address(restakeToken))),
+            9,
+            "RestakeToken",
+            "Spl LST token",
+            "oracleInfo",
+            5000 * 1e9
         );
         vm.stopPrank();
     }

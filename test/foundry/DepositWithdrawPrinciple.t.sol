@@ -27,8 +27,8 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed account, uint256 amount
     );
     event Transfer(address indexed from, address indexed to, uint256 amount);
-    event CapsuleCreated(address owner, address capsule);
-    event StakedWithCapsule(address staker, address capsule);
+    event CapsuleCreated(address indexed owner, address indexed capsule);
+    event StakedWithCapsule(address indexed staker, address indexed capsule);
     event PrincipalDeposited(address indexed depositor, uint256 amount);
     event PrincipalUnlocked(address indexed staker, uint256 amount);
     event PrincipalWithdrawn(address indexed src, address indexed dst, uint256 amount);
@@ -301,7 +301,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
     function _testNativeDeposit(Player memory depositor, Player memory relayer, uint256 lastlyUpdatedPrincipalBalance)
         internal
     {
-        // 1. next depositor call clientGateway.depositBeaconChainValidator to deposit into Exocore from client chain
+        // 1. next depositor call clientGateway.verifyAndDepositNativeStake to deposit into Exocore from client chain
         // through layerzero
 
         /// client chain layerzero endpoint should emit the message packet including deposit payload.
@@ -331,9 +331,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             Action.REQUEST_DEPOSIT_NST, depositRequestId, outboundNonces[clientChainId]++, depositRequestNativeFee
         );
 
-        /// call depositBeaconChainValidator to see if these events are emitted as expected
+        /// call verifyAndDepositNativeStake to see if these events are emitted as expected
         vm.startPrank(depositor.addr);
-        clientGateway.depositBeaconChainValidator{value: depositRequestNativeFee}(validatorContainer, validatorProof);
+        clientGateway.verifyAndDepositNativeStake{value: depositRequestNativeFee}(validatorContainer, validatorProof);
         vm.stopPrank();
 
         // 2. thirdly layerzero relayers should watch the request message packet and relay the message to destination
