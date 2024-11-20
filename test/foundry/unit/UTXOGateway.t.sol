@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import {ExocoreBtcGateway} from "src/core/ExocoreBtcGateway.sol";
+import {UTXOGateway} from "src/core/UTXOGateway.sol";
 
 import "src/interfaces/precompiles/IAssets.sol";
 import "src/interfaces/precompiles/IDelegation.sol";
@@ -11,14 +11,14 @@ import {Errors} from "src/libraries/Errors.sol";
 
 import {ExocoreBytes} from "src/libraries/ExocoreBytes.sol";
 import {SignatureVerifier} from "src/libraries/SignatureVerifier.sol";
-import {ExocoreBtcGatewayStorage} from "src/storage/ExocoreBtcGatewayStorage.sol";
+import {UTXOGatewayStorage} from "src/storage/UTXOGatewayStorage.sol";
 import "test/mocks/AssetsMock.sol";
 import "test/mocks/DelegationMock.sol";
 import "test/mocks/RewardMock.sol";
 
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
-contract ExocoreBtcGatewayTest is Test {
+contract UTXOGatewayTest is Test {
 
     using stdStorage for StdStorage;
     using SignatureVerifier for bytes32;
@@ -29,15 +29,14 @@ contract ExocoreBtcGatewayTest is Test {
         address addr;
     }
 
-    ExocoreBtcGateway gateway;
-    ExocoreBtcGateway gatewayLogic;
+    UTXOGateway gateway;
+    UTXOGateway gatewayLogic;
     address owner;
     address user;
     address relayer;
     Player[3] witnesses;
     bytes btcAddress;
     string operator;
-    ExocoreBtcGatewayStorage.Transaction txn;
 
     address public constant EXOCORE_WITNESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
 
@@ -62,10 +61,10 @@ contract ExocoreBtcGatewayTest is Test {
     event WitnessAdded(address indexed witness);
     event WitnessRemoved(address indexed witness);
     event AddressRegistered(
-        ExocoreBtcGatewayStorage.ClientChainID indexed chainId, bytes depositor, address indexed exocoreAddress
+        UTXOGatewayStorage.ClientChainID indexed chainId, bytes depositor, address indexed exocoreAddress
     );
     event DepositCompleted(
-        ExocoreBtcGatewayStorage.ClientChainID indexed chainId,
+        UTXOGatewayStorage.ClientChainID indexed chainId,
         bytes txTag,
         address indexed exocoreAddress,
         bytes srcAddress,
@@ -73,13 +72,10 @@ contract ExocoreBtcGatewayTest is Test {
         uint256 updatedBalance
     );
     event DelegationCompleted(
-        ExocoreBtcGatewayStorage.ClientChainID indexed chainId,
-        address indexed delegator,
-        string operator,
-        uint256 amount
+        UTXOGatewayStorage.ClientChainID indexed chainId, address indexed delegator, string operator, uint256 amount
     );
     event UndelegationCompleted(
-        ExocoreBtcGatewayStorage.ClientChainID indexed clientChainId,
+        UTXOGatewayStorage.ClientChainID indexed clientChainId,
         address indexed exoDelegator,
         string operator,
         uint256 amount
@@ -93,21 +89,18 @@ contract ExocoreBtcGatewayTest is Test {
     event WhitelistTokenAdded(uint32 clientChainId, address indexed token);
     event WhitelistTokenUpdated(uint32 clientChainId, address indexed token);
     event DelegationFailedForStake(
-        ExocoreBtcGatewayStorage.ClientChainID indexed clientChainId,
+        UTXOGatewayStorage.ClientChainID indexed clientChainId,
         address indexed exoDelegator,
         string operator,
         uint256 amount
     );
     event StakeMsgExecuted(
-        ExocoreBtcGatewayStorage.ClientChainID indexed chainId,
-        uint64 nonce,
-        address indexed exocoreAddress,
-        uint256 amount
+        UTXOGatewayStorage.ClientChainID indexed chainId, uint64 nonce, address indexed exocoreAddress, uint256 amount
     );
     event TransactionProcessed(bytes32 indexed txId);
 
     event WithdrawPrincipalRequested(
-        ExocoreBtcGatewayStorage.ClientChainID indexed srcChainId,
+        UTXOGatewayStorage.ClientChainID indexed srcChainId,
         uint64 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
@@ -115,12 +108,20 @@ contract ExocoreBtcGatewayTest is Test {
         uint256 updatedBalance
     );
     event WithdrawRewardRequested(
-        ExocoreBtcGatewayStorage.ClientChainID indexed srcChainId,
+        UTXOGatewayStorage.ClientChainID indexed srcChainId,
         uint64 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
         uint256 amount,
         uint256 updatedBalance
+    );
+    event PegOutProcessed(
+        uint8 indexed withdrawType,
+        UTXOGatewayStorage.ClientChainID indexed clientChain,
+        uint64 nonce,
+        address indexed requester,
+        bytes clientChainAddress,
+        uint256 amount
     );
 
     function setUp() public {
@@ -135,8 +136,8 @@ contract ExocoreBtcGatewayTest is Test {
         operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
 
         // Deploy and initialize gateway
-        gatewayLogic = new ExocoreBtcGateway();
-        gateway = ExocoreBtcGateway(address(new TransparentUpgradeableProxy(address(gatewayLogic), address(0xab), "")));
+        gatewayLogic = new UTXOGateway();
+        gateway = UTXOGateway(address(new TransparentUpgradeableProxy(address(gatewayLogic), address(0xab), "")));
         address[] memory initialWitnesses = new address[](1);
         initialWitnesses[0] = witnesses[0].addr;
         gateway.initialize(owner, initialWitnesses);
@@ -349,7 +350,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock successful chain registration
         bytes memory chainRegisterCall = abi.encodeWithSelector(
             IAssets.registerOrUpdateClientChain.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             STAKER_ACCOUNT_LENGTH,
             BITCOIN_NAME,
             BITCOIN_METADATA,
@@ -364,7 +365,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock successful token registration
         bytes memory tokenRegisterCall = abi.encodeWithSelector(
             IAssets.registerToken.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             VIRTUAL_TOKEN,
             BTC_DECIMALS,
             BTC_NAME,
@@ -378,11 +379,11 @@ contract ExocoreBtcGatewayTest is Test {
         );
 
         vm.expectEmit(true, false, false, false);
-        emit ClientChainRegistered(uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)));
+        emit ClientChainRegistered(uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)));
         vm.expectEmit(true, false, false, false);
-        emit WhitelistTokenAdded(uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)), VIRTUAL_TOKEN_ADDRESS);
+        emit WhitelistTokenAdded(uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)), VIRTUAL_TOKEN_ADDRESS);
 
-        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.Bitcoin);
         vm.stopPrank();
     }
 
@@ -392,7 +393,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock chain update
         bytes memory chainRegisterCall = abi.encodeWithSelector(
             IAssets.registerOrUpdateClientChain.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             STAKER_ACCOUNT_LENGTH,
             BITCOIN_NAME,
             BITCOIN_METADATA,
@@ -407,7 +408,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock token update
         bytes memory tokenRegisterCall = abi.encodeWithSelector(
             IAssets.registerToken.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             VIRTUAL_TOKEN,
             BTC_DECIMALS,
             BTC_NAME,
@@ -423,7 +424,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock token update call
         bytes memory tokenUpdateCall = abi.encodeWithSelector(
             IAssets.updateToken.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             VIRTUAL_TOKEN,
             BTC_METADATA
         );
@@ -434,11 +435,11 @@ contract ExocoreBtcGatewayTest is Test {
         );
 
         vm.expectEmit(true, false, false, false);
-        emit ClientChainUpdated(uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)));
+        emit ClientChainUpdated(uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)));
         vm.expectEmit(true, false, false, false);
-        emit WhitelistTokenUpdated(uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)), VIRTUAL_TOKEN_ADDRESS);
+        emit WhitelistTokenUpdated(uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)), VIRTUAL_TOKEN_ADDRESS);
 
-        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.Bitcoin);
         vm.stopPrank();
     }
 
@@ -448,7 +449,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock failed chain registration
         bytes memory chainRegisterCall = abi.encodeWithSelector(
             IAssets.registerOrUpdateClientChain.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             STAKER_ACCOUNT_LENGTH,
             BITCOIN_NAME,
             BITCOIN_METADATA,
@@ -463,10 +464,10 @@ contract ExocoreBtcGatewayTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 Errors.RegisterClientChainToExocoreFailed.selector,
-                uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin))
+                uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin))
             )
         );
-        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.Bitcoin);
         vm.stopPrank();
     }
 
@@ -476,7 +477,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock successful chain registration
         bytes memory chainRegisterCall = abi.encodeWithSelector(
             IAssets.registerOrUpdateClientChain.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             STAKER_ACCOUNT_LENGTH,
             BITCOIN_NAME,
             BITCOIN_METADATA,
@@ -487,7 +488,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock failed token registration
         bytes memory tokenRegisterCall = abi.encodeWithSelector(
             IAssets.registerToken.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             VIRTUAL_TOKEN,
             BTC_DECIMALS,
             BTC_NAME,
@@ -499,7 +500,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock failed token update
         bytes memory tokenUpdateCall = abi.encodeWithSelector(
             IAssets.updateToken.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             VIRTUAL_TOKEN,
             BTC_METADATA
         );
@@ -508,24 +509,24 @@ contract ExocoreBtcGatewayTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 Errors.AddWhitelistTokenFailed.selector,
-                uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+                uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
                 bytes32(VIRTUAL_TOKEN)
             )
         );
-        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.Bitcoin);
         vm.stopPrank();
     }
 
     function test_ActivateStakingForClientChain_RevertInvalidChain() public {
         vm.prank(owner);
         vm.expectRevert(Errors.InvalidClientChain.selector);
-        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.None);
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.None);
     }
 
     function test_ActivateStakingForClientChain_RevertNotOwner() public {
         vm.prank(user);
         vm.expectRevert("Ownable: caller is not the owner");
-        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.Bitcoin);
     }
 
     function test_ActivateStakingForClientChain_RevertWhenPaused() public {
@@ -533,7 +534,7 @@ contract ExocoreBtcGatewayTest is Test {
         gateway.pause();
 
         vm.expectRevert("Pausable: paused");
-        gateway.activateStakingForClientChain(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin);
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.Bitcoin);
         vm.stopPrank();
     }
 
@@ -541,8 +542,8 @@ contract ExocoreBtcGatewayTest is Test {
         _addAllWitnesses();
 
         // Create stake message
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -591,8 +592,8 @@ contract ExocoreBtcGatewayTest is Test {
     function test_SubmitProofForStakeMsg_RevertInvalidSignature() public {
         _addAllWitnesses();
 
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -611,8 +612,8 @@ contract ExocoreBtcGatewayTest is Test {
     function test_SubmitProofForStakeMsg_RevertUnauthorizedWitness() public {
         _addAllWitnesses();
 
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -632,8 +633,8 @@ contract ExocoreBtcGatewayTest is Test {
     function test_SubmitProofForStakeMsg_ExpiredBeforeConsensus() public {
         _addAllWitnesses();
 
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -659,7 +660,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         // Verify transaction is restarted owing to expired and not processed
         bytes32 messageHash = _getMessageHash(stakeMsg);
-        assertEq(uint8(gateway.getTransactionStatus(messageHash)), uint8(ExocoreBtcGatewayStorage.TxStatus.Pending));
+        assertEq(uint8(gateway.getTransactionStatus(messageHash)), uint8(UTXOGatewayStorage.TxStatus.Pending));
         assertEq(gateway.getTransactionProofCount(messageHash), 1);
         assertFalse(gateway.processedClientChainTxs(stakeMsg.chainId, stakeMsg.txTag));
     }
@@ -667,8 +668,8 @@ contract ExocoreBtcGatewayTest is Test {
     function test_SubmitProofForStakeMsg_RestartExpiredTransaction() public {
         _addAllWitnesses();
 
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -693,7 +694,7 @@ contract ExocoreBtcGatewayTest is Test {
         bytes32 messageHash = _getMessageHash(stakeMsg);
 
         // Verify transaction is restarted
-        assertEq(uint8(gateway.getTransactionStatus(messageHash)), uint8(ExocoreBtcGatewayStorage.TxStatus.Pending));
+        assertEq(uint8(gateway.getTransactionStatus(messageHash)), uint8(UTXOGatewayStorage.TxStatus.Pending));
         assertEq(gateway.getTransactionProofCount(messageHash), 1);
         assertTrue(gateway.getTransactionWitnessTime(messageHash, witnesses[0].addr) > 0);
         assertFalse(gateway.processedTransactions(messageHash));
@@ -702,8 +703,8 @@ contract ExocoreBtcGatewayTest is Test {
     function test_SubmitProofForStakeMsg_JoinRestartedTransaction() public {
         _addAllWitnesses();
 
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -746,8 +747,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         // Verify both witnesses' proofs are counted
         assertEq(
-            uint8(gateway.getTransactionStatus(messageHash)),
-            uint8(ExocoreBtcGatewayStorage.TxStatus.NotStartedOrProcessed)
+            uint8(gateway.getTransactionStatus(messageHash)), uint8(UTXOGatewayStorage.TxStatus.NotStartedOrProcessed)
         );
         assertTrue(gateway.processedTransactions(messageHash));
         assertTrue(gateway.processedClientChainTxs(stakeMsg.chainId, stakeMsg.txTag));
@@ -760,8 +760,8 @@ contract ExocoreBtcGatewayTest is Test {
     function test_SubmitProofForStakeMsg_RevertDuplicateProofInSameRound() public {
         _addAllWitnesses();
 
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -783,8 +783,8 @@ contract ExocoreBtcGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RegisterNewAddress() public {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: "",
@@ -807,19 +807,19 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(relayer);
         vm.expectEmit(true, true, true, true);
-        emit AddressRegistered(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddress, user);
+        emit AddressRegistered(UTXOGatewayStorage.ClientChainID.Bitcoin, btcAddress, user);
         vm.expectEmit(true, true, true, true);
-        emit StakeMsgExecuted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, stakeMsg.nonce, user, stakeMsg.amount);
+        emit StakeMsgExecuted(UTXOGatewayStorage.ClientChainID.Bitcoin, stakeMsg.nonce, user, stakeMsg.amount);
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
 
         // Verify address registration
-        assertEq(gateway.getClientChainAddress(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user), btcAddress);
-        assertEq(gateway.getExocoreAddress(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddress), user);
+        assertEq(gateway.getClientChainAddress(UTXOGatewayStorage.ClientChainID.Bitcoin, user), btcAddress);
+        assertEq(gateway.getExocoreAddress(UTXOGatewayStorage.ClientChainID.Bitcoin, btcAddress), user);
     }
 
     function test_ProcessStakeMessage_WithBridgeFee() public {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -848,7 +848,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.expectEmit(true, true, true, true, address(gateway));
         emit DepositCompleted(
-            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            UTXOGatewayStorage.ClientChainID.Bitcoin,
             stakeMsg.txTag,
             user,
             stakeMsg.srcAddress,
@@ -857,15 +857,15 @@ contract ExocoreBtcGatewayTest is Test {
         );
 
         vm.expectEmit(true, true, true, true, address(gateway));
-        emit DelegationCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, amountAfterFee);
+        emit DelegationCompleted(UTXOGatewayStorage.ClientChainID.Bitcoin, user, operator, amountAfterFee);
 
         vm.prank(relayer);
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_WithDelegation() public {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -888,13 +888,13 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(relayer);
         vm.expectEmit(true, true, true, true);
-        emit DelegationCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
+        emit DelegationCompleted(UTXOGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_DelegationFailureNotRevert() public {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: operator,
@@ -919,7 +919,7 @@ contract ExocoreBtcGatewayTest is Test {
         // deposit should be successful
         vm.expectEmit(true, true, true, true);
         emit DepositCompleted(
-            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            UTXOGatewayStorage.ClientChainID.Bitcoin,
             stakeMsg.txTag,
             user,
             stakeMsg.srcAddress,
@@ -929,14 +929,14 @@ contract ExocoreBtcGatewayTest is Test {
 
         // delegation should fail
         vm.expectEmit(true, true, true, true);
-        emit DelegationFailedForStake(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
+        emit DelegationFailedForStake(UTXOGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
 
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_RevertOnDepositFailure() public {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: "",
@@ -958,8 +958,8 @@ contract ExocoreBtcGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertWhenPaused() public {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: "",
@@ -979,8 +979,8 @@ contract ExocoreBtcGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertUnauthorizedWitness() public {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: "",
@@ -999,8 +999,8 @@ contract ExocoreBtcGatewayTest is Test {
 
     function test_ProcessStakeMessage_RevertInvalidStakeMessage() public {
         // Create invalid message with all zero values
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.None,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.None,
             srcAddress: bytes(""),
             exocoreAddress: address(0),
             operator: "",
@@ -1017,8 +1017,8 @@ contract ExocoreBtcGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertZeroExocoreAddressBeforeRegistration() public {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: address(0), // Zero address
             operator: "",
@@ -1035,13 +1035,13 @@ contract ExocoreBtcGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertInvalidNonce() public {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
             exocoreAddress: user,
             operator: "",
             amount: 1 ether,
-            nonce: gateway.nextInboundNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin) + 1,
+            nonce: gateway.nextInboundNonce(UTXOGatewayStorage.ClientChainID.Bitcoin) + 1,
             txTag: bytes("tx1")
         });
 
@@ -1067,12 +1067,12 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit DelegationCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
+        emit DelegationCompleted(UTXOGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
 
-        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.delegateTo(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
 
         // Verify nonce increment
-        assertEq(gateway.delegationNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 1);
+        assertEq(gateway.delegationNonce(UTXOGatewayStorage.ClientChainID.Bitcoin), 1);
     }
 
     function test_DelegateTo_RevertZeroAmount() public {
@@ -1080,7 +1080,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.ZeroAmount.selector);
-        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 0);
+        gateway.delegateTo(UTXOGatewayStorage.Token.BTC, operator, 0);
     }
 
     function test_DelegateTo_RevertWhenPaused() public {
@@ -1091,7 +1091,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert("Pausable: paused");
-        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.delegateTo(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
     }
 
     function test_DelegateTo_RevertNotRegistered() public {
@@ -1099,7 +1099,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.AddressNotRegistered.selector);
-        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.delegateTo(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
     }
 
     function test_DelegateTo_RevertInvalidOperator() public {
@@ -1109,7 +1109,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.InvalidOperator.selector);
-        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, invalidOperator, 1 ether);
+        gateway.delegateTo(UTXOGatewayStorage.Token.BTC, invalidOperator, 1 ether);
     }
 
     function test_DelegateTo_RevertDelegationFailed() public {
@@ -1122,7 +1122,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(abi.encodeWithSelector(Errors.DelegationFailed.selector));
-        gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.delegateTo(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
     }
 
     function test_UndelegateFrom_Success() public {
@@ -1136,12 +1136,12 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit UndelegationCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
+        emit UndelegationCompleted(UTXOGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
 
-        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
 
         // Verify nonce increment
-        assertEq(gateway.delegationNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 1);
+        assertEq(gateway.delegationNonce(UTXOGatewayStorage.ClientChainID.Bitcoin), 1);
     }
 
     function test_UndelegateFrom_RevertZeroAmount() public {
@@ -1149,7 +1149,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.ZeroAmount.selector);
-        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 0);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 0);
     }
 
     function test_UndelegateFrom_RevertWhenPaused() public {
@@ -1160,7 +1160,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert("Pausable: paused");
-        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
     }
 
     function test_UndelegateFrom_RevertNotRegistered() public {
@@ -1168,7 +1168,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.AddressNotRegistered.selector);
-        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
     }
 
     function test_UndelegateFrom_RevertInvalidOperator() public {
@@ -1178,7 +1178,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.InvalidOperator.selector);
-        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, invalidOperator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, invalidOperator, 1 ether);
     }
 
     function test_UndelegateFrom_RevertUndelegationFailed() public {
@@ -1191,7 +1191,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.UndelegationFailed.selector);
-        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+        gateway.undelegateFrom(UTXOGatewayStorage.Token.BTC, operator, 1 ether);
     }
 
     function test_WithdrawPrincipal_Success() public {
@@ -1206,7 +1206,7 @@ contract ExocoreBtcGatewayTest is Test {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
         emit WithdrawPrincipalRequested(
-            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            UTXOGatewayStorage.ClientChainID.Bitcoin,
             1, // first request ID
             user,
             btcAddress,
@@ -1214,10 +1214,10 @@ contract ExocoreBtcGatewayTest is Test {
             2 ether
         );
 
-        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, 1 ether);
 
         // Verify pegOutNonce increment
-        assertEq(gateway.pegOutNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 1);
+        assertEq(gateway.pegOutNonce(UTXOGatewayStorage.ClientChainID.Bitcoin), 1);
     }
 
     function test_WithdrawPrincipal_RevertWhenPaused() public {
@@ -1228,7 +1228,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert("Pausable: paused");
-        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, 1 ether);
     }
 
     function test_WithdrawPrincipal_RevertZeroAmount() public {
@@ -1236,7 +1236,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.ZeroAmount.selector);
-        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 0);
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, 0);
     }
 
     function test_WithdrawPrincipal_RevertWithdrawFailed() public {
@@ -1249,7 +1249,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.WithdrawPrincipalFailed.selector);
-        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, 1 ether);
     }
 
     function test_WithdrawPrincipal_RevertNotRegistered() public {
@@ -1257,7 +1257,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.AddressNotRegistered.selector);
-        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, 1 ether);
     }
 
     function test_WithdrawPrincipal_VerifyPegOutRequest() public {
@@ -1269,16 +1269,17 @@ contract ExocoreBtcGatewayTest is Test {
         );
 
         vm.prank(user);
-        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, 1 ether);
 
         // Verify peg-out request details
-        ExocoreBtcGatewayStorage.PegOutRequest memory request = gateway.getPegOutRequest(1);
-        assertEq(uint8(request.chainId), uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin));
+        UTXOGatewayStorage.PegOutRequest memory request =
+            gateway.getPegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 1);
+        assertEq(uint8(request.chainId), uint8(UTXOGatewayStorage.ClientChainID.Bitcoin));
+        assertEq(request.nonce, 1);
         assertEq(request.requester, user);
         assertEq(request.clientChainAddress, btcAddress);
         assertEq(request.amount, 1 ether);
-        assertEq(uint8(request.withdrawType), uint8(ExocoreBtcGatewayStorage.WithdrawType.WithdrawPrincipal));
-        assertTrue(request.timestamp > 0);
+        assertEq(uint8(request.withdrawType), uint8(UTXOGatewayStorage.WithdrawType.WithdrawPrincipal));
     }
 
     function test_WithdrawReward_Success() public {
@@ -1293,7 +1294,7 @@ contract ExocoreBtcGatewayTest is Test {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
         emit WithdrawRewardRequested(
-            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            UTXOGatewayStorage.ClientChainID.Bitcoin,
             1, // first request ID
             user,
             btcAddress,
@@ -1301,10 +1302,10 @@ contract ExocoreBtcGatewayTest is Test {
             2 ether
         );
 
-        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, 1 ether);
 
         // Verify pegOutNonce increment
-        assertEq(gateway.pegOutNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 1);
+        assertEq(gateway.pegOutNonce(UTXOGatewayStorage.ClientChainID.Bitcoin), 1);
     }
 
     function test_WithdrawReward_RevertWhenPaused() public {
@@ -1315,7 +1316,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert("Pausable: paused");
-        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, 1 ether);
     }
 
     function test_WithdrawReward_RevertZeroAmount() public {
@@ -1323,7 +1324,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.ZeroAmount.selector);
-        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 0);
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, 0);
     }
 
     function test_WithdrawReward_RevertClaimFailed() public {
@@ -1336,7 +1337,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.WithdrawRewardFailed.selector);
-        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, 1 ether);
     }
 
     function test_WithdrawReward_RevertAddressNotRegistered() public {
@@ -1344,7 +1345,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(user);
         vm.expectRevert(Errors.AddressNotRegistered.selector);
-        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, 1 ether);
     }
 
     function test_WithdrawReward_VerifyPegOutRequest() public {
@@ -1356,16 +1357,17 @@ contract ExocoreBtcGatewayTest is Test {
         );
 
         vm.prank(user);
-        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, 1 ether);
 
         // Verify peg-out request details
-        ExocoreBtcGatewayStorage.PegOutRequest memory request = gateway.getPegOutRequest(1);
-        assertEq(uint8(request.chainId), uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin));
+        UTXOGatewayStorage.PegOutRequest memory request =
+            gateway.getPegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 1);
+        assertEq(uint8(request.chainId), uint8(UTXOGatewayStorage.ClientChainID.Bitcoin));
+        assertEq(request.nonce, 1);
         assertEq(request.requester, user);
         assertEq(request.clientChainAddress, btcAddress);
         assertEq(request.amount, 1 ether);
-        assertEq(uint8(request.withdrawType), uint8(ExocoreBtcGatewayStorage.WithdrawType.WithdrawReward));
-        assertTrue(request.timestamp > 0);
+        assertEq(uint8(request.withdrawType), uint8(UTXOGatewayStorage.WithdrawType.WithdrawReward));
     }
 
     function test_WithdrawReward_MultipleRequests() public {
@@ -1374,7 +1376,7 @@ contract ExocoreBtcGatewayTest is Test {
         // Mock successful claimReward
         bytes memory claimCall1 = abi.encodeWithSelector(
             IReward.claimReward.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             VIRTUAL_TOKEN,
             user.toExocoreBytes(),
             1 ether
@@ -1383,7 +1385,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         bytes memory claimCall2 = abi.encodeWithSelector(
             IReward.claimReward.selector,
-            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            uint32(uint8(UTXOGatewayStorage.ClientChainID.Bitcoin)),
             VIRTUAL_TOKEN,
             user.toExocoreBytes(),
             0.5 ether
@@ -1393,33 +1395,150 @@ contract ExocoreBtcGatewayTest is Test {
         vm.startPrank(user);
 
         // First withdrawal
-        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, 1 ether);
 
         // Second withdrawal
-        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 0.5 ether);
+        gateway.withdrawReward(UTXOGatewayStorage.Token.BTC, 0.5 ether);
 
         vm.stopPrank();
 
         // Verify both requests exist with correct details
-        ExocoreBtcGatewayStorage.PegOutRequest memory request1 = gateway.getPegOutRequest(1);
+        UTXOGatewayStorage.PegOutRequest memory request1 =
+            gateway.getPegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 1);
         assertEq(request1.amount, 1 ether);
 
-        ExocoreBtcGatewayStorage.PegOutRequest memory request2 = gateway.getPegOutRequest(2);
+        UTXOGatewayStorage.PegOutRequest memory request2 =
+            gateway.getPegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 2);
         assertEq(request2.amount, 0.5 ether);
 
         // Verify nonce increment
-        assertEq(gateway.pegOutNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 2);
+        assertEq(gateway.pegOutNonce(UTXOGatewayStorage.ClientChainID.Bitcoin), 2);
+    }
+
+    function test_ProcessNextPegOut_Success() public {
+        // Setup: Create a peg-out request first
+        _setupPegOutRequest();
+
+        // Now process the peg-out request
+        vm.prank(witnesses[0].addr);
+        vm.expectEmit(true, true, true, true);
+        emit PegOutProcessed(
+            uint8(UTXOGatewayStorage.WithdrawType.WithdrawPrincipal),
+            UTXOGatewayStorage.ClientChainID.Bitcoin,
+            1, // requestId
+            user,
+            btcAddress,
+            1 ether
+        );
+
+        UTXOGatewayStorage.PegOutRequest memory request =
+            gateway.processNextPegOut(UTXOGatewayStorage.ClientChainID.Bitcoin);
+
+        // Verify returned request contents
+        assertEq(uint8(request.chainId), uint8(UTXOGatewayStorage.ClientChainID.Bitcoin));
+        assertEq(request.nonce, 1);
+        assertEq(request.requester, user);
+        assertEq(request.clientChainAddress, btcAddress);
+        assertEq(request.amount, 1 ether);
+        assertEq(uint8(request.withdrawType), uint8(UTXOGatewayStorage.WithdrawType.WithdrawPrincipal));
+
+        // Verify request was deleted
+        UTXOGatewayStorage.PegOutRequest memory deletedRequest =
+            gateway.getPegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 1);
+        assertEq(deletedRequest.requester, address(0));
+        assertEq(deletedRequest.amount, 0);
+        assertEq(deletedRequest.clientChainAddress, "");
+
+        // Verify outbound nonce increment
+        assertEq(gateway.outboundNonce(UTXOGatewayStorage.ClientChainID.Bitcoin), 1);
+    }
+
+    function test_ProcessNextPegOut_RevertUnauthorizedWitness() public {
+        // Setup a peg-out request
+        _setupPegOutRequest();
+
+        address unauthorizedWitness = address(0x9999);
+        vm.prank(unauthorizedWitness);
+        vm.expectRevert(Errors.UnauthorizedWitness.selector);
+        gateway.processNextPegOut(UTXOGatewayStorage.ClientChainID.Bitcoin);
+    }
+
+    function test_ProcessNextPegOut_RevertWhenPaused() public {
+        // Setup a peg-out request
+        _setupPegOutRequest();
+
+        vm.prank(owner);
+        gateway.pause();
+
+        vm.prank(witnesses[0].addr);
+        vm.expectRevert("Pausable: paused");
+        gateway.processNextPegOut(UTXOGatewayStorage.ClientChainID.Bitcoin);
+    }
+
+    function test_ProcessNextPegOut_RevertRequestNotFound() public {
+        // Don't create any peg-out request
+
+        vm.prank(witnesses[0].addr);
+        vm.expectRevert(abi.encodeWithSelector(Errors.RequestNotFound.selector, 1));
+        gateway.processNextPegOut(UTXOGatewayStorage.ClientChainID.Bitcoin);
+    }
+
+    function test_ProcessNextPegOut_MultipleRequests() public {
+        // Setup multiple peg-out requests
+        _setupPegOutRequest(); // First request
+        _setupPegOutRequest(); // Second request
+
+        vm.startPrank(witnesses[0].addr);
+
+        // Process first request
+        UTXOGatewayStorage.PegOutRequest memory request1 =
+            gateway.processNextPegOut(UTXOGatewayStorage.ClientChainID.Bitcoin);
+        assertEq(request1.amount, 1 ether);
+
+        // Process second request
+        UTXOGatewayStorage.PegOutRequest memory request2 =
+            gateway.processNextPegOut(UTXOGatewayStorage.ClientChainID.Bitcoin);
+        assertEq(request2.amount, 1 ether);
+
+        vm.stopPrank();
+
+        // Verify both requests were deleted
+        UTXOGatewayStorage.PegOutRequest memory deleted1 =
+            gateway.getPegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 1);
+        UTXOGatewayStorage.PegOutRequest memory deleted2 =
+            gateway.getPegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 2);
+        assertEq(deleted1.requester, address(0));
+        assertEq(deleted2.requester, address(0));
+
+        // Verify outbound nonce
+        assertEq(gateway.outboundNonce(UTXOGatewayStorage.ClientChainID.Bitcoin), 2);
+    }
+
+    // Helper function to setup a peg-out request
+    function _setupPegOutRequest() internal {
+        if (gateway.getClientChainAddress(UTXOGatewayStorage.ClientChainID.Bitcoin, user).length == 0) {
+            _mockRegisterAddress(user, btcAddress);
+        }
+
+        // mock withdrawLST success
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.withdrawLST.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        gateway.withdrawPrincipal(UTXOGatewayStorage.Token.BTC, 1 ether);
+        assertEq(gateway.getPegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 1).amount, 1 ether);
     }
 
     // Helper functions
     function _mockRegisterAddress(address exocoreAddr, bytes memory btcAddr) internal {
-        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
-            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddr,
             exocoreAddress: exocoreAddr,
             operator: "",
             amount: 1 ether,
-            nonce: gateway.nextInboundNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin),
+            nonce: gateway.nextInboundNonce(UTXOGatewayStorage.ClientChainID.Bitcoin),
             txTag: bytes("tx1")
         });
 
@@ -1436,14 +1555,14 @@ contract ExocoreBtcGatewayTest is Test {
         bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
 
         vm.expectEmit(true, true, true, true, address(gateway));
-        emit AddressRegistered(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddr, exocoreAddr);
+        emit AddressRegistered(UTXOGatewayStorage.ClientChainID.Bitcoin, btcAddr, exocoreAddr);
 
         vm.prank(relayer);
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
 
         // Verify address registration
-        assertEq(gateway.getClientChainAddress(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, exocoreAddr), btcAddr);
-        assertEq(gateway.getExocoreAddress(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddr), exocoreAddr);
+        assertEq(gateway.getClientChainAddress(UTXOGatewayStorage.ClientChainID.Bitcoin, exocoreAddr), btcAddr);
+        assertEq(gateway.getExocoreAddress(UTXOGatewayStorage.ClientChainID.Bitcoin, btcAddr), exocoreAddr);
     }
 
     function _addAllWitnesses() internal {
@@ -1455,7 +1574,7 @@ contract ExocoreBtcGatewayTest is Test {
         }
     }
 
-    function _getMessageHash(ExocoreBtcGatewayStorage.StakeMsg memory msg_) internal pure returns (bytes32) {
+    function _getMessageHash(UTXOGatewayStorage.StakeMsg memory msg_) internal pure returns (bytes32) {
         return keccak256(
             abi.encode(
                 msg_.chainId, // ClientChainID
@@ -1469,7 +1588,7 @@ contract ExocoreBtcGatewayTest is Test {
         );
     }
 
-    function _generateSignature(ExocoreBtcGatewayStorage.StakeMsg memory msg_, uint256 privateKey)
+    function _generateSignature(UTXOGatewayStorage.StakeMsg memory msg_, uint256 privateKey)
         internal
         pure
         returns (bytes memory)

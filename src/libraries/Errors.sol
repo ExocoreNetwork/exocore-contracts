@@ -364,7 +364,7 @@ library Errors {
     error RequestNotFound(uint64 requestId);
 
     /// @dev ExocoreBtcGateway: request already exists
-    error RequestAlreadyExists(uint64 requestId);
+    error RequestAlreadyExists(uint32 clientChain, uint64 requestId);
 
     /// @dev ExocoreBtcGateway: witness not authorized
     error UnauthorizedWitness();

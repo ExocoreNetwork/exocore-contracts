@@ -8,24 +8,23 @@ import {ASSETS_CONTRACT} from "../interfaces/precompiles/IAssets.sol";
 import {DELEGATION_CONTRACT} from "../interfaces/precompiles/IDelegation.sol";
 import {REWARD_CONTRACT} from "../interfaces/precompiles/IReward.sol";
 import {SignatureVerifier} from "../libraries/SignatureVerifier.sol";
-import {ExocoreBtcGatewayStorage} from "../storage/ExocoreBtcGatewayStorage.sol";
+import {UTXOGatewayStorage} from "../storage/UTXOGatewayStorage.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-// import "forge-std/console.sol";
-/**
- * @title ExocoreBtcGateway
- * @dev This contract manages the gateway between Bitcoin and the Exocore system.
- * It handles deposits, delegations, withdrawals, and peg-out requests for BTC.
- */
 
-contract ExocoreBtcGateway is
+/**
+ * @title UTXOGateway
+ * @dev This contract manages the gateway between Bitcoin like chains and the Exocore system.
+ * It handles deposits, delegations, withdrawals, and peg-out requests for BTC like tokens.
+ */
+contract UTXOGateway is
     Initializable,
     PausableUpgradeable,
     OwnableUpgradeable,
     ReentrancyGuardUpgradeable,
-    ExocoreBtcGatewayStorage
+    UTXOGatewayStorage
 {
 
     using ExocoreBytes for address;
@@ -137,10 +136,13 @@ contract ExocoreBtcGateway is
     /**
      * @notice Submits a proof for a stake message.
      * @notice The submitted message would be processed after collecting enough proofs from withnesses.
+     * @dev The stake message would be deleted after it has been processed to refund some gas, though the mapping
+     * inside it cannot be deleted.
      * @param witness The witness address that signed the message.
      * @param _message The stake message.
      * @param _signature The signature of the message.
      */
+    // slither-disable-next-line reentrancy-no-eth
     function submitProofForStakeMsg(address witness, StakeMsg calldata _message, bytes calldata _signature)
         external
         nonReentrant
@@ -179,6 +181,8 @@ contract ExocoreBtcGateway is
         if (txn.proofCount >= REQUIRED_PROOFS) {
             processedTransactions[messageHash] = true;
             _processStakeMsg(txn.stakeMsg);
+            // we delete the transaction after it has been processed to refund some gas, so no need to worry about
+            // reentrancy
             delete transactions[messageHash];
 
             emit TransactionProcessed(messageHash);
@@ -186,7 +190,7 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Deposits BTC to the Exocore system.
+     * @notice Deposits BTC like tokens to the Exocore system.
      * @param witness The witness address that signed the message.
      * @param _msg The stake message.
      * @param signature The signature of the message.
@@ -205,7 +209,7 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Delegates BTC to an operator.
+     * @notice Delegates BTC like tokens to an operator.
      * @param token The value of the token enum.
      * @param operator The operator's exocore address.
      * @param amount The amount to delegate.
@@ -232,7 +236,7 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Undelegates BTC from an operator.
+     * @notice Undelegates BTC like tokens from an operator.
      * @param token The value of the token enum.
      * @param operator The operator's exocore address.
      * @param amount The amount to undelegate.
@@ -261,7 +265,7 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Withdraws the principal BTC.
+     * @notice Withdraws the principal BTC like tokens.
      * @param token The value of the token enum.
      * @param amount The amount to withdraw.
      */
@@ -285,7 +289,7 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Withdraws the reward BTC.
+     * @notice Withdraws the reward BTC like tokens.
      * @param token The value of the token enum.
      * @param amount The amount to withdraw.
      */
@@ -309,6 +313,9 @@ contract ExocoreBtcGateway is
     /**
      * @notice Process a pending peg-out request
      * @dev Only authorized witnesses can call this function
+     * @dev the processed request would be deleted from the pegOutRequests mapping
+     * @param clientChain The client chain ID
+     * @return nextRequest The next PegOutRequest
      * @custom:throws InvalidRequestStatus if the request status is not Pending
      * @custom:throws RequestNotFound if the request does not exist
      */
@@ -317,21 +324,28 @@ contract ExocoreBtcGateway is
         onlyAuthorizedWitness
         nonReentrant
         whenNotPaused
-        returns (uint64 requestId)
+        returns (PegOutRequest memory nextRequest)
     {
-        requestId = ++outboundNonce[clientChain];
-        PegOutRequest storage request = pegOutRequests[requestId];
+        uint64 requestId = ++outboundNonce[clientChain];
+        nextRequest = pegOutRequests[clientChain][requestId];
 
         // Check if the request exists
-        if (request.requester == address(0)) {
+        if (nextRequest.requester == address(0)) {
             revert Errors.RequestNotFound(requestId);
         }
 
         // delete the request
-        delete pegOutRequests[requestId];
+        delete pegOutRequests[clientChain][requestId];
 
         // Emit event
-        emit PegOutProcessed(requestId);
+        emit PegOutProcessed(
+            uint8(nextRequest.withdrawType),
+            clientChain,
+            requestId,
+            nextRequest.requester,
+            nextRequest.clientChainAddress,
+            nextRequest.amount
+        );
     }
 
     /**
@@ -363,21 +377,22 @@ contract ExocoreBtcGateway is
     }
 
     /**
-     * @notice Gets the current nonce for a given BTC address.
+     * @notice Gets the next inbound nonce for a given source chain ID.
      * @param srcChainId The source chain ID.
-     * @return The current nonce.
+     * @return The next inbound nonce.
      */
     function nextInboundNonce(ClientChainID srcChainId) external view returns (uint64) {
         return inboundNonce[srcChainId] + 1;
     }
 
     /**
-     * @notice Retrieves a PegOutRequest by its requestId.
+     * @notice Retrieves a PegOutRequest by client chain id and request id
+     * @param clientChain The client chain ID
      * @param requestId The unique identifier of the request.
      * @return The PegOutRequest struct associated with the given requestId.
      */
-    function getPegOutRequest(uint64 requestId) public view returns (PegOutRequest memory) {
-        return pegOutRequests[requestId];
+    function getPegOutRequest(ClientChainID clientChain, uint64 requestId) public view returns (PegOutRequest memory) {
+        return pegOutRequests[clientChain][requestId];
     }
 
     /**
@@ -559,7 +574,6 @@ contract ExocoreBtcGateway is
      * @param withdrawer The Exocore address associated with the Bitcoin address
      * @param _withdrawType The type of withdrawal (e.g., normal, fast)
      * @return requestId The unique identifier for the peg-out request
-     * @custom:throws BtcAddressNotRegistered if the Bitcoin address is not registered for the given Exocore address
      * @custom:throws RequestAlreadyExists if a request with the same parameters already exists
      */
     function _initiatePegOut(
@@ -573,18 +587,18 @@ contract ExocoreBtcGateway is
         requestId = ++pegOutNonce[clientChain];
 
         // 3. Check if request already exists
-        PegOutRequest storage request = pegOutRequests[requestId];
+        PegOutRequest storage request = pegOutRequests[clientChain][requestId];
         if (request.requester != address(0)) {
-            revert Errors.RequestAlreadyExists(requestId);
+            revert Errors.RequestAlreadyExists(uint32(uint8(clientChain)), requestId);
         }
 
         // 4. Create new PegOutRequest
         request.chainId = clientChain;
+        request.nonce = requestId;
         request.requester = withdrawer;
         request.clientChainAddress = clientChainAddress;
         request.amount = _amount;
         request.withdrawType = _withdrawType;
-        request.timestamp = block.timestamp;
     }
 
     /**

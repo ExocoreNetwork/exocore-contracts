@@ -4,10 +4,10 @@ pragma solidity ^0.8.19;
 import {Errors} from "../libraries/Errors.sol";
 
 /**
- * @title ExocoreBtcGatewayStorage
- * @dev This contract manages the storage for the Exocore-Bitcoin gateway
+ * @title UTXOGatewayStorage
+ * @dev This contract manages the storage for the UTXO gateway
  */
-contract ExocoreBtcGatewayStorage {
+contract UTXOGatewayStorage {
 
     /**
      * @notice Enum to represent the type of supported token
@@ -92,7 +92,6 @@ contract ExocoreBtcGatewayStorage {
         bytes clientChainAddress;
         uint256 amount;
         WithdrawType withdrawType;
-        uint256 timestamp;
     }
 
     /* -------------------------------------------------------------------------- */
@@ -101,7 +100,7 @@ contract ExocoreBtcGatewayStorage {
     /// @notice the human readable prefix for Exocore bech32 encoded address.
     bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
 
-    // chain id from layerzero, virtual for bitcoin since it's not yet a layerzero chain
+    // the virtual chain id for Bitcoin, compatible with other chain ids(endpoint ids) maintained by layerzero
     string public constant BITCOIN_NAME = "Bitcoin";
     string public constant BITCOIN_METADATA = "Bitcoin";
     string public constant BITCOIN_SIGNATURE_SCHEME = "ECDSA";
@@ -142,9 +141,12 @@ contract ExocoreBtcGatewayStorage {
     mapping(ClientChainID => mapping(bytes => bool)) public processedClientChainTxs;
 
     /**
-     * @dev Mapping to store peg-out requests, key is the nonce
+     * @dev Mapping to store peg-out requests
+     * @dev Key1: ClientChainID
+     * @dev Key2: nonce
+     * @dev Value: PegOutRequest
      */
-    mapping(uint64 => PegOutRequest) public pegOutRequests;
+    mapping(ClientChainID => mapping(uint64 => PegOutRequest)) public pegOutRequests;
 
     /**
      * @dev Mapping to store authorized witnesses
@@ -195,7 +197,7 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @dev Emitted when a stake message is executed
-     * @param chainId The LayerZero chain ID of the client chain
+     * @param chainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param nonce The nonce of the stake message
      * @param exocoreAddress The Exocore address of the depositor
      * @param amount The amount deposited(delegated)
@@ -300,7 +302,7 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @dev Emitted when a delegation is completed
-     * @param clientChainId The LayerZero chain ID of the client chain
+     * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param exoDelegator The delegator's Exocore address
      * @param operator The operator's address
      * @param amount The amount delegated
@@ -311,7 +313,7 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @dev Emitted when a delegation fails for a stake message
-     * @param clientChainId The LayerZero chain ID of the client chain
+     * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param exoDelegator The delegator's Exocore address
      * @param operator The operator's address
      * @param amount The amount delegated
@@ -322,7 +324,7 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @dev Emitted when an undelegation is completed
-     * @param clientChainId The LayerZero chain ID of the client chain
+     * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param exoDelegator The delegator's Exocore address
      * @param operator The operator's address
      * @param amount The amount undelegated
@@ -333,7 +335,7 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @dev Emitted when an address is registered
-     * @param chainId The LayerZero chain ID of the client chain
+     * @param chainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param depositor The depositor's address
      * @param exocoreAddress The corresponding Exocore address
      */
@@ -373,12 +375,6 @@ contract ExocoreBtcGatewayStorage {
     event TransactionExpired(bytes32 txid);
 
     /**
-     * @dev Emitted when a peg-out transaction expires
-     * @param requestId The unique identifier of the expired peg-out request
-     */
-    event PegOutTransactionExpired(bytes32 requestId);
-
-    /**
      * @dev Emitted when the bridge rate is updated
      * @param newRate The new bridge rate
      */
@@ -398,9 +394,21 @@ contract ExocoreBtcGatewayStorage {
 
     /**
      * @dev Emitted when a peg-out is processed
-     * @param requestId The unique identifier of the processed peg-out request
+     * @param withdrawType The type of withdrawal
+     * @param clientChain The client chain ID
+     * @param nonce The nonce of the peg-out request
+     * @param requester The requester's address
+     * @param clientChainAddress The client chain address
+     * @param amount The amount to withdraw
      */
-    event PegOutProcessed(uint64 indexed requestId);
+    event PegOutProcessed(
+        uint8 indexed withdrawType,
+        ClientChainID indexed clientChain,
+        uint64 nonce,
+        address indexed requester,
+        bytes clientChainAddress,
+        uint256 amount
+    );
 
     /**
      * @dev Emitted when a peg-out request status is updated
@@ -410,20 +418,20 @@ contract ExocoreBtcGatewayStorage {
     event PegOutRequestStatusUpdated(bytes32 indexed requestId, TxStatus newStatus);
 
     /// @notice Emitted upon the registration of a new client chain.
-    /// @param clientChainId The LayerZero chain ID of the client chain.
+    /// @param clientChainId The chain ID of the client chain.
     event ClientChainRegistered(uint32 clientChainId);
 
     /// @notice Emitted upon the update of a client chain.
-    /// @param clientChainId The LayerZero chain ID of the client chain.
+    /// @param clientChainId The chain ID of the client chain.
     event ClientChainUpdated(uint32 clientChainId);
 
     /// @notice Emitted when a token is added to the whitelist.
-    /// @param clientChainId The LayerZero chain ID of the client chain.
+    /// @param clientChainId The chain ID of the client chain.
     /// @param token The address of the token.
     event WhitelistTokenAdded(uint32 clientChainId, address indexed token);
 
     /// @notice Emitted when a token is updated in the whitelist.
-    /// @param clientChainId The LayerZero chain ID of the client chain.
+    /// @param clientChainId The chain ID of the client chain.
     /// @param token The address of the token.
     event WhitelistTokenUpdated(uint32 clientChainId, address indexed token);
 
