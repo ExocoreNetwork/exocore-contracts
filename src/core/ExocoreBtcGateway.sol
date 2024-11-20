@@ -29,13 +29,14 @@ contract ExocoreBtcGateway is
 {
 
     using ExocoreBytes for address;
+    using SignatureVerifier for bytes32;
 
     /**
      * @dev Modifier to restrict access to authorized witnesses only.
      */
     modifier onlyAuthorizedWitness() {
         if (!_isAuthorizedWitness(msg.sender)) {
-            revert UnauthorizedWitness();
+            revert Errors.UnauthorizedWitness();
         }
         _;
     }
@@ -61,8 +62,6 @@ contract ExocoreBtcGateway is
      * @dev Sets up initial configuration for testing purposes.
      */
     constructor() {
-        authorizedWitnesses[EXOCORE_WITNESS] = true;
-        authorizedWitnessCount = 1;
         _disableInitializers();
     }
 
@@ -161,26 +160,28 @@ contract ExocoreBtcGateway is
         if (txn.status == TxStatus.Pending) {
             // if the witness has already submitted proof at or after the start of the proof window, they cannot submit
             // again
-            if (txn.witnessTime[msg.sender] >= txn.expiryTime - PROOF_TIMEOUT) {
+            if (txn.witnessTime[witness] >= txn.expiryTime - PROOF_TIMEOUT) {
                 revert Errors.WitnessAlreadySubmittedProof();
             }
-            txn.witnessTime[msg.sender] = block.timestamp;
+            txn.witnessTime[witness] = block.timestamp;
             txn.proofCount++;
         } else {
             txn.status = TxStatus.Pending;
             txn.expiryTime = block.timestamp + PROOF_TIMEOUT;
             txn.proofCount = 1;
-            txn.witnessTime[msg.sender] = block.timestamp;
+            txn.witnessTime[witness] = block.timestamp;
             txn.stakeMsg = _message;
         }
 
-        emit ProofSubmitted(messageHash, msg.sender, _message);
+        emit ProofSubmitted(messageHash, witness);
 
         // Check for consensus
         if (txn.proofCount >= REQUIRED_PROOFS) {
             processedTransactions[messageHash] = true;
             _processStakeMsg(txn.stakeMsg);
             delete transactions[messageHash];
+
+            emit TransactionProcessed(messageHash);
         }
     }
 
@@ -254,7 +255,7 @@ contract ExocoreBtcGateway is
             uint32(uint8(chainId)), nonce, VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), bytes(operator), amount
         );
         if (!success) {
-            revert UndelegationFailed();
+            revert Errors.UndelegationFailed();
         }
         emit UndelegationCompleted(chainId, msg.sender, operator, amount);
     }
@@ -264,23 +265,22 @@ contract ExocoreBtcGateway is
      * @param token The value of the token enum.
      * @param amount The amount to withdraw.
      */
-    function withdrawPrincipal(Token token, uint256 amount)
-        external
-        nonReentrant
-        whenNotPaused
-        isValidAmount(amount)
-        isRegistered(token, msg.sender)
-    {
+    function withdrawPrincipal(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
         ClientChainID chainId = ClientChainID(uint8(token));
+
+        bytes memory clientChainAddress = outboundRegistry[chainId][msg.sender];
+        if (clientChainAddress.length == 0) {
+            revert Errors.AddressNotRegistered();
+        }
 
         (bool success, uint256 updatedBalance) =
             ASSETS_CONTRACT.withdrawLST(uint32(uint8(chainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount);
         if (!success) {
-            revert WithdrawPrincipalFailed();
+            revert Errors.WithdrawPrincipalFailed();
         }
 
-        (uint64 requestId, bytes memory clientChainAddress) =
-            _initiatePegOut(chainId, amount, msg.sender, WithdrawType.WithdrawPrincipal);
+        uint64 requestId =
+            _initiatePegOut(chainId, amount, msg.sender, clientChainAddress, WithdrawType.WithdrawPrincipal);
         emit WithdrawPrincipalRequested(chainId, requestId, msg.sender, clientChainAddress, amount, updatedBalance);
     }
 
@@ -289,23 +289,20 @@ contract ExocoreBtcGateway is
      * @param token The value of the token enum.
      * @param amount The amount to withdraw.
      */
-    function withdrawReward(Token token, uint256 amount)
-        external
-        nonReentrant
-        whenNotPaused
-        isValidAmount(amount)
-        isRegistered(token, msg.sender)
-    {
+    function withdrawReward(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
         ClientChainID chainId = ClientChainID(uint8(token));
+        bytes memory clientChainAddress = outboundRegistry[chainId][msg.sender];
+        if (clientChainAddress.length == 0) {
+            revert Errors.AddressNotRegistered();
+        }
 
         (bool success, uint256 updatedBalance) =
             REWARD_CONTRACT.claimReward(uint32(uint8(chainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount);
         if (!success) {
-            revert WithdrawRewardFailed();
+            revert Errors.WithdrawRewardFailed();
         }
-        (uint64 requestId, bytes memory clientChainAddress) =
-            _initiatePegOut(chainId, amount, msg.sender, WithdrawType.WithdrawReward);
 
+        uint64 requestId = _initiatePegOut(chainId, amount, msg.sender, clientChainAddress, WithdrawType.WithdrawReward);
         emit WithdrawRewardRequested(chainId, requestId, msg.sender, clientChainAddress, amount, updatedBalance);
     }
 
@@ -327,7 +324,7 @@ contract ExocoreBtcGateway is
 
         // Check if the request exists
         if (request.requester == address(0)) {
-            revert RequestNotFound(requestId);
+            revert Errors.RequestNotFound(requestId);
         }
 
         // delete the request
@@ -349,6 +346,20 @@ contract ExocoreBtcGateway is
         returns (bytes memory)
     {
         return outboundRegistry[chainId][exocoreAddress];
+    }
+
+    /**
+     * @notice Gets the Exocore address for a given client chain address
+     * @param chainId The client chain ID
+     * @param clientChainAddress The client chain address
+     * @return The Exocore address
+     */
+    function getExocoreAddress(ClientChainID chainId, bytes calldata clientChainAddress)
+        external
+        view
+        returns (address)
+    {
+        return inboundRegistry[chainId][clientChainAddress];
     }
 
     /**
@@ -548,27 +559,23 @@ contract ExocoreBtcGateway is
      * @param withdrawer The Exocore address associated with the Bitcoin address
      * @param _withdrawType The type of withdrawal (e.g., normal, fast)
      * @return requestId The unique identifier for the peg-out request
-     * @return clientChainAddress The client chain address for the peg-out
      * @custom:throws BtcAddressNotRegistered if the Bitcoin address is not registered for the given Exocore address
      * @custom:throws RequestAlreadyExists if a request with the same parameters already exists
      */
-    function _initiatePegOut(ClientChainID clientChain, uint256 _amount, address withdrawer, WithdrawType _withdrawType)
-        internal
-        returns (uint64 requestId, bytes memory clientChainAddress)
-    {
-        // 1. Check client c address
-        clientChainAddress = outboundRegistry[clientChain][withdrawer];
-        if (clientChainAddress.length == 0) {
-            revert AddressNotRegistered();
-        }
-
+    function _initiatePegOut(
+        ClientChainID clientChain,
+        uint256 _amount,
+        address withdrawer,
+        bytes memory clientChainAddress,
+        WithdrawType _withdrawType
+    ) internal returns (uint64 requestId) {
         // 2. increase the peg-out nonce for the client chain and return as requestId
         requestId = ++pegOutNonce[clientChain];
 
         // 3. Check if request already exists
         PegOutRequest storage request = pegOutRequests[requestId];
         if (request.requester != address(0)) {
-            revert RequestAlreadyExists(requestId);
+            revert Errors.RequestAlreadyExists(requestId);
         }
 
         // 4. Create new PegOutRequest
@@ -634,7 +641,7 @@ contract ExocoreBtcGateway is
 
     function _registerAddress(ClientChainID chainId, bytes memory depositor, address exocoreAddress) internal {
         require(depositor.length > 0 && exocoreAddress != address(0), "Invalid address");
-        require(inboundRegistry[chainId][depositor] != address(0), "Depositor address already registered");
+        require(inboundRegistry[chainId][depositor] == address(0), "Depositor address already registered");
         require(outboundRegistry[chainId][exocoreAddress].length == 0, "Exocore address already registered");
 
         inboundRegistry[chainId][depositor] = exocoreAddress;
@@ -677,6 +684,8 @@ contract ExocoreBtcGateway is
                 emit DelegationCompleted(_msg.chainId, stakerExoAddr, _msg.operator, amountAfterFee);
             }
         }
+
+        emit StakeMsgExecuted(_msg.chainId, _msg.nonce, stakerExoAddr, amountAfterFee);
     }
 
 }

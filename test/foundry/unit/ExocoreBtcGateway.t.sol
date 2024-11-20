@@ -8,6 +8,8 @@ import "src/interfaces/precompiles/IAssets.sol";
 import "src/interfaces/precompiles/IDelegation.sol";
 import "src/interfaces/precompiles/IReward.sol";
 import {Errors} from "src/libraries/Errors.sol";
+
+import {ExocoreBytes} from "src/libraries/ExocoreBytes.sol";
 import {SignatureVerifier} from "src/libraries/SignatureVerifier.sol";
 import {ExocoreBtcGatewayStorage} from "src/storage/ExocoreBtcGatewayStorage.sol";
 import "test/mocks/AssetsMock.sol";
@@ -19,6 +21,8 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 contract ExocoreBtcGatewayTest is Test {
 
     using stdStorage for StdStorage;
+    using SignatureVerifier for bytes32;
+    using ExocoreBytes for address;
 
     struct Player {
         uint256 privateKey;
@@ -58,7 +62,7 @@ contract ExocoreBtcGatewayTest is Test {
     event WitnessAdded(address indexed witness);
     event WitnessRemoved(address indexed witness);
     event AddressRegistered(
-        ExocoreBtcGatewayStorage.ClientChainID indexed chainId, bytes depositor, address exocoreAddress
+        ExocoreBtcGatewayStorage.ClientChainID indexed chainId, bytes depositor, address indexed exocoreAddress
     );
     event DepositCompleted(
         ExocoreBtcGatewayStorage.ClientChainID indexed chainId,
@@ -74,7 +78,13 @@ contract ExocoreBtcGatewayTest is Test {
         string operator,
         uint256 amount
     );
-    event ProofSubmitted(bytes32 indexed txId, address indexed witness);
+    event UndelegationCompleted(
+        ExocoreBtcGatewayStorage.ClientChainID indexed clientChainId,
+        address indexed exoDelegator,
+        string operator,
+        uint256 amount
+    );
+    event ProofSubmitted(bytes32 indexed messageHash, address indexed witness);
     event StakeMsgExecuted(bytes32 indexed txId);
     event BridgeFeeRateUpdated(uint256 newRate);
 
@@ -88,6 +98,30 @@ contract ExocoreBtcGatewayTest is Test {
         string operator,
         uint256 amount
     );
+    event StakeMsgExecuted(
+        ExocoreBtcGatewayStorage.ClientChainID indexed chainId,
+        uint64 nonce,
+        address indexed exocoreAddress,
+        uint256 amount
+    );
+    event TransactionProcessed(bytes32 indexed txId);
+
+    event WithdrawPrincipalRequested(
+        ExocoreBtcGatewayStorage.ClientChainID indexed srcChainId,
+        uint64 indexed requestId,
+        address indexed withdrawerExoAddr,
+        bytes withdrawerClientChainAddr,
+        uint256 amount,
+        uint256 updatedBalance
+    );
+    event WithdrawRewardRequested(
+        ExocoreBtcGatewayStorage.ClientChainID indexed srcChainId,
+        uint64 indexed requestId,
+        address indexed withdrawerExoAddr,
+        bytes withdrawerClientChainAddr,
+        uint256 amount,
+        uint256 updatedBalance
+    );
 
     function setUp() public {
         owner = address(1);
@@ -100,19 +134,9 @@ contract ExocoreBtcGatewayTest is Test {
         btcAddress = bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
         operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
 
-        // Deploy mock contracts and bind to precompile addresses
-        bytes memory AssetsMockCode = vm.getDeployedCode("AssetsMock.sol");
-        vm.etch(ASSETS_PRECOMPILE_ADDRESS, AssetsMockCode);
-
-        bytes memory DelegationMockCode = vm.getDeployedCode("DelegationMock.sol");
-        vm.etch(DELEGATION_PRECOMPILE_ADDRESS, DelegationMockCode);
-
-        bytes memory RewardMockCode = vm.getDeployedCode("RewardMock.sol");
-        vm.etch(REWARD_PRECOMPILE_ADDRESS, RewardMockCode);
-
         // Deploy and initialize gateway
         gatewayLogic = new ExocoreBtcGateway();
-        gateway = ExocoreBtcGateway(address(new TransparentUpgradeableProxy(address(gatewayLogic), address(0), "")));
+        gateway = ExocoreBtcGateway(address(new TransparentUpgradeableProxy(address(gatewayLogic), address(0xab), "")));
         address[] memory initialWitnesses = new address[](1);
         initialWitnesses[0] = witnesses[0].addr;
         gateway.initialize(owner, initialWitnesses);
@@ -121,10 +145,10 @@ contract ExocoreBtcGatewayTest is Test {
     function test_initialize() public {
         assertEq(gateway.owner(), owner);
         assertTrue(gateway.authorizedWitnesses(witnesses[0].addr));
-        assertEq(gateway.authorizedWitnessCount(), 2);
+        assertEq(gateway.authorizedWitnessCount(), 1);
     }
 
-    function test_AddWitness() public {
+    function test_AddWitness_Success() public {
         vm.prank(owner);
 
         vm.expectEmit(true, false, false, false);
@@ -132,7 +156,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         gateway.addWitness(witnesses[1].addr);
         assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
-        assertEq(gateway.authorizedWitnessCount(), 3);
+        assertEq(gateway.authorizedWitnessCount(), 2);
     }
 
     function test_AddWitness_RevertNotOwner() public {
@@ -153,7 +177,7 @@ contract ExocoreBtcGatewayTest is Test {
         gateway.addWitness(witnesses[1].addr);
 
         // Try to add the same witness again
-        vm.expectRevert("Witness already authorized");
+        vm.expectRevert(abi.encodeWithSelector(Errors.WitnessAlreadyAuthorized.selector, witnesses[1].addr));
         gateway.addWitness(witnesses[1].addr);
         vm.stopPrank();
     }
@@ -168,7 +192,12 @@ contract ExocoreBtcGatewayTest is Test {
     }
 
     function test_RemoveWitness() public {
-        vm.prank(owner);
+        vm.startPrank(owner);
+
+        // we need to add a witness before removing the first witness, since we cannot remove the last witness
+        gateway.addWitness(witnesses[1].addr);
+        assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
+        assertEq(gateway.authorizedWitnessCount(), 2);
 
         vm.expectEmit(true, false, false, false);
         emit WitnessRemoved(witnesses[0].addr);
@@ -185,9 +214,14 @@ contract ExocoreBtcGatewayTest is Test {
     }
 
     function test_RemoveWitness_RevertWitnessNotAuthorized() public {
-        vm.prank(owner);
-        vm.expectRevert(abi.encodeWithSelector(Errors.WitnessNotAuthorized.selector, witnesses[1].addr));
-        gateway.removeWitness(witnesses[1].addr);
+        // first add another witness to make total witnesses count 2
+        vm.startPrank(owner);
+        gateway.addWitness(witnesses[1].addr);
+
+        // try to remove the unauthorized one
+        vm.expectRevert(abi.encodeWithSelector(Errors.WitnessNotAuthorized.selector, witnesses[2].addr));
+        gateway.removeWitness(witnesses[2].addr);
+        vm.stopPrank();
     }
 
     function test_RemoveWitness_RevertWhenPaused() public {
@@ -200,17 +234,13 @@ contract ExocoreBtcGatewayTest is Test {
     }
 
     function test_RemoveWitness_CannotRemoveLastWitness() public {
-        // First remove all witnesses except one
-        vm.startPrank(owner);
-        for (uint256 i = 0; i < witnesses.length; i++) {
-            if (gateway.authorizedWitnesses(witnesses[i].addr)) {
-                gateway.removeWitness(witnesses[i].addr);
-            }
-        }
+        // there should be only one witness added
+        assertEq(gateway.authorizedWitnessCount(), 1);
 
+        vm.startPrank(owner);
         // Try to remove the hardcoded witness
         vm.expectRevert(Errors.CannotRemoveLastWitness.selector);
-        gateway.removeWitness(EXOCORE_WITNESS);
+        gateway.removeWitness(witnesses[0].addr);
         vm.stopPrank();
     }
 
@@ -220,6 +250,11 @@ contract ExocoreBtcGatewayTest is Test {
         // First add another witness
         gateway.addWitness(witnesses[1].addr);
         assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
+        assertEq(gateway.authorizedWitnessCount(), 2);
+
+        // And add another witness
+        gateway.addWitness(witnesses[2].addr);
+        assertTrue(gateway.authorizedWitnesses(witnesses[2].addr));
         assertEq(gateway.authorizedWitnessCount(), 3);
 
         // Remove first witness
@@ -269,7 +304,7 @@ contract ExocoreBtcGatewayTest is Test {
 
     function test_UpdateBridgeFee_RevertExceedMax() public {
         vm.prank(owner);
-        vm.expectRevert("Fee cannot exceed 10%");
+        vm.expectRevert("Fee cannot exceed max bridge fee rate");
         gateway.updateBridgeFeeRate(1001); // 10.01%
     }
 
@@ -308,7 +343,7 @@ contract ExocoreBtcGatewayTest is Test {
         vm.stopPrank();
     }
 
-    function test_ActivateStakingForClientChain() public {
+    function test_ActivateStakingForClientChain_Success() public {
         vm.startPrank(owner);
 
         // Mock successful chain registration
@@ -502,7 +537,7 @@ contract ExocoreBtcGatewayTest is Test {
         vm.stopPrank();
     }
 
-    function test_SubmitProofForStakeMsg() public {
+    function test_SubmitProofForStakeMsg_Success() public {
         _addAllWitnesses();
 
         // Create stake message
@@ -526,20 +561,26 @@ contract ExocoreBtcGatewayTest is Test {
         gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature);
 
         // mock Assets precompile deposit success and Delegation precompile delegate success
-        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.depositLST.selector), abi.encode(true));
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            abi.encodeWithSelector(IAssets.depositLST.selector),
+            abi.encode(true, stakeMsg.amount)
+        );
         vm.mockCall(
             DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
         );
 
         // Submit proof from second witness
         signature = _generateSignature(stakeMsg, witnesses[1].privateKey);
-        vm.prank(witnesses[1].addr);
+        vm.prank(relayer);
         vm.expectEmit(true, true, false, true);
         emit ProofSubmitted(txId, witnesses[1].addr);
 
         // This should trigger message execution as we have enough proofs
         vm.expectEmit(true, false, false, false);
-        emit StakeMsgExecuted(txId);
+        emit StakeMsgExecuted(stakeMsg.chainId, stakeMsg.nonce, stakeMsg.exocoreAddress, stakeMsg.amount);
+        vm.expectEmit(true, false, false, false);
+        emit TransactionProcessed(txId);
         gateway.submitProofForStakeMsg(witnesses[1].addr, stakeMsg, signature);
 
         // Verify message was processed
@@ -687,7 +728,11 @@ contract ExocoreBtcGatewayTest is Test {
         // as PROOFS_REQUIRED is 2, the transaction should be processed after another witness submits proof
 
         // mock Assets precompile deposit success and Delegation precompile delegate success
-        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.depositLST.selector), abi.encode(true));
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            abi.encodeWithSelector(IAssets.depositLST.selector),
+            abi.encode(true, stakeMsg.amount)
+        );
         vm.mockCall(
             DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
         );
@@ -749,7 +794,11 @@ contract ExocoreBtcGatewayTest is Test {
         });
 
         // mock Assets precompile deposit success and Delegation precompile delegate success
-        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.depositLST.selector), abi.encode(true));
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            abi.encodeWithSelector(IAssets.depositLST.selector),
+            abi.encode(true, stakeMsg.amount)
+        );
         vm.mockCall(
             DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
         );
@@ -759,10 +808,13 @@ contract ExocoreBtcGatewayTest is Test {
         vm.prank(relayer);
         vm.expectEmit(true, true, true, true);
         emit AddressRegistered(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddress, user);
+        vm.expectEmit(true, true, true, true);
+        emit StakeMsgExecuted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, stakeMsg.nonce, user, stakeMsg.amount);
         gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
 
         // Verify address registration
         assertEq(gateway.getClientChainAddress(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user), btcAddress);
+        assertEq(gateway.getExocoreAddress(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddress), user);
     }
 
     function test_ProcessStakeMessage_WithBridgeFee() public {
@@ -782,13 +834,17 @@ contract ExocoreBtcGatewayTest is Test {
 
         // then relayer submits proof and we should see the bridge fee deducted from the amount
         bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+        uint256 amountAfterFee = 1 ether - 1 ether * 100 / 10_000;
 
         // mock Assets precompile deposit success and Delegation precompile delegate success
-        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.depositLST.selector), abi.encode(true));
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            abi.encodeWithSelector(IAssets.depositLST.selector),
+            abi.encode(true, amountAfterFee)
+        );
         vm.mockCall(
             DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
         );
-        uint256 amountAfterFee = 1 ether - 1 ether * 100 / 10_000;
 
         vm.expectEmit(true, true, true, true, address(gateway));
         emit DepositCompleted(
@@ -797,7 +853,7 @@ contract ExocoreBtcGatewayTest is Test {
             user,
             stakeMsg.srcAddress,
             amountAfterFee,
-            stakeMsg.amount
+            amountAfterFee
         );
 
         vm.expectEmit(true, true, true, true, address(gateway));
@@ -819,9 +875,13 @@ contract ExocoreBtcGatewayTest is Test {
         });
 
         // mock Assets precompile deposit success and Delegation precompile delegate success
-        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IAssets.deposit.selector), abi.encode(true));
         vm.mockCall(
-            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IDelegation.delegate.selector), abi.encode(true)
+            ASSETS_PRECOMPILE_ADDRESS,
+            abi.encodeWithSelector(IAssets.depositLST.selector),
+            abi.encode(true, stakeMsg.amount)
+        );
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
         );
 
         bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
@@ -829,7 +889,7 @@ contract ExocoreBtcGatewayTest is Test {
         vm.prank(relayer);
         vm.expectEmit(true, true, true, true);
         emit DelegationCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
-        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_DelegationFailureNotRevert() public {
@@ -844,9 +904,13 @@ contract ExocoreBtcGatewayTest is Test {
         });
 
         // mock Assets precompile deposit success and Delegation precompile delegate failure
-        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IAssets.deposit.selector), abi.encode(true));
         vm.mockCall(
-            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IDelegation.delegate.selector), abi.encode(false)
+            ASSETS_PRECOMPILE_ADDRESS,
+            abi.encodeWithSelector(IAssets.depositLST.selector),
+            abi.encode(true, stakeMsg.amount)
+        );
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(false)
         );
 
         bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
@@ -854,13 +918,20 @@ contract ExocoreBtcGatewayTest is Test {
         vm.prank(relayer);
         // deposit should be successful
         vm.expectEmit(true, true, true, true);
-        emit DepositCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, 1 ether);
+        emit DepositCompleted(
+            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            stakeMsg.txTag,
+            user,
+            stakeMsg.srcAddress,
+            1 ether,
+            stakeMsg.amount
+        );
 
         // delegation should fail
         vm.expectEmit(true, true, true, true);
         emit DelegationFailedForStake(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
 
-        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_RevertOnDepositFailure() public {
@@ -875,13 +946,15 @@ contract ExocoreBtcGatewayTest is Test {
         });
 
         // mock Assets precompile deposit failure
-        vm.mockCall(ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IAssets.deposit.selector), abi.encode(false));
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.depositLST.selector), abi.encode(false, 0)
+        );
 
         bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
 
         vm.prank(relayer);
         vm.expectRevert(abi.encodeWithSelector(Errors.DepositFailed.selector, bytes("tx1")));
-        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_RevertWhenPaused() public {
@@ -900,9 +973,9 @@ contract ExocoreBtcGatewayTest is Test {
         vm.prank(owner);
         gateway.pause();
 
-        vm.prank(witnesses[0]);
+        vm.prank(relayer);
         vm.expectRevert("Pausable: paused");
-        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_RevertUnauthorizedWitness() public {
@@ -919,9 +992,9 @@ contract ExocoreBtcGatewayTest is Test {
         Player memory unauthorizedWitness = Player({addr: vm.addr(0x999), privateKey: 0x999});
         bytes memory signature = _generateSignature(stakeMsg, unauthorizedWitness.privateKey);
 
-        vm.prank(unauthorizedWitness);
-        vm.expectRevert(abi.encodeWithSelector(Errors.WitnessNotAuthorized.selector, unauthorizedWitness));
-        gateway.processStakeMessage(unauthorizedWitness, stakeMsg, signature);
+        vm.prank(unauthorizedWitness.addr);
+        vm.expectRevert(abi.encodeWithSelector(Errors.WitnessNotAuthorized.selector, unauthorizedWitness.addr));
+        gateway.processStakeMessage(unauthorizedWitness.addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_RevertInvalidStakeMessage() public {
@@ -940,7 +1013,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(relayer);
         vm.expectRevert(Errors.InvalidStakeMessage.selector);
-        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_RevertZeroExocoreAddressBeforeRegistration() public {
@@ -958,7 +1031,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(relayer);
         vm.expectRevert(Errors.ZeroAddress.selector);
-        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
     function test_ProcessStakeMessage_RevertInvalidNonce() public {
@@ -968,7 +1041,7 @@ contract ExocoreBtcGatewayTest is Test {
             exocoreAddress: user,
             operator: "",
             amount: 1 ether,
-            nonce: gateway.nextInboundNonce() + 1,
+            nonce: gateway.nextInboundNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin) + 1,
             txTag: bytes("tx1")
         });
 
@@ -976,18 +1049,20 @@ contract ExocoreBtcGatewayTest is Test {
 
         vm.prank(relayer);
         vm.expectRevert(
-            abi.encodeWithSelector(Errors.UnexpectedInboundNonce.selector, gateway.nextInboundNonce(), stakeMsg.nonce)
+            abi.encodeWithSelector(
+                Errors.UnexpectedInboundNonce.selector, gateway.nextInboundNonce(stakeMsg.chainId), stakeMsg.nonce
+            )
         );
-        gateway.processStakeMessage(witnesses[0], stakeMsg, signature);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
     }
 
-    function test_DelegateTo() public {
+    function test_DelegateTo_Success() public {
         // Setup: Register user's client chain address first
         _mockRegisterAddress(user, btcAddress);
 
         // mock delegation precompile delegate success
         vm.mockCall(
-            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IDelegation.delegate.selector), abi.encode(true)
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
         );
 
         vm.prank(user);
@@ -1042,7 +1117,7 @@ contract ExocoreBtcGatewayTest is Test {
 
         // Mock delegation failure
         vm.mockCall(
-            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSignature(IDelegation.delegate.selector), abi.encode(false)
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(false)
         );
 
         vm.prank(user);
@@ -1050,16 +1125,325 @@ contract ExocoreBtcGatewayTest is Test {
         gateway.delegateTo(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
     }
 
+    function test_UndelegateFrom_Success() public {
+        // Setup: Register user's client chain address first
+        _mockRegisterAddress(user, btcAddress);
+
+        // mock delegation precompile undelegate success
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.undelegate.selector), abi.encode(true)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit UndelegationCompleted(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, user, operator, 1 ether);
+
+        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+
+        // Verify nonce increment
+        assertEq(gateway.delegationNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 1);
+    }
+
+    function test_UndelegateFrom_RevertZeroAmount() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 0);
+    }
+
+    function test_UndelegateFrom_RevertWhenPaused() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        vm.prank(owner);
+        gateway.pause();
+
+        vm.prank(user);
+        vm.expectRevert("Pausable: paused");
+        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+    }
+
+    function test_UndelegateFrom_RevertNotRegistered() public {
+        // Don't register user's address
+
+        vm.prank(user);
+        vm.expectRevert(Errors.AddressNotRegistered.selector);
+        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+    }
+
+    function test_UndelegateFrom_RevertInvalidOperator() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        string memory invalidOperator = "not-a-bech32-address";
+
+        vm.prank(user);
+        vm.expectRevert(Errors.InvalidOperator.selector);
+        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, invalidOperator, 1 ether);
+    }
+
+    function test_UndelegateFrom_RevertUndelegationFailed() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        // mock delegation precompile undelegate failure
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.undelegate.selector), abi.encode(false)
+        );
+
+        vm.prank(user);
+        vm.expectRevert(Errors.UndelegationFailed.selector);
+        gateway.undelegateFrom(ExocoreBtcGatewayStorage.Token.BTC, operator, 1 ether);
+    }
+
+    function test_WithdrawPrincipal_Success() public {
+        // Setup: Register user's client chain address first
+        _mockRegisterAddress(user, btcAddress);
+
+        // mock assets precompile withdrawLST success and return updated balance
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.withdrawLST.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawPrincipalRequested(
+            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            1, // first request ID
+            user,
+            btcAddress,
+            1 ether,
+            2 ether
+        );
+
+        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+
+        // Verify pegOutNonce increment
+        assertEq(gateway.pegOutNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 1);
+    }
+
+    function test_WithdrawPrincipal_RevertWhenPaused() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        vm.prank(owner);
+        gateway.pause();
+
+        vm.prank(user);
+        vm.expectRevert("Pausable: paused");
+        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+    }
+
+    function test_WithdrawPrincipal_RevertZeroAmount() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 0);
+    }
+
+    function test_WithdrawPrincipal_RevertWithdrawFailed() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        // mock assets precompile withdrawLST failure
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.withdrawLST.selector), abi.encode(false, 0)
+        );
+
+        vm.prank(user);
+        vm.expectRevert(Errors.WithdrawPrincipalFailed.selector);
+        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+    }
+
+    function test_WithdrawPrincipal_RevertNotRegistered() public {
+        // Don't register user's address
+
+        vm.prank(user);
+        vm.expectRevert(Errors.AddressNotRegistered.selector);
+        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+    }
+
+    function test_WithdrawPrincipal_VerifyPegOutRequest() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        // mock Assets precompile withdrawLST success and return updated balance
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IAssets.withdrawLST.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        gateway.withdrawPrincipal(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+
+        // Verify peg-out request details
+        ExocoreBtcGatewayStorage.PegOutRequest memory request = gateway.getPegOutRequest(1);
+        assertEq(uint8(request.chainId), uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin));
+        assertEq(request.requester, user);
+        assertEq(request.clientChainAddress, btcAddress);
+        assertEq(request.amount, 1 ether);
+        assertEq(uint8(request.withdrawType), uint8(ExocoreBtcGatewayStorage.WithdrawType.WithdrawPrincipal));
+        assertTrue(request.timestamp > 0);
+    }
+
+    function test_WithdrawReward_Success() public {
+        // Setup: Register user's client chain address first
+        _mockRegisterAddress(user, btcAddress);
+
+        // mock Reward precompile claimReward success and return updated balance
+        vm.mockCall(
+            REWARD_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IReward.claimReward.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        vm.expectEmit(true, true, true, true);
+        emit WithdrawRewardRequested(
+            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            1, // first request ID
+            user,
+            btcAddress,
+            1 ether,
+            2 ether
+        );
+
+        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+
+        // Verify pegOutNonce increment
+        assertEq(gateway.pegOutNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 1);
+    }
+
+    function test_WithdrawReward_RevertWhenPaused() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        vm.prank(owner);
+        gateway.pause();
+
+        vm.prank(user);
+        vm.expectRevert("Pausable: paused");
+        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+    }
+
+    function test_WithdrawReward_RevertZeroAmount() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        vm.prank(user);
+        vm.expectRevert(Errors.ZeroAmount.selector);
+        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 0);
+    }
+
+    function test_WithdrawReward_RevertClaimFailed() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        // mock claimReward failure
+        vm.mockCall(
+            REWARD_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IReward.claimReward.selector), abi.encode(false, 0)
+        );
+
+        vm.prank(user);
+        vm.expectRevert(Errors.WithdrawRewardFailed.selector);
+        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+    }
+
+    function test_WithdrawReward_RevertAddressNotRegistered() public {
+        // Don't register user's address - try to withdraw without registration
+
+        vm.prank(user);
+        vm.expectRevert(Errors.AddressNotRegistered.selector);
+        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+    }
+
+    function test_WithdrawReward_VerifyPegOutRequest() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        // mock Reward precompile claimReward success and return updated balance
+        vm.mockCall(
+            REWARD_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IReward.claimReward.selector), abi.encode(true, 2 ether)
+        );
+
+        vm.prank(user);
+        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+
+        // Verify peg-out request details
+        ExocoreBtcGatewayStorage.PegOutRequest memory request = gateway.getPegOutRequest(1);
+        assertEq(uint8(request.chainId), uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin));
+        assertEq(request.requester, user);
+        assertEq(request.clientChainAddress, btcAddress);
+        assertEq(request.amount, 1 ether);
+        assertEq(uint8(request.withdrawType), uint8(ExocoreBtcGatewayStorage.WithdrawType.WithdrawReward));
+        assertTrue(request.timestamp > 0);
+    }
+
+    function test_WithdrawReward_MultipleRequests() public {
+        _mockRegisterAddress(user, btcAddress);
+
+        // Mock successful claimReward
+        bytes memory claimCall1 = abi.encodeWithSelector(
+            IReward.claimReward.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            VIRTUAL_TOKEN,
+            user.toExocoreBytes(),
+            1 ether
+        );
+        vm.mockCall(REWARD_PRECOMPILE_ADDRESS, claimCall1, abi.encode(true, 2 ether));
+
+        bytes memory claimCall2 = abi.encodeWithSelector(
+            IReward.claimReward.selector,
+            uint32(uint8(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin)),
+            VIRTUAL_TOKEN,
+            user.toExocoreBytes(),
+            0.5 ether
+        );
+        vm.mockCall(REWARD_PRECOMPILE_ADDRESS, claimCall2, abi.encode(true, 1.5 ether));
+
+        vm.startPrank(user);
+
+        // First withdrawal
+        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 1 ether);
+
+        // Second withdrawal
+        gateway.withdrawReward(ExocoreBtcGatewayStorage.Token.BTC, 0.5 ether);
+
+        vm.stopPrank();
+
+        // Verify both requests exist with correct details
+        ExocoreBtcGatewayStorage.PegOutRequest memory request1 = gateway.getPegOutRequest(1);
+        assertEq(request1.amount, 1 ether);
+
+        ExocoreBtcGatewayStorage.PegOutRequest memory request2 = gateway.getPegOutRequest(2);
+        assertEq(request2.amount, 0.5 ether);
+
+        // Verify nonce increment
+        assertEq(gateway.pegOutNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin), 2);
+    }
+
     // Helper functions
     function _mockRegisterAddress(address exocoreAddr, bytes memory btcAddr) internal {
-        stdstore.target(address(gateway)).sig("inboundRegistry(ClientChainID, bytes)").with_key(
-            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddr
-        ).checked_write(exocoreAddr);
-        stdstore.target(address(gateway)).sig("outboundRegistry(ClientChainID, address)").with_key(
-            ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, exocoreAddr
-        ).checked_write(btcAddr);
-        assertEq(gateway.inboundRegistry(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddr), exocoreAddr);
-        assertEq(gateway.outboundRegistry(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, exocoreAddr), btcAddr);
+        ExocoreBtcGatewayStorage.StakeMsg memory stakeMsg = ExocoreBtcGatewayStorage.StakeMsg({
+            chainId: ExocoreBtcGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddr,
+            exocoreAddress: exocoreAddr,
+            operator: "",
+            amount: 1 ether,
+            nonce: gateway.nextInboundNonce(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin),
+            txTag: bytes("tx1")
+        });
+
+        // mock Assets precompile deposit success and Delegation precompile delegate success
+        vm.mockCall(
+            ASSETS_PRECOMPILE_ADDRESS,
+            abi.encodeWithSelector(IAssets.depositLST.selector),
+            abi.encode(true, stakeMsg.amount)
+        );
+        vm.mockCall(
+            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
+        );
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.expectEmit(true, true, true, true, address(gateway));
+        emit AddressRegistered(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddr, exocoreAddr);
+
+        vm.prank(relayer);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
+
+        // Verify address registration
+        assertEq(gateway.getClientChainAddress(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, exocoreAddr), btcAddr);
+        assertEq(gateway.getExocoreAddress(ExocoreBtcGatewayStorage.ClientChainID.Bitcoin, btcAddr), exocoreAddr);
     }
 
     function _addAllWitnesses() internal {
@@ -1094,7 +1478,7 @@ contract ExocoreBtcGatewayTest is Test {
         bytes32 messageHash = _getMessageHash(msg_);
 
         // Sign the encoded message hash
-        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, messageHash);
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, messageHash.toEthSignedMessageHash());
 
         // Return the signature in the format expected by the contract
         return abi.encodePacked(r, s, v);

@@ -327,6 +327,9 @@ library Errors {
     /// @dev ExocoreBtcGateway: invalid operator address
     error InvalidOperator();
 
+    /// @dev ExocoreBtcGateway: invalid token
+    error InvalidToken();
+
     /// @dev ExocoreBtcGateway: witness has already been authorized
     error WitnessAlreadyAuthorized(address witness);
 
@@ -347,5 +350,23 @@ library Errors {
 
     /// @dev ExocoreBtcGateway: delegation failed
     error DelegationFailed();
+
+    /// @dev ExocoreBtcGateway: withdraw principal failed
+    error WithdrawPrincipalFailed();
+
+    /// @dev ExocoreBtcGateway: undelegation failed
+    error UndelegationFailed();
+
+    /// @dev ExocoreBtcGateway: withdraw reward failed
+    error WithdrawRewardFailed();
+
+    /// @dev ExocoreBtcGateway: request not found
+    error RequestNotFound(uint64 requestId);
+
+    /// @dev ExocoreBtcGateway: request already exists
+    error RequestAlreadyExists(uint64 requestId);
+
+    /// @dev ExocoreBtcGateway: witness not authorized
+    error UnauthorizedWitness();
 
 }

@@ -192,6 +192,22 @@ contract ExocoreBtcGatewayStorage {
     uint256[40] private __gap;
 
     // Events
+
+    /**
+     * @dev Emitted when a stake message is executed
+     * @param chainId The LayerZero chain ID of the client chain
+     * @param nonce The nonce of the stake message
+     * @param exocoreAddress The Exocore address of the depositor
+     * @param amount The amount deposited(delegated)
+     */
+    event StakeMsgExecuted(ClientChainID indexed chainId, uint64 nonce, address indexed exocoreAddress, uint256 amount);
+
+    /**
+     * @dev Emitted when a transaction is processed
+     * @param txId The hash of the stake message
+     */
+    event TransactionProcessed(bytes32 indexed txId);
+
     /**
      * @dev Emitted when a deposit is completed
      * @param srcChainId The source chain ID
@@ -339,9 +355,8 @@ contract ExocoreBtcGatewayStorage {
      * @dev Emitted when a proof is submitted
      * @param messageHash The hash of the stake message
      * @param witness The address of the witness submitting the proof
-     * @param message The stake message associated with the proof
      */
-    event ProofSubmitted(bytes32 indexed messageHash, address indexed witness, StakeMsg message);
+    event ProofSubmitted(bytes32 indexed messageHash, address indexed witness);
 
     /**
      * @dev Emitted when a deposit is processed
@@ -411,97 +426,6 @@ contract ExocoreBtcGatewayStorage {
     /// @param clientChainId The LayerZero chain ID of the client chain.
     /// @param token The address of the token.
     event WhitelistTokenUpdated(uint32 clientChainId, address indexed token);
-
-    // Errors
-    /**
-     * @dev Thrown when an unauthorized witness attempts an action
-     */
-    error UnauthorizedWitness();
-
-    /**
-     * @dev Thrown when registering a client chain to Exocore fails
-     * @param clientChainId The ID of the client chain that failed to register
-     */
-    error RegisterClientChainToExocoreFailed(uint32 clientChainId);
-
-    /**
-     * @dev Thrown when a zero address is provided where it's not allowed
-     */
-    error ZeroAddressNotAllowed();
-
-    /**
-     * @dev Thrown when attempting to process a Bitcoin transaction that has already been processed
-     */
-    error BtcTxAlreadyProcessed();
-
-    /**
-     * @dev Thrown when an address is not registered
-     */
-    error AddressNotRegistered();
-
-    /**
-     * @dev Thrown when trying to process a request with an invalid status
-     * @param requestId The ID of the request with the invalid status
-     */
-    error InvalidRequestStatus(bytes32 requestId);
-
-    /**
-     * @dev Thrown when the requested peg-out does not exist
-     * @param requestId The ID of the non-existent request
-     */
-    error RequestNotFound(uint64 requestId);
-
-    /**
-     * @dev Thrown when attempting to create a request that already exists
-     * @param requestId The ID of the existing request
-     */
-    error RequestAlreadyExists(uint64 requestId);
-
-    /**
-     * @dev Thrown when a deposit operation fails
-     * @param btcTxTag The Bitcoin transaction tag of the failed deposit
-     */
-    error DepositFailed(bytes btcTxTag);
-
-    /**
-     * @dev Thrown when a principal withdrawal operation fails
-     */
-    error WithdrawPrincipalFailed();
-
-    /**
-     * @dev Thrown when a reward withdrawal operation fails
-     */
-    error WithdrawRewardFailed();
-
-    /**
-     * @dev Thrown when a delegation operation fails, not when processing a stake message
-     */
-    error DelegationFailed();
-
-    /**
-     * @dev Thrown when an undelegation operation fails
-     */
-    error UndelegationFailed();
-
-    /**
-     * @dev Thrown when an Ether transfer fails
-     */
-    error EtherTransferFailed();
-
-    /**
-     * @dev Thrown when an invalid signature is provided
-     */
-    error InvalidSignature();
-
-    /**
-     * @dev Thrown when an unexpected inbound nonce is encountered
-     * @param expectedNonce The expected nonce
-     * @param actualNonce The actual nonce received
-     */
-    error UnexpectedInboundNonce(uint64 expectedNonce, uint64 actualNonce);
-
-    error InvalidTokenType();
-    error InvalidClientChainId();
 
     /**
      * @dev Modifier to check if an amount is valid
