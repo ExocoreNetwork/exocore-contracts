@@ -327,7 +327,7 @@ async function updateGenesisFile() {
           const validatorStates = (await api.beacon.getStateValidators(
             {stateId: stateRoot, validatorIds: pubKeys.map(pubKey => parseInt(pubKey, 16))}
           )).value();
-          let totalEffectiveBalance = new Decimal(0);;
+          let totalEffectiveBalance = new Decimal(0);
           for(let k = 0; k < validatorStates.length; k++) {
             const validator = validatorStates[k];
             // https://hackmd.io/@protolambda/validator_status
@@ -507,7 +507,7 @@ async function updateGenesisFile() {
     if (!genesisJSON.app_state.delegation.associations) {
       genesisJSON.app_state.delegation.associations = [];
     }
-    const validators = [];
+    let validators = [];
     const operators = [];
     const associations = [];
     const operatorsCount = await myContract.methods.getValidatorsCount().call();
@@ -715,7 +715,7 @@ async function updateGenesisFile() {
       return b.power.cmp(a.power);
     });
     // pick top N by vote power
-    validators.slice(0, genesisJSON.app_state.dogfood.params.max_validators);
+    validators = validators.slice(0, genesisJSON.app_state.dogfood.params.max_validators);
     let totalPower = 0;
     validators.forEach((val) => {
       // truncate
@@ -840,8 +840,9 @@ async function updateGenesisFile() {
     );
     console.log('Genesis file updated successfully.');
   } catch (error) {
-    console.error('Error updating genesis file:', error.message);
-    console.error('Stack trace:', error.stack); 
+    console.error(
+      'Error updating genesis file:', error.message, '\nstack trace:', error.stack
+    );
   }
 };
 
