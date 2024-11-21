@@ -25,7 +25,6 @@ for var in "${vars[@]}"; do
 	fi
 done
 
-# Fetch the validator details and save them to container.json
 if ! curl -s -X GET "$INTEGRATION_BEACON_CHAIN_ENDPOINT/eth/v1/beacon/genesis" -H "accept: application/json" | jq . >"$SCRIPT_DIR/genesis.json"; then
 	echo "Error: Failed to fetch genesis data from the beacon chain"
 	exit 1
@@ -57,13 +56,13 @@ fi
 deposit_address=$(jq -r .data.DEPOSIT_CONTRACT_ADDRESS "$SCRIPT_DIR/genesis.json")
 slots_per_epoch=$(jq -r .data.SLOTS_PER_EPOCH "$SCRIPT_DIR/spec.json")
 if ! [[ "$slots_per_epoch" =~ ^[0-9]+$ ]]; then
-    echo "Error: Invalid slots per epoch"
-    exit 1
+	echo "Error: Invalid slots per epoch"
+	exit 1
 fi
 seconds_per_slot=$(jq -r .data.SECONDS_PER_SLOT "$SCRIPT_DIR/spec.json")
 if ! [[ "$seconds_per_slot" =~ ^[0-9]+$ ]]; then
-    echo "Error: Invalid seconds per slot"
-    exit 1
+	echo "Error: Invalid seconds per slot"
+	exit 1
 fi
 
 # Make the variables available to the forge script

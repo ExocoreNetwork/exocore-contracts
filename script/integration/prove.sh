@@ -22,14 +22,8 @@ done
 
 # Check for the files to exist
 if [ ! -f "$SCRIPT_DIR/spec.json" ]; then
-    echo "Error: spec.json not found in $SCRIPT_DIR"
-    exit 1
-fi
-
-# Check for the files to exist
-if [ ! -f "$SCRIPT_DIR/container.json" ]; then
-    echo "Error: container.json not found in $SCRIPT_DIR"
-    exit 1
+	echo "Error: spec.json not found in $SCRIPT_DIR"
+	exit 1
 fi
 
 # Fetch the validator details and save them to container.json
@@ -67,23 +61,23 @@ slot=$((slots_per_epoch * epoch))
 
 # Now derive the proof using the proof generation binary, which must already be running configured to the localnet
 response=$(curl -s -w "%{http_code}" -X POST -H "Content-Type: application/json" \
-    -d "{\"slot\": $slot, \"validator_index\": $validator_index}" \
-    $INTEGRATION_PROVE_ENDPOINT/v1/validator-proof)
+	-d "{\"slot\": $slot, \"validator_index\": $validator_index}" \
+	$INTEGRATION_PROVE_ENDPOINT/v1/validator-proof)
 
 http_code=${response: -3}
 body=${response:0:${#response}-3}
 
 if [ "$http_code" != "200" ]; then
-    echo "Error: Failed to generate proof. HTTP code: $http_code"
-    echo "Response: $body"
-    exit 1
+	echo "Error: Failed to generate proof. HTTP code: $http_code"
+	echo "Response: $body"
+	exit 1
 fi
 
 echo "$body" | jq . >"$SCRIPT_DIR/proof.json"
 
 if [ ! -s "$SCRIPT_DIR/proof.json" ]; then
-    echo "Error: Generated proof is empty"
-    exit 1
+	echo "Error: Generated proof is empty"
+	exit 1
 fi
 
 export INTEGRATION_NST_DEPOSITOR=$INTEGRATION_NST_DEPOSITOR
