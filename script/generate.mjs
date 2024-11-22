@@ -43,7 +43,7 @@ const nativeAsset = {
   "staking_total_amount": "0"
 };
 const EXOCORE_BECH32_PREFIX = 'exo';
-const VIRTUAL_STAKED_ETH_ADDR = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE"
+const VIRTUAL_STAKED_ETH_ADDR = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
 const GWEI_TO_WEI = new Decimal(1e9);
 
 import dotenv from 'dotenv';
@@ -302,12 +302,35 @@ async function updateGenesisFile() {
       // break;
     }
     // bind nstETH asset_id to the ETH token, if nstETH is found.
+    let found = false;
     genesisJSON.app_state.oracle.params.tokens = oracleTokens.map((token) => {
       if (token.name == hasNst.remainder) {
+        found = true;
         token.asset_id += "," + hasNst.asset_id;
       }
       return token;
     });
+    if (!found && hasNst.status) {
+      // add `ETH` manually, if `nstETH` exists but not `ETH` in the oracle tokens.
+      // the former in `tokens` is to get the validator effective balance from beacon, denominated in ETH.
+      // the latter in `tokens` is to get the price of ETH in USD.
+      genesisJSON.app_state.oracle.params.tokens.push({
+        name: hasNst.remainder,
+        chain_id: 1,
+        contract_address: VIRTUAL_STAKED_ETH_ADDR,
+        active: true,
+        asset_id: hasNst.asset_id,
+        decimal: 8,
+      });
+      genesisJSON.app_state.oracle.params.token_feeders.push({
+        token_id: (Number(supportedTokensCount) + 1).toString(),
+        rule_id: "1",
+        start_round_id: "1",
+        start_base_block: (height + 20).toString(),
+        interval: "30",
+        end_block: "0",
+      });
+    }
     genesisJSON.app_state.oracle.params.token_feeders = oracleTokenFeeders;
     supportedTokens.sort((a, b) => {
       if (a.asset_basic_info.symbol < b.asset_basic_info.symbol) {
