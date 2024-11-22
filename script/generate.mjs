@@ -18,9 +18,10 @@ const tokenMetaInfos = [
 // this must be in the same order as whitelistTokens
 // they are provided because the symbol may not match what we are using from the price feeder.
 // for example, exoETH is not a real token and we are using the price feed for ETH.
-// the script will take care of mapping the duplicates to a common token for x/oracle params.
+// the script will take care of mapping the nstETH asset_id to the ETH asset_id in the oracle
+// tokens list.
 const tokenNamesForOracle = [
-  'ETH', 'ETH', 'wstETH' // not case sensitive
+  'nstETH', 'ETH', 'wstETH' // not case sensitive
 ]
 const nativeChain = {
   "name": "Exocore",
@@ -230,8 +231,8 @@ async function updateGenesisFile() {
     const assetIds = [];
     // start with the initial value
     const oracleTokens = genesisJSON.app_state.oracle.params.tokens;
-    const oracleTokenFeeders = [];
-    let offset = 0;
+    const oracleTokenFeeders = genesisJSON.app_state.oracle.params.token_feeders;
+    let hasNst = {};
     for (let i = 0; i < supportedTokensCount; i++) {
       let token = await myContract.methods.getWhitelistedTokenAtIndex(i).call();
       const deposit_amount = await myContract.methods.depositsByToken(token.tokenAddress).call();
@@ -251,35 +252,62 @@ async function updateGenesisFile() {
       supportedTokens[i] = tokenCleaned;
       decimals.push(token.decimals);
       assetIds.push(token.tokenAddress.toLowerCase() + clientChainSuffix);
-      const oracleToken = {
-        name: tokenNamesForOracle[i],
-        index: offset,
-        chain_id: 1,  // constant intentionally, representing the first chain in the list (after the reserved blank one)
-        contract_address: token.tokenAddress,
-        active: true,
-        asset_id: token.tokenAddress.toLowerCase() + clientChainSuffix,
-        decimal: 8, // price decimals, not token decimals
-      }
+      let oracleToken;
       const oracleTokenFeeder = {
-        token_id: (i + 1 - offset).toString(), // first is reserved
+        token_id: (i + 1).toString(), // first is reserved
         rule_id: "1",
         start_round_id: "1",
-        start_base_block: (height + 10000).toString(),
+        start_base_block: (height + 20).toString(),
         interval: "30",
         end_block: "0",
-      }
-      if (oracleToken.name in oracleTokens) {
-        oracleTokens[oracleToken.name].asset_id += ',' + oracleToken.asset_id;
-        offset += 1;
+      };
+      if (tokenNamesForOracle[i].toLowerCase().startsWith('nst')) {
+        if (token.tokenAddress != VIRTUAL_STAKED_ETH_ADDR) {
+          throw new Error('Oracle name refers to NST token but this is LST');
+        }
+        oracleToken = {
+          name: tokenNamesForOracle[i],
+          chain_id: 1, // first chain in the list
+          contract_address: '',
+          active: true,
+          asset_id: '',
+          decimal: 8, // price decimals, not token decimals
+        };
       } else {
-        oracleTokens[oracleToken.name] = oracleToken;
-        oracleTokenFeeders.push(oracleTokenFeeder);
+        if (token.tokenAddress == VIRTUAL_STAKED_ETH_ADDR) {
+          throw new Error('Oracle name refers to LST token but this is NST');
+        }
+        oracleToken = {
+          name: tokenNamesForOracle[i],
+          chain_id: 1,
+          contract_address: token.tokenAddress,
+          active: true,
+          asset_id: token.tokenAddress.toLowerCase() + clientChainSuffix,
+          decimal: 8,
+        };
+      }
+      oracleTokens.push(oracleToken);
+      oracleTokenFeeders.push(oracleTokenFeeder);
+      if (oracleToken.name.toLowerCase().startsWith('nst')) {
+        if (hasNst.status) {
+          throw new Error('Multiple NST tokens found.');
+        }
+        hasNst = {
+          // only used for tracking multiple NST tokens
+          status: true,
+          asset_id: token.tokenAddress.toLowerCase() + clientChainSuffix,
+          remainder: oracleToken.name.slice(3),
+        };
       }
       // break;
     }
-    genesisJSON.app_state.oracle.params.tokens = Object.values(oracleTokens)
-      .sort((a, b) => a.index - b.index)
-      .map(({index, ...rest}) => rest);
+    // bind nstETH asset_id to the ETH token, if nstETH is found.
+    genesisJSON.app_state.oracle.params.tokens = oracleTokens.map((token) => {
+      if (token.name == hasNst.remainder) {
+        token.asset_id += "," + hasNst.asset_id;
+      }
+      return token;
+    });
     genesisJSON.app_state.oracle.params.token_feeders = oracleTokenFeeders;
     supportedTokens.sort((a, b) => {
       if (a.asset_basic_info.symbol < b.asset_basic_info.symbol) {
