@@ -55,7 +55,7 @@ contract UTXOGatewayTest is Test {
     string public constant BTC_METADATA = "BTC";
     string public constant BTC_ORACLE_INFO = "BTC,BITCOIN,8";
 
-    uint256 public constant REQUIRED_PROOFS = 2;
+    uint256 public initialRequiredProofs = 3;
     uint256 public constant PROOF_TIMEOUT = 1 days;
 
     event WitnessAdded(address indexed witness);
@@ -124,6 +124,10 @@ contract UTXOGatewayTest is Test {
         uint256 amount
     );
 
+    event ConsensusActivated(uint256 requiredProofs, uint256 authorizedWitnessCount);
+    event ConsensusDeactivated(uint256 requiredProofs, uint256 authorizedWitnessCount);
+    event RequiredProofsUpdated(uint256 oldRequired, uint256 newRequired);
+
     function setUp() public {
         owner = address(1);
         user = address(2);
@@ -140,13 +144,68 @@ contract UTXOGatewayTest is Test {
         gateway = UTXOGateway(address(new TransparentUpgradeableProxy(address(gatewayLogic), address(0xab), "")));
         address[] memory initialWitnesses = new address[](1);
         initialWitnesses[0] = witnesses[0].addr;
-        gateway.initialize(owner, initialWitnesses);
+        gateway.initialize(owner, initialWitnesses, initialRequiredProofs);
     }
 
     function test_initialize() public {
         assertEq(gateway.owner(), owner);
         assertTrue(gateway.authorizedWitnesses(witnesses[0].addr));
         assertEq(gateway.authorizedWitnessCount(), 1);
+        assertEq(gateway.requiredProofs(), initialRequiredProofs);
+        assertFalse(gateway.isConsensusRequired());
+    }
+
+    function test_UpdateRequiredProofs_Success() public {
+        uint256 oldRequiredProofs = gateway.requiredProofs();
+
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit RequiredProofsUpdated(oldRequiredProofs, 2);
+        gateway.updateRequiredProofs(2);
+
+        assertEq(gateway.requiredProofs(), 2);
+    }
+
+    function test_UpdateRequiredProofs_ConsensusStateChange() public {
+        // Initially consensus should be inactive (1 witnesses < 3 required)
+        assertFalse(gateway.isConsensusRequired());
+        uint256 oldRequiredProofs = gateway.requiredProofs();
+        uint256 witnessCount = gateway.authorizedWitnessCount();
+
+        // Lower required proofs to 1, should activate consensus
+        vm.prank(owner);
+        vm.expectEmit(true, true, true, true);
+        emit RequiredProofsUpdated(oldRequiredProofs, witnessCount);
+        vm.expectEmit(true, true, true, true);
+        emit ConsensusActivated(witnessCount, witnessCount);
+        gateway.updateRequiredProofs(witnessCount);
+
+        assertTrue(gateway.isConsensusRequired());
+    }
+
+    function test_UpdateRequiredProofs_RevertInvalidValue() public {
+        vm.startPrank(owner);
+        vm.expectRevert(Errors.InvalidRequiredProofs.selector);
+        gateway.updateRequiredProofs(0); // Below minimum
+
+        vm.expectRevert(Errors.InvalidRequiredProofs.selector);
+        gateway.updateRequiredProofs(11); // Above maximum
+        vm.stopPrank();
+    }
+
+    function test_UpdateRequiredProofs_RevertNotOwner() public {
+        vm.prank(user);
+        vm.expectRevert("Ownable: caller is not the owner");
+        gateway.updateRequiredProofs(2);
+    }
+
+    function test_UpdateRequiredProofs_RevertWhenPaused() public {
+        vm.startPrank(owner);
+        gateway.pause();
+
+        vm.expectRevert("Pausable: paused");
+        gateway.updateRequiredProofs(2);
+        vm.stopPrank();
     }
 
     function test_AddWitness_Success() public {
@@ -189,6 +248,27 @@ contract UTXOGatewayTest is Test {
 
         vm.expectRevert("Pausable: paused");
         gateway.addWitness(witnesses[1].addr);
+        vm.stopPrank();
+    }
+
+    function test_AddWitness_ConsensusActivation() public {
+        // initially we have 1 witness, and required proofs is 3
+        assertEq(gateway.authorizedWitnessCount(), 1);
+        assertEq(gateway.requiredProofs(), 3);
+        assertFalse(gateway.isConsensusRequired());
+
+        vm.startPrank(owner);
+        // Add second witness - no consensus event
+        gateway.addWitness(witnesses[1].addr);
+
+        // Add third witness - should emit ConsensusActivated
+        vm.expectEmit(true, true, true, true);
+        emit ConsensusActivated(gateway.requiredProofs(), gateway.authorizedWitnessCount() + 1);
+        gateway.addWitness(witnesses[2].addr);
+
+        // Add fourth witness - no consensus event
+        gateway.addWitness(address(0xaa));
+
         vm.stopPrank();
     }
 
@@ -269,6 +349,24 @@ contract UTXOGatewayTest is Test {
         assertFalse(gateway.authorizedWitnesses(witnesses[1].addr));
         assertEq(gateway.authorizedWitnessCount(), 1);
 
+        vm.stopPrank();
+    }
+
+    function test_RemoveWitness_ConsensusDeactivation() public {
+        // add total 3 witnesses
+        _addAllWitnesses();
+
+        // set
+        vm.startPrank(owner);
+        gateway.updateRequiredProofs(2);
+
+        // Remove one witness - no consensus event
+        gateway.removeWitness(witnesses[2].addr);
+
+        // Remove another witness - should emit ConsensusDeactivated
+        vm.expectEmit(true, true, true, true);
+        emit ConsensusDeactivated(gateway.requiredProofs(), gateway.authorizedWitnessCount() - 1);
+        gateway.removeWitness(witnesses[1].addr);
         vm.stopPrank();
     }
 
@@ -540,6 +638,7 @@ contract UTXOGatewayTest is Test {
 
     function test_SubmitProofForStakeMsg_Success() public {
         _addAllWitnesses();
+        _activateConsensus();
 
         // Create stake message
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
@@ -561,6 +660,14 @@ contract UTXOGatewayTest is Test {
         emit ProofSubmitted(txId, witnesses[0].addr);
         gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature);
 
+        // Submit proof from second witness
+        signature = _generateSignature(stakeMsg, witnesses[1].privateKey);
+        vm.prank(relayer);
+        vm.expectEmit(true, true, false, true);
+        emit ProofSubmitted(txId, witnesses[1].addr);
+        gateway.submitProofForStakeMsg(witnesses[1].addr, stakeMsg, signature);
+
+        // Submit proof from thrid witness and trigger message execution as we have enough proofs
         // mock Assets precompile deposit success and Delegation precompile delegate success
         vm.mockCall(
             ASSETS_PRECOMPILE_ADDRESS,
@@ -571,26 +678,46 @@ contract UTXOGatewayTest is Test {
             DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
         );
 
-        // Submit proof from second witness
-        signature = _generateSignature(stakeMsg, witnesses[1].privateKey);
+        signature = _generateSignature(stakeMsg, witnesses[2].privateKey);
         vm.prank(relayer);
-        vm.expectEmit(true, true, false, true);
-        emit ProofSubmitted(txId, witnesses[1].addr);
-
-        // This should trigger message execution as we have enough proofs
         vm.expectEmit(true, false, false, false);
         emit StakeMsgExecuted(stakeMsg.chainId, stakeMsg.nonce, stakeMsg.exocoreAddress, stakeMsg.amount);
         vm.expectEmit(true, false, false, false);
         emit TransactionProcessed(txId);
-        gateway.submitProofForStakeMsg(witnesses[1].addr, stakeMsg, signature);
+        gateway.submitProofForStakeMsg(witnesses[2].addr, stakeMsg, signature);
 
         // Verify message was processed
         assertTrue(gateway.processedClientChainTxs(stakeMsg.chainId, stakeMsg.txTag));
         assertTrue(gateway.processedTransactions(txId));
     }
 
+    function test_SubmitProofForStakeMsg_RevertConsensusDeactivated() public {
+        _addAllWitnesses();
+
+        // deactivate consensus for stake message by updating the value of requiredProofs
+        _deactivateConsensus();
+
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        // First witness submits proof
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        vm.expectRevert(abi.encodeWithSelector(Errors.ConsensusNotRequired.selector));
+        gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature);
+    }
+
     function test_SubmitProofForStakeMsg_RevertInvalidSignature() public {
         _addAllWitnesses();
+        _activateConsensus();
 
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
@@ -611,6 +738,7 @@ contract UTXOGatewayTest is Test {
 
     function test_SubmitProofForStakeMsg_RevertUnauthorizedWitness() public {
         _addAllWitnesses();
+        _activateConsensus();
 
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
@@ -632,6 +760,7 @@ contract UTXOGatewayTest is Test {
 
     function test_SubmitProofForStakeMsg_ExpiredBeforeConsensus() public {
         _addAllWitnesses();
+        _activateConsensus();
 
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
@@ -643,8 +772,8 @@ contract UTXOGatewayTest is Test {
             txTag: bytes("tx1")
         });
 
-        // Submit proofs from REQUIRED_PROOFS - 1 witnesses
-        for (uint256 i = 0; i < REQUIRED_PROOFS - 1; i++) {
+        // Submit proofs from requiredProofs - 1 witnesses
+        for (uint256 i = 0; i < gateway.requiredProofs() - 1; i++) {
             bytes memory signature = _generateSignature(stakeMsg, witnesses[i].privateKey);
             vm.prank(relayer);
             gateway.submitProofForStakeMsg(witnesses[i].addr, stakeMsg, signature);
@@ -654,9 +783,9 @@ contract UTXOGatewayTest is Test {
         vm.warp(block.timestamp + PROOF_TIMEOUT + 1);
 
         // Submit the last proof
-        bytes memory lastSignature = _generateSignature(stakeMsg, witnesses[REQUIRED_PROOFS - 1].privateKey);
+        bytes memory lastSignature = _generateSignature(stakeMsg, witnesses[gateway.requiredProofs() - 1].privateKey);
         vm.prank(relayer);
-        gateway.submitProofForStakeMsg(witnesses[REQUIRED_PROOFS - 1].addr, stakeMsg, lastSignature);
+        gateway.submitProofForStakeMsg(witnesses[gateway.requiredProofs() - 1].addr, stakeMsg, lastSignature);
 
         // Verify transaction is restarted owing to expired and not processed
         bytes32 messageHash = _getMessageHash(stakeMsg);
@@ -667,6 +796,7 @@ contract UTXOGatewayTest is Test {
 
     function test_SubmitProofForStakeMsg_RestartExpiredTransaction() public {
         _addAllWitnesses();
+        _activateConsensus();
 
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
@@ -702,6 +832,9 @@ contract UTXOGatewayTest is Test {
 
     function test_SubmitProofForStakeMsg_JoinRestartedTransaction() public {
         _addAllWitnesses();
+        _activateConsensus();
+        // afater activating consensus, required proofs should be set as 3
+        assertEq(gateway.requiredProofs(), 3);
 
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
@@ -726,19 +859,8 @@ contract UTXOGatewayTest is Test {
         vm.prank(relayer);
         gateway.submitProofForStakeMsg(witnesses[1].addr, stakeMsg, signature1);
 
-        // as PROOFS_REQUIRED is 2, the transaction should be processed after another witness submits proof
-
-        // mock Assets precompile deposit success and Delegation precompile delegate success
-        vm.mockCall(
-            ASSETS_PRECOMPILE_ADDRESS,
-            abi.encodeWithSelector(IAssets.depositLST.selector),
-            abi.encode(true, stakeMsg.amount)
-        );
-        vm.mockCall(
-            DELEGATION_PRECOMPILE_ADDRESS, abi.encodeWithSelector(IDelegation.delegate.selector), abi.encode(true)
-        );
-
         // First witness can submit proof again in new round
+        // as requiredProofs is 3, the transaction should not be processed even if the first witness submits proof
         bytes memory signature0New = _generateSignature(stakeMsg, witnesses[0].privateKey);
         vm.prank(relayer);
         gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signature0New);
@@ -746,19 +868,17 @@ contract UTXOGatewayTest is Test {
         bytes32 messageHash = _getMessageHash(stakeMsg);
 
         // Verify both witnesses' proofs are counted
-        assertEq(
-            uint8(gateway.getTransactionStatus(messageHash)), uint8(UTXOGatewayStorage.TxStatus.NotStartedOrProcessed)
-        );
-        assertTrue(gateway.processedTransactions(messageHash));
-        assertTrue(gateway.processedClientChainTxs(stakeMsg.chainId, stakeMsg.txTag));
-        assertTrue(gateway.getTransactionWitnessTime(messageHash, witnesses[0].addr) > 0); // mapping can not be deleted
-            // even if we delete txn after processing
-        assertTrue(gateway.getTransactionWitnessTime(messageHash, witnesses[1].addr) > 0); // mapping can not be deleted
-            // even if we delete txn after processing
+        assertEq(uint8(gateway.getTransactionStatus(messageHash)), uint8(UTXOGatewayStorage.TxStatus.Pending));
+        assertEq(gateway.getTransactionProofCount(messageHash), 2);
+        assertFalse(gateway.processedTransactions(messageHash));
+        assertFalse(gateway.processedClientChainTxs(stakeMsg.chainId, stakeMsg.txTag));
+        assertTrue(gateway.getTransactionWitnessTime(messageHash, witnesses[0].addr) > 0);
+        assertTrue(gateway.getTransactionWitnessTime(messageHash, witnesses[1].addr) > 0);
     }
 
     function test_SubmitProofForStakeMsg_RevertDuplicateProofInSameRound() public {
         _addAllWitnesses();
+        _activateConsensus();
 
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
@@ -782,7 +902,29 @@ contract UTXOGatewayTest is Test {
         gateway.submitProofForStakeMsg(witnesses[0].addr, stakeMsg, signatureSecond);
     }
 
+    function test_ProcessStakeMessage_RevertConsensusActivated() public {
+        _activateConsensus();
+
+        UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
+            chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
+            srcAddress: btcAddress,
+            exocoreAddress: user,
+            operator: operator,
+            amount: 1 ether,
+            nonce: 1,
+            txTag: bytes("tx1")
+        });
+
+        bytes memory signature = _generateSignature(stakeMsg, witnesses[0].privateKey);
+
+        vm.prank(relayer);
+        vm.expectRevert(Errors.ConsensusRequired.selector);
+        gateway.processStakeMessage(witnesses[0].addr, stakeMsg, signature);
+    }
+
     function test_ProcessStakeMessage_RegisterNewAddress() public {
+        _deactivateConsensus();
+
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
@@ -818,6 +960,8 @@ contract UTXOGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_WithBridgeFee() public {
+        _deactivateConsensus();
+
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
@@ -864,6 +1008,8 @@ contract UTXOGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_WithDelegation() public {
+        _deactivateConsensus();
+
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
@@ -935,6 +1081,8 @@ contract UTXOGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertOnDepositFailure() public {
+        _deactivateConsensus();
+
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
@@ -958,6 +1106,8 @@ contract UTXOGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertWhenPaused() public {
+        _deactivateConsensus();
+
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
@@ -979,6 +1129,8 @@ contract UTXOGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertUnauthorizedWitness() public {
+        _deactivateConsensus();
+
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
@@ -998,6 +1150,8 @@ contract UTXOGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertInvalidStakeMessage() public {
+        _deactivateConsensus();
+
         // Create invalid message with all zero values
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.None,
@@ -1017,6 +1171,8 @@ contract UTXOGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertZeroExocoreAddressBeforeRegistration() public {
+        _deactivateConsensus();
+
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
@@ -1035,6 +1191,8 @@ contract UTXOGatewayTest is Test {
     }
 
     function test_ProcessStakeMessage_RevertInvalidNonce() public {
+        _deactivateConsensus();
+
         UTXOGatewayStorage.StakeMsg memory stakeMsg = UTXOGatewayStorage.StakeMsg({
             chainId: UTXOGatewayStorage.ClientChainID.Bitcoin,
             srcAddress: btcAddress,
@@ -1601,6 +1759,18 @@ contract UTXOGatewayTest is Test {
 
         // Return the signature in the format expected by the contract
         return abi.encodePacked(r, s, v);
+    }
+
+    function _activateConsensus() internal {
+        vm.startPrank(owner);
+        gateway.updateRequiredProofs(gateway.authorizedWitnessCount());
+        vm.stopPrank();
+    }
+
+    function _deactivateConsensus() internal {
+        vm.startPrank(owner);
+        gateway.updateRequiredProofs(gateway.authorizedWitnessCount() + 1);
+        vm.stopPrank();
     }
 
 }

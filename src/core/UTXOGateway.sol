@@ -31,13 +31,37 @@ contract UTXOGateway is
     using SignatureVerifier for bytes32;
 
     /**
-     * @dev Modifier to restrict access to authorized witnesses only.
+     * @notice Constructor to initialize the contract with the client chain ID.
+     * @dev Sets up initial configuration for testing purposes.
      */
-    modifier onlyAuthorizedWitness() {
-        if (!_isAuthorizedWitness(msg.sender)) {
-            revert Errors.UnauthorizedWitness();
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @notice Initializes the contract with the Exocore witness address, owner address and required proofs.
+     * @dev If the witnesses length is greater or equal to the required proofs, the consensus requirement for stake
+     * message
+     * would be activated.
+     * @param owner_ The address of the owner.
+     * @param witnesses The addresses of the witnesses.
+     * @param requiredProofs_ The number of required proofs.
+     */
+    function initialize(address owner_, address[] calldata witnesses, uint256 requiredProofs_) external initializer {
+        if (owner_ == address(0) || witnesses.length == 0) {
+            revert Errors.ZeroAddress();
         }
-        _;
+        if (requiredProofs_ < MIN_REQUIRED_PROOFS || requiredProofs_ > MAX_REQUIRED_PROOFS) {
+            revert Errors.InvalidRequiredProofs();
+        }
+
+        requiredProofs = requiredProofs_;
+        for (uint256 i = 0; i < witnesses.length; i++) {
+            _addWitness(witnesses[i]);
+        }
+        __Pausable_init_unchained();
+        __ReentrancyGuard_init_unchained();
+        _transferOwnership(owner_);
     }
 
     /**
@@ -57,31 +81,6 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Constructor to initialize the contract with the client chain ID.
-     * @dev Sets up initial configuration for testing purposes.
-     */
-    constructor() {
-        _disableInitializers();
-    }
-
-    /**
-     * @notice Initializes the contract with the Exocore witness address and owner address.
-     * @param owner_ The address of the owner.
-     * @param witnesses The addresses of the witnesses.
-     */
-    function initialize(address owner_, address[] calldata witnesses) external initializer {
-        if (owner_ == address(0) || witnesses.length == 0) {
-            revert Errors.ZeroAddress();
-        }
-        for (uint256 i = 0; i < witnesses.length; i++) {
-            _addWitness(witnesses[i]);
-        }
-        __Pausable_init_unchained();
-        __ReentrancyGuard_init_unchained();
-        _transferOwnership(owner_);
-    }
-
-    /**
      * @notice Activates token staking by registering or updating the chain and token with the Exocore system.
      */
     function activateStakingForClientChain(ClientChainID clientChain_) external onlyOwner whenNotPaused {
@@ -92,6 +91,33 @@ contract UTXOGateway is
             _registerOrUpdateToken(clientChain_, VIRTUAL_TOKEN, BTC_DECIMALS, BTC_NAME, BTC_METADATA, BTC_ORACLE_INFO);
         } else {
             revert Errors.InvalidClientChain();
+        }
+    }
+
+    /**
+     * @notice Updates the required proofs for consensus.
+     * @notice The consensus requirement for stake message would be activated if the current authorized witness count is
+     * greater than or equal to the new required proofs.
+     * @dev Can only be called by the contract owner.
+     * @param newRequiredProofs The new required proofs.
+     */
+    function updateRequiredProofs(uint256 newRequiredProofs) external onlyOwner whenNotPaused {
+        if (newRequiredProofs < MIN_REQUIRED_PROOFS || newRequiredProofs > MAX_REQUIRED_PROOFS) {
+            revert Errors.InvalidRequiredProofs();
+        }
+
+        bool wasConsensusRequired = _isConsensusRequired();
+        uint256 oldRequiredProofs = requiredProofs;
+        requiredProofs = newRequiredProofs;
+
+        emit RequiredProofsUpdated(oldRequiredProofs, newRequiredProofs);
+
+        // Check if consensus state changed due to new requirement
+        bool isConsensusRequired_ = _isConsensusRequired();
+        if (!wasConsensusRequired && isConsensusRequired_) {
+            emit ConsensusActivated(requiredProofs, authorizedWitnessCount);
+        } else if (wasConsensusRequired && !isConsensusRequired_) {
+            emit ConsensusDeactivated(requiredProofs, authorizedWitnessCount);
         }
     }
 
@@ -117,9 +143,17 @@ contract UTXOGateway is
         if (!authorizedWitnesses[_witness]) {
             revert Errors.WitnessNotAuthorized(_witness);
         }
+
+        bool wasConsensusRequired = _isConsensusRequired();
+
         authorizedWitnesses[_witness] = false;
         authorizedWitnessCount--;
         emit WitnessRemoved(_witness);
+
+        // Emit only when crossing the threshold from true to false
+        if (wasConsensusRequired && !_isConsensusRequired()) {
+            emit ConsensusDeactivated(requiredProofs, authorizedWitnessCount);
+        }
     }
 
     /**
@@ -148,6 +182,10 @@ contract UTXOGateway is
         nonReentrant
         whenNotPaused
     {
+        if (!_isConsensusRequired()) {
+            revert Errors.ConsensusNotRequired();
+        }
+
         if (!_isAuthorizedWitness(witness)) {
             revert Errors.WitnessNotAuthorized(witness);
         }
@@ -178,7 +216,7 @@ contract UTXOGateway is
         emit ProofSubmitted(messageHash, witness);
 
         // Check for consensus
-        if (txn.proofCount >= REQUIRED_PROOFS) {
+        if (txn.proofCount >= requiredProofs) {
             processedTransactions[messageHash] = true;
             _processStakeMsg(txn.stakeMsg);
             // we delete the transaction after it has been processed to refund some gas, so no need to worry about
@@ -200,6 +238,10 @@ contract UTXOGateway is
         nonReentrant
         whenNotPaused
     {
+        if (_isConsensusRequired()) {
+            revert Errors.ConsensusRequired();
+        }
+
         if (!_isAuthorizedWitness(witness)) {
             revert Errors.WitnessNotAuthorized(witness);
         }
@@ -432,6 +474,18 @@ contract UTXOGateway is
         return transactions[messageHash].witnessTime[witness];
     }
 
+    function isConsensusRequired() external view returns (bool) {
+        return _isConsensusRequired();
+    }
+
+    /**
+     * @notice Checks if consensus is required for a stake message.
+     * @return True if count of authorized witnesses is greater than or equal to REQUIRED_PROOFS, false otherwise.
+     */
+    function _isConsensusRequired() internal view returns (bool) {
+        return authorizedWitnessCount >= requiredProofs;
+    }
+
     /**
      * @notice Checks if a witness is authorized.
      * @param witness The witness address.
@@ -448,9 +502,17 @@ contract UTXOGateway is
         if (_isAuthorizedWitness(_witness)) {
             revert Errors.WitnessAlreadyAuthorized(_witness);
         }
+
+        bool wasConsensusRequired = _isConsensusRequired();
+
         authorizedWitnesses[_witness] = true;
         authorizedWitnessCount++;
         emit WitnessAdded(_witness);
+
+        // Emit only when crossing the threshold from false to true
+        if (!wasConsensusRequired && _isConsensusRequired()) {
+            emit ConsensusActivated(requiredProofs, authorizedWitnessCount);
+        }
     }
 
     /**

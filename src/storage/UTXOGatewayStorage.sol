@@ -115,12 +115,17 @@ contract UTXOGatewayStorage {
     string public constant BTC_METADATA = "BTC";
     string public constant BTC_ORACLE_INFO = "BTC,BITCOIN,8";
 
-    address public constant EXOCORE_WITNESS = address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266);
-    uint256 public constant REQUIRED_PROOFS = 2;
     uint256 public constant PROOF_TIMEOUT = 1 days;
     uint256 public bridgeFeeRate; // e.g., 100 (basis points) means 1%
     uint256 public constant BASIS_POINTS = 10_000; // 100% = 10000 basis points
     uint256 public constant MAX_BRIDGE_FEE_RATE = 1000; // 10%
+
+    // Add min/max bounds for safety
+    uint256 public constant MIN_REQUIRED_PROOFS = 1;
+    uint256 public constant MAX_REQUIRED_PROOFS = 10;
+
+    /// @notice The number of proofs required for consensus
+    uint256 public requiredProofs;
 
     /// @notice The count of authorized witnesses
     uint256 public authorizedWitnessCount;
@@ -194,6 +199,13 @@ contract UTXOGatewayStorage {
     uint256[40] private __gap;
 
     // Events
+
+    /**
+     * @dev Emitted when the required proofs is updated
+     * @param oldRequired The old required proofs
+     * @param newRequired The new required proofs
+     */
+    event RequiredProofsUpdated(uint256 oldRequired, uint256 newRequired);
 
     /**
      * @dev Emitted when a stake message is executed
@@ -435,6 +447,16 @@ contract UTXOGatewayStorage {
     /// @param token The address of the token.
     event WhitelistTokenUpdated(uint32 clientChainId, address indexed token);
 
+    /// @notice Emitted when consensus is activated
+    /// @param requiredWitnessesCount The number of required witnesses
+    /// @param authorizedWitnessesCount The number of authorized witnesses
+    event ConsensusActivated(uint256 requiredWitnessesCount, uint256 authorizedWitnessesCount);
+
+    /// @notice Emitted when consensus is deactivated
+    /// @param requiredWitnessesCount The number of required witnesses
+    /// @param authorizedWitnessesCount The number of authorized witnesses
+    event ConsensusDeactivated(uint256 requiredWitnessesCount, uint256 authorizedWitnessesCount);
+
     /**
      * @dev Modifier to check if an amount is valid
      * @param amount The amount to check
@@ -449,6 +471,16 @@ contract UTXOGatewayStorage {
     modifier isRegistered(Token token, address exocoreAddress) {
         if (outboundRegistry[ClientChainID(uint8(token))][exocoreAddress].length == 0) {
             revert Errors.AddressNotRegistered();
+        }
+        _;
+    }
+
+    /**
+     * @dev Modifier to restrict access to authorized witnesses only.
+     */
+    modifier onlyAuthorizedWitness() {
+        if (!authorizedWitnesses[msg.sender]) {
+            revert Errors.UnauthorizedWitness();
         }
         _;
     }
