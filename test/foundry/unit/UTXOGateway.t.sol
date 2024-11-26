@@ -208,165 +208,205 @@ contract UTXOGatewayTest is Test {
         vm.stopPrank();
     }
 
-    function test_AddWitness_Success() public {
+    function test_AddWitnesses_Success() public {
         vm.prank(owner);
 
         vm.expectEmit(true, false, false, false);
         emit WitnessAdded(witnesses[1].addr);
 
-        gateway.addWitness(witnesses[1].addr);
+        address[] memory witnessesToAdd = new address[](1);
+        witnessesToAdd[0] = witnesses[1].addr;
+        gateway.addWitnesses(witnessesToAdd);
         assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
         assertEq(gateway.authorizedWitnessCount(), 2);
     }
 
-    function test_AddWitness_RevertNotOwner() public {
+    function test_AddWitnesses_RevertNotOwner() public {
+        address[] memory witnessesToAdd = new address[](1);
+        witnessesToAdd[0] = witnesses[1].addr;
+
         vm.prank(user);
         vm.expectRevert("Ownable: caller is not the owner");
-        gateway.addWitness(witnesses[1].addr);
+        gateway.addWitnesses(witnessesToAdd);
     }
 
-    function test_AddWitness_RevertZeroAddress() public {
+    function test_AddWitnesses_RevertZeroAddress() public {
+        address[] memory witnessesToAdd = new address[](1);
+        witnessesToAdd[0] = address(0);
+
         vm.prank(owner);
         vm.expectRevert(Errors.ZeroAddress.selector);
-        gateway.addWitness(address(0));
+        gateway.addWitnesses(witnessesToAdd);
     }
 
-    function test_AddWitness_RevertAlreadyAuthorized() public {
-        // First add a witness
+    function test_AddWitnesses_RevertAlreadyAuthorized() public {
+        address[] memory witnessesToAdd = new address[](1);
+        witnessesToAdd[0] = witnesses[1].addr;
+
         vm.startPrank(owner);
-        gateway.addWitness(witnesses[1].addr);
+        gateway.addWitnesses(witnessesToAdd);
 
         // Try to add the same witness again
         vm.expectRevert(abi.encodeWithSelector(Errors.WitnessAlreadyAuthorized.selector, witnesses[1].addr));
-        gateway.addWitness(witnesses[1].addr);
+        gateway.addWitnesses(witnessesToAdd);
         vm.stopPrank();
     }
 
-    function test_AddWitness_RevertWhenPaused() public {
+    function test_AddWitnesses_RevertWhenPaused() public {
+        address[] memory witnessesToAdd = new address[](1);
+        witnessesToAdd[0] = witnesses[1].addr;
+
         vm.startPrank(owner);
         gateway.pause();
 
         vm.expectRevert("Pausable: paused");
-        gateway.addWitness(witnesses[1].addr);
+        gateway.addWitnesses(witnessesToAdd);
         vm.stopPrank();
     }
 
-    function test_AddWitness_ConsensusActivation() public {
+    function test_AddWitnesses_ConsensusActivation() public {
         // initially we have 1 witness, and required proofs is 3
         assertEq(gateway.authorizedWitnessCount(), 1);
         assertEq(gateway.requiredProofs(), 3);
         assertFalse(gateway.isConsensusRequired());
 
+        address[] memory witnessesToAdd = new address[](1);
+
         vm.startPrank(owner);
         // Add second witness - no consensus event
-        gateway.addWitness(witnesses[1].addr);
+        witnessesToAdd[0] = witnesses[1].addr;
+        gateway.addWitnesses(witnessesToAdd);
 
         // Add third witness - should emit ConsensusActivated
+        witnessesToAdd[0] = witnesses[2].addr;
         vm.expectEmit(true, true, true, true);
         emit ConsensusActivated(gateway.requiredProofs(), gateway.authorizedWitnessCount() + 1);
-        gateway.addWitness(witnesses[2].addr);
+        gateway.addWitnesses(witnessesToAdd);
 
         // Add fourth witness - no consensus event
-        gateway.addWitness(address(0xaa));
+        witnessesToAdd[0] = address(0xaa);
+        gateway.addWitnesses(witnessesToAdd);
 
         vm.stopPrank();
     }
 
-    function test_RemoveWitness() public {
+    function test_RemoveWitnesses() public {
         vm.startPrank(owner);
+        address[] memory witnessesToAdd = new address[](1);
 
         // we need to add a witness before removing the first witness, since we cannot remove the last witness
-        gateway.addWitness(witnesses[1].addr);
+        witnessesToAdd[0] = witnesses[1].addr;
+        gateway.addWitnesses(witnessesToAdd);
         assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
         assertEq(gateway.authorizedWitnessCount(), 2);
 
         vm.expectEmit(true, false, false, false);
         emit WitnessRemoved(witnesses[0].addr);
 
-        gateway.removeWitness(witnesses[0].addr);
+        address[] memory witnessesToRemove = new address[](1);
+        witnessesToRemove[0] = witnesses[0].addr;
+        gateway.removeWitnesses(witnessesToRemove);
         assertFalse(gateway.authorizedWitnesses(witnesses[0].addr));
         assertEq(gateway.authorizedWitnessCount(), 1);
     }
 
-    function test_RemoveWitness_RevertNotOwner() public {
+    function test_RemoveWitnesses_RevertNotOwner() public {
+        address[] memory witnessesToRemove = new address[](1);
+        witnessesToRemove[0] = witnesses[0].addr;
+
         vm.prank(user);
         vm.expectRevert("Ownable: caller is not the owner");
-        gateway.removeWitness(witnesses[0].addr);
+        gateway.removeWitnesses(witnessesToRemove);
     }
 
-    function test_RemoveWitness_RevertWitnessNotAuthorized() public {
+    function test_RemoveWitnesses_RevertWitnessNotAuthorized() public {
         // first add another witness to make total witnesses count 2
+        address[] memory witnessesToAdd = new address[](1);
+        witnessesToAdd[0] = witnesses[1].addr;
         vm.startPrank(owner);
-        gateway.addWitness(witnesses[1].addr);
+        gateway.addWitnesses(witnessesToAdd);
 
         // try to remove the unauthorized one
+        address[] memory witnessesToRemove = new address[](1);
+        witnessesToRemove[0] = witnesses[2].addr;
         vm.expectRevert(abi.encodeWithSelector(Errors.WitnessNotAuthorized.selector, witnesses[2].addr));
-        gateway.removeWitness(witnesses[2].addr);
+        gateway.removeWitnesses(witnessesToRemove);
         vm.stopPrank();
     }
 
-    function test_RemoveWitness_RevertWhenPaused() public {
+    function test_RemoveWitnesses_RevertWhenPaused() public {
+        address[] memory witnessesToRemove = new address[](1);
+        witnessesToRemove[0] = witnesses[0].addr;
+
         vm.startPrank(owner);
         gateway.pause();
 
         vm.expectRevert("Pausable: paused");
-        gateway.removeWitness(witnesses[0].addr);
+        gateway.removeWitnesses(witnessesToRemove);
         vm.stopPrank();
     }
 
-    function test_RemoveWitness_CannotRemoveLastWitness() public {
+    function test_RemoveWitnesses_CannotRemoveLastWitness() public {
         // there should be only one witness added
         assertEq(gateway.authorizedWitnessCount(), 1);
+
+        address[] memory witnessesToRemove = new address[](1);
+        witnessesToRemove[0] = witnesses[0].addr;
 
         vm.startPrank(owner);
         // Try to remove the hardcoded witness
         vm.expectRevert(Errors.CannotRemoveLastWitness.selector);
-        gateway.removeWitness(witnesses[0].addr);
+        gateway.removeWitnesses(witnessesToRemove);
         vm.stopPrank();
     }
 
-    function test_RemoveWitness_MultipleRemovals() public {
+    function test_RemoveWitnesses_MultipleRemovals() public {
         vm.startPrank(owner);
 
-        // First add another witness
-        gateway.addWitness(witnesses[1].addr);
+        // First add another 2 witnesses
+        address[] memory witnessesToAdd = new address[](2);
+        witnessesToAdd[0] = witnesses[1].addr;
+        witnessesToAdd[1] = witnesses[2].addr;
+        gateway.addWitnesses(witnessesToAdd);
         assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
-        assertEq(gateway.authorizedWitnessCount(), 2);
-
-        // And add another witness
-        gateway.addWitness(witnesses[2].addr);
         assertTrue(gateway.authorizedWitnesses(witnesses[2].addr));
         assertEq(gateway.authorizedWitnessCount(), 3);
 
         // Remove first witness
-        gateway.removeWitness(witnesses[0].addr);
+        address[] memory witnessesToRemove = new address[](1);
+        witnessesToRemove[0] = witnesses[0].addr;
+        gateway.removeWitnesses(witnessesToRemove);
         assertFalse(gateway.authorizedWitnesses(witnesses[0].addr));
         assertTrue(gateway.authorizedWitnesses(witnesses[1].addr));
         assertEq(gateway.authorizedWitnessCount(), 2);
 
         // Remove second witness
-        gateway.removeWitness(witnesses[1].addr);
+        witnessesToRemove[0] = witnesses[1].addr;
+        gateway.removeWitnesses(witnessesToRemove);
         assertFalse(gateway.authorizedWitnesses(witnesses[1].addr));
         assertEq(gateway.authorizedWitnessCount(), 1);
 
         vm.stopPrank();
     }
 
-    function test_RemoveWitness_ConsensusDeactivation() public {
+    function test_RemoveWitnesses_ConsensusDeactivation() public {
         // add total 3 witnesses
         _addAllWitnesses();
 
-        // set
+        // set required proofs to 2
         vm.startPrank(owner);
         gateway.updateRequiredProofs(2);
 
         // Remove one witness - no consensus event
-        gateway.removeWitness(witnesses[2].addr);
+        address[] memory witnessesToRemove = new address[](1);
+        witnessesToRemove[0] = witnesses[2].addr;
+        gateway.removeWitnesses(witnessesToRemove);
 
         // Remove another witness - should emit ConsensusDeactivated
         vm.expectEmit(true, true, true, true);
         emit ConsensusDeactivated(gateway.requiredProofs(), gateway.authorizedWitnessCount() - 1);
-        gateway.removeWitness(witnesses[1].addr);
+        witnessesToRemove[0] = witnesses[1].addr;
+        gateway.removeWitnesses(witnessesToRemove);
         vm.stopPrank();
     }
 
@@ -1724,10 +1764,12 @@ contract UTXOGatewayTest is Test {
     }
 
     function _addAllWitnesses() internal {
+        address[] memory witnessesToAdd = new address[](1);
         for (uint256 i = 0; i < witnesses.length; i++) {
             if (!gateway.authorizedWitnesses(witnesses[i].addr)) {
+                witnessesToAdd[0] = witnesses[i].addr;
                 vm.prank(owner);
-                gateway.addWitness(witnesses[i].addr);
+                gateway.addWitnesses(witnessesToAdd);
             }
         }
     }

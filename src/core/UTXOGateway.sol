@@ -121,37 +121,28 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Adds a new authorized witness.
-     * @param _witness The address of the witness to be added.
+     * @notice Adds a group of authorized witnesses.
+     * @notice This could potentially activate consensus for stake message if the total witness count is greater than or
+     * equal to the required proofs.
+     * @param witnesses The addresses of the witnesses to be added.
      * @dev Can only be called by the contract owner.
      */
-    function addWitness(address _witness) external onlyOwner whenNotPaused {
-        _addWitness(_witness);
+    function addWitnesses(address[] calldata witnesses) external onlyOwner whenNotPaused {
+        for (uint256 i = 0; i < witnesses.length; i++) {
+            _addWitness(witnesses[i]);
+        }
     }
 
     /**
-     * @notice Removes an authorized witness.
-     * @param _witness The address of the witness to be removed.
+     * @notice Removes a group of authorized witnesses.
+     * @notice This could potentially deactivate consensus for stake message if the total witness count is less than the
+     * required proofs.
+     * @param witnesses The addresses of the witnesses to be removed.
      * @dev Can only be called by the contract owner.
-     * @custom:throws CannotRemoveLastWitness if the last witness is being removed
      */
-    function removeWitness(address _witness) external onlyOwner whenNotPaused {
-        if (authorizedWitnessCount <= 1) {
-            revert Errors.CannotRemoveLastWitness();
-        }
-        if (!authorizedWitnesses[_witness]) {
-            revert Errors.WitnessNotAuthorized(_witness);
-        }
-
-        bool wasConsensusRequired = _isConsensusRequired();
-
-        authorizedWitnesses[_witness] = false;
-        authorizedWitnessCount--;
-        emit WitnessRemoved(_witness);
-
-        // Emit only when crossing the threshold from true to false
-        if (wasConsensusRequired && !_isConsensusRequired()) {
-            emit ConsensusDeactivated(requiredProofs, authorizedWitnessCount);
+    function removeWitnesses(address[] calldata witnesses) external onlyOwner whenNotPaused {
+        for (uint256 i = 0; i < witnesses.length; i++) {
+            _removeWitness(witnesses[i]);
         }
     }
 
@@ -518,6 +509,26 @@ contract UTXOGateway is
         // Emit only when crossing the threshold from false to true
         if (!wasConsensusRequired && _isConsensusRequired()) {
             emit ConsensusActivated(requiredProofs, authorizedWitnessCount);
+        }
+    }
+
+    function _removeWitness(address _witness) internal {
+        if (authorizedWitnessCount <= 1) {
+            revert Errors.CannotRemoveLastWitness();
+        }
+        if (!authorizedWitnesses[_witness]) {
+            revert Errors.WitnessNotAuthorized(_witness);
+        }
+
+        bool wasConsensusRequired = _isConsensusRequired();
+
+        authorizedWitnesses[_witness] = false;
+        authorizedWitnessCount--;
+        emit WitnessRemoved(_witness);
+
+        // Emit only when crossing the threshold from true to false
+        if (wasConsensusRequired && !_isConsensusRequired()) {
+            emit ConsensusDeactivated(requiredProofs, authorizedWitnessCount);
         }
     }
 
