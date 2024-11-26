@@ -41,8 +41,7 @@ contract UTXOGateway is
     /**
      * @notice Initializes the contract with the Exocore witness address, owner address and required proofs.
      * @dev If the witnesses length is greater or equal to the required proofs, the consensus requirement for stake
-     * message
-     * would be activated.
+     * message would be activated.
      * @param owner_ The address of the owner.
      * @param witnesses The addresses of the witnesses.
      * @param requiredProofs_ The number of required proofs.
@@ -83,12 +82,12 @@ contract UTXOGateway is
     /**
      * @notice Activates token staking by registering or updating the chain and token with the Exocore system.
      */
-    function activateStakingForClientChain(ClientChainID clientChain_) external onlyOwner whenNotPaused {
-        if (clientChain_ == ClientChainID.Bitcoin) {
+    function activateStakingForClientChain(ClientChainID clientChainId) external onlyOwner whenNotPaused {
+        if (clientChainId == ClientChainID.Bitcoin) {
             _registerOrUpdateClientChain(
-                clientChain_, STAKER_ACCOUNT_LENGTH, BITCOIN_NAME, BITCOIN_METADATA, BITCOIN_SIGNATURE_SCHEME
+                clientChainId, STAKER_ACCOUNT_LENGTH, BITCOIN_NAME, BITCOIN_METADATA, BITCOIN_SIGNATURE_SCHEME
             );
-            _registerOrUpdateToken(clientChain_, VIRTUAL_TOKEN, BTC_DECIMALS, BTC_NAME, BTC_METADATA, BTC_ORACLE_INFO);
+            _registerOrUpdateToken(clientChainId, VIRTUAL_TOKEN, BTC_DECIMALS, BTC_NAME, BTC_METADATA, BTC_ORACLE_INFO);
         } else {
             revert Errors.InvalidClientChain();
         }
@@ -267,14 +266,14 @@ contract UTXOGateway is
             revert Errors.InvalidOperator();
         }
 
-        ClientChainID chainId = ClientChainID(uint8(token));
+        ClientChainID clientChainId = ClientChainID(uint8(token));
 
-        bool success = _delegate(chainId, msg.sender, operator, amount);
+        bool success = _delegate(clientChainId, msg.sender, operator, amount);
         if (!success) {
             revert Errors.DelegationFailed();
         }
 
-        emit DelegationCompleted(chainId, msg.sender, operator, amount);
+        emit DelegationCompleted(clientChainId, msg.sender, operator, amount);
     }
 
     /**
@@ -294,16 +293,16 @@ contract UTXOGateway is
             revert Errors.InvalidOperator();
         }
 
-        ClientChainID chainId = ClientChainID(uint8(token));
+        ClientChainID clientChainId = ClientChainID(uint8(token));
 
-        uint64 nonce = ++delegationNonce[chainId];
+        uint64 nonce = ++delegationNonce[clientChainId];
         bool success = DELEGATION_CONTRACT.undelegate(
-            uint32(uint8(chainId)), nonce, VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), bytes(operator), amount
+            uint32(uint8(clientChainId)), nonce, VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), bytes(operator), amount
         );
         if (!success) {
             revert Errors.UndelegationFailed();
         }
-        emit UndelegationCompleted(chainId, msg.sender, operator, amount);
+        emit UndelegationCompleted(clientChainId, msg.sender, operator, amount);
     }
 
     /**
@@ -312,22 +311,23 @@ contract UTXOGateway is
      * @param amount The amount to withdraw.
      */
     function withdrawPrincipal(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
-        ClientChainID chainId = ClientChainID(uint8(token));
+        ClientChainID clientChainId = ClientChainID(uint8(token));
 
-        bytes memory clientChainAddress = outboundRegistry[chainId][msg.sender];
-        if (clientChainAddress.length == 0) {
+        bytes memory clientAddress = outboundRegistry[clientChainId][msg.sender];
+        if (clientAddress.length == 0) {
             revert Errors.AddressNotRegistered();
         }
 
-        (bool success, uint256 updatedBalance) =
-            ASSETS_CONTRACT.withdrawLST(uint32(uint8(chainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount);
+        (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.withdrawLST(
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount
+        );
         if (!success) {
             revert Errors.WithdrawPrincipalFailed();
         }
 
         uint64 requestId =
-            _initiatePegOut(chainId, amount, msg.sender, clientChainAddress, WithdrawType.WithdrawPrincipal);
-        emit WithdrawPrincipalRequested(chainId, requestId, msg.sender, clientChainAddress, amount, updatedBalance);
+            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WithdrawPrincipal);
+        emit WithdrawPrincipalRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
     }
 
     /**
@@ -336,40 +336,42 @@ contract UTXOGateway is
      * @param amount The amount to withdraw.
      */
     function withdrawReward(Token token, uint256 amount) external nonReentrant whenNotPaused isValidAmount(amount) {
-        ClientChainID chainId = ClientChainID(uint8(token));
-        bytes memory clientChainAddress = outboundRegistry[chainId][msg.sender];
-        if (clientChainAddress.length == 0) {
+        ClientChainID clientChainId = ClientChainID(uint8(token));
+        bytes memory clientAddress = outboundRegistry[clientChainId][msg.sender];
+        if (clientAddress.length == 0) {
             revert Errors.AddressNotRegistered();
         }
 
-        (bool success, uint256 updatedBalance) =
-            REWARD_CONTRACT.claimReward(uint32(uint8(chainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount);
+        (bool success, uint256 updatedBalance) = REWARD_CONTRACT.claimReward(
+            uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount
+        );
         if (!success) {
             revert Errors.WithdrawRewardFailed();
         }
 
-        uint64 requestId = _initiatePegOut(chainId, amount, msg.sender, clientChainAddress, WithdrawType.WithdrawReward);
-        emit WithdrawRewardRequested(chainId, requestId, msg.sender, clientChainAddress, amount, updatedBalance);
+        uint64 requestId =
+            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WithdrawReward);
+        emit WithdrawRewardRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
     }
 
     /**
      * @notice Process a pending peg-out request
      * @dev Only authorized witnesses can call this function
      * @dev the processed request would be deleted from the pegOutRequests mapping
-     * @param clientChain The client chain ID
+     * @param clientChainId The client chain ID
      * @return nextRequest The next PegOutRequest
      * @custom:throws InvalidRequestStatus if the request status is not Pending
      * @custom:throws RequestNotFound if the request does not exist
      */
-    function processNextPegOut(ClientChainID clientChain)
+    function processNextPegOut(ClientChainID clientChainId)
         external
         onlyAuthorizedWitness
         nonReentrant
         whenNotPaused
         returns (PegOutRequest memory nextRequest)
     {
-        uint64 requestId = ++outboundNonce[clientChain];
-        nextRequest = pegOutRequests[clientChain][requestId];
+        uint64 requestId = ++outboundNonce[clientChainId];
+        nextRequest = pegOutRequests[clientChainId][requestId];
 
         // Check if the request exists
         if (nextRequest.requester == address(0)) {
@@ -377,64 +379,68 @@ contract UTXOGateway is
         }
 
         // delete the request
-        delete pegOutRequests[clientChain][requestId];
+        delete pegOutRequests[clientChainId][requestId];
 
         // Emit event
         emit PegOutProcessed(
             uint8(nextRequest.withdrawType),
-            clientChain,
+            clientChainId,
             requestId,
             nextRequest.requester,
-            nextRequest.clientChainAddress,
+            nextRequest.clientAddress,
             nextRequest.amount
         );
     }
 
     /**
      * @notice Gets the client chain address for a given Exocore address
-     * @param chainId The client chain ID
+     * @param clientChainId The client chain ID
      * @param exocoreAddress The Exocore address
      * @return The client chain address
      */
-    function getClientChainAddress(ClientChainID chainId, address exocoreAddress)
+    function getClientAddress(ClientChainID clientChainId, address exocoreAddress)
         external
         view
         returns (bytes memory)
     {
-        return outboundRegistry[chainId][exocoreAddress];
+        return outboundRegistry[clientChainId][exocoreAddress];
     }
 
     /**
      * @notice Gets the Exocore address for a given client chain address
-     * @param chainId The client chain ID
-     * @param clientChainAddress The client chain address
+     * @param clientChainId The client chain ID
+     * @param clientAddress The client chain address
      * @return The Exocore address
      */
-    function getExocoreAddress(ClientChainID chainId, bytes calldata clientChainAddress)
+    function getExocoreAddress(ClientChainID clientChainId, bytes calldata clientAddress)
         external
         view
         returns (address)
     {
-        return inboundRegistry[chainId][clientChainAddress];
+        return inboundRegistry[clientChainId][clientAddress];
     }
 
     /**
      * @notice Gets the next inbound nonce for a given source chain ID.
-     * @param srcChainId The source chain ID.
+     * @param clientChainId The client chain ID.
      * @return The next inbound nonce.
      */
-    function nextInboundNonce(ClientChainID srcChainId) external view returns (uint64) {
-        return inboundNonce[srcChainId] + 1;
+    function nextInboundNonce(ClientChainID clientChainId) external view returns (uint64) {
+        return inboundNonce[clientChainId] + 1;
     }
 
     /**
      * @notice Retrieves a PegOutRequest by client chain id and request id
-     * @param clientChain The client chain ID
+     * @param clientChainId The client chain ID
      * @param requestId The unique identifier of the request.
      * @return The PegOutRequest struct associated with the given requestId.
      */
-    function getPegOutRequest(ClientChainID clientChain, uint64 requestId) public view returns (PegOutRequest memory) {
-        return pegOutRequests[clientChain][requestId];
+    function getPegOutRequest(ClientChainID clientChainId, uint64 requestId)
+        public
+        view
+        returns (PegOutRequest memory)
+    {
+        return pegOutRequests[clientChainId][requestId];
     }
 
     /**
@@ -519,44 +525,44 @@ contract UTXOGateway is
      * @notice Registers or updates the Bitcoin chain with the Exocore system.
      */
     function _registerOrUpdateClientChain(
-        ClientChainID chainId,
+        ClientChainID clientChainId,
         uint8 stakerAccountLength,
         string memory name,
         string memory metadata,
         string memory signatureScheme
     ) internal {
-        uint32 chainIdUint32 = uint32(uint8(chainId));
         (bool success, bool updated) = ASSETS_CONTRACT.registerOrUpdateClientChain(
-            chainIdUint32, stakerAccountLength, name, metadata, signatureScheme
+            uint32(uint8(clientChainId)), stakerAccountLength, name, metadata, signatureScheme
         );
         if (!success) {
-            revert Errors.RegisterClientChainToExocoreFailed(chainIdUint32);
+            revert Errors.RegisterClientChainToExocoreFailed(uint32(uint8(clientChainId)));
         }
         if (updated) {
-            emit ClientChainUpdated(chainIdUint32);
+            emit ClientChainUpdated(clientChainId);
         } else {
-            emit ClientChainRegistered(chainIdUint32);
+            emit ClientChainRegistered(clientChainId);
         }
     }
 
     function _registerOrUpdateToken(
-        ClientChainID chainId,
+        ClientChainID clientChainId,
         bytes memory token,
         uint8 decimals,
         string memory name,
         string memory metadata,
         string memory oracleInfo
     ) internal {
-        uint32 chainIdUint32 = uint32(uint8(chainId));
-        bool registered = ASSETS_CONTRACT.registerToken(chainIdUint32, token, decimals, name, metadata, oracleInfo);
+        uint32 clientChainIdUint32 = uint32(uint8(clientChainId));
+        bool registered =
+            ASSETS_CONTRACT.registerToken(clientChainIdUint32, token, decimals, name, metadata, oracleInfo);
         if (!registered) {
-            bool updated = ASSETS_CONTRACT.updateToken(chainIdUint32, token, metadata);
+            bool updated = ASSETS_CONTRACT.updateToken(clientChainIdUint32, token, metadata);
             if (!updated) {
-                revert Errors.AddWhitelistTokenFailed(chainIdUint32, bytes32(token));
+                revert Errors.AddWhitelistTokenFailed(clientChainIdUint32, bytes32(token));
             }
-            emit WhitelistTokenUpdated(chainIdUint32, VIRTUAL_TOKEN_ADDRESS);
+            emit WhitelistTokenUpdated(clientChainId, VIRTUAL_TOKEN_ADDRESS);
         } else {
-            emit WhitelistTokenAdded(chainIdUint32, VIRTUAL_TOKEN_ADDRESS);
+            emit WhitelistTokenAdded(clientChainId, VIRTUAL_TOKEN_ADDRESS);
         }
     }
 
@@ -573,7 +579,13 @@ contract UTXOGateway is
     {
         // StakeMsg, EIP721 is preferred next step.
         bytes memory encodeMsg = abi.encode(
-            _msg.chainId, _msg.srcAddress, _msg.exocoreAddress, _msg.operator, _msg.amount, _msg.nonce, _msg.txTag
+            _msg.clientChainId,
+            _msg.clientAddress,
+            _msg.exocoreAddress,
+            _msg.operator,
+            _msg.amount,
+            _msg.nonce,
+            _msg.txTag
         );
         messageHash = keccak256(encodeMsg);
 
@@ -587,7 +599,7 @@ contract UTXOGateway is
     function _verifyStakeMsgFields(StakeMsg calldata _msg) internal pure {
         // Combine all non-zero checks into a single value
         uint256 nonZeroCheck =
-            uint8(_msg.chainId) | _msg.srcAddress.length | _msg.amount | _msg.nonce | _msg.txTag.length;
+            uint8(_msg.clientChainId) | _msg.clientAddress.length | _msg.amount | _msg.nonce | _msg.txTag.length;
 
         if (nonZeroCheck == 0) {
             revert Errors.InvalidStakeMessage();
@@ -598,8 +610,8 @@ contract UTXOGateway is
         }
     }
 
-    function _verifyTxTagNotProcessed(ClientChainID chainId, bytes calldata txTag) internal view {
-        if (processedClientChainTxs[chainId][txTag]) {
+    function _verifyTxTagNotProcessed(ClientChainID clientChainId, bytes calldata txTag) internal view {
+        if (processedClientChainTxs[clientChainId][txTag]) {
             revert Errors.TxTagAlreadyProcessed();
         }
     }
@@ -619,10 +631,10 @@ contract UTXOGateway is
         _verifyStakeMsgFields(_msg);
 
         // Verify nonce
-        _verifyInboundNonce(_msg.chainId, _msg.nonce);
+        _verifyInboundNonce(_msg.clientChainId, _msg.nonce);
 
         // Verify that the txTag has not been processed
-        _verifyTxTagNotProcessed(_msg.chainId, _msg.txTag);
+        _verifyTxTagNotProcessed(_msg.clientChainId, _msg.txTag);
 
         // Verify signature
         messageHash = _verifySignature(witness, _msg, signature);
@@ -631,34 +643,35 @@ contract UTXOGateway is
     /**
      * @notice Initiates a peg-out request for a given token amount to a Bitcoin address
      * @dev This function creates a new peg-out request and stores it in the contract's state
-     * @param clientChain The client chain to be pegged out
+     * @param clientChainId The client chain to be pegged out
      * @param _amount The amount of tokens to be pegged out
      * @param withdrawer The Exocore address associated with the Bitcoin address
+     * @param clientAddress The client chain address
      * @param _withdrawType The type of withdrawal (e.g., normal, fast)
      * @return requestId The unique identifier for the peg-out request
      * @custom:throws RequestAlreadyExists if a request with the same parameters already exists
      */
     function _initiatePegOut(
-        ClientChainID clientChain,
+        ClientChainID clientChainId,
         uint256 _amount,
         address withdrawer,
-        bytes memory clientChainAddress,
+        bytes memory clientAddress,
         WithdrawType _withdrawType
     ) internal returns (uint64 requestId) {
         // 2. increase the peg-out nonce for the client chain and return as requestId
-        requestId = ++pegOutNonce[clientChain];
+        requestId = ++pegOutNonce[clientChainId];
 
         // 3. Check if request already exists
-        PegOutRequest storage request = pegOutRequests[clientChain][requestId];
+        PegOutRequest storage request = pegOutRequests[clientChainId][requestId];
         if (request.requester != address(0)) {
-            revert Errors.RequestAlreadyExists(uint32(uint8(clientChain)), requestId);
+            revert Errors.RequestAlreadyExists(uint32(uint8(clientChainId)), requestId);
         }
 
         // 4. Create new PegOutRequest
-        request.chainId = clientChain;
+        request.clientChainId = clientChainId;
         request.nonce = requestId;
         request.requester = withdrawer;
-        request.clientChainAddress = clientChainAddress;
+        request.clientAddress = clientAddress;
         request.amount = _amount;
         request.withdrawType = _withdrawType;
     }
@@ -715,53 +728,53 @@ contract UTXOGateway is
         }
     }
 
-    function _registerAddress(ClientChainID chainId, bytes memory depositor, address exocoreAddress) internal {
+    function _registerAddress(ClientChainID clientChainId, bytes memory depositor, address exocoreAddress) internal {
         require(depositor.length > 0 && exocoreAddress != address(0), "Invalid address");
-        require(inboundRegistry[chainId][depositor] == address(0), "Depositor address already registered");
-        require(outboundRegistry[chainId][exocoreAddress].length == 0, "Exocore address already registered");
+        require(inboundRegistry[clientChainId][depositor] == address(0), "Depositor address already registered");
+        require(outboundRegistry[clientChainId][exocoreAddress].length == 0, "Exocore address already registered");
 
-        inboundRegistry[chainId][depositor] = exocoreAddress;
-        outboundRegistry[chainId][exocoreAddress] = depositor;
+        inboundRegistry[clientChainId][depositor] = exocoreAddress;
+        outboundRegistry[clientChainId][exocoreAddress] = depositor;
 
-        emit AddressRegistered(chainId, depositor, exocoreAddress);
+        emit AddressRegistered(clientChainId, depositor, exocoreAddress);
     }
 
     function _processStakeMsg(StakeMsg memory _msg) internal {
         // increment inbound nonce for the client chain and mark the tx as processed
-        inboundNonce[_msg.chainId]++;
-        processedClientChainTxs[_msg.chainId][_msg.txTag] = true;
+        inboundNonce[_msg.clientChainId]++;
+        processedClientChainTxs[_msg.clientChainId][_msg.txTag] = true;
 
         // register address if not already registered
         if (
-            inboundRegistry[_msg.chainId][_msg.srcAddress] == address(0)
-                && outboundRegistry[_msg.chainId][_msg.exocoreAddress].length == 0
+            inboundRegistry[_msg.clientChainId][_msg.clientAddress] == address(0)
+                && outboundRegistry[_msg.clientChainId][_msg.exocoreAddress].length == 0
         ) {
             if (_msg.exocoreAddress == address(0)) {
                 revert Errors.ZeroAddress();
             }
-            _registerAddress(_msg.chainId, _msg.srcAddress, _msg.exocoreAddress);
+            _registerAddress(_msg.clientChainId, _msg.clientAddress, _msg.exocoreAddress);
         }
 
-        address stakerExoAddr = inboundRegistry[_msg.chainId][_msg.srcAddress];
+        address stakerExoAddr = inboundRegistry[_msg.clientChainId][_msg.clientAddress];
         uint256 fee = _msg.amount * bridgeFeeRate / BASIS_POINTS;
         uint256 amountAfterFee = _msg.amount - fee;
 
         // we use registered exocore address as the depositor
         // this should always succeed and never revert, otherwise something is wrong.
-        _deposit(_msg.chainId, _msg.srcAddress, stakerExoAddr, amountAfterFee, _msg.txTag);
+        _deposit(_msg.clientChainId, _msg.clientAddress, stakerExoAddr, amountAfterFee, _msg.txTag);
 
         // delegate to operator if operator is provided, and do not revert if it fails since we need to count the stake
         // as deposited
         if (bytes(_msg.operator).length > 0) {
-            bool success = _delegate(_msg.chainId, stakerExoAddr, _msg.operator, amountAfterFee);
+            bool success = _delegate(_msg.clientChainId, stakerExoAddr, _msg.operator, amountAfterFee);
             if (!success) {
-                emit DelegationFailedForStake(_msg.chainId, stakerExoAddr, _msg.operator, amountAfterFee);
+                emit DelegationFailedForStake(_msg.clientChainId, stakerExoAddr, _msg.operator, amountAfterFee);
             } else {
-                emit DelegationCompleted(_msg.chainId, stakerExoAddr, _msg.operator, amountAfterFee);
+                emit DelegationCompleted(_msg.clientChainId, stakerExoAddr, _msg.operator, amountAfterFee);
             }
         }
 
-        emit StakeMsgExecuted(_msg.chainId, _msg.nonce, stakerExoAddr, amountAfterFee);
+        emit StakeMsgExecuted(_msg.clientChainId, _msg.nonce, stakerExoAddr, amountAfterFee);
     }
 
 }

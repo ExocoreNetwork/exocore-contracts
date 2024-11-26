@@ -49,16 +49,23 @@ contract UTXOGatewayStorage {
     }
 
     /**
-     * @dev Struct to store interchain message information
+     * @dev Struct to store stake message information
+     * @param clientChainId The client chain ID
+     * @param clientAddress The client chain address
+     * @param exocoreAddress The Exocore address
+     * @param operator The operator
+     * @param amount The amount
+     * @param nonce The nonce
+     * @param txTag The tx tag
      */
     struct StakeMsg {
-        ClientChainID chainId;
-        bytes srcAddress; // the address of the depositor on the source chain
-        address exocoreAddress; // the address of the depositor on the Exocore chain
-        string operator; // the operator to delegate to, would only deposit to exocore address if operator is empty
-        uint256 amount; // deposit amount
+        ClientChainID clientChainId;
+        bytes clientAddress;
+        address exocoreAddress;
+        string operator;
+        uint256 amount;
         uint64 nonce;
-        bytes txTag; // lowercase(txid-vout)
+        bytes txTag;
     }
 
     /**
@@ -86,10 +93,10 @@ contract UTXOGatewayStorage {
      * @dev Struct for peg-out requests
      */
     struct PegOutRequest {
-        ClientChainID chainId;
+        ClientChainID clientChainId;
         uint64 nonce;
         address requester;
-        bytes clientChainAddress;
+        bytes clientAddress;
         uint256 amount;
         WithdrawType withdrawType;
     }
@@ -431,21 +438,21 @@ contract UTXOGatewayStorage {
 
     /// @notice Emitted upon the registration of a new client chain.
     /// @param clientChainId The chain ID of the client chain.
-    event ClientChainRegistered(uint32 clientChainId);
+    event ClientChainRegistered(ClientChainID clientChainId);
 
     /// @notice Emitted upon the update of a client chain.
     /// @param clientChainId The chain ID of the client chain.
-    event ClientChainUpdated(uint32 clientChainId);
+    event ClientChainUpdated(ClientChainID clientChainId);
 
     /// @notice Emitted when a token is added to the whitelist.
     /// @param clientChainId The chain ID of the client chain.
     /// @param token The address of the token.
-    event WhitelistTokenAdded(uint32 clientChainId, address indexed token);
+    event WhitelistTokenAdded(ClientChainID clientChainId, address indexed token);
 
     /// @notice Emitted when a token is updated in the whitelist.
     /// @param clientChainId The chain ID of the client chain.
     /// @param token The address of the token.
-    event WhitelistTokenUpdated(uint32 clientChainId, address indexed token);
+    event WhitelistTokenUpdated(ClientChainID clientChainId, address indexed token);
 
     /// @notice Emitted when consensus is activated
     /// @param requiredWitnessesCount The number of required witnesses
