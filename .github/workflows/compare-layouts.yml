@@ -16,7 +16,7 @@ jobs:
   # Do this job first to update the commit status and comment ASAP.
   set-commit-status:
     # Typically takes no more than 30s
-    timeout-minutes: 10
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     outputs:
       number: ${{ steps.pr-context.outputs.number }}
@@ -96,6 +96,8 @@ jobs:
       skip-install: ${{ github.event.workflow_run.conclusion != 'success' }}
 
   create-deployed-layouts-matrix:
+    # Takes about 2 seconds
+    timeout-minutes: 5
     # Generating the matrix is very quick. It should be done regardless of the parent
     # workflow status, because an empty matrix will result in no `fetch-deployed-layouts`
     # jobs, which will cascade to no `compare-storage-layouts` job.
@@ -134,7 +136,8 @@ jobs:
           echo "matrix=$(echo $matrix | jq -c .)" >> "${GITHUB_OUTPUT}"
 
   fetch-deployed-layouts:
-    timeout-minutes: 30
+    # Takes about 15 seconds
+    timeout-minutes: 5
     strategy:
       matrix:
         # if the parent workflow failed, the matrix will be empty. hence, no jobs will run.
@@ -174,9 +177,10 @@ jobs:
           name: deployed-layout-${{ matrix.contract.name }}-${{ github.event.workflow_run.head_commit.id }}
 
   combine-deployed-layouts:
+    # Takes about 4 seconds
+    timeout-minutes: 5
     needs: fetch-deployed-layouts
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
       - name: Echo a message to prevent "no steps" warning.
         run: echo "Combining the deployed layouts."
@@ -197,8 +201,8 @@ jobs:
 
   # The actual job to compare the storage layouts.
   compare-storage-layouts:
-    # Typically takes no more than 7 minutes
-    timeout-minutes: 30
+    # Takes no more than a minute
+    timeout-minutes: 5
     needs:
       - setup
       - set-commit-status
