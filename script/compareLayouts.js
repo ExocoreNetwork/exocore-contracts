@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { getStorageUpgradeReport } = require('@openzeppelin/upgrades-core/dist/storage');
+const { getStorageUpgradeReport } = require('@openzeppelin/upgrades-core');
 
 // Mapping of deployed and compiled file names
 const fileMappings = [
