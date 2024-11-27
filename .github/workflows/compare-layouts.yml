@@ -31,8 +31,8 @@ jobs:
             --method POST \
             /repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_commit.id }} \
             -f state=pending \
-            -f context='${{ github.workflow.name }}' \
-            -f description='In progress...' \
+            -f context="${{ github.workflow }}" \
+            -f description="In progress..." \
             -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
       - name: Get PR number
         id: pr-context
@@ -63,7 +63,7 @@ jobs:
         run: |
           message="🚀 The $WORKFLOW_NAME workflow has started."
           echo "message=$message Check the [workflow run]($WORKFLOW_URL) for progress. ($SHA)" >> "${GITHUB_OUTPUT}"
-      - name: Update CI Status
+      - name: Comment CI Status
         uses: marocchino/sticky-pull-request-comment@v2
         if: ${{ github.event.workflow_run.event == 'pull_request' }}
         with:
@@ -200,7 +200,7 @@ jobs:
             --method POST \
             /repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_commit.id }} \
             -f state="$outcome" \
-            -f context='${{ github.workflow.name }}' \
+            -f context="${{ github.workflow }}" \
             -f description="$description" \
             -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
       - name: Set message again
@@ -218,7 +218,7 @@ jobs:
             message="⏭ The $WORKFLOW_NAME workflow was skipped."
           fi
           echo "message=$message Check the [workflow run]($WORKFLOW_URL) for details. ($SHA)" >> "${GITHUB_OUTPUT}"
-      - name: Update CI Status
+      - name: Comment CI Status
         uses: marocchino/sticky-pull-request-comment@v2
         if: ${{ github.event.workflow_run.event == 'pull_request' }}
         with:
