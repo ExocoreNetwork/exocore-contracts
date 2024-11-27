@@ -143,7 +143,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: ExocoreGateway.base.json
-          name: storage-layouts-ExocoreGateway-base-${{ github.event.pull_request.base.sha || github.event.after || github.sha }}
+          name: compiled-layout-ExocoreGateway-base-${{ github.event.pull_request.base.sha || github.event.after || github.sha }}
 
   extract-storage-layouts:
     runs-on: ubuntu-latest
@@ -179,7 +179,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: ${{ matrix.contract }}.compiled.json
-          name: storage-layouts-${{ matrix.contract}}-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
+          name: compiled-layout-${{ matrix.contract}}-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
 
   combine-storage-layouts:
     runs-on: ubuntu-latest
@@ -195,10 +195,10 @@ jobs:
         # inside the provided path.
         with:
           path: combined
-      - name: Zip up the storage layouts
-        run: zip -j storage-layouts.zip combined/*/*.json
-      - name: Upload storage layout file as an artifact
+      - name: Zip up the compiled layouts
+        run: zip -j compiled-layouts.zip combined/*/*.json
+      - name: Upload the compiled layouts file as an artifact
         uses: actions/upload-artifact@v4
         with:
-          path: storage-layouts.zip
-          name: storage-layouts-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
+          path: compiled-layouts.zip
+          name: compiled-layouts-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
