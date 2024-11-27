@@ -37,7 +37,7 @@ jobs:
           path: ${{ needs.setup.outputs.installation-dir }}
           key: ${{ needs.setup.outputs.cache-key }}
       - name: Add Foundry to PATH
-        run: echo "${{ needs.setup.outputs.installation-dir }}" >> $GITHUB_PATH
+        run: echo "${{ needs.setup.outputs.installation-dir }}" >> "$GITHUB_PATH"
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -64,7 +64,7 @@ jobs:
           path: ${{ needs.build.outputs.installation-dir }}
           key: ${{ needs.build.outputs.cache-key }}
       - name: Add Foundry to PATH
-        run: echo "${{ needs.build.outputs.installation-dir }}" >> $GITHUB_PATH
+        run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Restore build artifacts
@@ -91,7 +91,7 @@ jobs:
           path: ${{ needs.build.outputs.installation-dir }}
           key: ${{ needs.build.outputs.cache-key }}
       - name: Add Foundry to PATH
-        run: echo "${{ needs.build.outputs.installation-dir }}" >> $GITHUB_PATH
+        run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Restore build artifacts
@@ -116,7 +116,7 @@ jobs:
           path: ${{ needs.build.outputs.installation-dir }}
           key: ${{ needs.build.outputs.cache-key }}
       - name: Add Foundry to PATH
-        run: echo "${{ needs.build.outputs.installation-dir }}" >> $GITHUB_PATH
+        run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
       - name: Checkout base branch or previous commit
         uses: actions/checkout@v4
         with:
@@ -163,7 +163,7 @@ jobs:
       - name: Copy back base branch layout file
         run: cp /tmp/ExocoreGateway.base.json ./ExocoreGateway.base.json
       - name: Zip storage layout files
-        run: zip storage-layouts.zip *.compiled.json ExocoreGateway.base.json
+        run: zip "storage-layouts.zip" "./*.compiled.json" "./ExocoreGateway.base.json"
       - name: Upload storage layout files as an artifact
         uses: actions/upload-artifact@v4
         with:

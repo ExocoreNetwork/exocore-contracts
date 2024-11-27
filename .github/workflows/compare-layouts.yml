@@ -50,9 +50,13 @@ jobs:
                 || github.event.workflow_run.head_branch
             }}
         run: |
-          gh pr view --repo "${PR_TARGET_REPO}" "${PR_BRANCH}" \
-              --json 'number' --jq '"number=\(.number)"' \
-              >> "${GITHUB_OUTPUT}"
+          pr_number=$(gh pr view --repo "${PR_TARGET_REPO}" "${PR_BRANCH}" \
+                --json 'number' --jq '.number')
+          if [ -z "$pr_number" ]; then
+            echo "Error: PR number not found for branch '${PR_BRANCH}' in repository '${PR_TARGET_REPO}'" >&2
+            exit 1
+          fi
+          echo "number=$pr_number" >> "${GITHUB_OUTPUT}"
       - name: Set message
         id: set-message
         env:
@@ -117,7 +121,7 @@ jobs:
           key: ${{ needs.setup.outputs.cache-key }}
       - name: Add Foundry to PATH
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
-        run: echo "${{ needs.setup.outputs.installation-dir }}" >> $GITHUB_PATH
+        run: echo "${{ needs.setup.outputs.installation-dir }}" >> "$GITHUB_PATH"
       - name: Fetch the deployed layouts
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         run: |
@@ -163,7 +167,7 @@ jobs:
         run: unzip storage-layouts.zip
       - name: Set up Node.js
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: '18'
       - name: Clear npm cache
