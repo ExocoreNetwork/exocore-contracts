@@ -10,7 +10,7 @@ on:
         type: string
       skip-install:
         required: false
-        description: "Skip the installation but set the cache key. Useful to avoid installation and the extremely time consuming caching but still run this job to avoid notifications."
+        description: "Skip the installation. Useful to avoid installation and the extremely time consuming caching but still run this job to avoid notifications."
         type: boolean
         default: false
     outputs:
@@ -28,6 +28,9 @@ jobs:
       cache-key: ${{ steps.set-cache-key.outputs.cache-key }}
       installation-dir: ${{ steps.find-path.outputs.installation-dir }}
     steps:
+      - name: Echo skipping status
+        if: ${{ inputs.skip-install == true }}
+        run: echo "Skipping Foundry installation"
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
@@ -57,3 +60,4 @@ jobs:
         id: set-cache-key
         run: |
           echo "cache-key=foundry-${{ inputs.foundry-version }}" >> "$GITHUB_OUTPUT"
+        if: ${{ inputs.skip-install == false }}
