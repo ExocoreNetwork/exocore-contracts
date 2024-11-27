@@ -1,0 +1,240 @@
+name: Compare Storage Layouts
+
+on:
+  workflow_run:
+    workflows: ["Forge CI"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+  statuses: write
+  pull-requests: write
+
+jobs:
+  # The cache storage in the reusable foundry setup takes far too long.
+  # Do this job first to update the commit status and comment ASAP.
+  set-commit-status:
+    runs-on: ubuntu-latest
+    outputs:
+      number: ${{ steps.pr-context.outputs.number }}
+    steps:
+      - name: Set commit status
+        # trigger is no matter what, because the status should be updated
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # this step would have been better located in forge-ci.yml, but since it needs the secret
+        # it is placed here. first, it is updated to pending here and failure/success is updated later.
+        run: |
+          curl -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d '{
+              "state": "pending",
+              "context": "Compare Storage Layouts",
+              "description": "In progress...",
+              "target_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            }' \
+            https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_commit.id }}
+      - name: Get PR number
+        id: pr-context
+        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TARGET_REPO: ${{ github.repository }}
+          PR_BRANCH: |-
+            ${{
+              (github.event.workflow_run.head_repository.owner.login != github.event.workflow_run.repository.owner.login)
+                && format('{0}:{1}', github.event.workflow_run.head_repository.owner.login, github.event.workflow_run.head_branch)
+                || github.event.workflow_run.head_branch
+            }}
+        run: |
+          gh pr view --repo "${PR_TARGET_REPO}" "${PR_BRANCH}" \
+              --json 'number' --jq '"number=\(.number)"' \
+              >> "${GITHUB_OUTPUT}"
+      - name: Set message
+        id: set-message
+        env:
+          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          SHA: ${{ github.event.workflow_run.head_commit.id }}
+        run: |
+          message="🚀 The $WORKFLOW_NAME workflow has started."
+          echo "message=$message Check the [workflow run]($WORKFLOW_URL) for progress. ($SHA)" >> "${GITHUB_OUTPUT}"
+      - name: Update CI Status
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        with:
+          header: ${{ github.workflow }}
+          hide_details: true
+          number: ${{ steps.pr-context.outputs.number }}
+          message: ${{ steps.set-message.outputs.message }}
+
+  setup:
+    # A full job can be used as a reusable workflow but not a step.
+    uses: ./.github/workflows/reusable-foundry-setup.yml
+    with:
+      # The below line does not accept environment variables,
+      # so it becomes the single source of truth for the version, within this workflow.
+      # Any `pinning` of the version should be done here and forge-ci.yml.
+      foundry-version: nightly
+
+  # The actual job to compare the storage layouts.
+  compare-storage-layouts:
+    needs:
+      - setup
+      - set-commit-status
+    runs-on: ubuntu-latest
+
+    env:
+      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      # Log the workflow trigger details for debugging.
+      - name: Echo workflow trigger details
+        run: |
+          echo "Workflow run event: ${{ github.event.workflow_run.event }}"
+          echo "Workflow run conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "Workflow run name: ${{ github.event.workflow_run.name }}"
+          echo "Workflow run URL: ${{ github.event.workflow_run.html_url }}"
+          echo "Commit SHA: ${{ github.event.workflow_run.head_commit.id }}"
+          echo "Workflow Run ID: ${{ github.event.workflow_run.id }}"
+      # The repository needs to be available for script/deployedContracts.json
+      # and script/compareLayouts.js. We do not restore the build data because
+      # the compiled layouts are restored from the artifact and not rebuilt.
+      - name: Checkout the repository
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        uses: actions/checkout@v4
+      # The toolchain is needed to run `cast storage`
+      - name: Restore cached Foundry toolchain
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        uses: actions/cache/restore@v3
+        with:
+          path: ${{ needs.setup.outputs.installation-dir }}
+          key: ${{ needs.setup.outputs.cache-key }}
+      - name: Add Foundry to PATH
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        run: echo "${{ needs.setup.outputs.installation-dir }}" >> $GITHUB_PATH
+      - name: Fetch the deployed layouts
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        run: |
+          set -e
+          data=$(cat script/deployedContracts.json)
+          bootstrap=$(echo "$data" | jq -r '.clientChain.bootstrapLogic // empty')
+          clientGateway=$(echo "$data" | jq -r '.clientChain.clientGatewayLogic // empty')
+          vault=$(echo "$data" | jq -r '.clientChain.vaultImplementation // empty')
+          rewardVault=$(echo "$data" | jq -r '.clientChain.rewardVaultImplementation // empty')
+          capsule=$(echo "$data" | jq -r '.clientChain.capsuleImplementation // empty')
+          pwd=$(pwd)
+          cd /tmp
+          # Create an array of contract names and addresses
+          declare -A contracts=(
+            ["Bootstrap"]="$bootstrap"
+            ["ClientChainGateway"]="$clientGateway"
+            ["Vault"]="$vault"
+            ["RewardVault"]="$rewardVault"
+            ["ExoCapsule"]="$capsule"
+          )
+          # Iterate over the array and run `cast storage` for each contract
+          for contract in "${!contracts[@]}"; do
+            address=${contracts[$contract]}
+            if [[ -n $address ]]; then
+              echo "Processing $contract at address $address"
+              cast storage --json "$address" --rpc-url "https://eth-sepolia.g.alchemy.com/v2/$ALCHEMY_API_KEY" \
+              --etherscan-api-key "$ETHERSCAN_API_KEY" > "$contract.deployed.json"
+              mv "$contract.deployed.json" "$pwd"
+            else
+              echo "Skipping $contract as no address is provided"
+            fi
+          done
+          cd "$pwd"
+      # Restore the layouts from the previous job
+      - name: Restore the layout files from the artifact
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          name: storage-layouts-${{ github.event.workflow_run.head_commit.id }}
+          run_id: ${{ github.event.workflow_run.id }}
+      - name: Extract the restored layouts
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        run: unzip storage-layouts.zip
+      - name: Set up Node.js
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        uses: actions/setup-node@v2
+        with:
+          node-version: '18'
+      - name: Clear npm cache
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        run: npm cache clean --force
+      - name: Install the required dependency
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        run: npm install @openzeppelin/upgrades-core
+      - name: Compare the layouts
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        id: compare-layouts
+        run: |
+          node script/compareLayouts.js
+        # Even if this fails, the CI status should be updated.
+        continue-on-error: true
+      - name: Update parent commit status
+        if: always()
+        # if the outcome is not set, it will post failure
+        run: |
+          outcome=$(
+            [[ "${{ steps.compare-layouts.outcome }}" == "success" ]] &&
+            echo "success" ||
+            echo "failure"
+          )
+          description=$(
+            [[ "${{ steps.compare-layouts.outcome }}" == "success" ]] &&
+            echo "Storage layouts match" ||
+            ([[ "${{ steps.compare-layouts.outcome }}" == "failure" ]] &&
+            echo "Storage layouts do not match" ||
+            echo "Job skipped since ${{ github.event.workflow_run.name }} failed.")
+          )
+          curl -X POST \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d "{
+              \"state\": \"${outcome}\",
+              \"context\": \"Compare Storage Layouts\",
+              \"description\": \"${description}\",
+              \"target_url\": \"https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}\"
+            }" \
+            https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_commit.id }}
+      - name: Set message again
+        id: set-message-again
+        env:
+          WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          WORKFLOW_NAME: ${{ github.workflow }}
+          SHA: ${{ github.event.workflow_run.head_commit.id }}
+        run: |
+          if [ ${{ steps.compare-layouts.outcome }} == "success" ]; then
+            message="✅ The $WORKFLOW_NAME workflow has completed successfully."
+          elif [ ${{ steps.compare-layouts.outcome }} == "failure" ]; then
+            message="❌ The $WORKFLOW_NAME workflow has failed!"
+          else
+            message="⏭ The $WORKFLOW_NAME workflow was skipped."
+          fi
+          echo "message=$message Check the [workflow run]($WORKFLOW_URL) for details. ($SHA)" >> "${GITHUB_OUTPUT}"
+      - name: Update CI Status
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        with:
+          header: ${{ github.workflow }}
+          hide_details: true
+          number: ${{ needs.set-commit-status.outputs.number }}
+          message: ${{ steps.set-message-again.outputs.message }}
+      - name: Exit with the correct code
+        if: always()
+        # if the outcome is not set, it will exit 1. so, a failure in the parent job will
+        # result in a failure here.
+        run: |
+          if [[ "${{ steps.compare-layouts.outcome }}" == "success" ]]; then
+            exit 0
+          else
+            exit 1
+          fi

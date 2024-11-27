@@ -10,13 +10,13 @@ on:
     outputs:
       installation-dir:
         description: "The installation directory of Foundry toolchain"
-        value: ${{ jobs.setup.outputs.installation-dir }}
+        value: ${{ jobs.install.outputs.installation-dir }}
       cache-key:
         description: "The cache key for Foundry toolchain"
-        value: ${{ jobs.setup.outputs.cache-key }}
+        value: ${{ jobs.install.outputs.cache-key }}
 
 jobs:
-  setup:
+  install:
     runs-on: ubuntu-latest
     outputs:
       cache-key: ${{ steps.set-cache-key.outputs.cache-key }}
@@ -40,8 +40,8 @@ jobs:
         uses: actions/cache/save@v3
         with:
           path: ${{ steps.find-path.outputs.installation-dir }}
-          key: ${{ runner.os }}-foundry-${{ inputs.foundry-version }}
+          key: foundry-${{ inputs.foundry-version }}
       - name: Set cache key
         id: set-cache-key
         run: |
-          echo "cache-key=${{ runner.os }}-foundry-${{ inputs.foundry-version }}" >> "$GITHUB_OUTPUT"
+          echo "cache-key=foundry-${{ inputs.foundry-version }}" >> "$GITHUB_OUTPUT"
