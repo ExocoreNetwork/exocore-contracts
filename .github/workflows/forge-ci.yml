@@ -191,9 +191,12 @@ jobs:
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
-        # No name and no path means all artifacts are downloaded and saved to $GITHUB_WORKSPACE
+        # No name means all artifacts are downloaded within their respective subfolders
+        # inside the provided path.
+        with:
+          path: combined
       - name: Zip up the storage layouts
-        run: zip storage-layouts.zip *.json
+        run: zip -j storage-layouts.zip combined/*/*.json
       - name: Upload storage layout file as an artifact
         uses: actions/upload-artifact@v4
         with:
