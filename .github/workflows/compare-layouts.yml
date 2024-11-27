@@ -81,7 +81,7 @@ jobs:
       # Any `pinning` of the version should be done here and forge-ci.yml.
       foundry-version: nightly
       # Skip the setup job if the parent job failed.
-      do: ${{ github.event.workflow_run.conclusion == 'success' }}
+      skip-install: ${{ github.event.workflow_run.conclusion != 'success' }}
 
   # The actual job to compare the storage layouts.
   compare-storage-layouts:
