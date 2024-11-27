@@ -133,7 +133,7 @@ jobs:
               {name: "ExoCapsule", address: $capsule}] | map(select(.address != ""))')
 
           echo "Matrix: $matrix"
-          echo "matrix=$(echo $matrix | jq -c .)" >> "${GITHUB_OUTPUT}"
+          echo "matrix=$(echo "$matrix" | jq -c .)" >> "${GITHUB_OUTPUT}"
 
   fetch-deployed-layouts:
     # Takes about 15 seconds

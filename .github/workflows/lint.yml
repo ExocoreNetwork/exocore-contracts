@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18' # Latest LTS
+          node-version: '20' # LTS till Oct-25
 
       - name: Clear npm cache
         run: npm cache clean --force
