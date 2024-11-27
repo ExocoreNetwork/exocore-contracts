@@ -20,6 +20,8 @@ permissions:
 jobs:
   comment_status:
     runs-on: ubuntu-latest
+    # Typically takes no more than 30s
+    timeout-minutes: 5
     steps:
       # Log the workflow trigger details for debugging.
       - name: Echo workflow trigger details

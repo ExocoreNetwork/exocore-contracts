@@ -14,6 +14,8 @@ jobs:
   lint:
     strategy:
       fail-fast: true
+    # No more than a few minutes
+    timeout-minutes: 5
 
     runs-on: ubuntu-latest
     steps:
