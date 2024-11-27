@@ -7,6 +7,10 @@ on:
       foundry-version:
         required: true
         type: string
+      do:
+        required: false
+        type: boolean
+        default: true
     outputs:
       installation-dir:
         description: "The installation directory of Foundry toolchain"
@@ -26,8 +30,10 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: ${{ inputs.foundry-version }}
+        if: ${{ inputs.do }}
       - name: Print forge version
         run: forge --version
+        if: ${{ inputs.do }}
       # Unfortunately, the `foundry-toolchain` action installs it in a
       # randomly generated location, so we must determine it ourselves
       - name: Determine Foundry installation path
@@ -36,11 +42,15 @@ jobs:
           installation_path=$(which forge)
           installation_dir=$(dirname $installation_path)
           echo "installation-dir=$installation_dir" >> "$GITHUB_OUTPUT"
+        if: ${{ inputs.do }}
       - name: Cache the Foundry toolchain
         uses: actions/cache/save@v3
         with:
           path: ${{ steps.find-path.outputs.installation-dir }}
           key: foundry-${{ inputs.foundry-version }}
+        if: ${{ inputs.do }}
+      # No if in the below step to avoid the notification that goes
+      # out when the action is skipped
       - name: Set cache key
         id: set-cache-key
         run: |
