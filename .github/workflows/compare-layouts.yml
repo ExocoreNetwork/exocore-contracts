@@ -12,9 +12,12 @@ permissions:
   pull-requests: write
 
 jobs:
-  # Do this job first so that the commit status is updated to pending ASAP.
+  # The cache storage in the reusable foundry setup takes far too long.
+  # Do this job first to update the commit status and comment ASAP.
   set-commit-status:
     runs-on: ubuntu-latest
+    outputs:
+      number: ${{ steps.pr-context.outputs.number }}
     steps:
       - name: Set commit status
         # trigger is no matter what, because the status should be updated
@@ -34,42 +37,6 @@ jobs:
               "target_url": "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             }' \
             https://api.github.com/repos/${{ github.repository }}/statuses/${{ github.event.workflow_run.head_commit.id }}
-
-  setup:
-    # A full job can be used as a reusable workflow but not a step.
-    uses: ./.github/workflows/reusable-foundry-setup.yml
-    with:
-      # The below line does not accept environment variables,
-      # so it becomes the single source of truth for the version, within this workflow.
-      # Any `pinning` of the version should be done here and forge-ci.yml.
-      foundry-version: nightly
-
-  # The actual job to compare the storage layouts.
-  compare-storage-layouts:
-    needs: setup
-    runs-on: ubuntu-latest
-
-    env:
-      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
-      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-    steps:
-      # Log the workflow trigger details for debugging.
-      - name: Echo workflow trigger details
-        run: |
-          echo "Workflow run event: ${{ github.event.workflow_run.event }}"
-          echo "Workflow run conclusion: ${{ github.event.workflow_run.conclusion }}"
-          echo "Workflow run name: ${{ github.event.workflow_run.name }}"
-          echo "Workflow run URL: ${{ github.event.workflow_run.html_url }}"
-          echo "Commit SHA: ${{ github.event.workflow_run.head_commit.id }}"
-          echo "Workflow Run ID: ${{ github.event.workflow_run.id }}"
-      # The repository needs to be available for script/deployedContracts.json
-      # and script/compareLayouts.js. We do not restore the build data because
-      # the compiled layouts are restored from the artifact and not rebuilt.
-      - name: Checkout the repository
-        if: ${{ github.event.workflow_run.conclusion == 'success' }}
-        uses: actions/checkout@v4
       - name: Get PR number
         id: pr-context
         if: ${{ github.event.workflow_run.event == 'pull_request' }}
@@ -103,6 +70,44 @@ jobs:
           hide_details: true
           number: ${{ steps.pr-context.outputs.number }}
           message: ${{ steps.set-message.outputs.message }}
+
+  setup:
+    # A full job can be used as a reusable workflow but not a step.
+    uses: ./.github/workflows/reusable-foundry-setup.yml
+    with:
+      # The below line does not accept environment variables,
+      # so it becomes the single source of truth for the version, within this workflow.
+      # Any `pinning` of the version should be done here and forge-ci.yml.
+      foundry-version: nightly
+
+  # The actual job to compare the storage layouts.
+  compare-storage-layouts:
+    needs:
+      - setup
+      - set-commit-status
+    runs-on: ubuntu-latest
+
+    env:
+      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
+      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      # Log the workflow trigger details for debugging.
+      - name: Echo workflow trigger details
+        run: |
+          echo "Workflow run event: ${{ github.event.workflow_run.event }}"
+          echo "Workflow run conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "Workflow run name: ${{ github.event.workflow_run.name }}"
+          echo "Workflow run URL: ${{ github.event.workflow_run.html_url }}"
+          echo "Commit SHA: ${{ github.event.workflow_run.head_commit.id }}"
+          echo "Workflow Run ID: ${{ github.event.workflow_run.id }}"
+      # The repository needs to be available for script/deployedContracts.json
+      # and script/compareLayouts.js. We do not restore the build data because
+      # the compiled layouts are restored from the artifact and not rebuilt.
+      - name: Checkout the repository
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        uses: actions/checkout@v4
       # The toolchain is needed to run `cast storage`
       - name: Restore cached Foundry toolchain
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
@@ -221,7 +226,7 @@ jobs:
         with:
           header: ${{ github.workflow }}
           hide_details: true
-          number: ${{ steps.pr-context.outputs.number }}
+          number: ${{ needs.set-commit-status.outputs.number }}
           message: ${{ steps.set-message-again.outputs.message }}
       - name: Exit with the correct code
         if: always()
