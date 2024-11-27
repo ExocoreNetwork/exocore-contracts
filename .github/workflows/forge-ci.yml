@@ -143,7 +143,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: ExocoreGateway.base.json
-          name: storage-layouts-${{ github.event.pull_request.base.sha || github.event.after || github.sha }}
+          name: storage-layouts-ExocoreGateway-base-${{ github.event.pull_request.base.sha || github.event.after || github.sha }}
 
   extract-storage-layouts:
     runs-on: ubuntu-latest
@@ -179,4 +179,23 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: ${{ matrix.contract }}.compiled.json
+          name: storage-layouts-${{ matrix.contract}}-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
+
+  combine-storage-layouts:
+    runs-on: ubuntu-latest
+    needs:
+      - extract-base-storage-layout-exocore-gateway
+      - extract-storage-layouts
+    # A few minutes
+    timeout-minutes: 10
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        # No name and no path means all artifacts are downloaded and saved to $GITHUB_WORKSPACE
+      - name: Zip up the storage layouts
+        run: zip storage-layouts.zip *.json
+      - name: Upload storage layout file as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: storage-layouts.zip
           name: storage-layouts-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
