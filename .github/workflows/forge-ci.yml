@@ -148,13 +148,6 @@ jobs:
             ./cache
             ./broadcast
           key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
-      # This step restores the base branch layout file, while the next step generates the PR
-      # branch layout files.
-      - name: Restore base branch layout file
-        uses: actions/cache/restore@v3
-        with:
-          path: ExocoreGateway.base.json
-          key: ExocoreGateway-base-layout-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
       - name: Generate storage layout files for the PR
         run: |
           for file in Bootstrap ClientChainGateway RewardVault Vault ExocoreGateway ExoCapsule; do
@@ -163,7 +156,7 @@ jobs:
       - name: Copy back base branch layout file
         run: cp /tmp/ExocoreGateway.base.json ./ExocoreGateway.base.json
       - name: Zip storage layout files
-        run: zip "storage-layouts.zip" "./*.compiled.json" "./ExocoreGateway.base.json"
+        run: zip storage-layouts.zip ./*.compiled.json ./ExocoreGateway.base.json
       - name: Upload storage layout files as an artifact
         uses: actions/upload-artifact@v4
         with:
