@@ -1,4 +1,4 @@
-name: Run `solhint` linter
+name: Solhint
 
 on:
   merge_group:
@@ -11,11 +11,10 @@ on:
       - "*"
 
 jobs:
-  check:
+  lint:
     strategy:
       fail-fast: true
 
-    name: Foundry project
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -23,11 +22,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v2
         with:
-          # Node 22.5 has a bug
-          # https://github.com/nodejs/node/pull/53904
-          # TODO: Once a version with the bug fix (above) is released,
-          # the version pin can be moved back to 22
-          node-version: '22.4'
+          node-version: '22'
 
       - name: Clear npm cache
         run: npm cache clean --force
@@ -38,16 +33,3 @@ jobs:
       - name: Run Solhint
         run: |
           npx solhint 'src/**/*.sol' -c ./src/.solhint.json
-
-      - name: Add comment on failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Linting failed. Please check the logs.'
-            })
