@@ -213,10 +213,13 @@ jobs:
           run_id: ${{ github.event.workflow_run.id }}
       - name: Restore the deployed layout files from the artifact
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
-        uses: dawidd6/action-download-artifact@v6
+        uses: actions/download-artifact@v4
         with:
           name: deployed-layouts-${{ github.event.workflow_run.head_commit.id }}
-          # no run_id is needed because the artifacts are from the same run
+          path: ./
+      - name: Debug current directory
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        run: ls -la
       - name: Extract the restored compiled layouts
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         run: unzip compiled-layouts.zip
