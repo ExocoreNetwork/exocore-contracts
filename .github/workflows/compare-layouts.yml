@@ -84,12 +84,13 @@ jobs:
           message: ${{ steps.set-message.outputs.message }}
 
   setup:
-    # A full job can be used as a reusable workflow but not a step.
+    # The caching of the binaries is necessary because we run the job to fetch
+    # the deployed layouts via a matrix strategy. This job is the parent of that job.
     uses: ./.github/workflows/reusable-foundry-setup.yml
     with:
       # The below line does not accept environment variables,
       # so it becomes the single source of truth for the version, within this workflow.
-      # Any `pinning` of the version should be done here and forge-ci.yml.
+      # Any `pinning` of the version should be done here and in forge-ci.yml.
       foundry-version: nightly
       # Skip the setup job if the parent job failed.
       skip-install: ${{ github.event.workflow_run.conclusion != 'success' }}
@@ -99,7 +100,7 @@ jobs:
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
     steps:
-      - name: Echo a message
+      - name: Echo a message to avoid "no action run" warning.
         run: echo "Creating the matrix for deployed layouts."
       - name: Checkout code
         uses: actions/checkout@v4
@@ -217,9 +218,6 @@ jobs:
         with:
           name: deployed-layouts-${{ github.event.workflow_run.head_commit.id }}
           path: ./
-      - name: Debug current directory
-        if: ${{ github.event.workflow_run.conclusion == 'success' }}
-        run: ls -la
       - name: Extract the restored compiled layouts
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         run: unzip compiled-layouts.zip
