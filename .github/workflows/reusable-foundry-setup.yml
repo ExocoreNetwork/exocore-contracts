@@ -6,28 +6,41 @@ on:
     inputs:
       foundry-version:
         required: true
+        description: "The version of Foundry to install"
         type: string
+      skip-install:
+        required: false
+        description: "Skip the installation. Useful to avoid installation and the extremely time consuming caching but still run this job to avoid notifications."
+        type: boolean
+        default: false
     outputs:
       installation-dir:
         description: "The installation directory of Foundry toolchain"
-        value: ${{ jobs.setup.outputs.installation-dir }}
+        value: ${{ jobs.install.outputs.installation-dir }}
       cache-key:
         description: "The cache key for Foundry toolchain"
-        value: ${{ jobs.setup.outputs.cache-key }}
+        value: ${{ jobs.install.outputs.cache-key }}
 
 jobs:
-  setup:
+  install:
+    # Caching is slow, takes about 3 minutes total
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     outputs:
       cache-key: ${{ steps.set-cache-key.outputs.cache-key }}
       installation-dir: ${{ steps.find-path.outputs.installation-dir }}
     steps:
+      - name: Echo skipping status
+        if: ${{ inputs.skip-install }}
+        run: echo "Skipping Foundry installation"
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: ${{ inputs.foundry-version }}
+        if: ${{ !inputs.skip-install }}
       - name: Print forge version
         run: forge --version
+        if: ${{ !inputs.skip-install }}
       # Unfortunately, the `foundry-toolchain` action installs it in a
       # randomly generated location, so we must determine it ourselves
       - name: Determine Foundry installation path
@@ -36,12 +49,15 @@ jobs:
           installation_path=$(which forge)
           installation_dir=$(dirname $installation_path)
           echo "installation-dir=$installation_dir" >> "$GITHUB_OUTPUT"
+        if: ${{ !inputs.skip-install }}
       - name: Cache the Foundry toolchain
         uses: actions/cache/save@v3
         with:
           path: ${{ steps.find-path.outputs.installation-dir }}
-          key: ${{ runner.os }}-foundry-${{ inputs.foundry-version }}
+          key: foundry-${{ inputs.foundry-version }}
+        if: ${{ !inputs.skip-install }}
       - name: Set cache key
         id: set-cache-key
         run: |
-          echo "cache-key=${{ runner.os }}-foundry-${{ inputs.foundry-version }}" >> "$GITHUB_OUTPUT"
+          echo "cache-key=foundry-${{ inputs.foundry-version }}" >> "$GITHUB_OUTPUT"
+        if: ${{ !inputs.skip-install }}

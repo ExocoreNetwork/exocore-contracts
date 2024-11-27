@@ -1,0 +1,86 @@
+name: Comment CI status on PR
+
+on:
+  workflow_run:
+    workflows:
+      - "Forge CI"
+      - "Slither Analysis"
+      - "Solhint"
+      # Nested workflow_run is not supported, so this doesn't work. Instead
+      # that workflow should make comments by itself.
+      # - "Compare Storage Layouts"
+    types:
+      - completed
+      - requested
+
+permissions:
+  pull-requests: write
+  issues: read
+
+jobs:
+  comment_status:
+    runs-on: ubuntu-latest
+    # Typically takes no more than 30s
+    timeout-minutes: 5
+    steps:
+      # Log the workflow trigger details for debugging.
+      - name: Echo workflow trigger details
+        run: |
+          echo "Event action: ${{ github.event.action }}"
+          echo "Workflow run event: ${{ github.event.workflow_run.event }}"
+          echo "Workflow run conclusion: ${{ github.event.workflow_run.conclusion }}"
+          echo "Workflow run name: ${{ github.event.workflow_run.name }}"
+          echo "Workflow run URL: ${{ github.event.workflow_run.html_url }}"
+          echo "Commit SHA: ${{ github.event.workflow_run.head_commit.id }}"
+          echo "Workflow Run ID: ${{ github.event.workflow_run.id }}"
+      - name: Get PR number
+        id: pr-context
+        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_TARGET_REPO: ${{ github.repository }}
+          PR_BRANCH: |-
+            ${{
+              (github.event.workflow_run.head_repository.owner.login != github.event.workflow_run.repository.owner.login)
+                && format('{0}:{1}', github.event.workflow_run.head_repository.owner.login, github.event.workflow_run.head_branch)
+                || github.event.workflow_run.head_branch
+            }}
+        run: |
+          pr_number=$(gh pr view --repo "${PR_TARGET_REPO}" "${PR_BRANCH}" \
+                --json 'number' --jq '.number')
+          if [ -z "$pr_number" ]; then
+            echo "Error: PR number not found for branch '${PR_BRANCH}' in repository '${PR_TARGET_REPO}'" >&2
+            exit 1
+          fi
+          echo "number=$pr_number" >> "${GITHUB_OUTPUT}"
+      # Construct the message
+      - name: Set message
+        id: set-message
+        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        env:
+          WORKFLOW_NAME: ${{ github.event.workflow_run.name }}
+          WORKFLOW_URL: ${{ github.event.workflow_run.html_url }}
+          WORKFLOW_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          SHA: ${{ github.event.workflow_run.head_commit.id }}
+        run: |
+          if [ "${{ github.event.action }}" == "requested" ]; then
+            message="🚀 The $WORKFLOW_NAME workflow has started."
+          elif [ "${{ github.event.workflow_run.conclusion }}" == "success" ]; then
+            message="✅ The $WORKFLOW_NAME workflow has completed successfully."
+          elif [ "${{ github.event.workflow_run.conclusion }}" == "failure" ]; then
+            message="❌ The $WORKFLOW_NAME workflow has failed!"
+          elif [ "${{ github.event.workflow_run.conclusion }}" == "cancelled" ]; then
+            message="⏹️ The $WORKFLOW_NAME workflow was cancelled."
+          else
+            message="❓ The $WORKFLOW_NAME workflow has completed with an unknown status."
+          fi
+          echo "message=$message Check the [workflow run]($WORKFLOW_URL) for details. ($SHA)" >> "${GITHUB_OUTPUT}"
+      # Finally, post the status comment on the PR
+      - name: Comment parent CI Status
+        uses: marocchino/sticky-pull-request-comment@v2
+        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        with:
+          header: ${{ github.event.workflow_run.name }}
+          hide_details: true
+          number: ${{ steps.pr-context.outputs.number }}
+          message: ${{ steps.set-message.outputs.message }}

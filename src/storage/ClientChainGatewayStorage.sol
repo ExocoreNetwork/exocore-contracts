@@ -41,7 +41,7 @@ contract ClientChainGatewayStorage is BootstrapStorage {
     IRewardVault public rewardVault;
 
     /// @dev Storage gap to allow for future upgrades.
-    uint256[40] private __gap;
+    uint256[39] private __gap;
 
     /* ----------------------------- restaking events     ------------------------------ */
 
