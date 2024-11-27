@@ -29,16 +29,16 @@ jobs:
       installation-dir: ${{ steps.find-path.outputs.installation-dir }}
     steps:
       - name: Echo skipping status
-        if: ${{ inputs.skip-install == true }}
+        if: ${{ inputs.skip-install }}
         run: echo "Skipping Foundry installation"
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
           version: ${{ inputs.foundry-version }}
-        if: ${{ inputs.skip-install == false }}
+        if: ${{ !inputs.skip-install }}
       - name: Print forge version
         run: forge --version
-        if: ${{ inputs.skip-install == false }}
+        if: ${{ !inputs.skip-install }}
       # Unfortunately, the `foundry-toolchain` action installs it in a
       # randomly generated location, so we must determine it ourselves
       - name: Determine Foundry installation path
@@ -47,17 +47,17 @@ jobs:
           installation_path=$(which forge)
           installation_dir=$(dirname $installation_path)
           echo "installation-dir=$installation_dir" >> "$GITHUB_OUTPUT"
-        if: ${{ inputs.skip-install == false }}
+        if: ${{ !inputs.skip-install }}
       - name: Cache the Foundry toolchain
         uses: actions/cache/save@v3
         with:
           path: ${{ steps.find-path.outputs.installation-dir }}
           key: foundry-${{ inputs.foundry-version }}
-        if: ${{ inputs.skip-install == false }}
+        if: ${{ !inputs.skip-install }}
       # No if in the below step to avoid the notification that goes
       # out when the action is skipped
       - name: Set cache key
         id: set-cache-key
         run: |
           echo "cache-key=foundry-${{ inputs.foundry-version }}" >> "$GITHUB_OUTPUT"
-        if: ${{ inputs.skip-install == false }}
+        if: ${{ !inputs.skip-install }}
