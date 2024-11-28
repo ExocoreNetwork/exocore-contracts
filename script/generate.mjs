@@ -983,18 +983,14 @@ async function updateGenesisFile() {
             (element) => element.token === tokenAddress && element.impacted_validators.includes(operator)
           );
           let totalSlashing = new Decimal(0);
-          let selfSlashing = new Decimal(0);
           for(let k = 0; k < matchingEntries.length; k++) {
             let matchingEntry = matchingEntries[k];
             let delegation = await myContract.methods.delegations(
-              matchingEntry.staker, validatorExoAddress, tokenAddress
+              matchingEntry.staker, operator, tokenAddress
             ).call();
             if (delegation > 0) {
               let slashing = new Decimal(delegation).mul(matchingEntry.proportion);
               totalSlashing = totalSlashing.plus(slashing);
-              if (matchingEntry.staker == validatorEthAddress) {
-                selfSlashing = slashing;
-              }
             }
           }
           const amount = new Decimal((await myContract.methods.delegations(
