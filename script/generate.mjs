@@ -44,7 +44,6 @@ const nativeAsset = {
 };
 const EXOCORE_BECH32_PREFIX = 'exo';
 const VIRTUAL_STAKED_ETH_ADDR = "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE";
-const GWEI_TO_WEI = new Decimal(1e9);
 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -130,9 +129,9 @@ async function updateGenesisFile() {
     // Create beacon API client
     const api = getClient({baseUrl: INTEGRATION_BEACON_CHAIN_ENDPOINT}, {config});
     const spec = (await api.config.getSpec()).value();
-    const maxEffectiveBalance = new Decimal(spec.MAX_EFFECTIVE_BALANCE).mul(GWEI_TO_WEI);
-    const ejectionBalance = new Decimal(spec.EJECTION_BALANCE).mul(GWEI_TO_WEI);
-    const slotsPerEpoch = spec.SLOTS_PER_EPOCH;
+    const maxEffectiveBalance = new Decimal(web3.utils.toWei(spec.MAX_EFFECTIVE_BALANCE, 'gwei'));
+    const ejectionBalance = new Decimal(web3.utils.toWei(spec.EJECTION_BALANCE, 'gwei'));
+    const slotsPerEpoch = parseInt(spec.SLOTS_PER_EPOCH, 10);
     let lastHeader = (await api.beacon.getBlockHeader({blockId: "finalized"})).value();
     const finalizedSlot = lastHeader.header.message.slot;
     const finalizedEpoch = Math.floor(finalizedSlot / slotsPerEpoch);
@@ -149,7 +148,16 @@ async function updateGenesisFile() {
     const genesisData = await fs.readFile(INTEGRATION_BASE_GENESIS_FILE_PATH);
     const genesisJSON = jsonBig.parse(genesisData);
 
-    const height = parseInt(genesisJSON.initial_height, 10);
+    // the initial height, when starting a new chain, is 1.
+    // however, when restarting an exported chain, it is 1 + the last block in the
+    // exported chain. to that end, we will set an initial_height of 0, if
+    // the genesis file has it set as 1. this will allow the first block to be
+    // free of any genesis state which depends on the height.
+    let height = parseInt(genesisJSON.initial_height, 10);
+    if (height == 1) {
+      height = 0;
+    }
+
     const bootstrapped = await myContract.methods.bootstrapped().call();
     if (bootstrapped) {
       throw new Error('The contract has already been bootstrapped.');
@@ -270,8 +278,8 @@ async function updateGenesisFile() {
           chain_id: 1, // first chain in the list
           contract_address: '',
           active: true,
-          asset_id: '',
-          decimal: 8, // price decimals, not token decimals
+          asset_id: "NST" + clientChainSuffix,
+          decimal: 0,
         };
       } else {
         if (token.tokenAddress == VIRTUAL_STAKED_ETH_ADDR) {
@@ -353,6 +361,7 @@ async function updateGenesisFile() {
     const deposits = [];
     const nativeTokenDepositors = [];
     const staker_infos = [];
+    let slashProportions = [];
     let staker_index_counter = 0;
     for (let i = 0; i < depositorsCount; i++) {
       const stakerAddress = await myContract.methods.depositors(i).call();
@@ -367,73 +376,200 @@ async function updateGenesisFile() {
         let withdrawableValue = new Decimal((await myContract.methods.withdrawableAmounts(
           stakerAddress, tokenAddress
         ).call()).toString());
+        // for validator pubkey ids to be available, a deposit must have been made.
+        // hence, the depositValue > 0 condition is necessary.
         if ((tokenAddress == VIRTUAL_STAKED_ETH_ADDR) && (depositValue > 0)) {
           // we have to use the effective balance calculation
           nativeTokenDepositors.push(stakerAddress.toLowerCase());
           const pubKeyCount = await myContract.methods.getPubkeysCount(stakerAddress).call();
+          if (pubKeyCount == 0) {
+            throw new Error('No pubkeys found for the staker.');
+          }
           const pubKeys = [];
           for(let k = 0; k < pubKeyCount; k++) {
             pubKeys.push(await myContract.methods.stakerToPubkeyIDs(stakerAddress, k).call());
           }
+          if (pubKeys.length == 0) {
+            throw new Error('No pubkeys found for the staker.');
+          }
+          const staker_info = {
+            staker_addr: stakerAddress.toLowerCase(),
+            staker_index: staker_index_counter,
+            validator_pubkey_list: pubKeys,
+            balance_list: [] // filled later.
+          };
+          staker_index_counter += 1;
           const validatorStates = (await api.beacon.getStateValidators(
             {stateId: stateRoot, validatorIds: pubKeys.map(pubKey => parseInt(pubKey, 16))}
           )).value();
           let totalEffectiveBalance = new Decimal(0);
+          let balances = [];
+          // remember that these validators are specific to the provided staker address.
+          // a validator is identified by its public key (or validator index), while a staker
+          // is identified by its address. each staker may have multiple validators.
           for(let k = 0; k < validatorStates.length; k++) {
+            // we cannot drop validators even though they may be slashed. this is because
+            // even after slashing, the validators will retain 16 ETH of total balance.
+            // this must be allowed to be withdrawn after Exocore is launched. since the
+            // withdrawal credentials point to the ExoCapsule, such a withdrawal will
+            // be permitted only via Exocore, which must, correspondingly, have this validator's
+            // state recorded.
             const validator = validatorStates[k];
-            // https://hackmd.io/@protolambda/validator_status
-            // it is sufficient to check for active_ongoing
-            if (validator.status != "active_ongoing") {
-              console.log(`Skipping staker ${stakerAddress} due to inactive validator ${pubKeys[k]}`);
-              continue;
-            }
-            const valEffectiveBalance = new Decimal(validator.validator.effectiveBalance).mul(GWEI_TO_WEI);
-            if (valEffectiveBalance.gt(maxEffectiveBalance)) {
-              throw new Error(
-                `The effective balance of staker ${stakerAddress} exceeds the maximum effective balance.`
-              );
-            }
-            if (valEffectiveBalance.lt(ejectionBalance)) {
-              console.log(`Skipping staker ${stakerAddress} due to low validator balance ${valEffectiveBalance}`);
-              continue;
-            }
-            totalEffectiveBalance = totalEffectiveBalance.plus(valEffectiveBalance);
-          }
-          if (depositValue > totalEffectiveBalance) {
-            console.log("Staker has more deposit than effective balance.");
-            // deposited 32 ETH and left with 31 ETH, aka downtime slashing
-            let toSlash = depositValue.minus(totalEffectiveBalance);
-            // if withdrawableValue can take the full slashing, do it.
-            if (withdrawableValue.gt(toSlash)) {
-              withdrawableValue = withdrawableValue.minus(toSlash);
-            } else {
-              // if not, only do it partially.
-              toSlash = toSlash.minus(withdrawableValue);
-              withdrawableValue = new Decimal(0);
-            }
-            // there is still some left, so do it from the deposit.
-            if (toSlash.gt(0)) {
-              if (depositValue.gt(toSlash)) {
-                depositValue = depositValue.minus(toSlash);
-              } else {
-                console.log(`Skipping staker ${stakerAddress} due to insufficient deposit ${depositValue}`);
-                continue;
+            const effectiveBalance = new Decimal(web3.utils.toWei(validator.validator.effectiveBalance.toString(), "gwei"));
+            if (effectiveBalance.eq(0)) {
+              if (!validator.status.startsWith("withdrawal")) {
+                throw new Error(
+                  `The effective balance of ${effectiveBalance} is zero for a validator that is not withdrawing.`
+                );
               }
             }
-          } else if (depositValue < totalEffectiveBalance) {
-            // deposited 32 ETH and left with 33 ETH, aka rewards
-            const delta = totalEffectiveBalance.minus(depositValue);
-            depositValue = depositValue.plus(delta);
-            withdrawableValue = withdrawableValue.plus(delta);
+            // even if max is 16, this will still hold
+            if (effectiveBalance.gt(maxEffectiveBalance)) {
+              throw new Error(
+                `The effective balance of ${effectiveBalance} is greater than the maximum effective balance.`
+              );
+            }
+            if (validator.status == "pending_initialized") {
+              // the deposit has happened, but perhaps not enough, or churn limit is exceeded,
+              // or the simplest case, the epoch containing the deposit has not yet ended.
+              // ideally, the effective balance should be equal to the depositValue, which
+              // would sum all the deposits made to the beacon chain.
+              // however, if a proof for a deposit was not submitted to the Bootstrap contract,
+              // but a deposit was made, the effective balance > depositValue.
+              // in a live chain, either a proof submission is made, or, the price feeder
+              // performs such an update. we will handle the update here ourselves.
+              // here, if the epoch in which the deposit was made hasn't ended, the effective
+              // balance may possibly be equal to 32 ETH. hence, we cannot check any range
+              // for this case.
+            } else if (validator.status == "pending_queued") {
+              // the deposit has happened, but the validator is not yet active. in this case,
+              // the effective balance must be exactly 32 ETH. otherwise, it would never be
+              // activated.
+              if (effectiveBalance.ne(maxEffectiveBalance)) {
+                throw new Error(
+                  `The effective balance of ${effectiveBalance} is not equal to the maximum effective balance.`
+                );
+              }
+            } else if (validator.status.startsWith("active") || validator.status.startsWith("exited")) {
+              if (validator.status.endsWith("slashed")) {
+                // [8, 16]
+                if (effectiveBalance.gt(ejectionBalance)) {
+                  throw new Error(
+                    `The effective balance of ${effectiveBalance} is greater than the ejection balance.`
+                  );
+                } else if (effectiveBalance.lt(ejectionBalance.div(2))) {
+                  throw new Error(
+                    `The effective balance of ${effectiveBalance} is less than half the ejection balance.`
+                  );
+                }
+              } else {
+                // [16, 32], of which 32 is already checked.
+                if (effectiveBalance.lt(ejectionBalance)) {
+                  throw new Error(
+                    `The effective balance of ${effectiveBalance} is less than the ejection balance.`
+                  );
+                }
+              }
+            } else {
+              // beacon chain withdrawal, may or may not have landed on the execution layer.
+              // we will need to record this in state nevertheless, because withdrawal of the execution layer ETH
+              // must be permitted.
+              if (!effectiveBalance.isZero()) {
+                throw new Error(
+                  `The effective balance of ${effectiveBalance} is not zero for a withdrawal status.`
+                );
+              }
+            }
+            totalEffectiveBalance = totalEffectiveBalance.plus(effectiveBalance);
+            let new_balance = {
+              round_id: 0,
+              block: height,
+              index: 0,
+              balance: 0,
+              // since we are only considering the total amount after slashing and refunds,
+              // it is always a deposit.
+              change: "ACTION_DEPOSIT"
+            };
+            if (balances.length > 0) {
+              new_balance = balances[balances.length - 1];
+              new_balance.index += 1;
+            }
+            new_balance.balance = web3.utils.fromWei(effectiveBalance.toFixed(), "ether");
+            balances.push(new_balance);
           }
-          staker_infos.push({
-            staker_addr: stakerAddress.toLowerCase(),
-            staker_index: staker_index_counter,
-            validator_pubkey_list: pubKeys,
-            // the balance list represents the history of the balance. for bootstrap, that is empty.
-            balance_list: []
-          });
-          staker_index_counter += 1;
+          // now we have the totalEffectiveBalance across all validator pubkeys for this staker
+          // we will compare it with the depositValue. ideally, they should be equal. however,
+          // a deposit proof may not have been submitted or the validator might have been
+          // slashed, causing a deviation. it is also possible for a validator to have exited
+          // from the beacon chain (without attempting to submit a proof), causing a deviation.
+          if (totalEffectiveBalance.eq(depositValue)) {
+            // (1) they are equal; do nothing
+          } else if (totalEffectiveBalance.lt(depositValue)) {
+            // (2) totalEffectiveBalance > depositValue; add spare as deposit but not withdrawable
+            depositValue = totalEffectiveBalance;
+          } else {
+            // (3) lower effective balance means that the Ethereum validator was either downtime
+            // penalised or slashed. we follow the logic enshrined in update_native_restaking_balance.go
+            // store this value before making any adjustments to calculate the slash proportion accurately.
+            let totalDelegated = depositValue.minus(withdrawableValue);
+            let slashFromWithdrawable = depositValue.minus(totalEffectiveBalance);
+            let pendingSlashAmount = slashFromWithdrawable.minus(withdrawableValue);
+            if (pendingSlashAmount.isPositive()) {
+              slashFromWithdrawable = withdrawableValue;
+            } else {
+              pendingSlashAmount = new Decimal(0);
+            }
+            depositValue = depositValue.minus(slashFromWithdrawable);
+            withdrawableValue = withdrawableValue.minus(slashFromWithdrawable);
+            // we don't have any undelegations, so we will skip that step.
+            if (pendingSlashAmount.isPositive()) {
+              // slash across all delegations, propotionately.
+              // let's look at an example.
+              // effective balance = 16 ETH at the time of generate.mjs
+              // originally, deposit value = 32 ETH, withdrawable value = 8 ETH
+              // slash from withdrawable = 16 ETH
+              // pending slash amount = 8 ETH
+              // slash from withdrawable = 8 ETH
+              // deposit value = 24 ETH, withdrawable value = 0 ETH
+              // we still have to slash 8 ETH of total delegated 24 ETH, across all operators
+              // to which delegations exist. so, 1/3 needs to be slashed. it should be saved
+              // and applied to staker_asset and operator_asset etc.
+              // in addition, we will apply it to the depositValue here too.
+              // total delegated was originally 24 ETH. so, 8 ETH (=1/3) needs to be slashed.
+              // the slashing needs to be applied to
+              // -- staker + asset + {each validator to which that combination is delegated}
+              // it should be applied to the delegated value against each validator,
+              // and then it will flow automatically(?) to the share.
+              let slashProportion = pendingSlashAmount.div(totalDelegated);
+              if (slashProportion.greaterThan(new Decimal(1))) {
+                slashProportion = new Decimal(1);
+              }
+              depositValue = totalDelegated.mul((new Decimal(1)).minus(slashProportion));
+              // a certain subset of the validators is impacted by this above slashing.
+              // our goal is to find that subset and save it such that it can be applied
+              // to the delegated value below.
+              let impactedValidators = [];
+              let impactedValidatorsCount = 
+                await myContract.methods.getValidatorsCountForStakerToken(stakerAddress, tokenAddress).call();
+              for(let k = 0; k < impactedValidatorsCount; k++) {
+                let impactedValidator = 
+                  await myContract.methods.stakerToTokenToValidators(stakerAddress, tokenAddress, k).call();
+                impactedValidators.push(impactedValidator);
+              }
+              if ((impactedValidators.length == 0) && (!slashProportion.isZero())) {
+                slashProportions.push({
+                  staker: stakerAddress,
+                  token: tokenAddress,
+                  proportion: slashProportion,
+                  impacted_validators: impactedValidators
+                });
+              }
+            }
+          }
+          staker_info.balance_list = balances;
+          if (!totalEffectiveBalance.isZero()) {
+            staker_infos.push(staker_info);
+          }
         }
         const depositByStakerForAsset = {
           asset_id: tokenAddress.toLowerCase() + clientChainSuffix,
@@ -489,22 +625,38 @@ async function updateGenesisFile() {
         // do not reuse the older array since it has been sorted.
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
-        const delegationValue = await myContract.methods.delegationsByValidator(
+        let matchingEntries = slashProportions.filter(
+          (element) => element.token === tokenAddress && element.impacted_validators.includes(validatorExoAddress)
+        );
+        let totalSlashing = new Decimal(0);
+        let selfSlashing = new Decimal(0);
+        for(let k = 0; k < matchingEntries.length; k++) {
+          let matchingEntry = matchingEntries[k];
+          let delegation = await myContract.methods.delegations(
+            matchingEntry.staker, validatorExoAddress, tokenAddress
+          ).call();
+          if (delegation > 0) {
+            let slashing = new Decimal(delegation).mul(matchingEntry.proportion);
+            totalSlashing = totalSlashing.plus(slashing);
+            if (matchingEntry.staker == validatorEthAddress) {
+              selfSlashing = slashing;
+            }
+          }
+        }
+        const delegationValue = new Decimal((await myContract.methods.delegationsByValidator(
           validatorExoAddress, tokenAddress
-        ).call();
-        const totalShare = new Decimal(delegationValue.toString());
-        const selfDelegation = await myContract.methods.delegations(
+        ).call()).toString()).minus(totalSlashing);
+        const selfDelegation = new Decimal((await myContract.methods.delegations(
           validatorEthAddress, validatorExoAddress, tokenAddress
-        ).call();
-        const selfShare = new Decimal(selfDelegation.toString());
+        ).call()).toString()).minus(selfSlashing);
 
         const assetsByOperatorForAsset = {
           asset_id: tokenAddress.toLowerCase() + clientChainSuffix,
           info: {
-            total_amount: delegationValue.toString(),
+            total_amount: delegationValue.toFixed(),
             pending_undelegation_amount: "0",
-            total_share: totalShare.toFixed(),
-            operator_share: selfShare.toFixed(),
+            total_share: delegationValue.toFixed(),
+            operator_share: selfDelegation.toFixed(),
           }
         };
         assetsByOperator.push(assetsByOperatorForAsset);
@@ -629,19 +781,38 @@ async function updateGenesisFile() {
       for (let j = 0; j < supportedTokens.length; j++) {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
-        const selfDelegationAmount = await myContract.methods.delegations(
+        let selfDelegationAmount = new Decimal((await myContract.methods.delegations(
             opAddressHex, opAddressExo, tokenAddress
-        ).call();
+        ).call()).toString());
+        let matchingEntries = slashProportions.filter(
+          (element) => element.token === tokenAddress && element.impacted_validators.includes(opAddressExo)
+        );
+        let totalSlashing = new Decimal(0);
+        let selfSlashing = new Decimal(0);
+        for(let k = 0; k < matchingEntries.length; k++) {
+          let matchingEntry = matchingEntries[k];
+          let delegation = await myContract.methods.delegations(
+            matchingEntry.staker, opAddressExo, tokenAddress
+          ).call();
+          if (delegation > 0) {
+            let slashing = new Decimal(delegation).mul(matchingEntry.proportion);
+            totalSlashing = totalSlashing.plus(slashing);
+            if (matchingEntry.staker == opAddressHex) {
+              selfSlashing = slashing;
+            }
+          }
+        }
+        selfDelegationAmount = selfDelegationAmount.minus(selfSlashing);
         amount = amount.plus(
-          new Decimal(selfDelegationAmount.toString()).
+          selfDelegationAmount.
             div('1e' + decimals[j]).
             mul(exchangeRates[j].toFixed())
         );
-        const perTokenDelegation = await myContract.methods.delegationsByValidator(
+        const perTokenDelegation = new Decimal((await myContract.methods.delegationsByValidator(
           opAddressExo, tokenAddress
-        ).call();
+        ).call()).toString()).minus(totalSlashing);
         totalAmount = totalAmount.plus(
-          new Decimal(perTokenDelegation.toString()).
+          perTokenDelegation.
             div('1e' + decimals[j]).
             mul(exchangeRates[j].toFixed())
         );
@@ -808,16 +979,33 @@ async function updateGenesisFile() {
             console.log(`Skipping operator with invalid bech32 address: ${operator}`);
             continue;
           }
-          const amount = await myContract.methods.delegations(
+          let matchingEntries = slashProportions.filter(
+            (element) => element.token === tokenAddress && element.impacted_validators.includes(operator)
+          );
+          let totalSlashing = new Decimal(0);
+          let selfSlashing = new Decimal(0);
+          for(let k = 0; k < matchingEntries.length; k++) {
+            let matchingEntry = matchingEntries[k];
+            let delegation = await myContract.methods.delegations(
+              matchingEntry.staker, validatorExoAddress, tokenAddress
+            ).call();
+            if (delegation > 0) {
+              let slashing = new Decimal(delegation).mul(matchingEntry.proportion);
+              totalSlashing = totalSlashing.plus(slashing);
+              if (matchingEntry.staker == validatorEthAddress) {
+                selfSlashing = slashing;
+              }
+            }
+          }
+          const amount = new Decimal((await myContract.methods.delegations(
             staker, operator, tokenAddress
-          ).call();
-          if (amount.toString() > 0) {
+          ).call()).toString()).minus(totalSlashing);
+          if (amount.isPositive()) {
             const key = getJoinedStoreKey(stakerId, assetId, operator);
-            const share = new Decimal(amount.toString());
             delegation_states.push({
               key: key,
               states: {
-                undelegatable_share: share.toFixed(),
+                undelegatable_share: amount.toFixed(),
                 wait_undelegation_amount: "0"
               },
             });

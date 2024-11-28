@@ -181,6 +181,10 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev Maps staker addresses to their corresponding validator indexes used on the beacon chain.
     mapping(address staker => bytes32[]) public stakerToPubkeyIDs;
 
+    /// @notice Mapping of staker address to token to list of validators.
+    /// @dev Maps staker addresses to a mapping of token addresses to a list of validators.
+    mapping(address staker => mapping(address token => string[])) public stakerToTokenToValidators;
+
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
     /* -------------------------------------------------------------------------- */

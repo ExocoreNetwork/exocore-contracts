@@ -514,6 +514,11 @@ contract Bootstrap is
         if (withdrawable < amount) {
             revert Errors.BootstrapInsufficientWithdrawableBalance();
         }
+
+        if (delegations[user][validator][token] == 0) {
+            // if this amount later becomes 0, it is ok. we don't worry about removing it.
+            stakerToTokenToValidators[user][token].push(validator);
+        }
         delegations[user][validator][token] += amount;
         delegationsByValidator[validator][token] += amount;
         withdrawableAmounts[user][token] -= amount;
@@ -828,9 +833,17 @@ contract Bootstrap is
     /// by a staker. The deposit must include deposit + verification for inclusion
     /// into the beacon chain.
     /// @param stakerAddress the address of the staker.
-    /// @return the number of pubkeys deposited by the staker.
+    /// @return uint256 The number of pubkeys deposited by the staker.
     function getPubkeysCount(address stakerAddress) external view returns (uint256) {
         return stakerToPubkeyIDs[stakerAddress].length;
+    }
+
+    /// @notice Returns the number of validators to whom a staker has delegated a token.
+    /// @param stakerAddress The address of the staker.
+    /// @param token The address of the token.
+    /// @return uint256 The number of validators to whom the staker has delegated the token.
+    function getValidatorsCountForStakerToken(address stakerAddress, address token) external view returns (uint256) {
+        return stakerToTokenToValidators[stakerAddress][token].length;
     }
 
 }
