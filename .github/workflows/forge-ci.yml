@@ -1,4 +1,4 @@
-name: Forge CI to build, test, format and compare storage layout
+name: Forge CI
 
 on:
   merge_group:
@@ -12,42 +12,40 @@ on:
 
 jobs:
   setup:
-    uses: ./.github/workflows/foundry-setup.yml
+    # A full job can be used as a reusable workflow but not a step.
+    uses: ./.github/workflows/reusable-foundry-setup.yml
     with:
+      # The below line does not accept environment variables,
+      # so it becomes the single source of truth for the version.
       foundry-version: nightly
 
   build:
+    # Caching is slow; takes about 3 minutes.
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     needs: setup
     outputs:
-      installation-dir: ${{ needs.setup.outputs.installation-dir }}
+      # The cache-key only contains the version name. It is only used so that the name does not
+      # need to be repeated everywhere; instead setting the `foundry-version` above suffices.
       cache-key: ${{ needs.setup.outputs.cache-key }}
+      # Github's cache actions are a bit weird to deal with. It wouldn't let me restore the
+      # binaries to /usr/bin, so I restored them to the original location and added it to PATH.
+      # This output will let us carry it to other jobs.
+      installation-dir: ${{ needs.setup.outputs.installation-dir }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
       - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
           path: ${{ needs.setup.outputs.installation-dir }}
           key: ${{ needs.setup.outputs.cache-key }}
       - name: Add Foundry to PATH
-        run: echo "${{ needs.setup.outputs.installation-dir }}" >> $GITHUB_PATH
+        run: echo "${{ needs.setup.outputs.installation-dir }}" >> "$GITHUB_PATH"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
       - name: Build
         run: forge build
-      - name: Add comment for build failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'The build has failed. Please check the logs.'
-            })
       - name: Cache build artifacts
         uses: actions/cache/save@v3
         with:
@@ -56,21 +54,23 @@ jobs:
             ./out
             ./cache
             ./broadcast
-          key: ${{ runner.os }}-build-${{ github.sha }}
+          key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
 
   test:
+    # Takes less than 30s
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
       - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
           path: ${{ needs.build.outputs.installation-dir }}
           key: ${{ needs.build.outputs.cache-key }}
       - name: Add Foundry to PATH
-        run: echo "${{ needs.build.outputs.installation-dir }}" >> $GITHUB_PATH
+        run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Restore build artifacts
         uses: actions/cache/restore@v3
         with:
@@ -79,37 +79,27 @@ jobs:
             ./out
             ./cache
             ./broadcast
-          key: ${{ runner.os }}-build-${{ github.sha }}
+          key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
       - name: Test
         run: forge test -vvv
       - name: Set test snapshot as summary
         run: NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
-      - name: Add comment for test failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'The tests have failed. Please check the logs.'
-            })
 
   format:
+    # Takes less than 30s
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     needs: build
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
       - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
           path: ${{ needs.build.outputs.installation-dir }}
           key: ${{ needs.build.outputs.cache-key }}
       - name: Add Foundry to PATH
-        run: echo "${{ needs.build.outputs.installation-dir }}" >> $GITHUB_PATH
+        run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Restore build artifacts
         uses: actions/cache/restore@v3
         with:
@@ -118,38 +108,61 @@ jobs:
             ./out
             ./cache
             ./broadcast
-          key: ${{ runner.os }}-build-${{ github.sha }}
+          key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
       - name: Check formatting
         run: forge fmt --check
-      - name: Add comment for format check failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'The code is not formatted correctly. Please run `forge fmt` and push the changes.'
-            })
 
-  compare-storage-layout:
+  extract-base-storage-layout-exocore-gateway:
+    # Takes less than 30 seconds, but add some margin for git clone
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     needs: build
-    env:
-      ALCHEMY_API_KEY: ${{ secrets.ALCHEMY_API_KEY }}
-      ETHERSCAN_API_KEY: ${{ secrets.ETHERSCAN_API_KEY }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
       - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
         with:
           path: ${{ needs.build.outputs.installation-dir }}
           key: ${{ needs.build.outputs.cache-key }}
       - name: Add Foundry to PATH
-        run: echo "${{ needs.build.outputs.installation-dir }}" >> $GITHUB_PATH
+        run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
+      - name: Checkout base branch or previous commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref || github.event.before }}
+          # We don't have a `lib` folder to restore for this step, so we
+          # recursively checkout the submodules. In other steps, we use the
+          # `lib` folder from the `build` job.
+          submodules: recursive
+      - name: Generate base branch layout file
+        # Note that this `run` will do a `forge build` so we don't need to do it ourselves.
+        # The build artifacts of this step are not relevant to us either, so we don't need to
+        # cache them.
+        run: |
+          forge inspect src/core/ExocoreGateway.sol:ExocoreGateway storage-layout > ExocoreGateway.base.json
+      - name: Upload storage layout file as an artifact
+        uses: actions/upload-artifact@v4
+        with:
+          path: ExocoreGateway.base.json
+          name: compiled-layout-ExocoreGateway-base-${{ github.event.pull_request.base.sha || github.event.after || github.sha }}
+
+  extract-storage-layout:
+    # Takes less than 30 seconds
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        contract: [Bootstrap, ClientChainGateway, RewardVault, Vault, ExocoreGateway, ExoCapsule]
+    steps:
+      - name: Restore cached Foundry toolchain
+        uses: actions/cache/restore@v3
+        with:
+          path: ${{ needs.build.outputs.installation-dir }}
+          key: ${{ needs.build.outputs.cache-key }}
+      - name: Add Foundry to PATH
+        run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Restore build artifacts
         uses: actions/cache/restore@v3
         with:
@@ -158,48 +171,34 @@ jobs:
             ./out
             ./cache
             ./broadcast
-          key: ${{ runner.os }}-build-${{ github.sha }}
-      - name: Checkout target branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-          submodules: recursive
-      - name: Generate target branch layout files
+          key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
+      - name: Generate storage layout file for ${{ matrix.contract }}
         run: |
-          forge inspect src/core/ExocoreGateway.sol:ExocoreGateway storage-layout --pretty > ExocoreGateway_target.txt
-      - name: Cache target branch layout file
-        uses: actions/cache/save@v3
+          forge inspect src/core/${{ matrix.contract }}.sol:${{ matrix.contract }} storage-layout > ${{ matrix.contract }}.compiled.json;
+      - name: Upload storage layout file as an artifact
+        uses: actions/upload-artifact@v4
         with:
-          path: ExocoreGateway_target.txt
-          key: ${{ runner.os }}-exocore-target-${{ github.sha }}
-      - name: Checkout back to PR
-        uses: actions/checkout@v4
+          path: ${{ matrix.contract }}.compiled.json
+          name: compiled-layout-${{ matrix.contract}}-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
+
+  combine-storage-layouts:
+    # Takes less than 10 seconds
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    needs:
+      - extract-base-storage-layout-exocore-gateway
+      - extract-storage-layout
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        # No name means all artifacts are downloaded within their respective subfolders
+        # inside the provided path.
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
-      - name: Restore target branch layout file
-        uses: actions/cache/restore@v3
+          path: combined
+      - name: Zip up the compiled layouts
+        run: zip -j compiled-layouts.zip combined/*/*.json
+      - name: Upload the compiled layouts file as an artifact
+        uses: actions/upload-artifact@v4
         with:
-          path: ExocoreGateway_target.txt
-          key: ${{ runner.os }}-exocore-target-${{ github.sha }}
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12.4'
-      - name: Install pandas
-        run: pip install --root-user-action=ignore pandas==2.2.2
-      - name: Run the comparison script for Bootstrap and ClientChainGateway
-        run: python .github/workflows/compare_storage_layout.py
-      - name: Run the comparison script for deployed contracts
-        run: python .github/workflows/compare_deployed_storage_layout.py
-      - name: Add comment for storage layout mismatch failure
-        if: failure()
-        uses: actions/github-script@v6
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Storage layout compatibility check failed. This could be due to a mismatch between Bootstrap and ClientChainGateway, or incompatibility with deployed contracts on Sepolia. Please check the logs for details.'
-            })
+          path: compiled-layouts.zip
+          name: compiled-layouts-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
