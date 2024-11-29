@@ -98,6 +98,7 @@ import JSONbig from 'json-bigint';
 const jsonBig = JSONbig({ useNativeBigInt: true });
 
 const ZERO_DECIMAL = new Decimal(0);
+const ONE_DECIMAL = new Decimal(1);
 
 function getChainIDWithoutPrevision(chainID) {
   const splitStr = chainID.split('-');
@@ -403,7 +404,7 @@ async function updateGenesisFile() {
           const validatorStates = (await api.beacon.getStateValidators(
             {stateId: stateRoot, validatorIds: pubKeys.map(pubKey => parseInt(pubKey, 16))}
           )).value();
-          let totalEffectiveBalance = new Decimal(0);
+          let totalEffectiveBalance = ZERO_DECIMAL;
           let balances = [];
           // remember that these validators are specific to the provided staker address.
           // a validator is identified by its public key (or validator index), while a staker
@@ -417,7 +418,6 @@ async function updateGenesisFile() {
             // state recorded.
             const validator = validatorStates[k];
             const effectiveBalance = new Decimal(web3.utils.toWei(validator.validator.effectiveBalance.toString(), "gwei"));
-            // const effectiveBalance = new Decimal(web3.utils.toWei(32, "ether"));
             if (effectiveBalance.eq(0)) {
               if (!validator.status.startsWith("withdrawal")) {
                 throw new Error(
@@ -513,15 +513,26 @@ async function updateGenesisFile() {
             // (3) lower effective balance means that the Ethereum validator was either downtime
             // penalised or slashed. we follow the logic enshrined in update_native_restaking_balance.go
             // store this value before making any adjustments to calculate the slash proportion accurately.
+            // An example case wherein not all the 32 ETH is staked to an Exocore validator.
+            // Effective balance = 29 ETH
+            // Deposited 32, of which 2 is free and 30 is delegated. So withdrawable is 2.
+            // DepositValue = 32
+            // WithdrawableValue = 2
+            // TotalDelegated = 30
             let totalDelegated = depositValue.minus(withdrawableValue);
+            // SlashFromWithdrawable = 32 - 29 = 3
             let slashFromWithdrawable = depositValue.minus(totalEffectiveBalance);
+            // PendingSlashAmount = 3 - 2 = 1
             let pendingSlashAmount = slashFromWithdrawable.minus(withdrawableValue);
             if (pendingSlashAmount.gt(ZERO_DECIMAL)) {
+              // SlashFromWithdrawable = 2
               slashFromWithdrawable = withdrawableValue;
             } else {
-              pendingSlashAmount = new Decimal(0);
+              pendingSlashAmount = ZERO_DECIMAL;
             }
+            // DepositValue = 30
             depositValue = depositValue.minus(slashFromWithdrawable);
+            // WithdrawableValue = 0
             withdrawableValue = withdrawableValue.minus(slashFromWithdrawable);
             // we don't have any undelegations, so we will skip that step.
             if (pendingSlashAmount.gt(ZERO_DECIMAL)) {
@@ -542,19 +553,20 @@ async function updateGenesisFile() {
               // -- staker + asset + {each validator to which that combination is delegated}
               // it should be applied to the delegated value against each validator,
               // and then it will flow automatically(?) to the share.
+              // SlashProportion = 1/9, so we will need to handle truncation.
               let slashProportion = pendingSlashAmount.div(totalDelegated);
-              if (slashProportion.greaterThan(new Decimal(1))) {
-                slashProportion = new Decimal(1);
+              if (slashProportion.greaterThan(ONE_DECIMAL)) {
+                slashProportion = ONE_DECIMAL;
               }
-              depositValue = totalDelegated.mul((new Decimal(1)).minus(slashProportion));
+              depositValue = totalDelegated.minus(pendingSlashAmount);
               // a certain subset of the validators is impacted by this above slashing.
               // our goal is to find that subset and save it such that it can be applied
               // to the delegated value below.
               let impactedValidators = [];
-              let impactedValidatorsCount = 
+              let impactedValidatorsCount =
                 await myContract.methods.getValidatorsCountForStakerToken(stakerAddress, tokenAddress).call();
               for(let k = 0; k < impactedValidatorsCount; k++) {
-                let impactedValidator = 
+                let impactedValidator =
                   await myContract.methods.stakerToTokenToValidators(stakerAddress, tokenAddress, k).call();
                 impactedValidators.push(impactedValidator);
               }
@@ -630,8 +642,8 @@ async function updateGenesisFile() {
         let matchingEntries = slashProportions.filter(
           (element) => element.token === tokenAddress && element.impacted_validators.includes(validatorExoAddress)
         );
-        let totalSlashing = new Decimal(0);
-        let selfSlashing = new Decimal(0);
+        let totalSlashing = ZERO_DECIMAL;
+        let selfSlashing = ZERO_DECIMAL;
         for(let k = 0; k < matchingEntries.length; k++) {
           let matchingEntry = matchingEntries[k];
           let delegation = await myContract.methods.delegations(
@@ -647,10 +659,10 @@ async function updateGenesisFile() {
         }
         const delegationValue = new Decimal((await myContract.methods.delegationsByValidator(
           validatorExoAddress, tokenAddress
-        ).call()).toString()).minus(totalSlashing);
+        ).call()).toString()).minus(totalSlashing).truncated();
         const selfDelegation = new Decimal((await myContract.methods.delegations(
           validatorEthAddress, validatorExoAddress, tokenAddress
-        ).call()).toString()).minus(selfSlashing);
+        ).call()).toString()).minus(selfSlashing).truncated();
 
         const assetsByOperatorForAsset = {
           asset_id: tokenAddress.toLowerCase() + clientChainSuffix,
@@ -716,7 +728,7 @@ async function updateGenesisFile() {
     const operators = [];
     const associations = [];
     const operatorsCount = await myContract.methods.getValidatorsCount().call();
-    let dogfoodUSDValue = new Decimal(0);
+    let dogfoodUSDValue = ZERO_DECIMAL;
     const operator_records = [];
     const opt_states = [];
     const avs_usd_values = [];
@@ -772,8 +784,8 @@ async function updateGenesisFile() {
       // and instead, load the asset prices into the oracle module genesis
       // and let the dogfood module pull the vote power from the rest of the system
       // at genesis.
-      let amount = new Decimal(0);
-      let totalAmount = new Decimal(0);
+      let amount = ZERO_DECIMAL;
+      let totalAmount = ZERO_DECIMAL;
       if (exchangeRates.length != supportedTokens.length) {
         throw new Error(
           `The number of exchange rates (${exchangeRates.length}) 
@@ -789,8 +801,8 @@ async function updateGenesisFile() {
         let matchingEntries = slashProportions.filter(
           (element) => element.token === tokenAddress && element.impacted_validators.includes(opAddressExo)
         );
-        let totalSlashing = new Decimal(0);
-        let selfSlashing = new Decimal(0);
+        let totalSlashing = ZERO_DECIMAL;
+        let selfSlashing = ZERO_DECIMAL;
         for(let k = 0; k < matchingEntries.length; k++) {
           let matchingEntry = matchingEntries[k];
           let delegation = await myContract.methods.delegations(
@@ -804,7 +816,7 @@ async function updateGenesisFile() {
             }
           }
         }
-        selfDelegationAmount = selfDelegationAmount.minus(selfSlashing);
+        selfDelegationAmount = selfDelegationAmount.minus(selfSlashing).truncated();
         amount = amount.plus(
           selfDelegationAmount.
             div('1e' + decimals[j]).
@@ -812,7 +824,7 @@ async function updateGenesisFile() {
         );
         const perTokenDelegation = new Decimal((await myContract.methods.delegationsByValidator(
           opAddressExo, tokenAddress
-        ).call()).toString()).minus(totalSlashing);
+        ).call()).toString()).minus(totalSlashing).truncated();
         totalAmount = totalAmount.plus(
           perTokenDelegation.
             div('1e' + decimals[j]).
@@ -984,7 +996,7 @@ async function updateGenesisFile() {
           let matchingEntries = slashProportions.filter(
             (element) => element.token === tokenAddress && element.impacted_validators.includes(operator)
           );
-          let totalSlashing = new Decimal(0);
+          let totalSlashing = ZERO_DECIMAL;
           for(let k = 0; k < matchingEntries.length; k++) {
             let matchingEntry = matchingEntries[k];
             let delegation = await myContract.methods.delegations(
@@ -997,7 +1009,7 @@ async function updateGenesisFile() {
           }
           const amount = new Decimal((await myContract.methods.delegations(
             staker, operator, tokenAddress
-          ).call()).toString()).minus(totalSlashing);
+          ).call()).toString()).minus(totalSlashing).truncated();
           if (amount.gt(ZERO_DECIMAL)) {
             const key = getJoinedStoreKey(stakerId, assetId, operator);
             delegation_states.push({
