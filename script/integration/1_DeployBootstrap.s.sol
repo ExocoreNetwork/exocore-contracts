@@ -13,6 +13,8 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 import {EndpointV2Mock} from "../../test/mocks/EndpointV2Mock.sol";
 
 import {Bootstrap} from "../../src/core/Bootstrap.sol";
+import {ClientChainGateway} from "../../src/core/ClientChainGateway.sol";
+import {RewardVault} from "../../src/core/RewardVault.sol";
 
 import {BootstrapStorage} from "../../src/storage/BootstrapStorage.sol";
 
@@ -22,6 +24,8 @@ import {ALLOWED_CHAIN_ID, NetworkConfig} from "./NetworkConfig.sol";
 import {ExoCapsule} from "../../src/core/ExoCapsule.sol";
 import {Vault} from "../../src/core/Vault.sol";
 import {IExoCapsule} from "../../src/interfaces/IExoCapsule.sol";
+
+import {IRewardVault} from "../../src/interfaces/IRewardVault.sol";
 import {IValidatorRegistry} from "../../src/interfaces/IValidatorRegistry.sol";
 import {IVault} from "../../src/interfaces/IVault.sol";
 
@@ -44,12 +48,11 @@ contract DeployContracts is Script {
     // no cross-chain communication is part of this test so these are not relevant
     uint16 exocoreChainId = 1;
     uint16 clientChainId = 2;
-    // neither is the ownership of the contract being tested here
-    address exocoreValidatorSet = vm.addr(uint256(0x8));
 
     uint256[] validators;
     uint256[] stakers;
     string[] exos;
+    // also the owner of the contracts
     uint256 contractDeployer;
     uint256 nstDepositor;
     Bootstrap bootstrap;
@@ -62,9 +65,11 @@ contract DeployContracts is Script {
 
     BeaconOracle beaconOracle;
     IVault vaultImplementation;
+    IRewardVault rewardVaultImplementation;
     IExoCapsule capsuleImplementation;
     IBeacon vaultBeacon;
     IBeacon capsuleBeacon;
+    IBeacon rewardVaultBeacon;
     BeaconProxyBytecode beaconProxyBytecode;
     NetworkConfig networkConfig;
 
@@ -198,6 +203,15 @@ contract DeployContracts is Script {
 
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
 
+        rewardVaultImplementation = new RewardVault();
+        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
+        ClientChainGateway clientGatewayLogic =
+            new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
+
+        address[] memory emptyList;
+        bytes memory initialization =
+            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, vm.addr(contractDeployer), emptyList);
+
         bootstrap = Bootstrap(
             payable(
                 address(
@@ -209,15 +223,13 @@ contract DeployContracts is Script {
                             (
                                 vm.addr(contractDeployer),
                                 // keep a large buffer because we are going to be depositing a lot of tokens
-                                // and we do one tx per block
                                 block.timestamp + 24 hours,
                                 1 seconds,
                                 whitelistTokens,
                                 tvlLimits,
                                 address(proxyAdmin),
-                                // the implementation upgrade and data don't matter for this test
-                                address(0x1),
-                                bytes("123456")
+                                address(clientGatewayLogic),
+                                initialization
                             )
                         )
                     )
