@@ -97,6 +97,7 @@ const { keccak256 } = pkg;
 import JSONbig from 'json-bigint';
 const jsonBig = JSONbig({ useNativeBigInt: true });
 
+const ZERO_DECIMAL = new Decimal(0);
 
 function getChainIDWithoutPrevision(chainID) {
   const splitStr = chainID.split('-');
@@ -416,6 +417,7 @@ async function updateGenesisFile() {
             // state recorded.
             const validator = validatorStates[k];
             const effectiveBalance = new Decimal(web3.utils.toWei(validator.validator.effectiveBalance.toString(), "gwei"));
+            // const effectiveBalance = new Decimal(web3.utils.toWei(32, "ether"));
             if (effectiveBalance.eq(0)) {
               if (!validator.status.startsWith("withdrawal")) {
                 throw new Error(
@@ -504,7 +506,7 @@ async function updateGenesisFile() {
           // from the beacon chain (without attempting to submit a proof), causing a deviation.
           if (totalEffectiveBalance.eq(depositValue)) {
             // (1) they are equal; do nothing
-          } else if (totalEffectiveBalance.lt(depositValue)) {
+          } else if (totalEffectiveBalance.gt(depositValue)) {
             // (2) totalEffectiveBalance > depositValue; add spare as deposit but not withdrawable
             depositValue = totalEffectiveBalance;
           } else {
@@ -514,7 +516,7 @@ async function updateGenesisFile() {
             let totalDelegated = depositValue.minus(withdrawableValue);
             let slashFromWithdrawable = depositValue.minus(totalEffectiveBalance);
             let pendingSlashAmount = slashFromWithdrawable.minus(withdrawableValue);
-            if (pendingSlashAmount.isPositive()) {
+            if (pendingSlashAmount.gt(ZERO_DECIMAL)) {
               slashFromWithdrawable = withdrawableValue;
             } else {
               pendingSlashAmount = new Decimal(0);
@@ -522,7 +524,7 @@ async function updateGenesisFile() {
             depositValue = depositValue.minus(slashFromWithdrawable);
             withdrawableValue = withdrawableValue.minus(slashFromWithdrawable);
             // we don't have any undelegations, so we will skip that step.
-            if (pendingSlashAmount.isPositive()) {
+            if (pendingSlashAmount.gt(ZERO_DECIMAL)) {
               // slash across all delegations, propotionately.
               // let's look at an example.
               // effective balance = 16 ETH at the time of generate.mjs
@@ -556,7 +558,7 @@ async function updateGenesisFile() {
                   await myContract.methods.stakerToTokenToValidators(stakerAddress, tokenAddress, k).call();
                 impactedValidators.push(impactedValidator);
               }
-              if ((impactedValidators.length == 0) && (!slashProportion.isZero())) {
+              if ((impactedValidators.length > 0) && (!slashProportion.isZero())) {
                 slashProportions.push({
                   staker: stakerAddress,
                   token: tokenAddress,
@@ -636,7 +638,7 @@ async function updateGenesisFile() {
             matchingEntry.staker, validatorExoAddress, tokenAddress
           ).call();
           if (delegation > 0) {
-            let slashing = new Decimal(delegation).mul(matchingEntry.proportion);
+            let slashing = new Decimal(delegation.toString()).mul(matchingEntry.proportion);
             totalSlashing = totalSlashing.plus(slashing);
             if (matchingEntry.staker == validatorEthAddress) {
               selfSlashing = slashing;
@@ -795,7 +797,7 @@ async function updateGenesisFile() {
             matchingEntry.staker, opAddressExo, tokenAddress
           ).call();
           if (delegation > 0) {
-            let slashing = new Decimal(delegation).mul(matchingEntry.proportion);
+            let slashing = new Decimal(delegation.toString()).mul(matchingEntry.proportion);
             totalSlashing = totalSlashing.plus(slashing);
             if (matchingEntry.staker == opAddressHex) {
               selfSlashing = slashing;
@@ -989,14 +991,14 @@ async function updateGenesisFile() {
               matchingEntry.staker, operator, tokenAddress
             ).call();
             if (delegation > 0) {
-              let slashing = new Decimal(delegation).mul(matchingEntry.proportion);
+              let slashing = new Decimal(delegation.toString()).mul(matchingEntry.proportion);
               totalSlashing = totalSlashing.plus(slashing);
             }
           }
           const amount = new Decimal((await myContract.methods.delegations(
             staker, operator, tokenAddress
           ).call()).toString()).minus(totalSlashing);
-          if (amount.isPositive()) {
+          if (amount.gt(ZERO_DECIMAL)) {
             const key = getJoinedStoreKey(stakerId, assetId, operator);
             delegation_states.push({
               key: key,
