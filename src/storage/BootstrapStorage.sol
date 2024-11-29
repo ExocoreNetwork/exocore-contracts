@@ -167,16 +167,6 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev A mapping of validator names to a boolean indicating whether the name has been used.
     mapping(string name => bool used) public validatorNameInUse;
 
-    /// @dev Storage gap to allow for future upgrades.
-    // slither-disable-next-line shadowing-state
-    uint256[40] private __gap;
-
-    /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
-    /// @dev Maps owner addresses to their corresponding ExoCapsule contracts.
-    /// @dev This state has been moved from ClientChainGatewayStorage to BootstrapStorage since it is shared by both
-    /// contracts and we put it after __gap to maintain the storage layout compatible with deployed contracts.
-    mapping(address owner => IExoCapsule capsule) public ownerToCapsule;
-
     /// @notice Mapping of staker addresses to their corresponding validator indexes.
     /// @dev Maps staker addresses to their corresponding validator indexes used on the beacon chain.
     mapping(address staker => bytes32[]) public stakerToPubkeyIDs;
@@ -184,6 +174,17 @@ contract BootstrapStorage is GatewayStorage {
     /// @notice Mapping of staker address to token to list of validators.
     /// @dev Maps staker addresses to a mapping of token addresses to a list of validators.
     mapping(address staker => mapping(address token => string[])) public stakerToTokenToValidators;
+
+    /// @dev Storage gap to allow for future upgrades.
+    // slither-disable-next-line shadowing-state
+    uint256[38] private __gap;
+
+    /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
+    /// @dev Maps owner addresses to their corresponding ExoCapsule contracts.
+    /// @dev This state has been moved from ClientChainGatewayStorage to BootstrapStorage since it is shared by both
+    /// contracts and we put it after __gap to maintain the storage layout compatible with deployed contracts. It was,
+    /// before the move, at the top of the storage layout of ClientChainGatewayStorage.
+    mapping(address owner => IExoCapsule capsule) public ownerToCapsule;
 
     /* -------------------------------------------------------------------------- */
     /*                                   Events                                   */
