@@ -203,15 +203,6 @@ contract DeployContracts is Script {
 
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
 
-        rewardVaultImplementation = new RewardVault();
-        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
-        ClientChainGateway clientGatewayLogic =
-            new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
-
-        address[] memory emptyList;
-        bytes memory initialization =
-            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, vm.addr(contractDeployer), emptyList);
-
         bootstrap = Bootstrap(
             payable(
                 address(
@@ -228,14 +219,31 @@ contract DeployContracts is Script {
                                 whitelistTokens,
                                 tvlLimits,
                                 address(proxyAdmin),
-                                address(clientGatewayLogic),
-                                initialization
+                                // not needed for creating the contract
+                                address(0x1),
+                                bytes("123456")
                             )
                         )
                     )
                 )
             )
         );
+
+        // to keep bootstrap address constant, deploy client chain gateway + associated contracts later
+        // the default deposit params are created using exocapsule address 0x90618D1cDb01bF37c24FC012E70029DA20fCe971
+        // which is made using the default NST_DEPOSITOR + bootstrap address 0xF801fc13AA08876F343fEBf50dFfA52A78180811
+        // if you get a DepositDataRoot or related error, check these addresses first.
+        rewardVaultImplementation = new RewardVault();
+        rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
+        ClientChainGateway clientGatewayLogic =
+            new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
+
+        address[] memory emptyList;
+        bytes memory initialization =
+            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, vm.addr(contractDeployer), emptyList);
+
+        bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
+
         vm.stopBroadcast();
         console.log("Bootstrap address: ", address(bootstrap));
 
