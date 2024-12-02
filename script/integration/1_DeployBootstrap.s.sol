@@ -125,6 +125,7 @@ contract DeployContracts is Script {
 
         // read the network configuration parameters and validate them
         depositAddress = vm.envOr("INTEGRATION_DEPOSIT_ADDRESS", address(0x6969696969696969696969696969696969696969));
+        require(depositAddress != address(0), "Deposit address must be set");
         denebTimestamp = vm.envUint("INTEGRATION_DENEB_TIMESTAMP");
         require(denebTimestamp > 0, "Deneb timestamp must be set");
         beaconGenesisTimestamp = vm.envUint("INTEGRATION_BEACON_GENESIS_TIMESTAMP");
