@@ -229,10 +229,12 @@ contract DeployContracts is Script {
             )
         );
 
-        // to keep bootstrap address constant, deploy client chain gateway + associated contracts later
+        // to keep bootstrap address constant, we must keep its nonce unchanged. hence, further transactions are sent
+        // after the bare minimum bootstrap and associated deployments.
         // the default deposit params are created using exocapsule address 0x90618D1cDb01bF37c24FC012E70029DA20fCe971
         // which is made using the default NST_DEPOSITOR + bootstrap address 0xF801fc13AA08876F343fEBf50dFfA52A78180811
         // if you get a DepositDataRoot or related error, check these addresses first.
+        proxyAdmin.initialize(address(bootstrap));
         rewardVaultImplementation = new RewardVault();
         rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
         ClientChainGateway clientGatewayLogic =
