@@ -216,12 +216,14 @@ contract UTXOGatewayStorage {
 
     /**
      * @dev Emitted when a stake message is executed
-     * @param chainId The chain ID of the client chain, should not violate the layerzero chain id
+     * @param clientChainId The chain ID of the client chain, should not violate the layerzero chain id
      * @param nonce The nonce of the stake message
      * @param exocoreAddress The Exocore address of the depositor
      * @param amount The amount deposited(delegated)
      */
-    event StakeMsgExecuted(ClientChainID indexed chainId, uint64 nonce, address indexed exocoreAddress, uint256 amount);
+    event StakeMsgExecuted(
+        ClientChainID indexed clientChainId, uint64 nonce, address indexed exocoreAddress, uint256 amount
+    );
 
     /**
      * @dev Emitted when a transaction is processed
@@ -231,7 +233,7 @@ contract UTXOGatewayStorage {
 
     /**
      * @dev Emitted when a deposit is completed
-     * @param srcChainId The source chain ID
+     * @param clientChainId The client chain ID
      * @param txTag The txid + vout-index
      * @param depositorExoAddr The depositor's Exocore address
      * @param depositorClientChainAddr The depositor's client chain address
@@ -239,7 +241,7 @@ contract UTXOGatewayStorage {
      * @param updatedBalance The updated balance after deposit
      */
     event DepositCompleted(
-        ClientChainID indexed srcChainId,
+        ClientChainID indexed clientChainId,
         bytes txTag,
         address indexed depositorExoAddr,
         bytes depositorClientChainAddr,
@@ -250,14 +252,14 @@ contract UTXOGatewayStorage {
     /**
      * @dev Emitted when a principal withdrawal is requested
      * @param requestId The unique identifier for the withdrawal request
-     * @param srcChainId The source chain ID
+     * @param clientChainId The client chain ID
      * @param withdrawerExoAddr The withdrawer's Exocore address
      * @param withdrawerClientChainAddr The withdrawer's client chain address
      * @param amount The amount to withdraw
      * @param updatedBalance The updated balance after withdrawal request
      */
     event WithdrawPrincipalRequested(
-        ClientChainID indexed srcChainId,
+        ClientChainID indexed clientChainId,
         uint64 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
@@ -268,14 +270,14 @@ contract UTXOGatewayStorage {
     /**
      * @dev Emitted when a reward withdrawal is requested
      * @param requestId The unique identifier for the withdrawal request
-     * @param srcChainId The source chain ID
+     * @param clientChainId The client chain ID
      * @param withdrawerExoAddr The withdrawer's Exocore address
      * @param withdrawerClientChainAddr The withdrawer's client chain address
      * @param amount The amount to withdraw
      * @param updatedBalance The updated balance after withdrawal request
      */
     event WithdrawRewardRequested(
-        ClientChainID indexed srcChainId,
+        ClientChainID indexed clientChainId,
         uint64 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
@@ -285,7 +287,7 @@ contract UTXOGatewayStorage {
 
     /**
      * @dev Emitted when a principal withdrawal is completed
-     * @param srcChainId The source chain ID
+     * @param clientChainId The client chain ID
      * @param requestId The unique identifier for the withdrawal request
      * @param withdrawerExoAddr The withdrawer's Exocore address
      * @param withdrawerClientChainAddr The withdrawer's client chain address
@@ -293,7 +295,7 @@ contract UTXOGatewayStorage {
      * @param updatedBalance The updated balance after withdrawal
      */
     event WithdrawPrincipalCompleted(
-        ClientChainID indexed srcChainId,
+        ClientChainID indexed clientChainId,
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
@@ -303,7 +305,7 @@ contract UTXOGatewayStorage {
 
     /**
      * @dev Emitted when a reward withdrawal is completed
-     * @param srcChainId The source chain ID
+     * @param clientChainId The client chain ID
      * @param requestId The unique identifier for the withdrawal request
      * @param withdrawerExoAddr The withdrawer's Exocore address
      * @param withdrawerClientChainAddr The withdrawer's client chain address
@@ -311,7 +313,7 @@ contract UTXOGatewayStorage {
      * @param updatedBalance The updated balance after withdrawal
      */
     event WithdrawRewardCompleted(
-        ClientChainID indexed srcChainId,
+        ClientChainID indexed clientChainId,
         bytes32 indexed requestId,
         address indexed withdrawerExoAddr,
         bytes withdrawerClientChainAddr,
@@ -354,11 +356,11 @@ contract UTXOGatewayStorage {
 
     /**
      * @dev Emitted when an address is registered
-     * @param chainId The chain ID of the client chain, should not violate the layerzero chain id
+     * @param clientChainId The client chain ID
      * @param depositor The depositor's address
      * @param exocoreAddress The corresponding Exocore address
      */
-    event AddressRegistered(ClientChainID indexed chainId, bytes depositor, address indexed exocoreAddress);
+    event AddressRegistered(ClientChainID indexed clientChainId, bytes depositor, address indexed exocoreAddress);
 
     /**
      * @dev Emitted when a new witness is added
