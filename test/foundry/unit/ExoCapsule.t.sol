@@ -72,7 +72,7 @@ contract DepositSetup is Test {
 
         capsuleOwner = payable(address(0x125));
 
-        ExoCapsule phantomCapsule = new ExoCapsule();
+        ExoCapsule phantomCapsule = new ExoCapsule(address(0));
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(phantomCapsule).code);
@@ -278,7 +278,7 @@ contract VerifyDepositProof is DepositSetup {
         );
 
         // validator container withdrawal credentials are pointed to another capsule
-        ExoCapsule anotherCapsule = new ExoCapsule();
+        ExoCapsule anotherCapsule = new ExoCapsule(address(0));
 
         bytes32 gatewaySlot = bytes32(stdstore.target(address(anotherCapsule)).sig("gateway()").find());
         vm.store(address(anotherCapsule), gatewaySlot, bytes32(uint256(uint160(address(this)))));
@@ -364,7 +364,7 @@ contract WithdrawalSetup is Test {
 
         capsuleOwner = address(0x125);
 
-        ExoCapsule phantomCapsule = new ExoCapsule();
+        ExoCapsule phantomCapsule = new ExoCapsule(address(0));
 
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(phantomCapsule).code);

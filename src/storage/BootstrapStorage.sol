@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {NetworkConstants} from "../libraries/NetworkConstants.sol";
+
 import {Vault} from "../core/Vault.sol";
 
 import {IETHPOSDeposit} from "../interfaces/IETHPOSDeposit.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
+import {INetworkConfig} from "../interfaces/INetworkConfig.sol";
 import {IValidatorRegistry} from "../interfaces/IValidatorRegistry.sol";
 import {IVault} from "../interfaces/IVault.sol";
 
@@ -140,7 +143,7 @@ contract BootstrapStorage is GatewayStorage {
     address internal constant VIRTUAL_NST_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
 
     /// @dev The address of the ETHPOS deposit contract.
-    IETHPOSDeposit internal constant ETH_POS = IETHPOSDeposit(0x00000000219ab540356cBB839Cbe05303d7705Fa);
+    IETHPOSDeposit internal immutable ETH_POS;
 
     /// @notice Used to identify the specific Exocore chain this contract interacts with for cross-chain
     /// functionalities.
@@ -164,14 +167,23 @@ contract BootstrapStorage is GatewayStorage {
     /// @dev A mapping of validator names to a boolean indicating whether the name has been used.
     mapping(string name => bool used) public validatorNameInUse;
 
+    /// @notice Mapping of staker addresses to their corresponding validator indexes.
+    /// @dev Maps staker addresses to their corresponding validator indexes used on the beacon chain.
+    mapping(address staker => bytes32[]) public stakerToPubkeyIDs;
+
+    /// @notice Mapping of staker address to token to list of validators.
+    /// @dev Maps staker addresses to a mapping of token addresses to a list of validators.
+    mapping(address staker => mapping(address token => string[])) public stakerToTokenToValidators;
+
     /// @dev Storage gap to allow for future upgrades.
     // slither-disable-next-line shadowing-state
-    uint256[40] private __gap;
+    uint256[38] private __gap;
 
     /// @notice Mapping of owner addresses to their corresponding ExoCapsule contracts.
     /// @dev Maps owner addresses to their corresponding ExoCapsule contracts.
     /// @dev This state has been moved from ClientChainGatewayStorage to BootstrapStorage since it is shared by both
-    /// contracts and we put it after __gap to maintain the storage layout compatible with deployed contracts.
+    /// contracts and we put it after __gap to maintain the storage layout compatible with deployed contracts. It was,
+    /// before the move, at the top of the storage layout of ClientChainGatewayStorage.
     mapping(address owner => IExoCapsule capsule) public ownerToCapsule;
 
     /* -------------------------------------------------------------------------- */
@@ -306,11 +318,12 @@ contract BootstrapStorage is GatewayStorage {
 
     /**
      * @dev Struct to store the parameters to initialize the immutable variables for the contract.
-     * @param exocoreChainId_ The chain ID of the Exocore chain.
-     * @param beaconOracleAddress_ The address of the beacon chain oracle.
-     * @param vaultBeacon_ The address of the vault beacon.
-     * @param exoCapsuleBeacon_ The address of the ExoCapsule beacon.
-     * @param beaconProxyBytecode_ The address of the beacon proxy bytecode contract.
+     * @param exocoreChainId The chain ID of the Exocore chain.
+     * @param beaconOracleAddress The address of the beacon chain oracle.
+     * @param vaultBeacon The address of the vault beacon.
+     * @param exoCapsuleBeacon The address of the ExoCapsule beacon.
+     * @param beaconProxyBytecode The address of the beacon proxy bytecode contract.
+     * @param networkConfig The address of the network config contract, if any.
      */
     struct ImmutableConfig {
         uint32 exocoreChainId;
@@ -318,6 +331,7 @@ contract BootstrapStorage is GatewayStorage {
         address vaultBeacon;
         address exoCapsuleBeacon;
         address beaconProxyBytecode;
+        address networkConfig;
     }
 
     /// @dev Ensures that native restaking is enabled for this contract.
@@ -356,6 +370,7 @@ contract BootstrapStorage is GatewayStorage {
             config.exocoreChainId == 0 || config.beaconOracleAddress == address(0) || config.vaultBeacon == address(0)
                 || config.exoCapsuleBeacon == address(0) || config.beaconProxyBytecode == address(0)
         ) {
+            // networkConfig is allowed to be 0
             revert Errors.InvalidImmutableConfig();
         }
 
@@ -364,6 +379,13 @@ contract BootstrapStorage is GatewayStorage {
         VAULT_BEACON = IBeacon(config.vaultBeacon);
         EXO_CAPSULE_BEACON = IBeacon(config.exoCapsuleBeacon);
         BEACON_PROXY_BYTECODE = BeaconProxyBytecode(config.beaconProxyBytecode);
+        address depositContract;
+        if (config.networkConfig == address(0)) {
+            depositContract = NetworkConstants.getDepositContractAddress();
+        } else {
+            depositContract = INetworkConfig(config.networkConfig).getDepositContractAddress();
+        }
+        ETH_POS = IETHPOSDeposit(depositContract);
     }
 
     /// @notice Returns the vault associated with the given token.

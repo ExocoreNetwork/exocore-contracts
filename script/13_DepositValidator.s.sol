@@ -19,6 +19,8 @@ import "src/libraries/Endian.sol";
 import {BaseScript} from "./BaseScript.sol";
 import "forge-std/StdJson.sol";
 
+import {NetworkConstants} from "src/libraries/NetworkConstants.sol";
+
 contract DepositScript is BaseScript {
 
     using AddressCast for address;
@@ -27,7 +29,7 @@ contract DepositScript is BaseScript {
     bytes32[] validatorContainer;
     BeaconChainProofs.ValidatorContainerProof validatorProof;
 
-    uint256 internal constant GENESIS_BLOCK_TIMESTAMP = 1_695_902_400;
+    uint256 internal immutable GENESIS_BLOCK_TIMESTAMP = NetworkConstants.getBeaconGenesisTimestamp();
     uint256 internal constant SECONDS_PER_SLOT = 12;
     uint256 constant GWEI_TO_WEI = 1e9;
 

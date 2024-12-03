@@ -9,6 +9,7 @@
     "test": "test"
   },
   "dependencies": {
+    "@lodestar/api": "^1.23.0",
     "@openzeppelin/upgrades-core": "^1.40.0",
     "abbrev": "^1.0.9",
     "abstract-level": "^1.0.3",

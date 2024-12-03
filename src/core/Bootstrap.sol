@@ -26,6 +26,7 @@ import {IVault} from "../interfaces/IVault.sol";
 
 import {BeaconChainProofs} from "../libraries/BeaconChainProofs.sol";
 import {Errors} from "../libraries/Errors.sol";
+import {ValidatorContainer} from "../libraries/ValidatorContainer.sol";
 
 import {BootstrapStorage} from "../storage/BootstrapStorage.sol";
 import {Action} from "../storage/GatewayStorage.sol";
@@ -47,6 +48,8 @@ contract Bootstrap is
     INativeRestakingController,
     BootstrapLzReceiver
 {
+
+    using ValidatorContainer for bytes32[];
 
     /// @notice Constructor for the Bootstrap contract.
     /// @param endpoint_ is the address of the layerzero endpoint on Exocore chain
@@ -511,6 +514,11 @@ contract Bootstrap is
         if (withdrawable < amount) {
             revert Errors.BootstrapInsufficientWithdrawableBalance();
         }
+
+        if (delegations[user][validator][token] == 0) {
+            // if this amount later becomes 0, it is ok. we don't worry about removing it.
+            stakerToTokenToValidators[user][token].push(validator);
+        }
         delegations[user][validator][token] += amount;
         delegationsByValidator[validator][token] += amount;
         withdrawableAmounts[user][token] -= amount;
@@ -687,6 +695,15 @@ contract Bootstrap is
             revert Errors.IndexOutOfBounds();
         }
         address tokenAddress = whitelistTokens[index];
+        if (tokenAddress == VIRTUAL_NST_ADDRESS) {
+            return TokenInfo({
+                name: "Native Staked ETH",
+                symbol: "ETH",
+                tokenAddress: tokenAddress,
+                decimals: 18,
+                depositAmount: depositsByToken[tokenAddress]
+            });
+        }
         ERC20 token = ERC20(tokenAddress);
         return TokenInfo({
             name: token.name(),
@@ -781,6 +798,7 @@ contract Bootstrap is
         totalDepositAmounts[msg.sender][VIRTUAL_NST_ADDRESS] += depositValue;
         withdrawableAmounts[msg.sender][VIRTUAL_NST_ADDRESS] += depositValue;
         depositsByToken[VIRTUAL_NST_ADDRESS] += depositValue;
+        stakerToPubkeyIDs[msg.sender].push(bytes32(proof.validatorIndex));
 
         emit DepositResult(true, VIRTUAL_NST_ADDRESS, msg.sender, depositValue);
     }
@@ -809,6 +827,23 @@ contract Bootstrap is
     {
         IExoCapsule capsule = _getCapsule(msg.sender);
         capsule.withdrawNonBeaconChainETHBalance(recipient, amountToWithdraw);
+    }
+
+    /// @notice Returns the number of pubkeys (across all validators) deposited
+    /// by a staker. The deposit must include deposit + verification for inclusion
+    /// into the beacon chain.
+    /// @param stakerAddress the address of the staker.
+    /// @return uint256 The number of pubkeys deposited by the staker.
+    function getPubkeysCount(address stakerAddress) external view returns (uint256) {
+        return stakerToPubkeyIDs[stakerAddress].length;
+    }
+
+    /// @notice Returns the number of validators to whom a staker has delegated a token.
+    /// @param stakerAddress The address of the staker.
+    /// @param token The address of the token.
+    /// @return uint256 The number of validators to whom the staker has delegated the token.
+    function getValidatorsCountForStakerToken(address stakerAddress, address token) external view returns (uint256) {
+        return stakerToTokenToValidators[stakerAddress][token].length;
     }
 
 }

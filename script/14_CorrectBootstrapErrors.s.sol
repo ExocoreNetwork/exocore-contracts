@@ -96,7 +96,8 @@ contract CorrectBootstrapErrors is BaseScript {
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
             exoCapsuleBeacon: address(capsuleBeacon),
-            beaconProxyBytecode: address(beaconProxyBytecode)
+            beaconProxyBytecode: address(beaconProxyBytecode),
+            networkConfig: address(0)
         });
 
         Bootstrap bootstrapLogic = new Bootstrap(address(clientChainLzEndpoint), config);
