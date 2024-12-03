@@ -13,12 +13,13 @@ import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/Own
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
-
+import "forge-std/console.sol";
 /**
  * @title UTXOGateway
  * @dev This contract manages the gateway between Bitcoin like chains and the Exocore system.
  * It handles deposits, delegations, withdrawals, and peg-out requests for BTC like tokens.
  */
+
 contract UTXOGateway is
     Initializable,
     PausableUpgradeable,
@@ -550,8 +551,10 @@ contract UTXOGateway is
         }
         if (updated) {
             emit ClientChainUpdated(clientChainId);
+            console.log("ClientChainUpdated: ", uint32(uint8(clientChainId)));
         } else {
             emit ClientChainRegistered(clientChainId);
+            console.log("ClientChainRegistered: ", uint32(uint8(clientChainId)));
         }
     }
 
@@ -585,7 +588,7 @@ contract UTXOGateway is
      */
     function _verifySignature(address signer, StakeMsg calldata _msg, bytes memory signature)
         internal
-        pure
+        view
         returns (bytes32 messageHash)
     {
         // StakeMsg, EIP721 is preferred next step.
@@ -598,8 +601,11 @@ contract UTXOGateway is
             _msg.nonce,
             _msg.txTag
         );
-        messageHash = keccak256(encodeMsg);
 
+        console.logBytes(encodeMsg);
+
+        messageHash = keccak256(encodeMsg);
+        console.logBytes32(messageHash);
         SignatureVerifier.verifyMsgSig(signer, messageHash, signature);
     }
 
@@ -640,13 +646,13 @@ contract UTXOGateway is
     {
         // verify that the stake message fields are valid
         _verifyStakeMsgFields(_msg);
-
+        console.log("finish 1 _verifyStakeMsgFields");
         // Verify nonce
         _verifyInboundNonce(_msg.clientChainId, _msg.nonce);
-
+        console.log("finish 2 _verifyInboundNonce ", _msg.nonce);
         // Verify that the txTag has not been processed
         _verifyTxTagNotProcessed(_msg.clientChainId, _msg.txTag);
-
+        console.log("finish 3 _verifyTxTagNotProcessed ");
         // Verify signature
         messageHash = _verifySignature(witness, _msg, signature);
     }
@@ -710,6 +716,8 @@ contract UTXOGateway is
         }
 
         emit DepositCompleted(clientChainId, txTag, depositorExoAddr, srcAddress, amount, updatedBalance);
+
+        console.log("depositTo success");
     }
 
     /**

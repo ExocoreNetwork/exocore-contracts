@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Step 1: Define the contract name and output path
-CONTRACT_NAME="ExocoreBtcGateway"
-OUTPUT_PATH="/Users/will/go/src/github.com/ExocoreNetwork/bridge_private"
+CONTRACT_NAME="UTXOGateway"
+OUTPUT_PATH="/Users/will/go/src/github.com/ExocoreNetwork/utxo-restaking"
 PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 CLIENT_CHAIN_ID=111
 RPC_URL="http://127.0.0.1:8546"
@@ -12,13 +12,13 @@ TOKEN_ADDRESS_BYTES="0x2260fac5e5542a773aa44fbcfedf7c193bc2c59900000000000000000
 BRIDGE_ADDRESS="0x0000000000000000000000000000000000000804"
 
 # Step 2: Update ABI
-forge inspect src/core/$CONTRACT_NAME.sol:$CONTRACT_NAME abi > $OUTPUT_PATH/src/abi/exocorebtcgateway.json
+forge inspect src/core/$CONTRACT_NAME.sol:$CONTRACT_NAME abi > $OUTPUT_PATH/src/abi/utxogateway.json
 
 # Step 3: Flatten the contract and filter out compiler log information
-forge flatten src/core/ExocoreBtcGateway.sol | grep -v "Compiling" | grep -v "Solc" | grep -v "Compiler run" > src/core/ExocoreBtcGatewayFlatten.sol
+forge flatten src/core/UTXOGateway.sol | grep -v "Compiling" | grep -v "Solc" | grep -v "Compiler run" > src/core/UTXOGatewayFlatten.sol
 
 # Step 4: Deploy the contract and capture the output
-output=$(forge create --rpc-url $RPC_URL --private-key "$PRIVATE_KEY" src/core/ExocoreBtcGatewayFlatten.sol:ExocoreBtcGateway)
+output=$(forge create --rpc-url $RPC_URL --private-key "$PRIVATE_KEY" src/core/UTXOGatewayFlatten.sol:UTXOGateway)
 
 # Step 5: Extract the contract address from the output
 contract_address=$(echo "$output" | grep "Deployed to:" | awk '{print $3}')

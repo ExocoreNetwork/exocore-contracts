@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-// import "forge-std/console.sol";
+import "forge-std/console.sol";
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
 
 contract AssetsMock is IAssets {
@@ -38,12 +38,13 @@ contract AssetsMock is IAssets {
         // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered
         bool notEth = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         bool notBtc = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
-
+        console.log("notEth ", notEth, " notBtc", notBtc);
         if (notEth && notBtc) {
             require(isRegisteredToken[clientChainLzId][assetsAddress], "the token not registered");
         }
 
         principalBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
+        console.log("principalBalances: ", opAmount);
         return (true, principalBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
@@ -74,6 +75,7 @@ contract AssetsMock is IAssets {
         bool isEth = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
         bool isBtc = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
 
+        console.log("isEth ", isEth, " isBtc", isBtc);
         // Disallow ETH withdrawals or non-registered tokens (except BTC)
         if (isEth || (!isRegisteredToken[clientChainLzId][assetsAddress] && !isBtc)) {
             return (false, 0);
@@ -84,7 +86,7 @@ contract AssetsMock is IAssets {
         }
 
         principalBalances[clientChainLzId][assetsAddress][withdrawer] -= opAmount;
-
+        console.log("principalBalances: ", opAmount);
         return (true, principalBalances[clientChainLzId][assetsAddress][withdrawer]);
     }
 
@@ -147,6 +149,7 @@ contract AssetsMock is IAssets {
 
     function updateToken(uint32 clientChainId, bytes calldata token, string calldata metaData)
         external
+        view
         returns (bool success)
     {
         if (!isRegisteredChain[clientChainId]) {

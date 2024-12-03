@@ -17,6 +17,8 @@ deny_warnings = true
 [rpc_endpoints]
 ethereum_local_rpc = "${ETHEREUM_LOCAL_RPC}"
 exocore_local_rpc = "${EXOCORE_LOCAL_RPC}"
+testnet = "${TESTNET_RPC_URL}"
+
 
 [fmt]
 number_underscore = "thousands"

@@ -130,13 +130,13 @@ contract UTXOGatewayTest is Test {
 
     function setUp() public {
         owner = address(1);
-        user = address(2);
+        user = address(0x70997970C51812dc3A010C7d01b50e0d17dc79C8);
         relayer = address(3);
         witnesses[0] = Player({privateKey: 0xa, addr: vm.addr(0xa)});
         witnesses[1] = Player({privateKey: 0xb, addr: vm.addr(0xb)});
         witnesses[2] = Player({privateKey: 0xc, addr: vm.addr(0xc)});
 
-        btcAddress = bytes("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa");
+        btcAddress = bytes("tb1qll4r3nktn7l6ng678g99nzcveusvnsgrmdsyhr");
         operator = "exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac";
 
         // Deploy and initialize gateway
@@ -970,9 +970,9 @@ contract UTXOGatewayTest is Test {
             clientAddress: btcAddress,
             exocoreAddress: user,
             operator: "",
-            amount: 1 ether,
+            amount: 0.001 ether,
             nonce: 1,
-            txTag: bytes("tx1")
+            txTag: bytes("8ce437d62108cfdd241a78761ef55630873ce075ec4ef3afe710a010bcc4e1b2-1")
         });
 
         // mock Assets precompile deposit success and Delegation precompile delegate success
