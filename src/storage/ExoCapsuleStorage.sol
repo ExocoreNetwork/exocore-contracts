@@ -77,11 +77,11 @@ contract ExoCapsuleStorage {
     /// @notice The address of the Beacon Chain Oracle contract.
     IBeaconChainOracle public beaconOracle;
 
-    /// @dev Mapping of validator pubkey to their corresponding struct.
-    mapping(bytes32 pubkey => Validator validator) internal _capsuleValidators;
+    /// @dev Mapping of validator pubkey hash to their corresponding struct.
+    mapping(bytes32 pubkeyHash => Validator validator) internal _capsuleValidators;
 
-    /// @dev Mapping of validator index to their corresponding pubkey.
-    mapping(uint256 index => bytes32 pubkey) internal _capsuleValidatorsByIndex;
+    /// @dev Mapping of validator index to their corresponding pubkey hash.
+    mapping(uint256 index => bytes32 pubkeyHash) internal _capsuleValidatorsByIndex;
 
     /// @notice This is a mapping of validatorPubkeyHash to withdrawal index to whether or not they have proven a
     /// withdrawal

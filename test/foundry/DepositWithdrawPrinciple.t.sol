@@ -24,7 +24,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed account, uint256 amount
     );
     event NSTTransfer(
-        bool isDeposit, bool indexed success, bytes32 indexed token, bytes32 indexed account, uint256 amount
+        bool isDeposit, bool indexed success, bytes indexed validatorID, bytes32 indexed account, uint256 amount
     );
     event Transfer(address indexed from, address indexed to, uint256 amount);
     event CapsuleCreated(address indexed owner, address indexed capsule);
@@ -312,7 +312,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         }
 
         bytes memory depositRequestPayload = abi.encodePacked(
-            Action.REQUEST_DEPOSIT_NST, _getPubkey(validatorContainer), bytes32(bytes20(depositor.addr)), depositAmount
+            Action.REQUEST_DEPOSIT_NST, bytes32(bytes20(depositor.addr)), depositAmount, validatorProof.validatorIndex
         );
         uint256 depositRequestNativeFee = clientGateway.quote(depositRequestPayload);
         bytes32 depositRequestId = generateUID(outboundNonces[clientChainId], true);
@@ -344,7 +344,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit NSTTransfer(
             true, // isDeposit
             true, // success
-            bytes32(_getPubkey(validatorContainer)),
+            abi.encodePacked(bytes32(validatorProof.validatorIndex)),
             bytes32(bytes20(depositor.addr)),
             depositAmount
         );
@@ -442,9 +442,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         }
         bytes memory withdrawRequestPayload = abi.encodePacked(
             Action.REQUEST_WITHDRAW_NST,
-            _getPubkey(validatorContainer),
             bytes32(bytes20(withdrawer.addr)),
-            withdrawalAmount
+            withdrawalAmount,
+            validatorProof.validatorIndex
         );
         uint256 withdrawRequestNativeFee = clientGateway.quote(withdrawRequestPayload);
         bytes32 withdrawRequestId = generateUID(outboundNonces[clientChainId], true);
@@ -481,7 +481,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         emit NSTTransfer(
             false, // isDeposit (false for withdrawal)
             true, // success
-            bytes32(_getPubkey(validatorContainer)),
+            abi.encodePacked(bytes32(validatorProof.validatorIndex)),
             bytes32(bytes20(withdrawer.addr)),
             withdrawalAmount
         );
