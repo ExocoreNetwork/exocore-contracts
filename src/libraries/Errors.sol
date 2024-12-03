@@ -314,4 +314,71 @@ library Errors {
     /// @dev RewardVault: insufficient balance
     error InsufficientBalance();
 
+    /* -------------------------------------------------------------------------- */
+    /*                          UTXOGateway Errors                          */
+    /* -------------------------------------------------------------------------- */
+
+    /// @dev UTXOGateway: witness has already submitted proof
+    error WitnessAlreadySubmittedProof();
+
+    /// @dev UTXOGateway: invalid stake message
+    error InvalidStakeMessage();
+
+    /// @dev UTXOGateway: transaction tag has already been processed
+    error TxTagAlreadyProcessed();
+
+    /// @dev UTXOGateway: invalid operator address
+    error InvalidOperator();
+
+    /// @dev UTXOGateway: invalid token
+    error InvalidToken();
+
+    /// @dev UTXOGateway: witness has already been authorized
+    error WitnessAlreadyAuthorized(address witness);
+
+    /// @dev UTXOGateway: witness has not been authorized
+    error WitnessNotAuthorized(address witness);
+
+    /// @dev UTXOGateway: cannot remove the last witness
+    error CannotRemoveLastWitness();
+
+    /// @dev UTXOGateway: invalid client chain
+    error InvalidClientChain();
+
+    /// @dev UTXOGateway: deposit failed
+    error DepositFailed(bytes txTag);
+
+    /// @dev UTXOGateway: address not registered
+    error AddressNotRegistered();
+
+    /// @dev UTXOGateway: delegation failed
+    error DelegationFailed();
+
+    /// @dev UTXOGateway: withdraw principal failed
+    error WithdrawPrincipalFailed();
+
+    /// @dev UTXOGateway: undelegation failed
+    error UndelegationFailed();
+
+    /// @dev UTXOGateway: withdraw reward failed
+    error WithdrawRewardFailed();
+
+    /// @dev UTXOGateway: request not found
+    error RequestNotFound(uint64 requestId);
+
+    /// @dev UTXOGateway: request already exists
+    error RequestAlreadyExists(uint32 clientChain, uint64 requestId);
+
+    /// @dev UTXOGateway: witness not authorized
+    error UnauthorizedWitness();
+
+    /// @dev UTXOGateway: consensus is not activated
+    error ConsensusNotRequired();
+
+    /// @dev UTXOGateway: consensus is required
+    error ConsensusRequired();
+
+    /// @dev UTXOGateway: invalid required proofs
+    error InvalidRequiredProofs();
+
 }
