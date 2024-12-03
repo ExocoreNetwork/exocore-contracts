@@ -388,21 +388,21 @@ contract ExocoreGatewayMock is
         onlyCalledFromThis
         returns (bytes memory response)
     {
-        bytes calldata validatorPubkey = payload[:32];
-        bytes calldata staker = payload[32:64];
-        uint256 amount = uint256(bytes32(payload[64:96]));
+        bytes calldata staker = payload[:32];
+        uint256 amount = uint256(bytes32(payload[32:64]));
+        bytes calldata validatorID = payload[64:];
 
         bool isDeposit = act == Action.REQUEST_DEPOSIT_NST;
         bool success;
         if (isDeposit) {
-            (success,) = ASSETS_CONTRACT.depositNST(srcChainId, validatorPubkey, staker, amount);
+            (success,) = ASSETS_CONTRACT.depositNST(srcChainId, validatorID, staker, amount);
         } else {
-            (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, validatorPubkey, staker, amount);
+            (success,) = ASSETS_CONTRACT.withdrawNST(srcChainId, validatorID, staker, amount);
         }
         if (isDeposit && !success) {
             revert Errors.DepositRequestShouldNotFail(srcChainId, lzNonce); // we should not let this happen
         }
-        emit NSTTransfer(isDeposit, success, bytes32(validatorPubkey), bytes32(staker), amount);
+        emit NSTTransfer(isDeposit, success, validatorID, bytes32(staker), amount);
 
         response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }

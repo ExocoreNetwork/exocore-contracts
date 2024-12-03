@@ -5,7 +5,7 @@ import {Endian} from "../libraries/Endian.sol";
 
 /**
  * class Validator(Container):
- *     pubkey: BLSPubkey
+ *     pubkeyHash: The validator's BLS12-381 public key hash.
  *     withdrawal_credentials: Bytes32  # Commitment to pubkey for withdrawals
  *     effective_balance: Gwei  # Balance at stake
  *     slashed: boolean
@@ -26,7 +26,7 @@ library ValidatorContainer {
         return validatorContainer.length == VALID_LENGTH;
     }
 
-    function getPubkey(bytes32[] calldata validatorContainer) internal pure returns (bytes32) {
+    function getPubkeyHash(bytes32[] calldata validatorContainer) internal pure returns (bytes32) {
         return validatorContainer[0];
     }
 

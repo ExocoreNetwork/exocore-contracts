@@ -35,21 +35,21 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     event WithdrawalSuccess(address owner, address recipient, uint256 amount);
 
     /// @notice Emitted when a partial withdrawal claim is successfully redeemed
-    /// @param pubkey The validator's BLS12-381 public key.
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
     /// @param withdrawalEpoch The epoch at which the withdrawal was made.
     /// @param recipient The address of the recipient of the withdrawal.
     /// @param partialWithdrawalAmountGwei The amount of the partial withdrawal in Gwei.
     event PartialWithdrawalRedeemed(
-        bytes32 pubkey, uint256 withdrawalEpoch, address indexed recipient, uint64 partialWithdrawalAmountGwei
+        bytes32 pubkeyHash, uint256 withdrawalEpoch, address indexed recipient, uint64 partialWithdrawalAmountGwei
     );
 
     /// @notice Emitted when an ETH validator is prove to have fully withdrawn from the beacon chain
-    /// @param pubkey  The validator's BLS12-381 public key.
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
     /// @param withdrawalEpoch The epoch at which the withdrawal was made.
     /// @param recipient The address of the recipient of the withdrawal.
     /// @param withdrawalAmountGwei The amount of the withdrawal in Gwei.
     event FullWithdrawalRedeemed(
-        bytes32 pubkey, uint64 withdrawalEpoch, address indexed recipient, uint64 withdrawalAmountGwei
+        bytes32 pubkeyHash, uint64 withdrawalEpoch, address indexed recipient, uint64 withdrawalAmountGwei
     );
 
     /// @notice Emitted when capsuleOwner enables restaking
@@ -66,34 +66,34 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     event NonBeaconChainETHWithdrawn(address indexed recipient, uint256 amountWithdrawn);
 
     /// @dev Thrown when the validator container is invalid.
-    /// @param pubkey The validator's BLS12-381 public key.
-    error InvalidValidatorContainer(bytes32 pubkey);
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
+    error InvalidValidatorContainer(bytes32 pubkeyHash);
 
     /// @dev Thrown when the withdrawal container is invalid.
     /// @param validatorIndex The validator index.
     error InvalidWithdrawalContainer(uint64 validatorIndex);
 
     /// @dev Thrown when a validator is double deposited.
-    /// @param pubkey The validator's BLS12-381 public key.
-    error DoubleDepositedValidator(bytes32 pubkey);
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
+    error DoubleDepositedValidator(bytes32 pubkeyHash);
 
     /// @dev Thrown when a validator container is stale.
-    /// @param pubkey The validator's BLS12-381 public key.
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
     /// @param timestamp The timestamp of the validator proof.
-    error StaleValidatorContainer(bytes32 pubkey, uint256 timestamp);
+    error StaleValidatorContainer(bytes32 pubkeyHash, uint256 timestamp);
 
     /// @dev Thrown when a withdrawal has already been proven.
-    /// @param pubkey The validator's BLS12-381 public key.
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
     /// @param withdrawalIndex The index of the withdrawal.
-    error WithdrawalAlreadyProven(bytes32 pubkey, uint256 withdrawalIndex);
+    error WithdrawalAlreadyProven(bytes32 pubkeyHash, uint256 withdrawalIndex);
 
     /// @dev Thrown when a validator container is unregistered.
-    /// @param pubkey The validator's BLS12-381 public key.
-    error UnregisteredValidator(bytes32 pubkey);
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
+    error UnregisteredValidator(bytes32 pubkeyHash);
 
     /// @dev Thrown when a validator container is unregistered or withdrawn.
-    /// @param pubkey The validator's BLS12-381 public key.
-    error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkey);
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
+    error UnregisteredOrWithdrawnValidatorContainer(bytes32 pubkeyHash);
 
     /// @dev Thrown when the validator and withdrawal state roots do not match.
     /// @param validatorStateRoot The state root of the validator container.
@@ -115,8 +115,8 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
     error WithdrawalCredentialsNotMatch();
 
     /// @dev Thrown when the validator container is inactive.
-    /// @param pubkey The validator's BLS12-381 public key.
-    error InactiveValidatorContainer(bytes32 pubkey);
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
+    error InactiveValidatorContainer(bytes32 pubkeyHash);
 
     /// @dev Thrown when the caller of a message is not the gateway
     /// @param gateway The address of the gateway.
@@ -162,20 +162,20 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         bytes32[] calldata validatorContainer,
         BeaconChainProofs.ValidatorContainerProof calldata proof
     ) external onlyGateway returns (uint256 depositAmount) {
-        bytes32 validatorPubkey = validatorContainer.getPubkey();
+        bytes32 validatorPubkeyHash = validatorContainer.getPubkeyHash();
         bytes32 withdrawalCredentials = validatorContainer.getWithdrawalCredentials();
-        Validator storage validator = _capsuleValidators[validatorPubkey];
+        Validator storage validator = _capsuleValidators[validatorPubkeyHash];
 
         if (!validatorContainer.verifyValidatorContainerBasic()) {
-            revert InvalidValidatorContainer(validatorPubkey);
+            revert InvalidValidatorContainer(validatorPubkeyHash);
         }
 
         if (validator.status != VALIDATOR_STATUS.UNREGISTERED) {
-            revert DoubleDepositedValidator(validatorPubkey);
+            revert DoubleDepositedValidator(validatorPubkeyHash);
         }
 
         if (_isStaleProof(proof.beaconBlockTimestamp)) {
-            revert StaleValidatorContainer(validatorPubkey, proof.beaconBlockTimestamp);
+            revert StaleValidatorContainer(validatorPubkeyHash, proof.beaconBlockTimestamp);
         }
 
         if (withdrawalCredentials != bytes32(capsuleWithdrawalCredentials())) {
@@ -193,7 +193,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
             depositAmount = depositAmountGwei * GWEI_TO_WEI;
         }
 
-        _capsuleValidatorsByIndex[proof.validatorIndex] = validatorPubkey;
+        _capsuleValidatorsByIndex[proof.validatorIndex] = validatorPubkeyHash;
     }
 
     /// @inheritdoc IExoCapsule
@@ -203,24 +203,24 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         bytes32[] calldata withdrawalContainer,
         BeaconChainProofs.WithdrawalProof calldata withdrawalProof
     ) external onlyGateway returns (bool partialWithdrawal, uint256 withdrawalAmount) {
-        bytes32 validatorPubkey = validatorContainer.getPubkey();
-        Validator storage validator = _capsuleValidators[validatorPubkey];
+        bytes32 validatorPubkeyHash = validatorContainer.getPubkeyHash();
+        Validator storage validator = _capsuleValidators[validatorPubkeyHash];
         uint64 withdrawalEpoch = withdrawalProof.slotRoot.getWithdrawalEpoch();
         partialWithdrawal = withdrawalEpoch < validatorContainer.getWithdrawableEpoch();
         uint256 withdrawalId = uint256(withdrawalContainer.getWithdrawalIndex());
 
         if (!validatorContainer.verifyValidatorContainerBasic()) {
-            revert InvalidValidatorContainer(validatorPubkey);
+            revert InvalidValidatorContainer(validatorPubkeyHash);
         }
         if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
-            revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkey);
+            revert UnregisteredOrWithdrawnValidatorContainer(validatorPubkeyHash);
         }
 
-        if (provenWithdrawal[validatorPubkey][withdrawalId]) {
-            revert WithdrawalAlreadyProven(validatorPubkey, withdrawalId);
+        if (provenWithdrawal[validatorPubkeyHash][withdrawalId]) {
+            revert WithdrawalAlreadyProven(validatorPubkeyHash, withdrawalId);
         }
 
-        provenWithdrawal[validatorPubkey][withdrawalId] = true;
+        provenWithdrawal[validatorPubkeyHash][withdrawalId] = true;
 
         // Validate if validator and withdrawal proof state roots are the same
         if (validatorProof.stateRoot != withdrawalProof.stateRoot) {
@@ -234,13 +234,13 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
 
         if (partialWithdrawal) {
             // Immediately send ETH without sending request to Exocore side
-            emit PartialWithdrawalRedeemed(validatorPubkey, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
+            emit PartialWithdrawalRedeemed(validatorPubkeyHash, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
             _sendETH(capsuleOwner, withdrawalAmountGwei * GWEI_TO_WEI);
         } else {
             // Full withdrawal
             validator.status = VALIDATOR_STATUS.WITHDRAWN;
             // If over MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR = 32 * 1e9, then send remaining amount immediately
-            emit FullWithdrawalRedeemed(validatorPubkey, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
+            emit FullWithdrawalRedeemed(validatorPubkeyHash, withdrawalEpoch, capsuleOwner, withdrawalAmountGwei);
             if (withdrawalAmountGwei > MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) {
                 uint256 amountToSend = (withdrawalAmountGwei - MAX_RESTAKED_BALANCE_GWEI_PER_VALIDATOR) * GWEI_TO_WEI;
                 _sendETH(capsuleOwner, amountToSend);
@@ -312,14 +312,14 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
         return root;
     }
 
-    /// @notice Gets the registered validator by pubkey.
+    /// @notice Gets the registered validator by pubkeyHash.
     /// @dev The validator status must be registered. Reverts if not.
-    /// @param pubkey The validator's BLS12-381 public key.
+    /// @param pubkeyHash The validator's BLS12-381 public key hash.
     /// @return The validator object, as defined in the `ExoCapsuleStorage`.
-    function getRegisteredValidatorByPubkey(bytes32 pubkey) public view returns (Validator memory) {
-        Validator memory validator = _capsuleValidators[pubkey];
+    function getRegisteredValidatorByPubkey(bytes32 pubkeyHash) public view returns (Validator memory) {
+        Validator memory validator = _capsuleValidators[pubkeyHash];
         if (validator.status == VALIDATOR_STATUS.UNREGISTERED) {
-            revert UnregisteredValidator(pubkey);
+            revert UnregisteredValidator(pubkeyHash);
         }
 
         return validator;
@@ -366,7 +366,7 @@ contract ExoCapsule is ReentrancyGuardUpgradeable, ExoCapsuleStorage, IExoCapsul
             proof.stateRootProof
         );
         if (!valid) {
-            revert InvalidValidatorContainer(validatorContainer.getPubkey());
+            revert InvalidValidatorContainer(validatorContainer.getPubkeyHash());
         }
     }
 

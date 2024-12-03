@@ -36,7 +36,7 @@ contract AssetsMock is IAssets {
 
     function depositNST(
         uint32 clientChainLzId,
-        bytes calldata validatorPubkey,
+        bytes calldata validatorID,
         bytes calldata stakerAddress,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState) {
@@ -44,7 +44,7 @@ contract AssetsMock is IAssets {
 
         bytes memory nstAddress = abi.encodePacked(bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)));
         principalBalances[clientChainLzId][nstAddress][stakerAddress] += opAmount;
-        inValidatorSet[stakerAddress][validatorPubkey] = true;
+        inValidatorSet[stakerAddress][validatorID] = true;
         return (true, principalBalances[clientChainLzId][nstAddress][stakerAddress]);
     }
 
@@ -74,7 +74,7 @@ contract AssetsMock is IAssets {
 
     function withdrawNST(
         uint32 clientChainLzId,
-        bytes calldata validatorPubkey,
+        bytes calldata validatorID,
         bytes calldata withdrawer,
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState) {
@@ -85,7 +85,7 @@ contract AssetsMock is IAssets {
             return (false, 0);
         }
         principalBalances[clientChainLzId][nstAddress][withdrawer] -= opAmount;
-        inValidatorSet[withdrawer][validatorPubkey] = false;
+        inValidatorSet[withdrawer][validatorID] = false;
         return (true, principalBalances[clientChainLzId][nstAddress][withdrawer]);
     }
 

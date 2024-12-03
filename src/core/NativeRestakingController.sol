@@ -94,8 +94,7 @@ abstract contract NativeRestakingController is
         IExoCapsule capsule = _getCapsule(msg.sender);
         uint256 depositValue = capsule.verifyDepositProof(validatorContainer, proof);
 
-        bytes32 validatorPubkey = validatorContainer.getPubkey();
-        bytes memory actionArgs = abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), depositValue);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(msg.sender)), depositValue, proof.validatorIndex);
 
         // deposit NST is a must-succeed action, so we don't need to check the response
         _processRequest(Action.REQUEST_DEPOSIT_NST, actionArgs, bytes(""));
@@ -117,8 +116,8 @@ abstract contract NativeRestakingController is
             capsule.verifyWithdrawalProof(validatorContainer, validatorProof, withdrawalContainer, withdrawalProof);
         if (!partialWithdrawal) {
             // request full withdraw
-            bytes32 validatorPubkey = validatorContainer.getPubkey();
-            bytes memory actionArgs = abi.encodePacked(validatorPubkey, bytes32(bytes20(msg.sender)), withdrawalAmount);
+            bytes memory actionArgs =
+                abi.encodePacked(bytes32(bytes20(msg.sender)), withdrawalAmount, validatorProof.validatorIndex);
             bytes memory encodedRequest = abi.encode(VIRTUAL_NST_ADDRESS, msg.sender, withdrawalAmount);
 
             // a full withdrawal needs response from Exocore, so we don't pass empty bytes
