@@ -310,6 +310,7 @@ contract UTXOGateway is
             revert Errors.AddressNotRegistered();
         }
 
+        console.logBytes(clientAddress);
         (bool success, uint256 updatedBalance) = ASSETS_CONTRACT.withdrawLST(
             uint32(uint8(clientChainId)), VIRTUAL_TOKEN, msg.sender.toExocoreBytes(), amount
         );
@@ -319,6 +320,9 @@ contract UTXOGateway is
 
         uint64 requestId =
             _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WithdrawPrincipal);
+
+        console.log("withdrawPrincipal sucess:", requestId);
+        console.log("withdrawPrincipal updatedBalance:", updatedBalance);
         emit WithdrawPrincipalRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
     }
 

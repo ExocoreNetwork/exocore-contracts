@@ -18,9 +18,12 @@ contract DeployUTXOGateway is Script {
 
     function run() external {
         // Get deployer's private key from environment (will be proxy admin)
-        uint256 deployerPrivateKey = vm.envUint("TEST_ACCOUNT_ONE_PRIVATE_KEY");
+        // 0x90F79bf6EB2c4f870365E785982E1f101E93b906
+        uint256 deployerPrivateKey = vm.envUint("TEST_ACCOUNT_FOUR_PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
+
         // Get owner's private key from environment (will be contract owner)
+        // 0xa0Ee7A142d267C1f36714E4a8F75612F20a79720
         uint256 ownerPrivateKey = vm.envUint("PRIVATE_KEY");
         address owner = vm.addr(ownerPrivateKey);
 
