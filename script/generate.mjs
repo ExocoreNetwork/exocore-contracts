@@ -1101,7 +1101,7 @@ async function updateGenesisFile() {
     // but first, check that it doesn't already exist.
     let nativeChainExists = false;
     for (let i = 0; i < genesisJSON.app_state.assets.client_chains.length; i++) {
-      if (genesisJSON.app_state.assets.client_chains[i].chain_id == clientChainInfo.chain_id) {
+      if (genesisJSON.app_state.assets.client_chains[i].layer_zero_chain_id == nativeChain.layer_zero_chain_id) {
         nativeChainExists = true;
         break;
       }
