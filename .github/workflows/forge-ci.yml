@@ -138,7 +138,7 @@ jobs:
         # The build artifacts of this step are not relevant to us either, so we don't need to
         # cache them.
         run: |
-          forge inspect src/core/ExocoreGateway.sol:ExocoreGateway storage-layout > ExocoreGateway.base.json
+          forge inspect --json src/core/ExocoreGateway.sol:ExocoreGateway storage-layout > ExocoreGateway.base.json
       - name: Upload storage layout file as an artifact
         uses: actions/upload-artifact@v4
         with:
@@ -174,7 +174,7 @@ jobs:
           key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
       - name: Generate storage layout file for ${{ matrix.contract }}
         run: |
-          forge inspect src/core/${{ matrix.contract }}.sol:${{ matrix.contract }} storage-layout > ${{ matrix.contract }}.compiled.json;
+          forge inspect --json src/core/${{ matrix.contract }}.sol:${{ matrix.contract }} storage-layout > ${{ matrix.contract }}.compiled.json;
       - name: Upload storage layout file as an artifact
         uses: actions/upload-artifact@v4
         with:
