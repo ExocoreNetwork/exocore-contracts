@@ -3,17 +3,16 @@
 
 // global constants include the chain information
 const clientChainInfo = {
-  'name': 'Sepolia',
-  'meta_info': 'Ethereum-testnet known as Sepolia',
+  'name': 'Holesky',
+  'meta_info': 'Ethereum-testnet known as Holesky',
   'finalization_blocks': 10,
-  'layer_zero_chain_id': 40161,
+  'layer_zero_chain_id': 40217,
   'address_length': 20,
 };
 // this must be in the same order as whitelistTokens
 const tokenMetaInfos = [
+  'Exocore Holesky ETH',
   'Staked ETH',
-  'Exocore testnet ETH',
-  'Lido wrapped staked ETH',
 ];
 // this must be in the same order as whitelistTokens
 // they are provided because the symbol may not match what we are using from the price feeder.
@@ -21,7 +20,7 @@ const tokenMetaInfos = [
 // the script will take care of mapping the nstETH asset_id to the ETH asset_id in the oracle
 // tokens list.
 const tokenNamesForOracle = [
-  'nstETH', 'ETH', 'wstETH' // not case sensitive
+  'ETH', 'nstETH' // not case sensitive
 ]
 const nativeChain = {
   "name": "Exocore",
@@ -162,6 +161,7 @@ async function updateGenesisFile() {
 
     const bootstrapped = await myContract.methods.bootstrapped().call();
     if (bootstrapped) {
+      // after bootstrapping, some information is deleted.
       throw new Error('The contract has already been bootstrapped.');
     }
 
@@ -209,18 +209,10 @@ async function updateGenesisFile() {
       throw new Error(
         'The tokens section is missing from the oracle params.'
       );
-    } else if (genesisJSON.app_state.oracle.params.tokens.length > 1) {
-      // remove the ETH default token
-      genesisJSON.app_state.oracle.params.tokens = genesisJSON.app_state.oracle.params.tokens.slice(0, 1);
     }
     if (!genesisJSON.app_state.oracle.params.token_feeders) {
       throw new Error(
         'The token_feeders section is missing from the oracle params.'
-      );
-    } else if (genesisJSON.app_state.oracle.params.token_feeders.length > 1) {
-      // remove the ETH default token
-      genesisJSON.app_state.oracle.params.token_feeders = genesisJSON.app_state.oracle.params.token_feeders.slice(
-        0, 1
       );
     }
     const supportedTokensCount = await myContract.methods.getWhitelistedTokensCount().call();
@@ -237,8 +229,8 @@ async function updateGenesisFile() {
       );
     }
     const decimals = [];
-    const supportedTokens = [];
-    const assetIds = [];
+    const supportedTokens = genesisJSON.app_state.assets.tokens;
+    const assetIds = genesisJSON.app_state.dogfood.params.asset_ids;
     // start with the initial value
     const oracleTokens = genesisJSON.app_state.oracle.params.tokens;
     const oracleTokenFeeders = genesisJSON.app_state.oracle.params.token_feeders;
@@ -259,12 +251,12 @@ async function updateGenesisFile() {
         staking_total_amount: deposit_amount.toString(),
       };
 
-      supportedTokens[i] = tokenCleaned;
+      supportedTokens.push(tokenCleaned);
       decimals.push(token.decimals);
       assetIds.push(token.tokenAddress.toLowerCase() + clientChainSuffix);
       let oracleToken;
       const oracleTokenFeeder = {
-        token_id: (i + 1).toString(), // first is reserved
+        token_id: oracleTokenFeeders.length.toString(),
         rule_id: "1",
         start_round_id: "1",
         start_base_block: (height + 20).toString(),
@@ -296,8 +288,19 @@ async function updateGenesisFile() {
           decimal: 8,
         };
       }
-      oracleTokens.push(oracleToken);
-      oracleTokenFeeders.push(oracleTokenFeeder);
+      // check that the same token name exists already. if so, append to it.
+      let found = false;
+      for (let j = 0; j < oracleTokens.length; j++) {
+        if (oracleTokens[j].name == oracleToken.name) {
+          oracleTokens[j].asset_id += "," + oracleToken.asset_id;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        oracleTokens.push(oracleToken);
+        oracleTokenFeeders.push(oracleTokenFeeder);
+      }
       if (oracleToken.name.toLowerCase().startsWith('nst')) {
         if (hasNst.status) {
           throw new Error('Multiple NST tokens found.');
@@ -341,7 +344,15 @@ async function updateGenesisFile() {
         end_block: "0",
       });
     }
-    genesisJSON.app_state.oracle.params.token_feeders = oracleTokenFeeders;
+    genesisJSON.app_state.oracle.params.token_feeders = oracleTokenFeeders.map((feeder) => {
+      if (feeder.token_id == "0") {
+        // first position is reserved
+        return feeder;
+      }
+      // update the height for the past ones too
+      feeder.start_base_block = (height + 20).toString();
+      return feeder;
+    });
     supportedTokens.sort((a, b) => {
       if (a.asset_basic_info.symbol < b.asset_basic_info.symbol) {
         return -1;
@@ -360,7 +371,7 @@ async function updateGenesisFile() {
       genesisJSON.app_state.assets.deposits = [];
     }
     const depositorsCount = await myContract.methods.getDepositorsCount().call();
-    const deposits = [];
+    const deposits = genesisJSON.app_state.assets.deposits;
     const nativeTokenDepositors = [];
     const staker_infos = [];
     let slashProportions = [];
@@ -630,7 +641,7 @@ async function updateGenesisFile() {
 
     // x/assets: assets state of the operators
     const validatorCount = await myContract.methods.getValidatorsCount().call();
-    const operator_assets = [];
+    const operator_assets = genesisJSON.app_state.assets.operator_assets;
     for (let i = 0; i < validatorCount; i++) {
       const validatorEthAddress = await myContract.methods.registeredValidators(i).call();
       const validatorExoAddress = await myContract.methods.ethToExocoreAddress(validatorEthAddress).call();
@@ -724,15 +735,21 @@ async function updateGenesisFile() {
     if (!genesisJSON.app_state.delegation.associations) {
       genesisJSON.app_state.delegation.associations = [];
     }
-    let validators = [];
-    const operators = [];
-    const associations = [];
+    let validators = genesisJSON.app_state.dogfood.val_set.map((validator) => {
+      return {
+        public_key: validator.public_key,
+        // from string to Decimal, these are all already truncated.
+        power: new Decimal(validator.power),
+      }
+    });
+    const operators = genesisJSON.app_state.operator.operators;
+    const associations = genesisJSON.app_state.delegation.associations;
     const operatorsCount = await myContract.methods.getValidatorsCount().call();
     let dogfoodUSDValue = ZERO_DECIMAL;
-    const operator_records = [];
-    const opt_states = [];
-    const avs_usd_values = [];
-    const operator_usd_values = [];
+    const operator_records = genesisJSON.app_state.operator.operator_records;
+    const opt_states = genesisJSON.app_state.operator.opt_states;
+    const avs_usd_values = genesisJSON.app_state.operator.avs_usd_values;
+    const operator_usd_values = genesisJSON.app_state.operator.operator_usd_values;
     const chain_id_without_revision = getChainIDWithoutPrevision(genesisJSON.chain_id);
     const dogfoodAddr = generateAVSAddr(chain_id_without_revision);
 
@@ -786,13 +803,13 @@ async function updateGenesisFile() {
       // at genesis.
       let amount = ZERO_DECIMAL;
       let totalAmount = ZERO_DECIMAL;
-      if (exchangeRates.length != supportedTokens.length) {
+      if (exchangeRates.length != supportedTokensCount) {
         throw new Error(
           `The number of exchange rates (${exchangeRates.length}) 
-          does not match the number of supported tokens (${supportedTokens.length}).`
+          does not match the number of supported tokens (${supportedTokensCount}).`
         );
       }
-      for (let j = 0; j < supportedTokens.length; j++) {
+      for (let j = 0; j < supportedTokensCount; j++) {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
         let selfDelegationAmount = new Decimal((await myContract.methods.delegations(
@@ -911,12 +928,18 @@ async function updateGenesisFile() {
       return 0;
     });
     // avs_usd_values
-    avs_usd_values.push({
-      avs_addr: dogfoodAddr,
-      value: {
-        amount: dogfoodUSDValue.toFixed(),
-      },
-    });
+    const existingItem = avs_usd_values.find(item => item.avs_addr === dogfoodAddr);
+    if (existingItem) {
+      existingItem.value.amount = (new Decimal(existingItem.value.amount).plus(dogfoodUSDValue)).toFixed();
+    } else {
+      avs_usd_values.push({
+        avs_addr: dogfoodAddr,
+        value: {
+          amount: dogfoodUSDValue.toFixed(),
+        },
+      });
+    }
+
     // operator_usd_values
     operator_usd_values.sort((a, b) => {
       if (a.key < b.key) {
@@ -974,14 +997,14 @@ async function updateGenesisFile() {
     genesisJSON.app_state.delegation.associations = associations;
 
     // iterate over all stakers, then all assets, then all operators
-    const delegation_states = [];
-    const stakers_by_operator = [];
+    const delegation_states = genesisJSON.app_state.delegation.delegation_states;
+    const stakers_by_operator = genesisJSON.app_state.delegation.stakers_by_operator;
     const stakerListMap = new Map();
     for (let i = 0; i < depositorsCount; i++) {
       const staker = await myContract.methods.depositors(i).call();
       const stakerId = staker.toLowerCase() + clientChainSuffix;
 
-      for (let j = 0; j < supportedTokens.length; j++) {
+      for (let j = 0; j < supportedTokensCount; j++) {
         const tokenAddress =
           (await myContract.methods.getWhitelistedTokenAtIndex(j).call()).tokenAddress;
         const assetId = tokenAddress.toLowerCase() + clientChainSuffix;
@@ -1075,13 +1098,22 @@ async function updateGenesisFile() {
     }];
 
     // add the native chain and at the end so that count-related issues don't arise.
-    genesisJSON.app_state.assets.client_chains.push(nativeChain);
-    genesisJSON.app_state.assets.tokens.push(nativeAsset);
-    // TODO: copy the staking data over from the previous genesis, if any.
-    genesisJSON.app_state.dogfood.params.asset_ids.push(
-      nativeAsset.asset_basic_info.address.toLowerCase() + '_0x' +
-      nativeAsset.asset_basic_info.layer_zero_chain_id.toString(16)
-    );
+    // but first, check that it doesn't already exist.
+    let nativeChainExists = false;
+    for (let i = 0; i < genesisJSON.app_state.assets.client_chains.length; i++) {
+      if (genesisJSON.app_state.assets.client_chains[i].layer_zero_chain_id == nativeChain.layer_zero_chain_id) {
+        nativeChainExists = true;
+        break;
+      }
+    }
+    if (!nativeChainExists) {
+      genesisJSON.app_state.assets.client_chains.push(nativeChain);
+      genesisJSON.app_state.assets.tokens.push(nativeAsset);
+      genesisJSON.app_state.dogfood.params.asset_ids.push(
+        nativeAsset.asset_basic_info.address.toLowerCase() + '_0x' +
+        nativeAsset.asset_basic_info.layer_zero_chain_id.toString(16)
+      );
+    }
 
     await fs.writeFile(
       INTEGRATION_RESULT_GENESIS_FILE_PATH,
