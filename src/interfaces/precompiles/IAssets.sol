@@ -118,6 +118,12 @@ interface IAssets {
     function updateToken(uint32 clientChainId, bytes calldata token, string calldata metaData)
         external
         returns (bool success);
+    
+    /// @dev update the authorized gateways, only the authorized gateways can call precompile functions
+    /// @dev If it is the mainnet, only the authority can call this function
+    /// @param gateways the authorized gateways
+    /// @return success if the update is successful
+    function updateAuthorizedGateways(address[] calldata gateways) external returns (bool success);
 
     /// QUERIES
     /// @dev Returns the chain indices of the client chains.
@@ -128,5 +134,11 @@ interface IAssets {
     /// @return success true if the query is successful
     /// @return isRegistered true if the client chain is registered
     function isRegisteredClientChain(uint32 clientChainID) external view returns (bool success, bool isRegistered);
+
+    /// @dev Checks if the gateway is authorized, given the gateway address.
+    /// @param gateway is the address of the gateway
+    /// @return success true if the query is successful
+    /// @return isAuthorized true if the gateway is authorized
+    function isAuthorizedGateway(address gateway) external view returns (bool success, bool isAuthorized);
 
 }
