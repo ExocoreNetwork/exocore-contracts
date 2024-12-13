@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 // import "forge-std/console.sol";
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
+import {TokenInfo} from "src/interfaces/precompiles/IAssets.sol";
 
 contract AssetsMock is IAssets {
 
@@ -12,10 +13,12 @@ contract AssetsMock is IAssets {
 
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principalBalances;
     mapping(bytes => mapping(bytes => bool)) public inValidatorSet;
+    mapping(address => bool) public authorizedGateways;
 
     uint32[] internal chainIds;
     mapping(uint32 chainId => bool registered) public isRegisteredChain;
     mapping(uint32 chainId => mapping(bytes token => bool registered)) public isRegisteredToken;
+    mapping(uint32 chainId => mapping(bytes token => TokenInfo)) public registeredTokens;
 
     constructor(uint32 clientChainId) {
         isRegisteredChain[clientChainId] = true;
@@ -142,6 +145,14 @@ contract AssetsMock is IAssets {
             return false;
         }
         isRegisteredToken[clientChainId][token] = true;
+        registeredTokens[clientChainId][token] = TokenInfo({
+            name: name,
+            symbol: "",
+            clientChainID: clientChainId,
+            tokenID: token,
+            decimals: decimals,
+            totalStaked: 0
+        });
         return true;
     }
 
@@ -162,6 +173,17 @@ contract AssetsMock is IAssets {
         return true;
     }
 
+    function updateAuthorizedGateways(address[] calldata gateways) external returns (bool) {
+        if (gateways.length == 0) {
+            return false;
+        }
+
+        for (uint256 i = 0; i < gateways.length; i++) {
+            authorizedGateways[gateways[i]] = true;
+        }
+        return true;
+    }
+
     function getPrincipalBalance(uint32 clientChainLzId, bytes memory token, bytes memory staker)
         public
         view
@@ -176,6 +198,21 @@ contract AssetsMock is IAssets {
 
     function isRegisteredClientChain(uint32 clientChainID) external view returns (bool, bool) {
         return (true, isRegisteredChain[clientChainID]);
+    }
+
+    function isAuthorizedGateway(address gateway) external view returns (bool, bool) {
+        return (true, authorizedGateways[gateway]);
+    }
+
+    function getTokenInfo(uint32 clientChainId, bytes calldata tokenId)
+        external
+        view
+        returns (bool, TokenInfo memory)
+    {
+        if (!isRegisteredToken[clientChainId][tokenId]) {
+            return (false, TokenInfo("", "", 0, bytes(""), 0, 0));
+        }
+        return (true, registeredTokens[clientChainId][tokenId]);
     }
 
 }

@@ -11,7 +11,7 @@ import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 import "./ExocoreDeployer.t.sol";
 import "forge-std/Test.sol";
 
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 

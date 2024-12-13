@@ -7,6 +7,16 @@ address constant ASSETS_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000
 /// @dev The Assets contract's instance.
 IAssets constant ASSETS_CONTRACT = IAssets(ASSETS_PRECOMPILE_ADDRESS);
 
+/// @dev The TokenInfo struct.
+struct TokenInfo {
+    string name;
+    string symbol;
+    uint32 clientChainID;
+    bytes tokenID;
+    uint8 decimals;
+    uint256 totalStaked;
+}
+
 /// @author Exocore Team
 /// @title Assets Precompile Contract
 /// @dev The interface through which solidity contracts will interact with assets module
@@ -118,7 +128,7 @@ interface IAssets {
     function updateToken(uint32 clientChainId, bytes calldata token, string calldata metaData)
         external
         returns (bool success);
-    
+
     /// @dev update the authorized gateways, only the authorized gateways can call precompile functions
     /// @dev If it is the mainnet, only the authority can call this function
     /// @param gateways the authorized gateways
@@ -140,5 +150,15 @@ interface IAssets {
     /// @return success true if the query is successful
     /// @return isAuthorized true if the gateway is authorized
     function isAuthorizedGateway(address gateway) external view returns (bool success, bool isAuthorized);
+
+    /// @dev Returns the asset info for a given asset ID.
+    /// @param clientChainId is the ID of the client chain
+    /// @param tokenId is the ID of the token, typically the token address
+    /// @return success true if the query is successful
+    /// @return assetInfo the asset info
+    function getTokenInfo(uint32 clientChainId, bytes calldata tokenId)
+        external
+        view
+        returns (bool success, TokenInfo memory assetInfo);
 
 }

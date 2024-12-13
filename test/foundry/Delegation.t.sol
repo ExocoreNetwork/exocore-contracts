@@ -7,8 +7,8 @@ import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 import "../mocks/DelegationMock.sol";
 import "./ExocoreDeployer.t.sol";
 
-import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "forge-std/Test.sol";
 

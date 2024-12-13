@@ -16,6 +16,29 @@ describe("BTC Stake", () => {
     let witness3;
 
     const ASSETS_PRECOMPILE_ADDRESS = "0x0000000000000000000000000000000000000804";
+    const STAKER_BTC_ADDR = "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh";
+
+    // enum representing client chain
+    const CLIENT_CHAIN = {
+        NONE: 0,
+        BTC: 1,
+    };
+
+    // enum representing tokens
+    const TOKEN = {
+        NONE: 0,
+        BTC: 1,
+    };
+
+    const TX_STATUS = {
+        NotStartedOrProcessed: 0, // 0: Default state - transaction hasn't started collecting proofs
+        Pending: 1, // 1: Currently collecting witness proofs
+        Expired: 2, // 2: Failed due to timeout, but can be retried
+    };
+
+    const VIRTUAL_BTC_ADDR = "0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB";
+    const BTC_ID = ethers.toUtf8Bytes(VIRTUAL_BTC_ADDR);
+    const OPERATOR = "exo18cggcpvwspnd5c6ny8wrqxpffj5zmhklprtnph";
 
     // Run once before all tests
     before(async () => {
@@ -82,10 +105,124 @@ describe("BTC Stake", () => {
 
         // assert threshold is set
         expect(await utxoGateway.requiredProofs()).to.equal(2);
+        expect(await utxoGateway.isConsensusRequired()).to.be.true;
 
         // assert the utxo gateway is authorized
         const [success, authorized] = await assetsPrecompile.isAuthorizedGateway(utxoGateway.target);
         expect(success).to.be.true;
         expect(authorized).to.be.true;
+    });
+
+    it("should successfully activate staking for BTC", async () => {
+        const tx = await utxoGateway.connect(owner).activateStakingForClientChain(CLIENT_CHAIN.BTC);
+        const receipt = await tx.wait();
+        expect(receipt.status).to.be.equal(1);
+
+        // assert the client chain is registered
+        const [success1, registered] = await assetsPrecompile.isRegisteredClientChain(CLIENT_CHAIN.BTC);
+        expect(success1).to.be.true;
+        expect(registered).to.be.true;
+
+        // assert the BTC asset is registered
+        const [success2, tokenInfo] = await assetsPrecompile.getTokenInfo(CLIENT_CHAIN.BTC, BTC_ID);
+        expect(success2).to.be.true;
+        // Access array elements directly since tokenInfo is returned as an array
+        expect(tokenInfo[0]).to.equal("BTC");          // name
+        expect(tokenInfo[1]).to.equal("");             // symbol
+        expect(Number(tokenInfo[2])).to.equal(CLIENT_CHAIN.BTC);  // clientChainId
+        
+        // Convert the returned tokenId bytes to UTF-8 string for comparison
+        const returnedTokenId = ethers.toUtf8String(tokenInfo[3]);  // tokenId
+        expect(returnedTokenId).to.equal(ethers.toUtf8String(BTC_ID));
+        expect(Number(tokenInfo[4])).to.equal(8);      // decimals
+        expect(Number(tokenInfo[5])).to.equal(0);      // totalStaked
+    });
+
+    it("should successfully stake BTC", async () => {
+        // construct the stake message for staker
+        const stakeMsg = {
+            clientChainId: CLIENT_CHAIN.BTC,  // enum value, probably 1
+            clientAddress: ethers.toUtf8Bytes(STAKER_BTC_ADDR),  // convert address to bytes
+            exocoreAddress: staker.address,   // use signer's address
+            operator: OPERATOR,
+            amount: ethers.parseUnits("1.0", 8),
+            nonce: BigInt(1),
+            txTag: ethers.toUtf8Bytes("test-1")
+        };
+
+        // Create the message hash using the same format as the contract
+        const messageHash = ethers.keccak256(
+            ethers.AbiCoder.defaultAbiCoder().encode(
+                [
+                    'uint8',          // clientChainId (enum is uint8)
+                    'bytes',          // clientAddress
+                    'address',        // exocoreAddress
+                    'string',         // operator
+                    'uint256',        // amount
+                    'uint64',         // nonce
+                    'bytes'           // txTag
+                ],
+                [
+                    stakeMsg.clientChainId,
+                    stakeMsg.clientAddress,
+                    stakeMsg.exocoreAddress,
+                    stakeMsg.operator,
+                    stakeMsg.amount,
+                    stakeMsg.nonce,
+                    stakeMsg.txTag
+                ]
+            )
+        );
+
+        // construct proofs for the stake message, with each witness signing the message
+        const proofs = [];
+        for (const witness of [witness1, witness2, witness3]) {
+            const proof = await witness.signMessage(ethers.getBytes(messageHash));
+            proofs.push(proof);
+        }
+
+        // consensus is required, so we need to submit the proofs
+        expect(await utxoGateway.isConsensusRequired()).to.be.true;
+        expect(await utxoGateway.requiredProofs()).to.equal(2);
+
+        // submit the first proof
+        try {
+            // First simulate the transaction to get revert reason
+            const simulated = await utxoGateway.connect(relayer).submitProofForStakeMsg.staticCall(
+                witness1.address,
+                stakeMsg,
+                proofs[0]
+            );
+            console.log("Simulation result:", simulated);
+
+            // If simulation succeeds, send the actual transaction
+            const tx = await utxoGateway.connect(relayer).submitProofForStakeMsg(
+                witness1.address,
+                stakeMsg,
+                proofs[0]
+            );
+            
+            // Wait for transaction with more details
+            const receipt = await tx.wait();
+            console.log("Transaction receipt:", {
+                status: receipt.status,
+                gasUsed: receipt.gasUsed.toString(),
+                events: receipt.events?.map(e => e.event)
+            });
+        } catch (error) {
+            console.error("Error submitting proof:", error);
+        }
+        // assert the transaction is created and pending to be processed
+        expect(await utxoGateway.getTransactionStatus(messageHash)).to.equal(TX_STATUS.Pending);
+        expect(await utxoGateway.getTransactionProofCount(messageHash)).to.equal(1);
+
+        // submit the second proof
+        const tx2 = await utxoGateway.connect(relayer).submitProofForStakeMsg(witness2.address, stakeMsg, proofs[1]);
+        const receipt2 = await tx2.wait();
+        expect(receipt2.status).to.be.equal(1);
+        // assert we should have met with required proofs to process the transaction
+        expect(await utxoGateway.getTransactionStatus(messageHash)).to.equal(TX_STATUS.NotStartedOrProcessed);
+        expect(await utxoGateway.getTransactionProofCount(messageHash)).to.equal(0);
+
     });
 });
