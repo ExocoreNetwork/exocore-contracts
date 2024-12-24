@@ -30,7 +30,8 @@ struct TokenInfo {
 /// @param balance The balance of the staker, balance = withdrawable + delegated + pendingUndelegated
 /// @param withdrawable The withdrawable balance
 /// @param delegated The delegated balance
-/// @param pendingUndelegated The pending undelegated balance, during the unboding period and would become withdrawable after the unboding period
+/// @param pendingUndelegated The pending undelegated balance, during the unboding period and would become withdrawable
+/// after the unboding period
 /// @param totalDeposited The total deposited balance
 struct StakerBalance {
     uint32 clientChainID;
@@ -153,7 +154,7 @@ interface IAssets {
     function updateToken(uint32 clientChainId, bytes calldata token, string calldata metaData)
         external
         returns (bool success);
-    
+
     /// @dev update the authorized gateways, only the authorized gateways can call precompile functions
     /// @dev If it is the mainnet, only the authority can call this function
     /// @param gateways the authorized gateways
@@ -181,14 +182,19 @@ interface IAssets {
     /// @param tokenId is the ID of the token, typically the token address
     /// @return success true if the query is successful
     /// @return assetInfo the asset info
-    function getTokenInfo(uint32 clientChainId, bytes calldata tokenId) external view returns (bool success, TokenInfo memory assetInfo);
+    function getTokenInfo(uint32 clientChainId, bytes calldata tokenId)
+        external
+        view
+        returns (bool success, TokenInfo memory assetInfo);
 
     /// @dev Returns the staker's balance for a given token.
     /// @param clientChainId is the ID of the client chain
     /// @param tokenId is the ID of the token, typically the token address
     /// @return success true if the query is successful
     /// @return stakerBalance the staker's balance
-    function getStakerBalanceByToken(uint32 clientChainId, bytes calldata stakerAddress, bytes calldata tokenId) external view returns (bool success, StakerBalance memory stakerBalance);
+    function getStakerBalanceByToken(uint32 clientChainId, bytes calldata stakerAddress, bytes calldata tokenId)
+        external
+        view
+        returns (bool success, StakerBalance memory stakerBalance);
+
 }
-
-

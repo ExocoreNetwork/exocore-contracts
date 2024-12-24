@@ -221,17 +221,19 @@ contract AssetsMock is IAssets {
         view
         returns (bool, StakerBalance memory)
     {
-        return (true, 
+        return (
+            true,
             StakerBalance(
-                clientChainId, 
-                stakerAddress, 
-                token, 
-                principalBalances[clientChainId][token][stakerAddress], 
-                principalBalances[clientChainId][token][stakerAddress], 
-                0, 
-                0, 
+                clientChainId,
+                stakerAddress,
+                token,
+                principalBalances[clientChainId][token][stakerAddress],
+                principalBalances[clientChainId][token][stakerAddress],
+                0,
+                0,
                 principalBalances[clientChainId][token][stakerAddress]
             )
         );
     }
+
 }

@@ -1662,11 +1662,7 @@ contract UTXOGatewayTest is Test {
         address unauthorizedWitness = address(0x9999);
         vm.prank(unauthorizedWitness);
         vm.expectRevert(Errors.UnauthorizedWitness.selector);
-        gateway.consumePegOutRequest(
-            UTXOGatewayStorage.ClientChainID.Bitcoin,
-            1,
-            bytes32(uint256(1))
-        );
+        gateway.consumePegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 1, bytes32(uint256(1)));
     }
 
     function test_ConsumePegOutRequest_RevertWhenPaused() public {
@@ -1678,11 +1674,7 @@ contract UTXOGatewayTest is Test {
 
         vm.prank(witnesses[0].addr);
         vm.expectRevert("Pausable: paused");
-        gateway.consumePegOutRequest(
-            UTXOGatewayStorage.ClientChainID.Bitcoin,
-            1,
-            bytes32(uint256(1))
-        );
+        gateway.consumePegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 1, bytes32(uint256(1)));
     }
 
     function test_ConsumePegoutRequest_RevertInvalidRequestSequence() public {
@@ -1691,22 +1683,14 @@ contract UTXOGatewayTest is Test {
 
         vm.prank(witnesses[0].addr);
         vm.expectRevert(abi.encodeWithSelector(Errors.InvalidRequestNonce.selector, 1, 2));
-        gateway.consumePegOutRequest(
-            UTXOGatewayStorage.ClientChainID.Bitcoin,
-            2,
-            bytes32(uint256(1))
-        );
+        gateway.consumePegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 2, bytes32(uint256(1)));
     }
 
     function test_ConsumePegOutRequest_RevertRequestNotFound() public {
         // Don't create any peg-out request
         vm.prank(witnesses[0].addr);
         vm.expectRevert(abi.encodeWithSelector(Errors.RequestNotFound.selector, 1));
-        gateway.consumePegOutRequest(
-            UTXOGatewayStorage.ClientChainID.Bitcoin,
-            1,
-            bytes32(uint256(1))
-        );
+        gateway.consumePegOutRequest(UTXOGatewayStorage.ClientChainID.Bitcoin, 1, bytes32(uint256(1)));
     }
 
     function test_ConsumePegOutRequest_RevertInvalidPegoutTxId() public {

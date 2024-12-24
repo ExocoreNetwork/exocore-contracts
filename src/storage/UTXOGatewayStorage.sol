@@ -36,6 +36,7 @@ contract UTXOGatewayStorage {
         NotStartedOrProcessed, // 0: Default state - transaction hasn't started collecting proofs
         Pending, // 1: Currently collecting witness proofs
         Expired // 2: Failed due to timeout, but can be retried
+
     }
 
     /**

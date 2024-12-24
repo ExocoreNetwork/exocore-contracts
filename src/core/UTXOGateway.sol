@@ -346,8 +346,10 @@ contract UTXOGateway is
     }
 
     /**
-     * @notice Consumes a specific peg-out request by marking it as consumed and associating it with a client chain(e.g. Bitcoin) transaction
-     * @dev Witness should call this function before broadcasting the client chain(e.g. Bitcoin) transaction to make sure the tx is valid
+     * @notice Consumes a specific peg-out request by marking it as consumed and associating it with a client chain(e.g.
+     * Bitcoin) transaction
+     * @dev Witness should call this function before broadcasting the client chain(e.g. Bitcoin) transaction to make
+     * sure the tx is valid
      * @dev Only authorized witnesses can call this function
      * @dev Peg-out requests must be processed in order based on their nonce
      * @dev Each peg-out request can only be consumed once
@@ -359,11 +361,7 @@ contract UTXOGateway is
      * @custom:throws RequestNotFound if the request does not exist
      * @custom:throws InvalidRequestSequence if trying to process requests out of order
      */
-    function consumePegOutRequest(
-        ClientChainID clientChainId, 
-        uint64 requestNonce,
-        bytes32 pegoutTxId
-    )
+    function consumePegOutRequest(ClientChainID clientChainId, uint64 requestNonce, bytes32 pegoutTxId)
         external
         onlyAuthorizedWitness
         nonReentrant
@@ -381,7 +379,7 @@ contract UTXOGateway is
 
         // Get the next request ID that should be processed
         uint64 nextRequestNonce = outboundNonce[clientChainId] + 1;
-        
+
         // Ensure requests are processed in order
         if (requestNonce != nextRequestNonce) {
             revert Errors.InvalidRequestNonce(nextRequestNonce, requestNonce);
@@ -394,7 +392,7 @@ contract UTXOGateway is
         if (consumedRequest.requester == address(0)) {
             revert Errors.RequestNotFound(requestNonce);
         }
-        
+
         // Increment the nonce only after successful processing
         outboundNonce[clientChainId] = requestNonce;
 
