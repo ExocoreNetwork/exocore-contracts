@@ -79,9 +79,9 @@ contract DeployScript is Script {
 
         // transfer some gas fee to depositor, relayer and exocore gateway
         clientChain = vm.createSelectFork(clientChainRPCURL);
-        address alexTest = 0x41B2ddC309Af448f0B96ba1595320D7Dc5121Bc0;
-        address aduTest = 0x7Db30262Dbf13f464eb6126daFa7EB57623A7A01;
-        address faucet = 0x8A21AE3e1344A83Bb05D5b1c9cFF04A9614F2567;
+        // address alexTest = 0x41B2ddC309Af448f0B96ba1595320D7Dc5121Bc0;
+        // address aduTest = 0x7Db30262Dbf13f464eb6126daFa7EB57623A7A01;
+        // address faucet = 0x8A21AE3e1344A83Bb05D5b1c9cFF04A9614F2567;
         // vm.startBroadcast(exocoreValidatorSet.privateKey);
         // if (restakeToken.balanceOf(faucet) < AIRDEOP_AMOUNT) {
         //     restakeToken.transfer(faucet, AIRDEOP_AMOUNT);

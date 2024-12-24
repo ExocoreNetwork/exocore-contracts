@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
 import {NonShortCircuitEndpointV2Mock} from "../../mocks/NonShortCircuitEndpointV2Mock.sol";
@@ -12,7 +13,7 @@ import "test/mocks/AssetsMock.sol";
 import "test/mocks/DelegationMock.sol";
 import "test/mocks/RewardMock.sol";
 
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
