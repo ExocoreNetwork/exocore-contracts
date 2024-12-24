@@ -7,7 +7,7 @@ import {Action, GatewayStorage} from "../../src/storage/GatewayStorage.sol";
 import "../mocks/RewardMock.sol";
 import "./ExocoreDeployer.t.sol";
 
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "forge-std/Test.sol";
 import "forge-std/console.sol";

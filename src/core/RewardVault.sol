@@ -25,6 +25,7 @@ contract RewardVault is RewardVaultStorage, Initializable, IRewardVault {
 
     /// @inheritdoc IRewardVault
     function initialize(address gateway_) external initializer {
+        require(gateway_ != address(0), "Gateway address cannot be zero");
         gateway = gateway_;
     }
 

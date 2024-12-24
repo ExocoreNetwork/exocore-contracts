@@ -7,7 +7,7 @@ import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 import {BaseScript} from "./BaseScript.sol";
 import "forge-std/Script.sol";
 
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 
 contract SetPeersAndUpgrade is BaseScript {
 

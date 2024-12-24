@@ -11,7 +11,7 @@ import {Script, console} from "forge-std/Script.sol";
 import {StdCheats} from "forge-std/StdCheats.sol";
 import "forge-std/StdJson.sol";
 
-import {IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
+import {IOAppCore} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/interfaces/IOAppCore.sol";
 
 import {Origin} from "../src/lzApp/OAppReceiverUpgradeable.sol";
 
