@@ -29,7 +29,7 @@ contract DeployBootstrapOnly is BaseScript {
         // load keys
         super.setUp();
         // load contracts
-        string memory prerequisiteContracts = vm.readFile("script/prerequisiteContracts.json");
+        string memory prerequisiteContracts = vm.readFile("script/deployments/prerequisiteContracts.json");
         clientChainLzEndpoint =
             ILayerZeroEndpointV2(stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint"));
         require(address(clientChainLzEndpoint) != address(0), "Client chain endpoint not found");
@@ -147,7 +147,7 @@ contract DeployBootstrapOnly is BaseScript {
         string memory deployedContracts = "deployedContracts";
         string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
 
-        vm.writeJson(finalJson, "script/deployedBootstrapOnly.json");
+        vm.writeJson(finalJson, "script/deployments/deployedBootstrapOnly.json");
     }
 
 }

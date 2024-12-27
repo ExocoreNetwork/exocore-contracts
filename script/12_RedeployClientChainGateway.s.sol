@@ -31,7 +31,7 @@ contract RedeployClientChainGateway is BaseScript {
         // load keys
         super.setUp();
         // load contracts
-        string memory prerequisiteContracts = vm.readFile("script/deployedBootstrapOnly.json");
+        string memory prerequisiteContracts = vm.readFile("script/deployments/deployedBootstrapOnly.json");
         clientChainLzEndpoint =
             ILayerZeroEndpointV2(stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint"));
         require(address(clientChainLzEndpoint) != address(0), "client chain l0 endpoint should not be empty");
@@ -86,7 +86,7 @@ contract RedeployClientChainGateway is BaseScript {
         string memory deployedContracts = "deployedContracts";
         string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
 
-        vm.writeJson(finalJson, "script/redeployClientChainGateway.json");
+        vm.writeJson(finalJson, "script/deployments/redeployClientChainGateway.json");
     }
 
 }

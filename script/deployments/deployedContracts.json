@@ -19,5 +19,14 @@
     "exocoreGatewayLogic": "0x42397BFa2601B85E838750A10E652eea2238B5B6",
     "exocoreProxyAdmin": "0x9bBDDb68B47b88d3Dd2eF7E1682C1EFE4E2e2315",
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
+  },
+  "UTXOGateway": {
+    "proxy": "0xb6CCF62d396267270fDe439FbD15667D7cF6b35d",
+    "implementation": "0xfB216316c486d211fBF204ae674ac2bfA3EE7190",
+    "proxyAdmin": "0xa2A4F9E9e4898DBcE16Cf55DB176dC9df848F5E2",
+    "owner": "0x481E020DB4709e6EdDbf8134D41b866c6Fc8555e",
+    "witnesses": [
+      "0xBc2978640eF1C6d9181Ed9aB3D2611914B10a6B7"
+    ]
   }
 }

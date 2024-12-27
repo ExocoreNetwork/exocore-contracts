@@ -9,7 +9,8 @@
     "test": "test"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "deploy:utxo-gateway": "hardhat run script/hardhat/deploy-and-setup-utxogateway.script.js --network exocore_localnet"
   },
   "keywords": [],
   "author": "",

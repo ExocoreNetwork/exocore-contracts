@@ -12,7 +12,7 @@ contract UpgradeExoCapsuleScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory deployedContracts = vm.readFile("script/deployedContracts.json");
+        string memory deployedContracts = vm.readFile("script/deployments/deployedContracts.json");
 
         capsuleBeaconContract =
             UpgradeableBeacon((stdJson.readAddress(deployedContracts, ".clientChain.capsuleBeacon")));

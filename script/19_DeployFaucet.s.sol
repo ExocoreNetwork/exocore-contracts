@@ -16,7 +16,7 @@ contract DeployScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory prerequisites = vm.readFile("script/prerequisiteContracts.json");
+        string memory prerequisites = vm.readFile("script/deployments/prerequisiteContracts.json");
 
         tokenAddr = stdJson.readAddress(prerequisites, ".clientChain.erc20Token");
         require(tokenAddr != address(0), "token address should not be empty");

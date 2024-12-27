@@ -25,7 +25,7 @@ contract DeployScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory prerequisites = vm.readFile("script/prerequisiteContracts.json");
+        string memory prerequisites = vm.readFile("script/deployments/prerequisiteContracts.json");
 
         clientChainLzEndpoint = ILayerZeroEndpointV2(stdJson.readAddress(prerequisites, ".clientChain.lzEndpoint"));
         require(address(clientChainLzEndpoint) != address(0), "client chain l0 endpoint should not be empty");

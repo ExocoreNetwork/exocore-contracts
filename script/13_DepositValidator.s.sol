@@ -35,8 +35,8 @@ contract DepositScript is BaseScript {
 
     function setUp() public virtual override {
         super.setUp();
-        string memory validatorInfo = vm.readFile("script/validatorProof_staker1_testnetV6.json");
-        string memory deployedContracts = vm.readFile("script/deployedContracts.json");
+        string memory validatorInfo = vm.readFile("script/data/validatorProof_staker1_testnetV6.json");
+        string memory deployedContracts = vm.readFile("script/deployments/deployedContracts.json");
 
         clientGateway =
             IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));

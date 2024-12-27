@@ -73,7 +73,7 @@ contract PrerequisitesScript is BaseScript {
         vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
         string memory finalJson = vm.serializeString(deployedContracts, "exocore", exocoreContractsOutput);
 
-        vm.writeJson(finalJson, "script/prerequisiteContracts.json");
+        vm.writeJson(finalJson, "script/deployments/prerequisiteContracts.json");
     }
 
 }

@@ -23,7 +23,7 @@ contract DepositScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory deployedContracts = vm.readFile("script/deployedContracts.json");
+        string memory deployedContracts = vm.readFile("script/deployments/deployedContracts.json");
 
         clientGateway =
             IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
@@ -53,7 +53,7 @@ contract DepositScript is BaseScript {
         vm.serializeAddress(capsulesJson, "owner", depositor.addr);
         string memory capsulesOutput = vm.serializeAddress(capsulesJson, "capsule", capsule);
 
-        vm.writeJson(capsulesOutput, "script/capsule.json");
+        vm.writeJson(capsulesOutput, "script/deployments/capsule.json");
     }
 
 }

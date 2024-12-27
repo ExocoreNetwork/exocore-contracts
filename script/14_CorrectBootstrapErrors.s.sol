@@ -37,7 +37,7 @@ contract CorrectBootstrapErrors is BaseScript {
         // load keys
         super.setUp();
         // load contracts
-        string memory prerequisiteContracts = vm.readFile("script/prerequisiteContracts.json");
+        string memory prerequisiteContracts = vm.readFile("script/deployments/prerequisiteContracts.json");
         clientChainLzEndpoint =
             ILayerZeroEndpointV2(stdJson.readAddress(prerequisiteContracts, ".clientChain.lzEndpoint"));
         require(address(clientChainLzEndpoint) != address(0), "Client chain endpoint not found");
@@ -56,7 +56,7 @@ contract CorrectBootstrapErrors is BaseScript {
         wstETH = stdJson.readAddress(prerequisiteContracts, ".clientChain.wstETH");
         require(wstETH != address(0), "wstETH not found");
 
-        string memory deployed = vm.readFile("script/deployedBootstrapOnly.json");
+        string memory deployed = vm.readFile("script/deployments/deployedBootstrapOnly.json");
 
         proxyAddress = stdJson.readAddress(deployed, ".clientChain.bootstrap");
         require(address(proxyAddress) != address(0), "bootstrap address should not be empty");
@@ -136,7 +136,7 @@ contract CorrectBootstrapErrors is BaseScript {
         string memory deployedContracts = "deployedContracts";
         string memory finalJson = vm.serializeString(deployedContracts, "clientChain", clientChainContractsOutput);
 
-        vm.writeJson(finalJson, "script/correctBootstrapErrors.json");
+        vm.writeJson(finalJson, "script/deployments/correctBootstrapErrors.json");
     }
 
 }

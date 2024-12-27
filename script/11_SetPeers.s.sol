@@ -20,7 +20,7 @@ contract SetPeersAndUpgrade is BaseScript {
         // load keys
         super.setUp();
         // load contracts
-        string memory deployed = vm.readFile("script/deployedBootstrapOnly.json");
+        string memory deployed = vm.readFile("script/deployments/deployedBootstrapOnly.json");
         bootstrapAddr = stdJson.readAddress(deployed, ".clientChain.bootstrap");
         require(address(bootstrapAddr) != address(0), "bootstrap address should not be empty");
         deployed = vm.readFile("script/deployedExocoreGatewayOnly.json");
