@@ -39,6 +39,15 @@ contract UTXOGateway is
     }
 
     /**
+     * @notice Returns the app version.
+     * @dev This is used to check the compatibility of the gateway with the Exocore system.
+     * @return The app version.
+     */
+    function appVersion() external pure returns (uint256) {
+        return APP_VERSION;
+    }
+
+    /**
      * @notice Initializes the contract with the Exocore witness address, owner address and required proofs.
      * @dev If the witnesses length is greater or equal to the required proofs, the consensus requirement for stake
      * message would be activated.
@@ -83,7 +92,7 @@ contract UTXOGateway is
      * @notice Activates token staking by registering or updating the chain and token with the Exocore system.
      */
     function activateStakingForClientChain(ClientChainID clientChainId) external onlyOwner whenNotPaused {
-        if (clientChainId == ClientChainID.Bitcoin) {
+        if (clientChainId == ClientChainID.BITCOIN) {
             _registerOrUpdateClientChain(
                 clientChainId, STAKER_ACCOUNT_LENGTH, BITCOIN_NAME, BITCOIN_METADATA, BITCOIN_SIGNATURE_SCHEME
             );
@@ -187,7 +196,7 @@ contract UTXOGateway is
 
         Transaction storage txn = transactions[messageHash];
 
-        if (txn.status == TxStatus.Pending) {
+        if (txn.status == TxStatus.PENDING) {
             // if the witness has already submitted proof at or after the start of the proof window, they cannot submit
             // again
             if (txn.witnessTime[witness] >= txn.expiryTime - PROOF_TIMEOUT) {
@@ -196,7 +205,7 @@ contract UTXOGateway is
             txn.witnessTime[witness] = block.timestamp;
             txn.proofCount++;
         } else {
-            txn.status = TxStatus.Pending;
+            txn.status = TxStatus.PENDING;
             txn.expiryTime = block.timestamp + PROOF_TIMEOUT;
             txn.proofCount = 1;
             txn.witnessTime[witness] = block.timestamp;
@@ -317,7 +326,7 @@ contract UTXOGateway is
         }
 
         uint64 requestId =
-            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WithdrawPrincipal);
+            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WITHDRAW_PRINCIPAL);
         emit WithdrawPrincipalRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
     }
 
@@ -341,7 +350,7 @@ contract UTXOGateway is
         }
 
         uint64 requestId =
-            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WithdrawReward);
+            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WITHDRAW_REWARD);
         emit WithdrawRewardRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
     }
 
@@ -789,8 +798,8 @@ contract UTXOGateway is
 
     function _revokeTxIfExpired(bytes32 txid) internal {
         Transaction storage txn = transactions[txid];
-        if (txn.status == TxStatus.Pending && block.timestamp >= txn.expiryTime) {
-            txn.status = TxStatus.Expired;
+        if (txn.status == TxStatus.PENDING && block.timestamp >= txn.expiryTime) {
+            txn.status = TxStatus.EXPIRED;
             emit TransactionExpired(txid);
         }
     }

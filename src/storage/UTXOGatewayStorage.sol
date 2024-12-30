@@ -14,7 +14,7 @@ contract UTXOGatewayStorage {
      * @dev Each field should be matched with the corresponding field of ClientChainID
      */
     enum Token {
-        None, // 0: Invalid/uninitialized token
+        NONE, // 0: Invalid/uninitialized token
         BTC // 1: Bitcoin token, matches with ClientChainID.Bitcoin
 
     }
@@ -24,8 +24,8 @@ contract UTXOGatewayStorage {
      * @dev Each field should be matched with the corresponding field of Token
      */
     enum ClientChainID {
-        None, // 0: Invalid/uninitialized chain
-        Bitcoin // 1: Bitcoin chain, matches with Token.BTC
+        NONE, // 0: Invalid/uninitialized chain
+        BITCOIN // 1: Bitcoin chain, matches with Token.BTC
 
     }
 
@@ -33,9 +33,9 @@ contract UTXOGatewayStorage {
      * @dev Enum to represent the status of a transaction
      */
     enum TxStatus {
-        NotStartedOrProcessed, // 0: Default state - transaction hasn't started collecting proofs
-        Pending, // 1: Currently collecting witness proofs
-        Expired // 2: Failed due to timeout, but can be retried
+        NOT_STARTED_OR_PROCESSED, // 0: transaction hasn't started collecting proofs or has been processed
+        PENDING, // 1: Currently collecting witness proofs
+        EXPIRED // 2: Failed due to timeout, but can be retried
 
     }
 
@@ -43,9 +43,9 @@ contract UTXOGatewayStorage {
      * @dev Enum to represent the WithdrawType
      */
     enum WithdrawType {
-        Undefined,
-        WithdrawPrincipal,
-        WithdrawReward
+        UNDEFINED,
+        WITHDRAW_PRINCIPAL,
+        WITHDRAW_REWARD
     }
 
     /**
@@ -104,6 +104,9 @@ contract UTXOGatewayStorage {
     /* -------------------------------------------------------------------------- */
     /*                                  Constants                                 */
     /* -------------------------------------------------------------------------- */
+    /// @notice the app version
+    uint256 public constant APP_VERSION = 1;
+
     /// @notice the human readable prefix for Exocore bech32 encoded address.
     bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
 
