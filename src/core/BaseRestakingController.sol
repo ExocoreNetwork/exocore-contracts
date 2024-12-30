@@ -4,6 +4,8 @@ pragma solidity ^0.8.19;
 import {IBaseRestakingController} from "../interfaces/IBaseRestakingController.sol";
 import {IExoCapsule} from "../interfaces/IExoCapsule.sol";
 import {IVault} from "../interfaces/IVault.sol";
+
+import {Errors} from "../libraries/Errors.sol";
 import {MessagingFee, MessagingReceipt, OAppSenderUpgradeable} from "../lzApp/OAppSenderUpgradeable.sol";
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 import {Action} from "../storage/GatewayStorage.sol";
@@ -81,47 +83,21 @@ abstract contract BaseRestakingController is
     }
 
     /// @inheritdoc IBaseRestakingController
-    function submitReward(address token, address avs, uint256 amount)
-        external
-        payable
-        isValidAmount(amount)
-        whenNotPaused
-        nonReentrant
-    {
-        require(token != address(0), "BaseRestakingController: token address cannot be empty or zero address");
-        require(avs != address(0), "BaseRestakingController: avs address cannot be empty or zero address");
-        // deposit reward to reward vault
-        rewardVault.deposit(token, msg.sender, avs, amount);
-        // send request to exocore, and this would not expect a response since deposit is supposed to be must success by
-        // protocol
-        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(avs)), amount);
-        _processRequest(Action.REQUEST_SUBMIT_REWARD, actionArgs, bytes(""));
+    /// @dev Reward functionalities are not yet activated
+    function submitReward(address token, address avs, uint256 amount) external payable {
+        revert Errors.NotYetSupported();
     }
 
     /// @inheritdoc IBaseRestakingController
-    function claimRewardFromExocore(address token, uint256 amount)
-        external
-        payable
-        isValidAmount(amount)
-        whenNotPaused
-        nonReentrant
-    {
-        require(token != address(0), "BaseRestakingController: token address cannot be empty or zero address");
-        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
-        bytes memory encodedRequest = abi.encode(token, msg.sender, amount);
-        _processRequest(Action.REQUEST_CLAIM_REWARD, actionArgs, encodedRequest);
+    /// @dev Reward functionalities are not yet activated
+    function claimRewardFromExocore(address token, uint256 amount) external payable {
+        revert Errors.NotYetSupported();
     }
 
     /// @inheritdoc IBaseRestakingController
-    function withdrawReward(address token, address recipient, uint256 amount)
-        external
-        isValidAmount(amount)
-        whenNotPaused
-        nonReentrant
-    {
-        require(token != address(0), "BaseRestakingController: token address cannot be empty or zero address");
-        require(recipient != address(0), "BaseRestakingController: recipient address cannot be empty or zero address");
-        rewardVault.withdraw(token, msg.sender, recipient, amount);
+    /// @dev Reward functionalities are not yet activated
+    function withdrawReward(address token, address recipient, uint256 amount) external pure {
+        revert Errors.NotYetSupported();
     }
 
     /// @dev Processes the request by sending it to Exocore.
