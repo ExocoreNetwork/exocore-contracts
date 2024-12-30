@@ -84,19 +84,19 @@ abstract contract BaseRestakingController is
 
     /// @inheritdoc IBaseRestakingController
     /// @dev Reward functionalities are not yet activated
-    function submitReward(address token, address avs, uint256 amount) external payable {
+    function submitReward(address, address, uint256) external payable {
         revert Errors.NotYetSupported();
     }
 
     /// @inheritdoc IBaseRestakingController
     /// @dev Reward functionalities are not yet activated
-    function claimRewardFromExocore(address token, uint256 amount) external payable {
+    function claimRewardFromExocore(address, uint256) external payable {
         revert Errors.NotYetSupported();
     }
 
     /// @inheritdoc IBaseRestakingController
     /// @dev Reward functionalities are not yet activated
-    function withdrawReward(address token, address recipient, uint256 amount) external pure {
+    function withdrawReward(address, address, uint256) external pure {
         revert Errors.NotYetSupported();
     }
 
