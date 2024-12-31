@@ -6,8 +6,7 @@ const fileMappings = [
   { before: 'Bootstrap.deployed.json', after: 'Bootstrap.compiled.json', mustExist: true },
   { before: 'ClientChainGateway.deployed.json', after: 'ClientChainGateway.compiled.json', mustExist: true },
   { before: 'Vault.deployed.json', after: 'Vault.compiled.json', mustExist: true },
-  // TODO: once RewardVault is deployed, change mustExist to true
-  { before: 'RewardVault.deployed.json', after: 'RewardVault.compiled.json', mustExist: false },
+  { before: 'RewardVault.deployed.json', after: 'RewardVault.compiled.json', mustExist: true },
   { before: 'ExoCapsule.deployed.json', after: 'ExoCapsule.compiled.json', mustExist: true },
   { before: 'ExocoreGateway.base.json', after: 'ExocoreGateway.compiled.json', mustExist: true },
   { before: 'Bootstrap.compiled.json', after: 'ClientChainGateway.compiled.json', mustExist: true },
