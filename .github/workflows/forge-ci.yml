@@ -112,6 +112,61 @@ jobs:
       - name: Check formatting
         run: forge fmt --check
 
+  check-contract-deployments:
+    # Takes less than 30s
+    timeout-minutes: 5
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Restore cached Foundry toolchain
+        uses: actions/cache/restore@v3
+        with:
+          path: ${{ needs.build.outputs.installation-dir }}
+          key: ${{ needs.build.outputs.cache-key }}
+      - name: Add Foundry to PATH
+        run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Validate deployedContracts.json
+        run: |
+          data=$(cat script/deployedContracts.json)
+
+          bootstrap=$(echo "$data" | jq -r '.clientChain.bootstrapLogic // empty')
+          clientGateway=$(echo "$data" | jq -r '.clientChain.clientGatewayLogic // empty')
+          vault=$(echo "$data" | jq -r '.clientChain.vaultImplementation // empty')
+          rewardVault=$(echo "$data" | jq -r '.clientChain.rewardVaultImplementation // empty')
+          capsule=$(echo "$data" | jq -r '.clientChain.capsuleImplementation // empty')
+
+          validate_address() {
+            local address=$1
+            if [ -z "$address" ]; then
+              echo "Validation failed: Address is empty"
+              exit 1
+            fi
+            if [ "$(cast 2a $address)" != "$address" ]; then
+              echo "Validation failed: $address is not a valid Ethereum checksum address"
+              exit 1
+            fi
+          }
+
+          # Check each address
+          echo "Validating bootstrap address..."
+          validate_address "$bootstrap"
+
+          echo "Validating clientGateway address..."
+          validate_address "$clientGateway"
+
+          echo "Validating vault address..."
+          validate_address "$vault"
+
+          echo "Validating rewardVault address..."
+          validate_address "$rewardVault"
+
+          echo "Validating capsule address..."
+          validate_address "$capsule"
+
+          echo "Validation passed: All fields are non-empty and valid Ethereum checksum addresses"
+
   extract-base-storage-layout-exocore-gateway:
     # Takes less than 30 seconds, but add some margin for git clone
     timeout-minutes: 10
