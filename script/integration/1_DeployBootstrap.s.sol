@@ -241,9 +241,8 @@ contract DeployContracts is Script {
         ClientChainGateway clientGatewayLogic =
             new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
-        address[] memory emptyList;
         bytes memory initialization =
-            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, vm.addr(contractDeployer), emptyList);
+            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, vm.addr(contractDeployer));
 
         bootstrap.setClientChainGatewayLogic(address(clientGatewayLogic), initialization);
 

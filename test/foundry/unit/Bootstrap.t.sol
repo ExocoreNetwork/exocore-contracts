@@ -34,7 +34,6 @@ import {Create2} from "@openzeppelin/contracts/utils/Create2.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 import "src/libraries/Errors.sol";
 
 import "src/core/ExoCapsule.sol";
@@ -1446,7 +1445,6 @@ contract BootstrapTest is Test {
     function test16_SetSpawnTime_LockTimeNotInFuture() public {
         vm.startPrank(deployer);
         vm.warp(offsetDuration - 1);
-        console.log(block.timestamp, offsetDuration, spawnTime);
         vm.expectRevert(Errors.BootstrapLockTimeAlreadyPast.selector);
         // the initial block.timestamp is 1, so subtract 2 here - 1 for
         // the test and 1 for the warp offset above.

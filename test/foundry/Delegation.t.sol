@@ -12,8 +12,6 @@ import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import "forge-std/Test.sol";
 
-import "forge-std/console.sol";
-
 contract DelegateTest is ExocoreDeployer {
 
     using AddressCast for address;

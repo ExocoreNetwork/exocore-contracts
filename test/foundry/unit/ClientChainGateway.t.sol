@@ -17,7 +17,6 @@ import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.so
 import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 import "src/core/ClientChainGateway.sol";
 
