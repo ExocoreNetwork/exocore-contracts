@@ -107,7 +107,7 @@ contract BaseScript is Script, StdCheats {
         console.log("NOTICE: using exocore precompiles mock", useExocorePrecompileMock);
 
         clientChainRPCURL = vm.envString("CLIENT_CHAIN_RPC");
-        exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
+        exocoreRPCURL = vm.envString("EXOCORE_TESTNET_RPC");
     }
 
     function _bindPrecompileMocks() internal {
