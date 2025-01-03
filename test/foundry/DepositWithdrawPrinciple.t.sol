@@ -284,9 +284,6 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
         }
 
-        console.log("deposit amount:", depositAmount);
-        console.log("withdrawal amount:", withdrawalAmount);
-
         principalBalanceBefore = _getPrincipalBalance(clientChainId, depositor.addr, VIRTUAL_STAKED_ETH_ADDRESS);
         withdrawableBefore = capsule.withdrawableBalance();
         _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);

@@ -5,7 +5,6 @@ import {ICustomProxyAdmin} from "src/interfaces/ICustomProxyAdmin.sol";
 import {CustomProxyAdmin} from "src/utils/CustomProxyAdmin.sol";
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";

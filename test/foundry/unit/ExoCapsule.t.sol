@@ -221,7 +221,7 @@ contract VerifyDepositProof is DepositSetup {
             abi.encode(beaconBlockRoot)
         );
 
-        uint256 snapshot = vm.snapshot();
+        uint256 snapshot = vm.snapshotState();
 
         // construct malformed validator container that has extra fields
         validatorContainer.push(bytes32(uint256(123)));
@@ -230,7 +230,7 @@ contract VerifyDepositProof is DepositSetup {
         );
         capsule.verifyDepositProof(validatorContainer, validatorProof);
 
-        vm.revertTo(snapshot);
+        vm.revertToState(snapshot);
         // construct malformed validator container that misses fields
         validatorContainer.pop();
         vm.expectRevert(
