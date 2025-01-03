@@ -21,9 +21,9 @@
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
   },
   "UTXOGateway": {
-    "proxy": "0xb6CCF62d396267270fDe439FbD15667D7cF6b35d",
-    "implementation": "0xfB216316c486d211fBF204ae674ac2bfA3EE7190",
-    "proxyAdmin": "0xa2A4F9E9e4898DBcE16Cf55DB176dC9df848F5E2",
+    "proxy": "0xa2A4F9E9e4898DBcE16Cf55DB176dC9df848F5E2",
+    "implementation": "0xaBFDf31026B0B4D19fC62D5fb60F3c27169f7Ce2",
+    "proxyAdmin": "0xfB216316c486d211fBF204ae674ac2bfA3EE7190",
     "owner": "0x481E020DB4709e6EdDbf8134D41b866c6Fc8555e",
     "witnesses": [
       "0xBc2978640eF1C6d9181Ed9aB3D2611914B10a6B7"
