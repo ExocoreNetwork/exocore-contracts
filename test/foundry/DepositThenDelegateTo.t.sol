@@ -15,7 +15,6 @@ import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "forge-std/Test.sol";
 
-
 contract DepositThenDelegateToTest is ExocoreDeployer {
 
     using AddressCast for address;
