@@ -287,14 +287,10 @@ contract BootstrapDepositNSTTest is Test {
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(createdCapsule).code);
         capsule = ExoCapsule(payable(capsuleAddress));
-        bytes32 beaconSlotInCapsule =
-            bytes32(uint256(keccak256('eip1967.proxy.beacon')) - 1);
+        // TODO: load this dynamically somehow instead of hardcoding it
+        bytes32 beaconSlotInCapsule = bytes32(uint256(keccak256("eip1967.proxy.beacon")) - 1);
         bytes32 beaconAddress = bytes32(uint256(uint160(address(capsuleBeacon))));
-        vm.store(
-            capsuleAddress,
-            beaconSlotInCapsule,
-            beaconAddress
-        );
+        vm.store(capsuleAddress, beaconSlotInCapsule, beaconAddress);
         assertEq(vm.load(capsuleAddress, beaconSlotInCapsule), beaconAddress);
 
         /// replace expectedCapsule with capsule
