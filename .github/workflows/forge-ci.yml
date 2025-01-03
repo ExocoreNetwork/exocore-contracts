@@ -81,7 +81,8 @@ jobs:
             ./broadcast
           key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
       - name: Test
-        run: FOUNDRY_PROFILE=test forge test -vvv
+        # Comment out the `etherscan` section to avoid missing env var complaints
+        run: sed -i '/\[etherscan\]/,/^\[/ s/^/#/' foundry.toml && FOUNDRY_PROFILE=test forge test
       - name: Set test snapshot as summary
         run: NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
 
