@@ -13,12 +13,30 @@ ignored_warnings_from = ["script", "test"]
 # fail compilation if the warnings are not fixed.
 # this is super useful for the code size warning.
 deny_warnings = true
-# for tests, use the mainnet chain_id for NetworkConstants to work.
+
+[profile.test]
+# for tests, use the Eth mainnet chain_id for NetworkConstants to work.
+# do not specify this in the default profile to pacify forge script
+# running on non-Eth mainnet chains.
 chain_id = 1
 
 [rpc_endpoints]
-ethereum_local_rpc = "${ETHEREUM_LOCAL_RPC}"
-exocore_local_rpc = "${EXOCORE_LOCAL_RPC}"
+# We do not distinguish between Holesky / Sepolia / mainnet here, since that is
+# handled within the scripts as an environment variable. This is more of a convenience
+# mechanism to specify the chain name via command line; for example:
+# cast balance $ADDRESS --rpc-url client
+client = "${CLIENT_CHAIN_RPC}"
+exocore_local = "${EXOCORE_LOCAL_RPC}"
+exocore_testnet = "${EXOCORE_TESTNET_RPC}"
+
+[etherscan]
+# Similar shortcut as `rpc_endpoints` to verify contracts by name and not URL.
+# Example:
+# forge verify-contract --etherscan-api-key exocore_testnet <...usual args...>
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
+sepolia = { key = "${ETHERSCAN_API_KEY}" }
+holesky = { key = "${ETHERSCAN_API_KEY}" }
+exocore_testnet = { key = "${ETHERSCAN_API_KEY}", chain = 233, url = "${EXOCORE_TESTNET_EXPLORER_API}" }
 
 [fmt]
 number_underscore = "thousands"

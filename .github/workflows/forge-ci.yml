@@ -81,7 +81,7 @@ jobs:
             ./broadcast
           key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
       - name: Test
-        run: forge test -vvv
+        run: FOUNDRY_PROFILE=test forge test -vvv
       - name: Set test snapshot as summary
         run: NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
 
