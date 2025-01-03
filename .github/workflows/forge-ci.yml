@@ -84,7 +84,7 @@ jobs:
         # Comment out the `etherscan` section to avoid missing env var complaints
         run: sed -i '/\[etherscan\]/,/^\[/ s/^/#/' foundry.toml && FOUNDRY_PROFILE=test forge test
       - name: Set test snapshot as summary
-        run: NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
+        run: FOUNDRY_PROFILE=test NO_COLOR=1 forge snapshot >> $GITHUB_STEP_SUMMARY
 
   format:
     # Takes less than 30s
