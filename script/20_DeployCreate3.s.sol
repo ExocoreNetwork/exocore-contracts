@@ -62,8 +62,9 @@ contract DeployCreate3 is Script {
 
     function deployCreate2Factory() public {
         // provide gas funds to the deployer
-        if (CREATE2_DEPLOYER.balance < CREATE2_BALANCE) {
-            payable(CREATE2_DEPLOYER).transfer(CREATE2_BALANCE);
+        uint256 currentBalance = CREATE2_DEPLOYER.balance;
+        if (currentBalance < CREATE2_BALANCE) {
+            payable(CREATE2_DEPLOYER).transfer(CREATE2_BALANCE - currentBalance);
         }
         // forge-std lib added this function in newer versions
         vm.broadcastRawTransaction(CREATE2_RAW_TRANSACTION);

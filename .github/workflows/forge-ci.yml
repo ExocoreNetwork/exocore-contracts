@@ -81,7 +81,7 @@ jobs:
             ./broadcast
           key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
       - name: Clear out the `etherscan` section in `foundry.toml` for missing env vars
-        run: sed -i '/\[etherscan\]/,/^\[/ s/^/#/' foundry.toml
+        run: "sed -i '/\[etherscan\]/,/^\[/ s/^/#/' foundry.toml"
       - name: Run tests
         env:
           FOUNDRY_PROFILE: test
@@ -90,7 +90,7 @@ jobs:
         env:
           FOUNDRY_PROFILE: test
           NO_COLOR: 1
-        run: forge snapshot >> $GITHUB_STEP_SUMMARY
+        run: forge snapshot >> "$GITHUB_STEP_SUMMARY"
 
   format:
     # Takes less than 30s
