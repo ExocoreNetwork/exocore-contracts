@@ -58,7 +58,7 @@ contract DeployUTXOGateway is Script {
         vm.stopBroadcast();
         // 6. Activate staking for Bitcoin client chain
         vm.startBroadcast(ownerPrivateKey);
-        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.Bitcoin);
+        gateway.activateStakingForClientChain(UTXOGatewayStorage.ClientChainID.BITCOIN);
 
         vm.stopBroadcast();
 

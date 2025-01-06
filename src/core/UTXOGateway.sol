@@ -38,6 +38,15 @@ contract UTXOGateway is
     constructor() {
         _disableInitializers();
     }
+    /**
+     * @notice Returns the app version.
+     * @dev This is used to check the compatibility of the gateway with the Exocore system.
+     * @return The app version.
+     */
+
+    function appVersion() external pure returns (uint256) {
+        return APP_VERSION;
+    }
 
     /**
      * @notice Initializes the contract with the Exocore witness address, owner address and required proofs.
@@ -84,7 +93,7 @@ contract UTXOGateway is
      * @notice Activates token staking by registering or updating the chain and token with the Exocore system.
      */
     function activateStakingForClientChain(ClientChainID clientChainId) external onlyOwner whenNotPaused {
-        if (clientChainId == ClientChainID.Bitcoin) {
+        if (clientChainId == ClientChainID.BITCOIN) {
             _registerOrUpdateClientChain(
                 clientChainId, STAKER_ACCOUNT_LENGTH, BITCOIN_NAME, BITCOIN_METADATA, BITCOIN_SIGNATURE_SCHEME
             );
@@ -319,7 +328,7 @@ contract UTXOGateway is
         }
 
         uint64 requestId =
-            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WithdrawPrincipal);
+            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WITHDRAW_PRINCIPAL);
 
         console.log("withdrawPrincipal sucess:", requestId);
         console.log("withdrawPrincipal updatedBalance:", updatedBalance);
@@ -346,45 +355,59 @@ contract UTXOGateway is
         }
 
         uint64 requestId =
-            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WithdrawReward);
+            _initiatePegOut(clientChainId, amount, msg.sender, clientAddress, WithdrawType.WITHDRAW_REWARD);
         emit WithdrawRewardRequested(clientChainId, requestId, msg.sender, clientAddress, amount, updatedBalance);
     }
 
     /**
-     * @notice Process a pending peg-out request
+     * @notice Consumes a specific peg-out request by marking it as consumed and associating it with a client chain(e.g.
+     * Bitcoin) transaction
+     * @dev Witness should call this function before broadcasting the client chain(e.g. Bitcoin) transaction to make
+     * sure the tx is valid
      * @dev Only authorized witnesses can call this function
-     * @dev the processed request would be deleted from the pegOutRequests mapping
-     * @param clientChainId The client chain ID
-     * @return nextRequest The next PegOutRequest
-     * @custom:throws InvalidRequestStatus if the request status is not Pending
+     * @dev Peg-out requests must be processed in order based on their nonce
+     * @dev Each peg-out request can only be consumed once
+     * @param clientChainId The client chain ID (e.g. Bitcoin)
+     * @param requestNonce The nonce of the peg-out request to be consumed
+     * @return consumedRequest The peg-out request that was consumed
+     * @custom:throws RequestAlreadyProcessed if the request has already been processed
      * @custom:throws RequestNotFound if the request does not exist
+     * @custom:throws InvalidRequestSequence if trying to process requests out of order
      */
-    function processNextPegOut(ClientChainID clientChainId)
+    function consumePegOutRequest(ClientChainID clientChainId, uint64 requestNonce)
         external
         onlyAuthorizedWitness
         nonReentrant
         whenNotPaused
-        returns (PegOutRequest memory nextRequest)
+        returns (PegOutRequest memory consumedRequest)
     {
-        uint64 requestId = ++outboundNonce[clientChainId];
-        nextRequest = pegOutRequests[clientChainId][requestId];
-
-        // Check if the request exists
-        if (nextRequest.requester == address(0)) {
-            revert Errors.RequestNotFound(requestId);
+        // check if the pegout request has already been consumed
+        if (_isPegoutRequestConsumed(clientChainId, requestNonce)) {
+            revert Errors.RequestAlreadyProcessed(requestNonce);
+        }
+        // Get the next request ID that should be processed
+        uint64 nextRequestNonce = outboundNonce[clientChainId] + 1;
+        // Ensure requests are processed in order
+        if (requestNonce != nextRequestNonce) {
+            revert Errors.InvalidRequestNonce(nextRequestNonce, requestNonce);
         }
 
-        // delete the request
-        delete pegOutRequests[clientChainId][requestId];
+        // Check if the request exists
+        if (consumedRequest.requester == address(0)) {
+            revert Errors.RequestNotFound(requestNonce);
+        }
 
-        // Emit event
-        emit PegOutProcessed(
-            uint8(nextRequest.withdrawType),
+        // Increment the nonce only after successful processing
+        outboundNonce[clientChainId] = requestNonce;
+
+        // Emit event with the Bitcoin transaction ID
+        emit PegOutRequestConsumed(
+            uint8(consumedRequest.withdrawType),
             clientChainId,
-            requestId,
-            nextRequest.requester,
-            nextRequest.clientAddress,
-            nextRequest.amount
+            requestNonce,
+            consumedRequest.requester,
+            consumedRequest.clientAddress,
+            consumedRequest.amount
         );
     }
 
@@ -476,16 +499,44 @@ contract UTXOGateway is
         return transactions[messageHash].witnessTime[witness];
     }
 
+    /**
+     * @notice Retrieves the client chain(e.g. Bitcoin) peg-out txid for a given peg-out request
+     * @param clientChainId The client chain ID
+     * @param requestNonce The nonce of the peg-out request
+     * @return The client chain(e.g. Bitcoin) peg-out txid for the peg-out request
+     */
+    function getPegoutTxId(ClientChainID clientChainId, uint64 requestNonce) external view returns (bytes32) {
+        return pegOutTxIds[clientChainId][requestNonce];
+    }
+    /**
+     * @notice Checks if consensus is required for a stake message.
+     * @return True if count of authorized witnesses is greater than or equal to requiredProofs, false otherwise.
+     */
+
     function isConsensusRequired() external view returns (bool) {
         return _isConsensusRequired();
     }
 
     /**
+     * @notice Checks if a peg-out request has been consumed.
+     * @param clientChainId The client chain ID.
+     * @param requestNonce The nonce of the peg-out request.
+     * @return True if the peg-out request has been consumed, false otherwise.
+     */
+    function isPegoutRequestConsumed(ClientChainID clientChainId, uint64 requestNonce) external view returns (bool) {
+        return _isPegoutRequestConsumed(clientChainId, requestNonce);
+    }
+    /**
      * @notice Checks if consensus is required for a stake message.
      * @return True if count of authorized witnesses is greater than or equal to REQUIRED_PROOFS, false otherwise.
      */
+
     function _isConsensusRequired() internal view returns (bool) {
         return authorizedWitnessCount >= requiredProofs;
+    }
+
+    function _isPegoutRequestConsumed(ClientChainID clientChainId, uint64 requestNonce) internal view returns (bool) {
+        return pegOutTxIds[clientChainId][requestNonce] != bytes32(0);
     }
 
     /**

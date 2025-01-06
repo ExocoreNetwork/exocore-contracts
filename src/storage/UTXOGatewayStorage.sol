@@ -25,7 +25,7 @@ contract UTXOGatewayStorage {
      */
     enum ClientChainID {
         None, // 0: Invalid/uninitialized chain
-        Bitcoin // 1: Bitcoin chain, matches with Token.BTC
+        BITCOIN // 1: Bitcoin chain, matches with Token.BTC
 
     }
 
@@ -33,7 +33,7 @@ contract UTXOGatewayStorage {
      * @dev Enum to represent the status of a transaction
      */
     enum TxStatus {
-        NotStartedOrProcessed, // 0: Default state - transaction hasn't started collecting proofs
+        NOT_STARTED_OR_PROCESSED, // 0: transaction hasn't started collecting proofs or has been processed
         Pending, // 1: Currently collecting witness proofs
         Expired // 2: Failed due to timeout, but can be retried
 
@@ -44,8 +44,8 @@ contract UTXOGatewayStorage {
      */
     enum WithdrawType {
         Undefined,
-        WithdrawPrincipal,
-        WithdrawReward
+        WITHDRAW_PRINCIPAL,
+        WITHDRAW_REWARD
     }
 
     /**
@@ -104,6 +104,8 @@ contract UTXOGatewayStorage {
     /* -------------------------------------------------------------------------- */
     /*                                  Constants                                 */
     /* -------------------------------------------------------------------------- */
+    /// @notice the app version
+    uint256 public constant APP_VERSION = 1;
     /// @notice the human readable prefix for Exocore bech32 encoded address.
     bytes public constant EXO_ADDRESS_PREFIX = bytes("exo1");
 
@@ -203,6 +205,8 @@ contract UTXOGatewayStorage {
      */
     mapping(ClientChainID => uint64) public delegationNonce;
 
+    // Mapping from chain ID and request ID to client chain transaction ID
+    mapping(ClientChainID => mapping(uint64 => bytes32)) public pegOutTxIds;
     uint256[40] private __gap;
 
     // Events
@@ -414,29 +418,22 @@ contract UTXOGatewayStorage {
     event WithdrawalLimitUpdated(uint256 newLimit);
 
     /**
-     * @dev Emitted when a peg-out is processed
+     * @dev Emitted when a peg-out request is consumed
      * @param withdrawType The type of withdrawal
-     * @param clientChain The client chain ID
-     * @param nonce The nonce of the peg-out request
+     * @param clientChainId The client chain ID
+     * @param requestNonce The nonce of the peg-out request
      * @param requester The requester's address
-     * @param clientChainAddress The client chain address
+     * @param clientAddress The client chain address
      * @param amount The amount to withdraw
      */
-    event PegOutProcessed(
-        uint8 indexed withdrawType,
-        ClientChainID indexed clientChain,
-        uint64 nonce,
+    event PegOutRequestConsumed(
+        uint8 withdrawType,
+        ClientChainID indexed clientChainId,
+        uint64 indexed requestNonce,
         address indexed requester,
-        bytes clientChainAddress,
+        bytes clientAddress,
         uint256 amount
     );
-
-    /**
-     * @dev Emitted when a peg-out request status is updated
-     * @param requestId The unique identifier of the peg-out request
-     * @param newStatus The new status of the peg-out request
-     */
-    event PegOutRequestStatusUpdated(bytes32 indexed requestId, TxStatus newStatus);
 
     /// @notice Emitted upon the registration of a new client chain.
     /// @param clientChainId The chain ID of the client chain.

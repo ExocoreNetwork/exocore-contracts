@@ -60,6 +60,8 @@ library Errors {
     //  Bootstrap Errors  //
     ////////////////////////
 
+    /// @dev Bootstrap: invalid immutable config, typically due to zero address or zero value
+    error InvalidImmutableConfig();
     /// @dev Bootstrap: spawn time should be in the future
     error BootstrapSpawnTimeAlreadyPast();
 
@@ -377,5 +379,14 @@ library Errors {
 
     /// @dev UTXOGateway: invalid required proofs
     error InvalidRequiredProofs();
+
+    /// @dev UTXOGateway: invalid request nonce
+    error InvalidRequestNonce(uint64 expectedNonce, uint64 providedNonce);
+    /// @dev UTXOGateway: request already processed
+    error RequestAlreadyProcessed(uint64 requestNonce);
+    /// @dev UTXOGateway: proposer is not authorized
+    error UnauthorizedProposer();
+    /// @dev UTXOGateway: invalid pegout tx id
+    error InvalidPegoutTxId();
 
 }
