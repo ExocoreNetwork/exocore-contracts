@@ -1,0 +1,14 @@
+{
+  "network": "exocore_localnet",
+  "utxoGatewayProxy": "0xf6ED3734B037eb1ACA53C081C9F8593fA08B6625",
+  "utxoGatewayLogic": "0xE54E77CD2127A462449a4EFc0Dd0233910D4Bf1B",
+  "proxyAdmin": "0xAFc8c62118D8AC2E73EC3F247C69Dd1f32EBc8E7",
+  "owner": "0x481E020DB4709e6EdDbf8134D41b866c6Fc8555e",
+  "witnesses": [
+    "0xBc2978640eF1C6d9181Ed9aB3D2611914B10a6B7"
+  ],
+  "requiredProofs": 3,
+  "isAuthorized": true,
+  "isChainRegistered": true,
+  "timestamp": "2025-01-03T11:18:42.751Z"
+}

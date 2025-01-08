@@ -13,7 +13,7 @@ contract SetBootstrapTime is BaseScript {
         // load keys
         super.setUp();
         // load contracts
-        string memory deployedContracts = vm.readFile("script/deployedBootstrapOnly.json");
+        string memory deployedContracts = vm.readFile("script/deployments/deployedBootstrapOnly.json");
         bootstrapAddr = stdJson.readAddress(deployedContracts, ".clientChain.bootstrap");
 
         clientChain = vm.createSelectFork(clientChainRPCURL);

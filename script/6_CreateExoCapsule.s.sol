@@ -8,8 +8,8 @@ import "../src/interfaces/IVault.sol";
 import "../src/storage/GatewayStorage.sol";
 
 import {BaseScript} from "./BaseScript.sol";
-import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
@@ -23,7 +23,7 @@ contract DepositScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory deployedContracts = vm.readFile("script/deployedContracts.json");
+        string memory deployedContracts = vm.readFile("script/deployments/deployedContracts.json");
 
         clientGateway =
             IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
@@ -53,7 +53,7 @@ contract DepositScript is BaseScript {
         vm.serializeAddress(capsulesJson, "owner", depositor.addr);
         string memory capsulesOutput = vm.serializeAddress(capsulesJson, "capsule", capsule);
 
-        vm.writeJson(capsulesOutput, "script/capsule.json");
+        vm.writeJson(capsulesOutput, "script/deployments/capsule.json");
     }
 
 }

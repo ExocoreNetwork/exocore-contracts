@@ -2,7 +2,7 @@
 
 pragma solidity ^0.8.20;
 
-import {ILayerZeroEndpointV2, IOAppCore} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppCore.sol";
+import {ILayerZeroEndpointV2, IOAppCore} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/interfaces/IOAppCore.sol";
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 
 /**

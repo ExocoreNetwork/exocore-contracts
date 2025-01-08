@@ -9,8 +9,8 @@ import "../src/interfaces/IVault.sol";
 
 import "../src/storage/GatewayStorage.sol";
 import "@beacon-oracle/contracts/src/EigenLayerBeaconOracle.sol";
-import "@layerzero-v2/protocol/contracts/interfaces/ILayerZeroEndpointV2.sol";
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/interfaces/ILayerZeroEndpointV2.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/GUID.sol";
 import {ERC20PresetFixedSupply} from "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "forge-std/Script.sol";
@@ -42,7 +42,7 @@ contract WithdrawalValidatorScript is BaseScript {
     function setUp() public virtual override {
         super.setUp();
 
-        string memory deployedContracts = vm.readFile("script/deployedContracts.json");
+        string memory deployedContracts = vm.readFile("script/deployments/deployedContracts.json");
 
         clientGateway =
             IClientChainGateway(payable(stdJson.readAddress(deployedContracts, ".clientChain.clientChainGateway")));
@@ -95,14 +95,14 @@ contract WithdrawalValidatorScript is BaseScript {
     }
 
     function _loadValidatorContainer() internal {
-        string memory validatorInfo = vm.readFile("script/withdrawalProof_fullwithdraw_2495260_2472449.json");
+        string memory validatorInfo = vm.readFile("script/data/withdrawalProof_fullwithdraw_2495260_2472449.json");
 
         validatorContainer = stdJson.readBytes32Array(validatorInfo, ".validatorContainer");
         require(validatorContainer.length > 0, "validator container should not be empty");
     }
 
     function _loadValidatorProof() internal {
-        string memory validatorInfo = vm.readFile("script/withdrawalProof_fullwithdraw_2495260_2472449.json");
+        string memory validatorInfo = vm.readFile("script/data/withdrawalProof_fullwithdraw_2495260_2472449.json");
 
         uint256 slot = stdJson.readUint(validatorInfo, ".slot");
         validatorProof.beaconBlockTimestamp = GENESIS_BLOCK_TIMESTAMP + SECONDS_PER_SLOT * slot;
@@ -118,14 +118,14 @@ contract WithdrawalValidatorScript is BaseScript {
     }
 
     function _loadWithdrawalContainer() internal {
-        string memory withdrawalInfo = vm.readFile("script/withdrawalProof_fullwithdraw_2495260_2472449.json");
+        string memory withdrawalInfo = vm.readFile("script/data/withdrawalProof_fullwithdraw_2495260_2472449.json");
 
         withdrawalContainer = stdJson.readBytes32Array(withdrawalInfo, ".withdrawalContainer");
         require(withdrawalContainer.length > 0, "withdrawal container should not be empty");
     }
 
     function _loadWithdrawalProof() internal {
-        string memory withdrawalInfo = vm.readFile("script/withdrawalProof_fullwithdraw_2495260_2472449.json");
+        string memory withdrawalInfo = vm.readFile("script/data/withdrawalProof_fullwithdraw_2495260_2472449.json");
 
         withdrawalProof.withdrawalContainerRootProof =
             stdJson.readBytes32Array(withdrawalInfo, ".withdrawalContainerProof");

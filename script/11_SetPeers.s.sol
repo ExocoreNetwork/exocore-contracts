@@ -7,7 +7,7 @@ import {Action, GatewayStorage} from "../src/storage/GatewayStorage.sol";
 import {BaseScript} from "./BaseScript.sol";
 import "forge-std/Script.sol";
 
-import "@layerzero-v2/protocol/contracts/libs/AddressCast.sol";
+import "@layerzerolabs/lz-evm-protocol-v2/contracts/libs/AddressCast.sol";
 
 contract SetPeersAndUpgrade is BaseScript {
 
@@ -20,7 +20,7 @@ contract SetPeersAndUpgrade is BaseScript {
         // load keys
         super.setUp();
         // load contracts
-        string memory deployed = vm.readFile("script/deployedBootstrapOnly.json");
+        string memory deployed = vm.readFile("script/deployments/deployedBootstrapOnly.json");
         bootstrapAddr = stdJson.readAddress(deployed, ".clientChain.bootstrap");
         require(address(bootstrapAddr) != address(0), "bootstrap address should not be empty");
         deployed = vm.readFile("script/deployedExocoreGatewayOnly.json");

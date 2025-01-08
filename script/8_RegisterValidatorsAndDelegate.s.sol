@@ -48,7 +48,7 @@ contract RegisterValidatorsAndDelegate is Script {
             "Validator registration data length mismatch"
         );
 
-        string memory deployedContracts = vm.readFile("script/deployedBootstrapOnly.json");
+        string memory deployedContracts = vm.readFile("script/deployments/deployedBootstrapOnly.json");
         bootstrapAddr = stdJson.readAddress(deployedContracts, ".clientChain.bootstrap");
         require(bootstrapAddr != address(0), "Bootstrap address should not be empty");
         tokenAddr = stdJson.readAddress(deployedContracts, ".clientChain.erc20Token");

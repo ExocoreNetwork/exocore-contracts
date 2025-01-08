@@ -77,4 +77,20 @@ interface IDelegation {
         external
         returns (bool success);
 
+    function delegateToThroughBtcGateway(
+        uint32 clientChainId,
+        bytes memory assetsAddress,
+        bytes memory stakerAddress,
+        bytes memory operatorAddr,
+        uint256 opAmount
+    ) external returns (bool success);
+
+    function undelegateFromThroughBtcGateway(
+        uint32 clientChainId,
+        bytes memory assetsAddress,
+        bytes memory stakerAddress,
+        bytes memory operatorAddr,
+        uint256 opAmount
+    ) external returns (bool success);
+
 }

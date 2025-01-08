@@ -10,7 +10,7 @@ import {MessagingFee, MessagingReceipt, OAppSenderUpgradeable} from "../lzApp/OA
 import {ClientChainGatewayStorage} from "../storage/ClientChainGatewayStorage.sol";
 import {Action} from "../storage/GatewayStorage.sol";
 
-import {OptionsBuilder} from "@layerzero-v2/oapp/contracts/oapp/libs/OptionsBuilder.sol";
+import {OptionsBuilder} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/libs/OptionsBuilder.sol";
 
 import {OwnableUpgradeable} from "@openzeppelin/contracts-upgradeable/access/OwnableUpgradeable.sol";
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
