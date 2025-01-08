@@ -24,7 +24,7 @@ contract CreateMultisigScript is BaseScript {
         vm.startBroadcast(deployer.privateKey);
 
         // Read deployed Safe contracts from JSON file
-        string memory json = vm.readFile("script/safe_contracts_on_exocore.json");
+        string memory json = vm.readFile("script/deployments/safe_contracts_on_exocore.json");
 
         address proxyFactoryAddress = json.readAddress(".GnosisSafeProxyFactory");
         address safeSingletonAddress = json.readAddress(".GnosisSafeL2");
