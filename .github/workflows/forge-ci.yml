@@ -1,5 +1,6 @@
 name: Forge CI
 
+
 on:
   merge_group:
   pull_request:
@@ -9,6 +10,7 @@ on:
       - release/**
     tags:
       - "*"
+
 
 jobs:
   setup:
