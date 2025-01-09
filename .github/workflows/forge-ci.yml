@@ -46,7 +46,7 @@ jobs:
           submodules: recursive
       - name: Build
         run: forge build
-      - name: Cache build artifacts
+      - name: Cache `forge build` results
         uses: actions/cache/save@v3
         with:
           path: |
@@ -71,7 +71,7 @@ jobs:
         run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Restore build artifacts
+      - name: Restore `forge build` results
         uses: actions/cache/restore@v3
         with:
           path: |
@@ -107,7 +107,7 @@ jobs:
         run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Restore build artifacts
+      - name: Restore `forge build` results
         uses: actions/cache/restore@v3
         with:
           path: |
@@ -120,8 +120,8 @@ jobs:
         run: forge fmt --check
 
   check-contract-deployments:
-    # Takes less than 30s
-    timeout-minutes: 5
+    # Takes less than 60s
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     needs: build
     steps:
@@ -134,7 +134,7 @@ jobs:
         run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Validate deployedContracts.json
+      - name: Validate deployedContracts.json and prepare artifact
         run: |
           data=$(cat script/deployedContracts.json)
 
@@ -172,49 +172,62 @@ jobs:
           echo "Validating capsule address..."
           validate_address "$capsule"
 
-          echo "Validation passed: All fields are non-empty and valid Ethereum checksum addresses"
+          # Prepare JSON for artifact. Instead of using the file within the repo,
+          # we create an artifact from the PR because the `compare-layouts` workflow
+          # runs on the base branch and doesn't have access to the PR's files.
+          # Given the presence of the artifact, technically, the above validation
+          # could be offloaded to the `compare-layouts` workflow, but this is a
+          # basic short circuit to avoid running the `compare-layouts` workflow
+          # if the PR has invalid addresses. Other validations to include, if
+          # possible, would be the verification of the contract on Etherscan;
+          # however, we cannot do that in the PR context without leaking the
+          # Etherscan API key.
+          jq -n \
+            --arg bootstrap "$bootstrap" \
+            --arg clientGateway "$clientGateway" \
+            --arg vault "$vault" \
+            --arg rewardVault "$rewardVault" \
+            --arg capsule "$capsule" \
+            '{
+              bootstrap: $bootstrap,
+              clientGateway: $clientGateway,
+              vault: $vault,
+              rewardVault: $rewardVault,
+              capsule: $capsule
+            }' > validatedContracts.json
 
-  extract-base-storage-layout-exocore-gateway:
-    # Takes less than 30 seconds, but add some margin for git clone
-    timeout-minutes: 10
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Restore cached Foundry toolchain
-        uses: actions/cache/restore@v3
-        with:
-          path: ${{ needs.build.outputs.installation-dir }}
-          key: ${{ needs.build.outputs.cache-key }}
-      - name: Add Foundry to PATH
-        run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
-      - name: Checkout base branch or previous commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref || github.event.before }}
-          # We don't have a `lib` folder to restore for this step, so we
-          # recursively checkout the submodules. In other steps, we use the
-          # `lib` folder from the `build` job.
-          submodules: recursive
-      - name: Generate base branch layout file
-        # Note that this `run` will do a `forge build` so we don't need to do it ourselves.
-        # The build artifacts of this step are not relevant to us either, so we don't need to
-        # cache them.
-        run: |
-          forge inspect --json src/core/ExocoreGateway.sol:ExocoreGateway storage-layout > ExocoreGateway.base.json
-      - name: Upload storage layout file as an artifact
+          echo "Validation passed: All fields are non-empty and valid Ethereum checksum addresses"
+      - name: Upload validated contracts artifact
         uses: actions/upload-artifact@v4
         with:
-          path: ExocoreGateway.base.json
-          name: compiled-layout-ExocoreGateway-base-${{ github.event.pull_request.base.sha || github.event.after || github.sha }}
+          name: validated-contracts-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
+          path: validatedContracts.json
 
   extract-storage-layout:
-    # Takes less than 30 seconds
+    # Takes less than 30 seconds per matrix member
     timeout-minutes: 5
     runs-on: ubuntu-latest
     needs: build
+    outputs:
+      storage-layout-file: ${{ steps.generate-storage-layout.outputs.output-file }}
+      artifact-name: ${{ steps.generate-storage-layout.outputs.artifact-name }}
     strategy:
       matrix:
-        contract: [Bootstrap, ClientChainGateway, RewardVault, Vault, ExocoreGateway, ExoCapsule]
+        include:
+          - contract: ExocoreGateway
+            base: true
+          - contract: Bootstrap
+            base: false
+          - contract: ClientChainGateway
+            base: false
+          - contract: RewardVault
+            base: false
+          - contract: Vault
+            base: false
+          - contract: ExocoreGateway
+            base: false
+          - contract: ExoCapsule
+            base: false
     steps:
       - name: Restore cached Foundry toolchain
         uses: actions/cache/restore@v3
@@ -225,8 +238,19 @@ jobs:
         run: echo "${{ needs.build.outputs.installation-dir }}" >> "$GITHUB_PATH"
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Restore build artifacts
+        if: ${{ !matrix.base }}
+      - name: Checkout base branch of repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref || github.event.before }}
+          submodules: recursive
+        if: ${{ matrix.base }}
+      - name: Restore `forge build` results
         uses: actions/cache/restore@v3
+        # The restoration can only happen for the non-base case. For the base case,
+        # the context is different and anything created within the PR context will
+        # not be available to the cache restore action.
+        if: ${{ !matrix.base }}
         with:
           path: |
             ./lib
@@ -234,31 +258,42 @@ jobs:
             ./cache
             ./broadcast
           key: build-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
-      - name: Generate storage layout file for ${{ matrix.contract }}
+      - name: Generate storage layout file
+        id: generate-storage-layout
         run: |
-          forge inspect --json src/core/${{ matrix.contract }}.sol:${{ matrix.contract }} storage-layout > ${{ matrix.contract }}.compiled.json;
+          artifact_name="compiled-layout-${{ matrix.contract }}"
+          if [ "${{ matrix.base }}" = "true" ]; then
+            output_file="${{ matrix.contract }}.base.json"
+            artifact_name="${artifact_name}-base"
+          else
+            output_file="${{ matrix.contract }}.proposed.json"
+            artifact_name="${artifact_name}-proposed"
+          fi
+          artifact_name="${artifact_name}-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}"
+          forge inspect --json src/core/${{ matrix.contract }}.sol:${{ matrix.contract }} storage-layout > $output_file
+          echo "output-file=$output_file" >> "$GITHUB_OUTPUT"
+          echo "artifact-name=$artifact_name" >> "$GITHUB_OUTPUT"
       - name: Upload storage layout file as an artifact
         uses: actions/upload-artifact@v4
         with:
-          path: ${{ matrix.contract }}.compiled.json
-          name: compiled-layout-${{ matrix.contract}}-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}
+          path: ${{ steps.generate-storage-layout.outputs.output-file }}
+          name: ${{ steps.generate-storage-layout.outputs.artifact-name }}
 
   combine-storage-layouts:
     # Takes less than 10 seconds
     timeout-minutes: 5
     runs-on: ubuntu-latest
     needs:
-      - extract-base-storage-layout-exocore-gateway
       - extract-storage-layout
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v4
-        # No name means all artifacts are downloaded within their respective subfolders
-        # inside the provided path.
+        # No name means all artifacts created by this workflow are downloaded
+        # within their respective subfolders (paths) inside the provided path (`combined`).
         with:
           path: combined
       - name: Zip up the compiled layouts
-        run: zip -j compiled-layouts.zip combined/*/*.json
+        run: find combined -type f -name "*.json" ! -name "validatedContracts.json" -exec zip -j compiled-layouts.zip {} +
       - name: Upload the compiled layouts file as an artifact
         uses: actions/upload-artifact@v4
         with:

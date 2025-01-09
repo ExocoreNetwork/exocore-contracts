@@ -3,13 +3,13 @@ const { getStorageUpgradeReport } = require('@openzeppelin/upgrades-core');
 
 // Mapping of deployed and compiled file names
 const fileMappings = [
-  { before: 'Bootstrap.deployed.json', after: 'Bootstrap.compiled.json', mustExist: true },
-  { before: 'ClientChainGateway.deployed.json', after: 'ClientChainGateway.compiled.json', mustExist: true },
-  { before: 'Vault.deployed.json', after: 'Vault.compiled.json', mustExist: true },
-  { before: 'RewardVault.deployed.json', after: 'RewardVault.compiled.json', mustExist: true },
-  { before: 'ExoCapsule.deployed.json', after: 'ExoCapsule.compiled.json', mustExist: true },
-  { before: 'ExocoreGateway.base.json', after: 'ExocoreGateway.compiled.json', mustExist: true },
-  { before: 'Bootstrap.compiled.json', after: 'ClientChainGateway.compiled.json', mustExist: true },
+  { before: 'Bootstrap.deployed.json', after: 'Bootstrap.proposed.json', mustExist: true },
+  { before: 'ClientChainGateway.deployed.json', after: 'ClientChainGateway.proposed.json', mustExist: true },
+  { before: 'Vault.deployed.json', after: 'Vault.proposed.json', mustExist: true },
+  { before: 'RewardVault.deployed.json', after: 'RewardVault.proposed.json', mustExist: true },
+  { before: 'ExoCapsule.deployed.json', after: 'ExoCapsule.proposed.json', mustExist: true },
+  { before: 'ExocoreGateway.base.json', after: 'ExocoreGateway.proposed.json', mustExist: true },
+  { before: 'Bootstrap.proposed.json', after: 'ClientChainGateway.proposed.json', mustExist: true },
 ];
 
 // Loop through each mapping, load JSON files, and run the comparison
