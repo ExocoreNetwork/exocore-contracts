@@ -267,6 +267,7 @@ jobs:
       - name: Generate storage layout file
         id: generate-storage-layout
         run: |
+          set -e
           artifact_name="compiled-layout-${{ matrix.contract }}"
           if [ "${{ matrix.base }}" = "true" ]; then
             output_file="${{ matrix.contract }}.base.json"
