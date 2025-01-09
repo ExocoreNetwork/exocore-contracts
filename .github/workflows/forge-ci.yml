@@ -184,6 +184,10 @@ jobs:
           # possible, would be the verification of the contract on Etherscan;
           # however, we cannot do that in the PR context without leaking the
           # Etherscan API key.
+
+          # Note that the keys of the json dict below are case sensitive and
+          # must match the keys `x.deployed.json` defined in `compareLayouts.js`
+          # exactly.
           jq -n \
             --arg bootstrap "$bootstrap" \
             --arg clientGateway "$clientGateway" \
@@ -191,11 +195,11 @@ jobs:
             --arg rewardVault "$rewardVault" \
             --arg capsule "$capsule" \
             '{
-              bootstrap: $bootstrap,
-              clientGateway: $clientGateway,
-              vault: $vault,
-              rewardVault: $rewardVault,
-              capsule: $capsule
+              Bootstrap: $bootstrap,
+              ClientChainGateway: $clientGateway,
+              Vault: $vault,
+              RewardVault: $rewardVault,
+              ExoCapsule: $capsule
             }' > validatedContracts.json
 
           echo "Validation passed: All fields are non-empty and valid Ethereum checksum addresses"
