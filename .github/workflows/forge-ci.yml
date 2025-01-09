@@ -272,7 +272,7 @@ jobs:
             output_file="${{ matrix.contract }}.base.json"
             artifact_name="${artifact_name}-base"
           else
-            output_file="${{ matrix.contract }}.proposed.json"
+            output_file="${{ matrix.contract }}.compiled.json"
             artifact_name="${artifact_name}-proposed"
           fi
           artifact_name="${artifact_name}-${{ github.event.pull_request.head.sha || github.event.after || github.sha }}"
