@@ -284,9 +284,6 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
             withdrawalAmount = withdrawalAmountGwei * GWEI_TO_WEI;
         }
 
-        console.log("deposit amount:", depositAmount);
-        console.log("withdrawal amount:", withdrawalAmount);
-
         principalBalanceBefore = _getPrincipalBalance(clientChainId, depositor.addr, VIRTUAL_STAKED_ETH_ADDRESS);
         withdrawableBefore = capsule.withdrawableBalance();
         _testNativeWithdraw(depositor, relayer, lastlyUpdatedPrincipalBalance);
@@ -413,8 +410,11 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         address capsuleAddress = _getCapsuleFromWithdrawalCredentials(_getWithdrawalCredentials(validatorContainer));
         vm.etch(capsuleAddress, address(createdCapsule).code);
         capsule = ExoCapsule(payable(capsuleAddress));
-        stdstore.target(capsuleAddress).sig("_beacon()").checked_write(address(capsuleBeacon));
-        assertEq(stdstore.target(capsuleAddress).sig("_beacon()").read_address(), address(capsuleBeacon));
+        // TODO: load this dynamically somehow instead of hardcoding it
+        bytes32 beaconSlotInCapsule = bytes32(uint256(keccak256("eip1967.proxy.beacon")) - 1);
+        bytes32 beaconAddress = bytes32(uint256(uint160(address(capsuleBeacon))));
+        vm.store(capsuleAddress, beaconSlotInCapsule, beaconAddress);
+        assertEq(vm.load(capsuleAddress, beaconSlotInCapsule), beaconAddress);
 
         /// replace expectedCapsule with capsule
         bytes32 capsuleSlotInGateway = bytes32(

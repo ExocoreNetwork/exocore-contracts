@@ -12,7 +12,6 @@ import "@openzeppelin/contracts/token/ERC20/presets/ERC20PresetFixedSupply.sol";
 import "@openzeppelin/contracts/utils/Create2.sol";
 
 import "forge-std/Test.sol";
-import "forge-std/console.sol";
 
 import "../../src/core/ClientChainGateway.sol";
 

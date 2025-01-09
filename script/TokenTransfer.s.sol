@@ -64,7 +64,7 @@ contract DeployScript is Script {
         relayer.addr = vm.addr(relayer.privateKey);
 
         clientChainRPCURL = vm.envString("CLIENT_CHAIN_RPC");
-        exocoreRPCURL = vm.envString("EXOCORE_TESETNET_RPC");
+        exocoreRPCURL = vm.envString("EXOCORE_TESTNET_RPC");
 
         string memory deployedContracts = vm.readFile("script/deployedContracts.json");
 

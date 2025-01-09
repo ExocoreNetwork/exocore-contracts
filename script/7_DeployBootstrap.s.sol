@@ -92,9 +92,8 @@ contract DeployBootstrapOnly is BaseScript {
             new ClientChainGateway(address(clientChainLzEndpoint), config, address(rewardVaultBeacon));
 
         // then the client chain initialization
-        address[] memory emptyList;
         bytes memory initialization =
-            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr, emptyList);
+            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr);
 
         // bootstrap implementation
         Bootstrap bootstrap = Bootstrap(
