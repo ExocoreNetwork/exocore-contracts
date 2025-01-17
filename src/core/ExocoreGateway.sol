@@ -556,16 +556,19 @@ contract ExocoreGateway is
     /// @return options The built options
     function _buildOptions(uint32 srcChainId, Action act) private pure returns (bytes memory) {
         bytes memory options = OptionsBuilder.newOptions();
+        // non-Solana defaults
+        uint128 gasLimit = DESTINATION_GAS_LIMIT;
         uint128 value = DESTINATION_MSG_VALUE;
-
-        if (!_isSolana(srcChainId)) {
+        // to change if Solana
+        if (_isSolana(srcChainId)) {
+            value = (act == Action.REQUEST_ADD_WHITELIST_TOKEN)
+                ? SOLANA_WHITELIST_TOKEN_MSG_VALUE
+                : SOLANA_DESTINATION_MSG_VALUE;
+            gasLimit = SOLANA_DESTINATION_GAS_LIMIT;
+        } else {
             options = options.addExecutorOrderedExecutionOption();
-        } else if (act == Action.REQUEST_ADD_WHITELIST_TOKEN) {
-            value = SOLANA_WHITELIST_TOKEN_MSG_VALUE;
         }
-
-        options = options.addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, value);
-
+        options = options.addExecutorLzReceiveOption(gasLimit, value);
         return options;
     }
 
