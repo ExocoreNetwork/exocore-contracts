@@ -14,6 +14,7 @@ ignored_warnings_from = ["script", "test"]
 # this is super useful for the code size warning.
 deny_warnings = true
 optimizer = true
+solc = "0.8.28"
 
 [profile.test]
 # for tests, use the Eth mainnet chain_id for NetworkConstants to work.
