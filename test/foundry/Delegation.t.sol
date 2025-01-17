@@ -122,30 +122,29 @@ contract DelegateTest is ExocoreDeployer {
         // endpoint
 
         /// DelegationMock contract should receive correct message payload
-        // vm.expectEmit(true, true, true, true, DELEGATION_PRECOMPILE_ADDRESS);
-        // emit DelegateRequestProcessed(
-        //     clientChainId,
-        //     outboundNonces[clientChainId] - 1,
-        //     abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
-        //     abi.encodePacked(bytes32(bytes20(delegator.addr))),
-        //     operatorAddress,
-        //     delegateAmount
-        // );
+        vm.expectEmit(true, true, true, true, DELEGATION_PRECOMPILE_ADDRESS);
+        emit DelegateRequestProcessed(
+            clientChainId,
+            outboundNonces[clientChainId] - 1,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            abi.encodePacked(bytes32(bytes20(delegator.addr))),
+            operatorAddress,
+            delegateAmount
+        );
 
         /// exocoreGateway contract should emit DelegateResult event
-        // vm.expectEmit(true, true, true, true, address(exocoreGateway));
-        // emit DelegationRequest(
-        //     true,
-        //     true,
-        //     bytes32(bytes20(address(restakeToken))),
-        //     bytes32(bytes20(delegator.addr)),
-        //     operatorAddress,
-        //     delegateAmount
-        // );
+        vm.expectEmit(true, true, true, true, address(exocoreGateway));
+        emit DelegationRequest(
+            true,
+            true,
+            bytes32(bytes20(address(restakeToken))),
+            bytes32(bytes20(delegator.addr)),
+            operatorAddress,
+            delegateAmount
+        );
 
-        inboundNonces[exocoreChainId]++;
-        // vm.expectEmit(address(exocoreGateway));
-        // emit MessageExecuted(Action.REQUEST_DELEGATE_TO, inboundNonces[exocoreChainId]++);
+        vm.expectEmit(address(exocoreGateway));
+        emit MessageExecuted(Action.REQUEST_DELEGATE_TO, inboundNonces[exocoreChainId]++);
 
         /// relayer call layerzero endpoint to deliver request messages and generate response message
         vm.startPrank(relayer.addr);
