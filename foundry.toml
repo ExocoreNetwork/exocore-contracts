@@ -13,6 +13,7 @@ ignored_warnings_from = ["script", "test"]
 # fail compilation if the warnings are not fixed.
 # this is super useful for the code size warning.
 deny_warnings = true
+optimizer = true
 
 [profile.test]
 # for tests, use the Eth mainnet chain_id for NetworkConstants to work.
