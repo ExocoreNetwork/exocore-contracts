@@ -63,7 +63,7 @@ abstract contract BaseRestakingController is
         nonReentrant
     {
         bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
+            abi.encodePacked(bytes32(bytes20(msg.sender)), amount, bytes32(bytes20(token)), bytes(operator));
         _processRequest(Action.REQUEST_DELEGATE_TO, actionArgs, bytes(""));
     }
 
@@ -78,7 +78,7 @@ abstract contract BaseRestakingController is
         nonReentrant
     {
         bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
+            abi.encodePacked(bytes32(bytes20(msg.sender)), amount, bytes32(bytes20(token)), bytes(operator));
         _processRequest(Action.REQUEST_UNDELEGATE_FROM, actionArgs, bytes(""));
     }
 
