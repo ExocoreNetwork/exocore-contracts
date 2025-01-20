@@ -91,9 +91,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // estimate l0 relay fee that the user should pay
         bytes memory depositRequestPayload = abi.encodePacked(
             Action.REQUEST_DEPOSIT_LST,
-            bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(depositor.addr)),
-            depositAmount
+            depositAmount,
+            bytes32(bytes20(address(restakeToken)))
         );
         uint256 depositRequestNativeFee = clientGateway.quote(depositRequestPayload);
         bytes32 depositRequestId = generateUID(outboundNonces[clientChainId], true);
@@ -154,9 +154,9 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         // estimate l0 relay fee that the user should pay
         bytes memory withdrawRequestPayload = abi.encodePacked(
             Action.REQUEST_WITHDRAW_LST,
-            bytes32(bytes20(address(restakeToken))),
             bytes32(bytes20(withdrawer.addr)),
-            withdrawAmount
+            withdrawAmount,
+            bytes32(bytes20(address(restakeToken)))
         );
         uint256 withdrawRequestNativeFee = clientGateway.quote(withdrawRequestPayload);
         bytes32 withdrawRequestId = generateUID(outboundNonces[clientChainId], true);
@@ -569,7 +569,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         restakeToken.approve(address(vault), type(uint256).max);
         bytes memory requestPayload = abi.encodePacked(
             Action.REQUEST_DEPOSIT_LST,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), depositAmount)
+            abi.encodePacked(bytes32(bytes20(addr)), depositAmount, bytes32(bytes20(address(restakeToken))))
         );
         bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
         uint256 nativeFee = clientGateway.quote(requestPayload);
@@ -613,7 +613,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.startPrank(addr);
         requestPayload = abi.encodePacked(
             Action.REQUEST_WITHDRAW_LST,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), withdrawAmount)
+            abi.encodePacked(bytes32(bytes20(addr)), withdrawAmount, bytes32(bytes20(address(restakeToken))))
         );
         requestId = generateUID(outboundNonces[clientChainId], true);
         nativeFee = clientGateway.quote(requestPayload);
@@ -681,7 +681,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.startPrank(addr);
         requestPayload = abi.encodePacked(
             Action.REQUEST_WITHDRAW_LST,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), withdrawAmount)
+            abi.encodePacked(bytes32(bytes20(addr)), withdrawAmount, bytes32(bytes20(address(restakeToken))))
         );
         requestId = generateUID(outboundNonces[clientChainId], true);
         nativeFee = clientGateway.quote(requestPayload);
@@ -742,7 +742,7 @@ contract DepositWithdrawPrincipalTest is ExocoreDeployer {
         vm.startPrank(addr);
         requestPayload = abi.encodePacked(
             Action.REQUEST_DEPOSIT_LST,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken))), bytes32(bytes20(addr)), depositAmount)
+            abi.encodePacked(bytes32(bytes20(addr)), depositAmount, bytes32(bytes20(address(restakeToken))))
         );
         requestId = generateUID(outboundNonces[clientChainId], true);
         nativeFee = clientGateway.quote(requestPayload);

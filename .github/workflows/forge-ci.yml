@@ -17,7 +17,7 @@ jobs:
     with:
       # The below line does not accept environment variables,
       # so it becomes the single source of truth for the version.
-      foundry-version: nightly
+      foundry-version: nightly-70cd140131cd49875c6f31626bdfae08eba35386
 
   build:
     # Caching is slow; takes about 3 minutes.

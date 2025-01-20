@@ -35,7 +35,7 @@ abstract contract LSTRestakingController is
         IVault vault = _getVault(token);
         vault.deposit(msg.sender, amount);
 
-        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), amount);
+        bytes memory actionArgs = abi.encodePacked(bytes32(bytes20(msg.sender)), amount, bytes32(bytes20(token)));
 
         // deposit is supposed to be a must-succeed action, so we don't need to check the response
         _processRequest(Action.REQUEST_DEPOSIT_LST, actionArgs, bytes(""));
@@ -55,7 +55,7 @@ abstract contract LSTRestakingController is
         _getVault(token);
 
         bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), principalAmount);
+            abi.encodePacked(bytes32(bytes20(msg.sender)), principalAmount, bytes32(bytes20(token)));
         bytes memory encodedRequest = abi.encode(token, msg.sender, principalAmount);
 
         // we need to check the response to unlock the principal for later claim
@@ -77,7 +77,7 @@ abstract contract LSTRestakingController is
         vault.deposit(msg.sender, amount);
 
         bytes memory actionArgs =
-            abi.encodePacked(bytes32(bytes20(token)), bytes32(bytes20(msg.sender)), bytes(operator), amount);
+            abi.encodePacked(bytes32(bytes20(msg.sender)), amount, bytes32(bytes20(token)), bytes(operator));
 
         // deposit is supposed to be a must-succeed action and delegate does no need response, so we don't need to check
         // the response

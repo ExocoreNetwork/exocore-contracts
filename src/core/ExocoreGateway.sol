@@ -338,9 +338,9 @@ contract ExocoreGateway is
         onlyCalledFromThis
         returns (bytes memory response)
     {
-        bytes calldata token = payload[:32];
-        bytes calldata staker = payload[32:64];
-        uint256 amount = uint256(bytes32(payload[64:96]));
+        bytes calldata staker = payload[:32];
+        uint256 amount = uint256(bytes32(payload[32:64]));
+        bytes calldata token = payload[64:96];
 
         bool isDeposit = act == Action.REQUEST_DEPOSIT_LST;
         bool success;
@@ -449,10 +449,10 @@ contract ExocoreGateway is
         returns (bytes memory response)
     {
         // use memory to avoid stack too deep
-        bytes memory token = payload[:32];
-        bytes memory staker = payload[32:64];
-        bytes memory operator = payload[64:106];
-        uint256 amount = uint256(bytes32(payload[106:138]));
+        bytes memory staker = payload[:32];
+        uint256 amount = uint256(bytes32(payload[32:64]));
+        bytes memory token = payload[64:96];
+        bytes memory operator = payload[96:];
 
         bool isDelegate = act == Action.REQUEST_DELEGATE_TO;
         bool accepted;
@@ -477,10 +477,10 @@ contract ExocoreGateway is
         returns (bytes memory response)
     {
         // use memory to avoid stack too deep
-        bytes memory token = payload[:32];
-        bytes memory depositor = payload[32:64];
-        bytes memory operator = payload[64:106];
-        uint256 amount = uint256(bytes32(payload[106:138]));
+        bytes memory depositor = payload[:32];
+        uint256 amount = uint256(bytes32(payload[32:64]));
+        bytes memory token = payload[64:96];
+        bytes memory operator = payload[96:];
 
         (bool success,) = ASSETS_CONTRACT.depositLST(srcChainId, token, depositor, amount);
         if (!success) {
@@ -556,16 +556,19 @@ contract ExocoreGateway is
     /// @return options The built options
     function _buildOptions(uint32 srcChainId, Action act) private pure returns (bytes memory) {
         bytes memory options = OptionsBuilder.newOptions();
+        // non-Solana defaults
+        uint128 gasLimit = DESTINATION_GAS_LIMIT;
         uint128 value = DESTINATION_MSG_VALUE;
-
-        if (!_isSolana(srcChainId)) {
+        // to change if Solana
+        if (_isSolana(srcChainId)) {
+            value = (act == Action.REQUEST_ADD_WHITELIST_TOKEN)
+                ? SOLANA_WHITELIST_TOKEN_MSG_VALUE
+                : SOLANA_DESTINATION_MSG_VALUE;
+            gasLimit = SOLANA_DESTINATION_GAS_LIMIT;
+        } else {
             options = options.addExecutorOrderedExecutionOption();
-        } else if (act == Action.REQUEST_ADD_WHITELIST_TOKEN) {
-            value = SOLANA_WHITELIST_TOKEN_MSG_VALUE;
         }
-
-        options = options.addExecutorLzReceiveOption(DESTINATION_GAS_LIMIT, value);
-
+        options = options.addExecutorLzReceiveOption(gasLimit, value);
         return options;
     }
 

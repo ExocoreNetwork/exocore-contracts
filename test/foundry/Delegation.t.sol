@@ -91,10 +91,10 @@ contract DelegateTest is ExocoreDeployer {
         /// estimate the messaging fee that would be charged from user
         bytes memory delegateRequestPayload = abi.encodePacked(
             Action.REQUEST_DELEGATE_TO,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
-            bytes(operatorAddress),
-            delegateAmount
+            delegateAmount,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            bytes(operatorAddress)
         );
         uint256 requestNativeFee = clientGateway.quote(delegateRequestPayload);
         bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
@@ -176,10 +176,10 @@ contract DelegateTest is ExocoreDeployer {
         /// estimate the messaging fee that would be charged from user
         bytes memory undelegateRequestPayload = abi.encodePacked(
             Action.REQUEST_UNDELEGATE_FROM,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator.addr))),
-            bytes(operatorAddress),
-            undelegateAmount
+            undelegateAmount,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            bytes(operatorAddress)
         );
         uint256 requestNativeFee = clientGateway.quote(undelegateRequestPayload);
         bytes32 requestId = generateUID(outboundNonces[clientChainId], true);
