@@ -17,7 +17,7 @@
   },
   "exocore": {
     "exocoreGateway": "0xEAf4E4D09b9CeB936492518A852026c914beb11E",
-    "exocoreGatewayLogic": "0xe522837eB5AC11a1748046F059FeEE42A5F2F6e9",
+    "exocoreGatewayLogic": "0x651a66c43F6A257a878F62BD124c668D5F3bd1AF",
     "exocoreProxyAdmin": "0x9bBDDb68B47b88d3Dd2eF7E1682C1EFE4E2e2315",
     "lzEndpoint": "0x6EDCE65403992e310A62460808c4b910D972f10f"
   }
