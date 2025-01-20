@@ -109,10 +109,10 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
 
         requestPayload = abi.encodePacked(
             Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator))),
-            bytes(operatorAddress),
-            delegateAmount
+            delegateAmount,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            bytes(operatorAddress)
         );
         uint256 requestNativeFee = clientGateway.quote(requestPayload);
         requestId = generateUID(outboundNonces[clientChainId], true);
@@ -248,10 +248,10 @@ contract DepositThenDelegateToTest is ExocoreDeployer {
         // Execute the request
         bytes memory requestPayload = abi.encodePacked(
             Action.REQUEST_DEPOSIT_THEN_DELEGATE_TO,
-            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
             abi.encodePacked(bytes32(bytes20(delegator))),
-            bytes("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac"),
-            delegateAmount
+            delegateAmount,
+            abi.encodePacked(bytes32(bytes20(address(restakeToken)))),
+            bytes("exo13hasr43vvq8v44xpzh0l6yuym4kca98f87j7ac")
         );
         bytes32 requestId = generateUID(outboundNonces[clientChainId] - 1, true);
 

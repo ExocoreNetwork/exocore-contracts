@@ -13,11 +13,17 @@ contract ExocoreGatewayStorage is GatewayStorage {
     using ActionAttributes for Action;
 
     // constants used for layerzero messaging
-    /// @dev The gas limit for all the destination chains.
+    /// @dev The gas limit for all non-Solana destination chains.
     uint128 internal constant DESTINATION_GAS_LIMIT = 500_000;
 
-    /// @dev The msg.value for all the destination chains.
+    /// @dev The gas limit for Solana destination chains
+    uint128 internal constant SOLANA_DESTINATION_GAS_LIMIT = 200_000;
+
+    /// @dev The msg.value for all non-Solana destination chains.
     uint128 internal constant DESTINATION_MSG_VALUE = 0;
+
+    /// @dev The msg.value for Solana destination chains
+    uint128 internal constant SOLANA_DESTINATION_MSG_VALUE = 2_500_000;
 
     /// constants used for solana mainnet chainId
     /// @dev the solana mainnet chain id
@@ -28,7 +34,7 @@ contract ExocoreGatewayStorage is GatewayStorage {
     uint32 internal constant SOLANA_DEVNET_CHAIN_ID = 40_168;
 
     /// @dev the msg.value for send addTokenWhiteList message
-    uint128 internal constant SOLANA_WHITELIST_TOKEN_MSG_VALUE = 3_000_000;
+    uint128 internal constant SOLANA_WHITELIST_TOKEN_MSG_VALUE = 4_000_000;
 
     /// @notice Emitted when a precompile call fails.
     /// @param precompile Address of the precompile contract.
