@@ -31,8 +31,10 @@ jobs:
           echo "Commit SHA: ${{ github.event.workflow_run.head_commit.id }}"
           echo "Workflow Run ID: ${{ github.event.workflow_run.id }}"
       - name: Set commit status
-        # trigger is no matter what, because the status should be updated
-        if: always()
+        # If the parent workflow is cancelled, this one should implicitly cancel itself. So, avoid
+        # interacting with the status or the comments. However, if the parent workflow failed,
+        # record a failure in this workflow as well.
+        if: ${{ github.event.workflow_run.conclusion != 'cancelled' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # this step would have been better located in forge-ci.yml, but since it needs the secret
@@ -47,7 +49,7 @@ jobs:
             -f target_url="https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
       - name: Get PR number
         id: pr-context
-        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion != 'cancelled' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_TARGET_REPO: ${{ github.repository }}
@@ -67,6 +69,7 @@ jobs:
           echo "number=$pr_number" >> "${GITHUB_OUTPUT}"
       - name: Set message
         id: set-message
+        if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion != 'cancelled' }}
         env:
           WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW_NAME: ${{ github.workflow }}
@@ -76,7 +79,7 @@ jobs:
           echo "message=$message Check the [workflow run]($WORKFLOW_URL) for progress. ($SHA)" >> "${GITHUB_OUTPUT}"
       - name: Comment CI Status
         uses: marocchino/sticky-pull-request-comment@v2
-        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion != 'cancelled' }}
         with:
           header: ${{ github.workflow }}
           hide_details: true
@@ -93,6 +96,7 @@ jobs:
       # Any `pinning` of the version should be done here and in forge-ci.yml.
       foundry-version: nightly
       # Skip the setup job if the parent job failed.
+      # Instead of using an if condition, use this to avoid job skipped emails.
       skip-install: ${{ github.event.workflow_run.conclusion != 'success' }}
 
   create-deployed-layouts-matrix:
@@ -100,7 +104,9 @@ jobs:
     timeout-minutes: 5
     # Generating the matrix is very quick. It should be done regardless of the parent
     # workflow status, because an empty matrix will result in no `fetch-deployed-layouts`
-    # jobs, which will cascade to no `compare-storage-layouts` job.
+    # jobs, which will cascade to no `compare-storage-layouts` job and report an unnecessary
+    # failure.
+    if: always()
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.generate-matrix.outputs.matrix }}
@@ -138,6 +144,7 @@ jobs:
       - name: Echo a message to prevent "no steps" warning.
         run: echo "Fetching the deployed layouts."
       - name: Restore cached Foundry toolchain
+        # skips cancelled as well
         if: ${{ github.event.workflow_run.conclusion == 'success' }}
         uses: actions/cache/restore@v3
         with:
@@ -243,7 +250,8 @@ jobs:
         # Even if this fails, the CI status should be updated.
         continue-on-error: true
       - name: Update parent commit status
-        if: always()
+        # Same as above, do not interact if we cancelled. However, do report the failure of parent workflow.
+        if: ${{ github.event.workflow_run.conclusion != 'cancelled' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         # if the outcome is not set, it will post failure
@@ -268,6 +276,7 @@ jobs:
       - name: Set message again
         # Even though the job is different, specify a unique ID.
         id: set-message-again
+        if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion != 'cancelled' }}
         env:
           WORKFLOW_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
           WORKFLOW_NAME: ${{ github.workflow }}
@@ -283,7 +292,7 @@ jobs:
           echo "message=$message Check the [workflow run]($WORKFLOW_URL) for details. ($SHA)" >> "${GITHUB_OUTPUT}"
       - name: Comment CI Status
         uses: marocchino/sticky-pull-request-comment@v2
-        if: ${{ github.event.workflow_run.event == 'pull_request' }}
+        if: ${{ github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion != 'cancelled' }}
         with:
           header: ${{ github.workflow }}
           hide_details: true
