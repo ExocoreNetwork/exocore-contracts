@@ -48,6 +48,7 @@ contract DepositSetup is Test {
     uint256 mockCurrentBlockTimestamp;
 
     function setUp() public {
+        vm.chainId(1); // set chainid to 1 so that capsule implementation can use default network constants
         string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_8955769.json");
 
         validatorContainer = stdJson.readBytes32Array(validatorInfo, ".ValidatorFields");
@@ -356,6 +357,8 @@ contract WithdrawalSetup is Test {
     uint256 activationTimestamp;
 
     function setUp() public {
+        vm.chainId(1); // set chainid to 1 so that capsule implementation can use default network constants
+
         string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
         _setValidatorContainer(validatorInfo);
 

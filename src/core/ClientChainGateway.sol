@@ -68,8 +68,6 @@ contract ClientChainGateway is
 
         bootstrapped = true;
 
-        _deployRewardVault();
-
         _transferOwnership(owner_);
         __OAppCore_init_unchained(owner_);
         __Pausable_init_unchained();
@@ -148,7 +146,7 @@ contract ClientChainGateway is
 
     // The bytecode returned by the BEACON_PROXY_BYTECODE contract is static, so there is no risk of collision.
     // slither-disable-next-line encode-packed-collision
-    function _deployRewardVault() internal {
+    function deployRewardVault() external onlyOwner whenNotPaused {
         rewardVault = IRewardVault(
             Create2.deploy(
                 0,
