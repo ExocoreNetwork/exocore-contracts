@@ -71,6 +71,7 @@ contract BootstrapDepositNSTTest is Test {
     event StakedWithCapsule(address indexed staker, address indexed capsule);
 
     function setUp() public {
+        vm.chainId(1); // set chainid to 1 so that capsule implementation can use default network constants
         vm.startPrank(deployer);
 
         whitelistTokens.push(VIRTUAL_STAKED_ETH_ADDRESS);
