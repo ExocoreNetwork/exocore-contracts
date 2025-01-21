@@ -1,6 +1,5 @@
 name: Forge CI
 
-
 on:
   merge_group:
   pull_request:
@@ -11,6 +10,18 @@ on:
     tags:
       - "*"
 
+concurrency:
+  # cancel the other workflows on the same PR
+  # we do not do the same for any of the `workflow_run` triggered CI despite the possibility because
+  # (1) it is complicated to set up, since the PR number is not available directly in that context, and
+  # (2) cancelling this workflow will prevent triggering of any related `workflow_run` CIs, and
+  # (3) in the edge case wherein the `workflow_run` CI is already in progress, its results will be over-
+  #     written by the results of the next `workflow_run` CI due to timing, so it is not a big deal. it
+  #     is not guaranteed, however, but the risk is acceptable given the status checks are required on
+  #     a commit hash basis. in the worst case, we will see a comment referring to the old commit hash
+  #     via `status-comment.yml` or similar.
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref_name || github.sha }}
+  cancel-in-progress: true
 
 jobs:
   setup:
