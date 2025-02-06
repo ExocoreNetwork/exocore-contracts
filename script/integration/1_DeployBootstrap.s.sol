@@ -51,7 +51,6 @@ contract DeployContracts is Script {
 
     uint256[] validators;
     uint256[] stakers;
-    string[] exos;
     // also the owner of the contracts
     uint256 contractDeployer;
     uint256 nstDepositor;
@@ -140,11 +139,19 @@ contract DeployContracts is Script {
         require(slotsPerEpoch_ <= type(uint64).max, "Slots per epoch must be less than or equal to uint64 max");
         slotsPerEpoch = uint64(slotsPerEpoch_);
         // then, the Ethereum-native validator configuration
-        pubkey = vm.envBytes("INTEGRATION_PUBKEY");
+        pubkey = vm.envOr(
+            "INTEGRATION_PUBKEY",
+            hex"98db81971df910a5d46314d21320f897060d76fdf137d22f0eb91a8693a4767d2a22730a3aaa955f07d13ad604f968e9"
+        );
         require(pubkey.length == 48, "Pubkey must be 48 bytes");
-        signature = vm.envBytes("INTEGRATION_SIGNATURE");
+        signature = vm.envOr(
+            "INTEGRATION_SIGNATURE",
+            hex"922a316bdc3516bfa66e88259d5e93e339ef81bc85b70e6c715542222025a28fa1e3644c853beb8c3ba76a2c5c03b726081bf605bde3a16e1f33f902cc1b6c01093c19609de87da9383fa4b1f347bd2d4222e1ae5428727a7896c8e553cc8071"
+        );
         require(signature.length == 96, "Signature must be 96 bytes");
-        depositDataRoot = vm.envBytes32("INTEGRATION_DEPOSIT_DATA_ROOT");
+        depositDataRoot = vm.envOr(
+            "INTEGRATION_DEPOSIT_DATA_ROOT", bytes32(0x456934ced8f08ff106857418a6d885ba69d31e1b7fab9a931be06da25490cd1d)
+        );
         require(depositDataRoot != bytes32(0), "Deposit data root must be set");
     }
 
@@ -235,6 +242,8 @@ contract DeployContracts is Script {
         // the default deposit params are created using exocapsule address 0x90618D1cDb01bF37c24FC012E70029DA20fCe971
         // which is made using the default NST_DEPOSITOR + bootstrap address 0xF801fc13AA08876F343fEBf50dFfA52A78180811
         // if you get a DepositDataRoot or related error, check these addresses first.
+        // if these addresses match, check that the DepositDataRoot, the Signature and the Pubkey match the default
+        // in setUp().
         proxyAdmin.initialize(address(bootstrap));
         rewardVaultImplementation = new RewardVault();
         rewardVaultBeacon = new UpgradeableBeacon(address(rewardVaultImplementation));
