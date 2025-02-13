@@ -149,7 +149,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Validate deployedContracts.json and prepare artifact
         run: |
-          data=$(cat script/deployedContracts.json)
+          data=$(cat script/deployments/deployedContracts.json)
 
           bootstrap=$(echo "$data" | jq -r '.clientChain.bootstrapLogic // empty')
           clientGateway=$(echo "$data" | jq -r '.clientChain.clientGatewayLogic // empty')

@@ -28,3 +28,4 @@ node_modules
 .secrets
 
 script/integration/*.json
+yarn-error.log

@@ -5,7 +5,7 @@ require("dotenv").config();
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.19",
+    version: "0.8.28",
     settings: {
       optimizer: {
         enabled: true,
@@ -17,12 +17,17 @@ module.exports = {
   networks: {
     hardhat: {
     },
-    exocore_testnet: {
-      chainId: 9000,
-      url: "http://23.162.56.84:8545",
+    exocore_localnet: {
+      url: "http://127.0.0.1:8545",
+      chainId: 232,
       accounts: [
-        // process.env.EXOCORE_DEPLOYER_PRIVATE_KEY,
-        // process.env.EXOCORE_VALIDATOR_SET_PRIVATE_KEY
+        process.env.LOCAL_EXOCORE_FUNDED_ACCOUNT_PRIVATE_KEY,
+        process.env.TEST_ACCOUNT_ONE_PRIVATE_KEY,
+        process.env.TEST_ACCOUNT_TWO_PRIVATE_KEY,
+        process.env.TEST_ACCOUNT_THREE_PRIVATE_KEY,
+        process.env.TEST_ACCOUNT_FOUR_PRIVATE_KEY,
+        process.env.TEST_ACCOUNT_FIVE_PRIVATE_KEY,
+        process.env.TEST_ACCOUNT_SIX_PRIVATE_KEY,
       ]
     }
   }
