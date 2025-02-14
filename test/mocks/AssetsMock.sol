@@ -1,17 +1,25 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+// import "forge-std/console.sol";
 import {IAssets} from "src/interfaces/precompiles/IAssets.sol";
+import {TokenInfo} from "src/interfaces/precompiles/IAssets.sol";
+import {StakerBalance} from "src/interfaces/precompiles/IAssets.sol";
 
 contract AssetsMock is IAssets {
 
     address constant VIRTUAL_STAKED_ETH_ADDRESS = 0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE;
+    address constant VIRTUAL_STAKED_BTC_ADDRESS = 0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB;
+    uint32 internal constant clientBtcChainId = 1;
 
     mapping(uint32 => mapping(bytes => mapping(bytes => uint256))) public principalBalances;
     mapping(bytes => mapping(bytes => bool)) public inValidatorSet;
+    mapping(address => bool) public authorizedGateways;
 
     uint32[] internal chainIds;
     mapping(uint32 chainId => bool registered) public isRegisteredChain;
     mapping(uint32 chainId => mapping(bytes token => bool registered)) public isRegisteredToken;
+    mapping(uint32 chainId => mapping(bytes token => TokenInfo)) public registeredTokens;
 
     constructor(uint32 clientChainId) {
         isRegisteredChain[clientChainId] = true;
@@ -25,12 +33,21 @@ contract AssetsMock is IAssets {
         uint256 opAmount
     ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
-        require(stakerAddress.length == 32, "invalid staker address");
-        require(bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS)), "only support LST");
-        require(isRegisteredToken[clientChainLzId][assetsAddress], "the token is not registered before");
+
+        if (clientChainLzId != clientBtcChainId) {
+            require(stakerAddress.length == 32, "invalid staker address");
+        }
+
+        // Validate the asset address
+        // If the assetsAddress is not the virtual ETH/BTC address, check if the token is registered
+        bool notEth = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        bool notBtc = bytes32(assetsAddress) != bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
+
+        if (notEth && notBtc) {
+            require(isRegisteredToken[clientChainLzId][assetsAddress], "the token not registered");
+        }
 
         principalBalances[clientChainLzId][assetsAddress][stakerAddress] += opAmount;
-
         return (true, principalBalances[clientChainLzId][assetsAddress][stakerAddress]);
     }
 
@@ -56,10 +73,13 @@ contract AssetsMock is IAssets {
     ) external returns (bool success, uint256 latestAssetState) {
         require(assetsAddress.length == 32, "invalid asset address");
         require(withdrawer.length == 32, "invalid staker address");
-        if (bytes32(assetsAddress) == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS))) {
-            return (false, 0);
-        }
-        if (!isRegisteredToken[clientChainLzId][assetsAddress]) {
+
+        bytes32 assetAddressBytes32 = bytes32(assetsAddress);
+        bool isEth = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_ETH_ADDRESS));
+        bool isBtc = assetAddressBytes32 == bytes32(bytes20(VIRTUAL_STAKED_BTC_ADDRESS));
+
+        // Disallow ETH withdrawals or non-registered tokens (except BTC)
+        if (isEth || (!isRegisteredToken[clientChainLzId][assetsAddress] && !isBtc)) {
             return (false, 0);
         }
 
@@ -126,6 +146,14 @@ contract AssetsMock is IAssets {
             return false;
         }
         isRegisteredToken[clientChainId][token] = true;
+        registeredTokens[clientChainId][token] = TokenInfo({
+            name: name,
+            symbol: "",
+            clientChainID: clientChainId,
+            tokenID: token,
+            decimals: decimals,
+            totalStaked: 0
+        });
         return true;
     }
 
@@ -146,6 +174,17 @@ contract AssetsMock is IAssets {
         return true;
     }
 
+    function updateAuthorizedGateways(address[] calldata gateways) external returns (bool) {
+        if (gateways.length == 0) {
+            return false;
+        }
+
+        for (uint256 i = 0; i < gateways.length; i++) {
+            authorizedGateways[gateways[i]] = true;
+        }
+        return true;
+    }
+
     function getPrincipalBalance(uint32 clientChainLzId, bytes memory token, bytes memory staker)
         public
         view
@@ -160,6 +199,41 @@ contract AssetsMock is IAssets {
 
     function isRegisteredClientChain(uint32 clientChainID) external view returns (bool, bool) {
         return (true, isRegisteredChain[clientChainID]);
+    }
+
+    function isAuthorizedGateway(address gateway) external view returns (bool, bool) {
+        return (true, authorizedGateways[gateway]);
+    }
+
+    function getTokenInfo(uint32 clientChainId, bytes calldata tokenId)
+        external
+        view
+        returns (bool, TokenInfo memory)
+    {
+        if (!isRegisteredToken[clientChainId][tokenId]) {
+            return (false, TokenInfo("", "", 0, bytes(""), 0, 0));
+        }
+        return (true, registeredTokens[clientChainId][tokenId]);
+    }
+
+    function getStakerBalanceByToken(uint32 clientChainId, bytes calldata stakerAddress, bytes calldata token)
+        external
+        view
+        returns (bool, StakerBalance memory)
+    {
+        return (
+            true,
+            StakerBalance(
+                clientChainId,
+                stakerAddress,
+                token,
+                principalBalances[clientChainId][token][stakerAddress],
+                principalBalances[clientChainId][token][stakerAddress],
+                0,
+                0,
+                principalBalances[clientChainId][token][stakerAddress]
+            )
+        );
     }
 
 }

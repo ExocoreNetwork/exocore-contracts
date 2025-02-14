@@ -6,7 +6,7 @@ import {AssetsMock} from "./AssetsMock.sol";
 
 contract DelegationMock is IDelegation {
 
-    mapping(bytes => mapping(bytes => mapping(uint32 => mapping(bytes => uint256)))) public delegateTo;
+    mapping(bytes => mapping(bytes => mapping(uint32 => mapping(bytes => uint256)))) public delegateToRecords;
     mapping(uint32 clientChainId => mapping(bytes staker => bytes operator)) public stakerToOperator;
     mapping(uint32 chainId => bool registered) isRegisteredChain;
 
@@ -41,7 +41,7 @@ contract DelegationMock is IDelegation {
         if (operatorAddr.length != 42) {
             return false;
         }
-        delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
+        delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] += opAmount;
         emit DelegateRequestProcessed(
             clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
         );
@@ -63,10 +63,10 @@ contract DelegationMock is IDelegation {
         if (operatorAddr.length != 42) {
             return false;
         }
-        if (opAmount > delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress]) {
+        if (opAmount > delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress]) {
             return false;
         }
-        delegateTo[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;
+        delegateToRecords[stakerAddress][operatorAddr][clientChainLzId][assetsAddress] -= opAmount;
         emit UndelegateRequestProcessed(
             clientChainLzId, lzNonce, assetsAddress, stakerAddress, string(operatorAddr), opAmount
         );
@@ -110,7 +110,7 @@ contract DelegationMock is IDelegation {
         view
         returns (uint256)
     {
-        return delegateTo[_addressToBytes(delegator)][bytes(operator)][clientChainLzId][_addressToBytes(token)];
+        return delegateToRecords[_addressToBytes(delegator)][bytes(operator)][clientChainLzId][_addressToBytes(token)];
     }
 
     function getAssociatedOperator(uint32 clientChainId, bytes calldata staker)

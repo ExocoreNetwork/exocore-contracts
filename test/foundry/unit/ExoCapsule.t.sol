@@ -358,7 +358,6 @@ contract WithdrawalSetup is Test {
 
     function setUp() public {
         vm.chainId(1); // set chainid to 1 so that capsule implementation can use default network constants
-
         string memory validatorInfo = vm.readFile("test/foundry/test-data/validator_container_proof_302913.json");
         _setValidatorContainer(validatorInfo);
 

@@ -3,7 +3,7 @@
 pragma solidity ^0.8.20;
 
 import {OAppCoreUpgradeable} from "./OAppCoreUpgradeable.sol";
-import {IOAppReceiver, Origin} from "@layerzero-v2/oapp/contracts/oapp/interfaces/IOAppReceiver.sol";
+import {IOAppReceiver, Origin} from "@layerzerolabs/lz-evm-oapp-v2/contracts/oapp/interfaces/IOAppReceiver.sol";
 
 /**
  * @title OAppReceiverUpgradeable

@@ -25,3 +25,6 @@
 [submodule "lib/safe-smart-account"]
 	path = lib/safe-smart-account
 	url = https://github.com/safe-global/safe-smart-account
+[submodule "lib/create3-factory"]
+	path = lib/create3-factory
+	url = https://github.com/zeframlou/create3-factory
