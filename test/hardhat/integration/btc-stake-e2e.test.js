@@ -278,7 +278,7 @@ describe("Bitcoin Staking E2E Test", function() {
         // Initialize contracts from deployed addresses
         utxoGateway = await ethers.getContractAt(
             "UTXOGateway",
-            deployedContracts.exocore.utxoGateway
+            deployedContracts.imuchain.utxoGateway
         );
         assetsPrecompile = await ethers.getContractAt(
             "IAssets",

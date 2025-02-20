@@ -210,7 +210,7 @@ jobs:
               ClientChainGateway: $clientGateway,
               Vault: $vault,
               RewardVault: $rewardVault,
-              ExoCapsule: $capsule
+              ImuaCapsule: $capsule
             }' > validatedContracts.json
 
           echo "Validation passed: All fields are non-empty and valid Ethereum checksum addresses"
@@ -231,7 +231,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - contract: ExocoreGateway
+          - contract: ImuachainGateway
             base: true
           - contract: Bootstrap
             base: false
@@ -241,9 +241,9 @@ jobs:
             base: false
           - contract: Vault
             base: false
-          - contract: ExocoreGateway
+          - contract: ImuachainGateway
             base: false
-          - contract: ExoCapsule
+          - contract: ImuaCapsule
             base: false
     steps:
       - name: Restore cached Foundry toolchain
