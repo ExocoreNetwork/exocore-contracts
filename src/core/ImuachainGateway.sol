@@ -29,8 +29,6 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
-import {StorageSlot} from "@openzeppelin/contracts/utils/StorageSlot.sol";
-
 /// @title ImuachainGateway
 /// @author imua-xyz
 /// @notice The gateway contract deployed on Imuachain for client chain operations.
