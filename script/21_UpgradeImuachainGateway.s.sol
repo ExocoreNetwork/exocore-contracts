@@ -40,7 +40,7 @@ contract UpgradeImuachainGatewayScript is BaseScript {
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(proxy), address(imuachainGatewayLogic));
         // then do the edit
         ImuachainGateway gateway = ImuachainGateway(payable(proxy));
-        gateway.fixReentrance();
+        // gateway.fixReentrance();
         // gateway.fixNonce();
         // validate the result
         bytes32 slotValue = vm.load(address(gateway), bytes32(uint256(151)));
