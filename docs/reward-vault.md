@@ -28,7 +28,7 @@ The Reward Vault is implemented using the beacon proxy pattern for upgradeabilit
 
 Key Functions:
 - `deposit(address token, address avs, uint256 amount)`: Allows the Gateway to deposit reward tokens on behalf of an AVS. Increases the total deposited rewards for the specified token and AVS.
-- `unlockReward(address token, address staker, uint256 amount)`: Allows the Gateway to unlock rewards for a staker after claim approval from the Imuachain.
+- `unlockReward(address token, address staker, uint256 amount)`: Allows the Gateway to unlock rewards for a staker after claim approval from Imuachain.
 - `withdraw(address token, address withdrawer, address recipient, uint256 amount)`: Allows the Gateway to withdraw claimed rewards for a staker.
 - `getWithdrawableBalance(address token, address staker)`: Returns the withdrawable balance of a specific reward token for a staker.
 - `getTotalDepositedRewards(address token, address avs)`: Returns the total deposited rewards of a specific token for an AVS.

@@ -351,7 +351,7 @@ contract DepositWithdrawPrincipalTest is ImuachainDeployer {
         vm.expectEmit(address(imuachainGateway));
         emit MessageExecuted(Action.REQUEST_DEPOSIT_NST, inboundNonces[imuachainChainId]++);
 
-        /// relayer catches the request message packet by listening to client chain event and feed it to Imuchain
+        /// relayer catches the request message packet by listening to client chain event and feed it to Imuachain
         vm.startPrank(relayer.addr);
         imuachainLzEndpoint.lzReceive(
             Origin(clientChainId, address(clientGateway).toBytes32(), inboundNonces[imuachainChainId] - 1),

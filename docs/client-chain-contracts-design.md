@@ -11,7 +11,7 @@ The two main functionalities of client chain smart contracts include:
 
 We have these components included in Imua client chain smart contracts architecture:
 
-1. `Bootstrap`: The contract is used for bootstraping the Imua system, including accepting registration of validators and delegations from client chain stakers, and generate the valid genesis that could be used to bootstrap the Imuachain.
+1. `Bootstrap`: The contract is used for bootstraping the Imua system, including accepting registration of validators and delegations from client chain stakers, and generate the valid genesis that could be used to bootstrap Imuachain.
 2. `ClientChainGateway`: This is the entry point where client chain users make requests to Imuachain, as well as the endpoint that receives cross-chain messages from Imuachain.
 3. `Vault`: This is where user funds are taken into custody and managed. Within `Vault`, user balance is updated on-demand by Imuachain validator set through cross-chain message to reveal user’s real position (after slashing, rewarding and other impact). Users can withdraw from `Vault` based on grant from the gateway. Every specific asset should have a standalone `Vault`.
 4. `LSTRestakingController`: The controller is responsible for managing multiple `Vault`s. It should be the entry point for operations on `Vault`, as well as the entry point for user’s interactions with the gateway. It is inherited / implemented by the `Gateway`.
@@ -124,11 +124,11 @@ contract BaseRestakingController {
 
 ### `_sendMsgToImuachain`
 
-This internal function is used to send a message, over LayerZero, from the client chain to the Imuachain. It encodes the action to perform, along with its payload, and forwards the packed data. The fees for this cross-chain message is provided by the calling address.
+This internal function is used to send a message, over LayerZero, from the client chain to Imuachain. It encodes the action to perform, along with its payload, and forwards the packed data. The fees for this cross-chain message is provided by the calling address.
 
 ### `_lzReceive`
 
-This internal function is called via LayerZero upon the receipt of a cross-chain message. In the context of the `ClientChainGateway`, it is used to handle the response provided by the Imuachain against an outgoing message. For example, if a withdrawal request is initiated by a user, and sent by the `ClientChainGateway` to Imuachain, a response is received indicating whether the withdrawal is valid. Based on this validity, `ClientChainGateway` marks the funds available for the user to claim.
+This internal function is called via LayerZero upon the receipt of a cross-chain message. In the context of the `ClientChainGateway`, it is used to handle the response provided by Imuachain against an outgoing message. For example, if a withdrawal request is initiated by a user, and sent by the `ClientChainGateway` to Imuachain, a response is received indicating whether the withdrawal is valid. Based on this validity, `ClientChainGateway` marks the funds available for the user to claim.
 
 ## `Vault`
 

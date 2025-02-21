@@ -584,12 +584,4 @@ contract ImuachainGateway is
         return inboundNonce[srcEid][sender] + 1;
     }
 
-    function fixReentrance() public onlyOwner {
-        StorageSlot.getUint256Slot(bytes32(uint256(151))).value = 1;
-    }
-
-    function fixNonce() public onlyOwner {
-        inboundNonce[40_168][bytes32(0xe57dcdb0740d281469f5be39b44bf495f8ade7a1af889bae16252e7b9875dc92)] = 20;
-    }
-
 }
