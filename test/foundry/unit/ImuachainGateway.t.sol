@@ -595,7 +595,7 @@ contract AddWhitelistTokens is SetUp {
 
     function test_RevertWhen_HasZeroAddressToken() public {
         vm.startPrank(owner.addr);
-        vm.expectRevert("ImuachainGateway: token cannot be zero address");
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector));
         imuachainGateway.addWhitelistToken{value: nativeFee}(
             clientChainId, bytes32(0), 18, "name", "metadata", "oracleInfo", 0
         );
@@ -699,13 +699,13 @@ contract UpdateWhitelistTokens is SetUp {
 
     function test_RevertUpdateWhen_HasZeroAddress() public {
         vm.startPrank(owner.addr);
-        vm.expectRevert("ImuachainGateway: token cannot be zero address");
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroAddress.selector));
         imuachainGateway.updateWhitelistToken(clientChainId, bytes32(0), tokenDetails.metaData);
     }
 
     function test_RevertUpdateWhen_HasZeroChainId() public {
         vm.startPrank(owner.addr);
-        vm.expectRevert("ImuachainGateway: client chain id cannot be zero");
+        vm.expectRevert(abi.encodeWithSelector(Errors.ZeroValue.selector));
         imuachainGateway.updateWhitelistToken(0, tokenDetails.tokenAddress, tokenDetails.metaData);
     }
 

@@ -197,11 +197,21 @@ contract ImuachainGatewayMock is
         string calldata oracleInfo,
         uint128 tvlLimit
     ) external payable onlyOwner whenNotPaused nonReentrant {
-        require(clientChainId != 0, "ImuachainGateway: client chain id cannot be zero");
-        require(token != bytes32(0), "ImuachainGateway: token cannot be zero address");
-        require(bytes(name).length != 0, "ImuachainGateway: name cannot be empty");
-        require(bytes(metaData).length != 0, "ImuachainGateway: meta data cannot be empty");
-        require(bytes(oracleInfo).length != 0, "ImuachainGateway: oracleInfo cannot be empty");
+        if (clientChainId == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (token == bytes32(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (bytes(name).length == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (bytes(metaData).length == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (bytes(oracleInfo).length == 0) {
+            revert Errors.ZeroValue();
+        }
         // setting a TVL limit of 0 is permitted to simply add an inactive token, which may
         // be activated later by updating the TVL limit on the client chain
 
@@ -230,9 +240,15 @@ contract ImuachainGatewayMock is
         whenNotPaused
         nonReentrant
     {
-        require(clientChainId != 0, "ImuachainGateway: client chain id cannot be zero");
-        require(token != bytes32(0), "ImuachainGateway: token cannot be zero address");
-        require(bytes(metaData).length != 0, "ImuachainGateway: meta data cannot be empty");
+        if (clientChainId == 0) {
+            revert Errors.ZeroValue();
+        }
+        if (token == bytes32(0)) {
+            revert Errors.ZeroAddress();
+        }
+        if (bytes(metaData).length == 0) {
+            revert Errors.ZeroValue();
+        }
         bool success = ASSETS_CONTRACT.updateToken(clientChainId, abi.encodePacked(token), metaData);
         if (success) {
             emit WhitelistTokenUpdated(clientChainId, token);
