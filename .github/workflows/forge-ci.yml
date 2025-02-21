@@ -231,7 +231,7 @@ jobs:
     strategy:
       matrix:
         include:
-          - contract: ImuachainGateway
+          - contract: ExocoreGateway
             base: true
           - contract: Bootstrap
             base: false
