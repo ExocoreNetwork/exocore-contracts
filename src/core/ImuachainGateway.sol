@@ -370,11 +370,7 @@ contract ImuachainGateway is
         }
         emit LSTTransfer(isDeposit, success, bytes32(token), bytes32(staker), amount);
 
-        if (_isSolana(srcChainId)) {
-            response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success, bytes32(token), bytes32(staker));
-        } else {
-            response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
-        }
+        response = isDeposit ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
     /// @notice Handles NST transfer from a client chain.
@@ -443,13 +439,7 @@ contract ImuachainGateway is
         }
         emit RewardOperation(isSubmitReward, success, bytes32(token), bytes32(avsOrWithdrawer), amount);
 
-        if (_isSolana(srcChainId)) {
-            response = isSubmitReward
-                ? bytes("")
-                : abi.encodePacked(lzNonce, success, bytes32(token), bytes32(avsOrWithdrawer));
-        } else {
-            response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
-        }
+        response = isSubmitReward ? bytes("") : abi.encodePacked(lzNonce, success);
     }
 
     /// @notice Handles delegation request from a client chain.
