@@ -6,7 +6,7 @@ import {TransparentUpgradeableProxy} from "@openzeppelin/contracts/proxy/transpa
 import {Bootstrap} from "../src/core/Bootstrap.sol";
 import {ClientChainGateway} from "../src/core/ClientChainGateway.sol";
 
-import "../src/core/ExoCapsule.sol";
+import {ImuaCapsule} from "../src/core/ImuaCapsule.sol";
 
 import {RewardVault} from "../src/core/RewardVault.sol";
 import {Vault} from "../src/core/Vault.sol";
@@ -51,7 +51,7 @@ contract DeployBootstrapOnly is BaseScript {
 
     function run() public {
         vm.selectFork(clientChain);
-        vm.startBroadcast(exocoreValidatorSet.privateKey);
+        vm.startBroadcast(owner.privateKey);
         whitelistTokens.push(address(restakeToken));
         tvlLimits.push(restakeToken.totalSupply() / 20);
         whitelistTokens.push(wstETH);
@@ -66,7 +66,7 @@ contract DeployBootstrapOnly is BaseScript {
         /// deploy vault implementation contract, capsule implementation contract, reward vault implementation contract
         /// that has logics called by proxy
         vaultImplementation = new Vault();
-        capsuleImplementation = new ExoCapsule(address(0));
+        capsuleImplementation = new ImuaCapsule(address(0));
 
         /// deploy the vault beacon, capsule beacon, reward vault beacon that store the implementation contract address
         vaultBeacon = new UpgradeableBeacon(address(vaultImplementation));
@@ -74,10 +74,10 @@ contract DeployBootstrapOnly is BaseScript {
 
         // Create ImmutableConfig struct
         BootstrapStorage.ImmutableConfig memory config = BootstrapStorage.ImmutableConfig({
-            exocoreChainId: exocoreChainId,
+            imuachainChainId: imuachainChainId,
             beaconOracleAddress: address(beaconOracle),
             vaultBeacon: address(vaultBeacon),
-            exoCapsuleBeacon: address(capsuleBeacon),
+            imuaCapsuleBeacon: address(capsuleBeacon),
             beaconProxyBytecode: address(beaconProxyBytecode),
             networkConfig: address(0)
         });
@@ -93,7 +93,7 @@ contract DeployBootstrapOnly is BaseScript {
 
         // then the client chain initialization
         bytes memory initialization =
-            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, exocoreValidatorSet.addr);
+            abi.encodeWithSelector(clientGatewayLogic.initialize.selector, imuachainGenesis.addr);
 
         // bootstrap implementation
         Bootstrap bootstrap = Bootstrap(
@@ -105,7 +105,7 @@ contract DeployBootstrapOnly is BaseScript {
                         abi.encodeCall(
                             Bootstrap.initialize,
                             (
-                                exocoreValidatorSet.addr,
+                                owner.addr,
                                 block.timestamp + 168 hours,
                                 2 seconds,
                                 whitelistTokens,
